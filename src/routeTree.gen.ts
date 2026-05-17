@@ -19,6 +19,7 @@ import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
+import { Route as ApiPublicHooksSapSyncRouteImport } from './routes/api/public/hooks/sap-sync'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -71,6 +72,11 @@ const AuthenticatedAdminStrategiesRoute =
     path: '/admin/strategies',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicHooksSapSyncRoute = ApiPublicHooksSapSyncRouteImport.update({
+  id: '/api/public/hooks/sap-sync',
+  path: '/api/public/hooks/sap-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/admin/strategies'
     | '/admin/users'
     | '/approval/$id'
+    | '/api/public/hooks/sap-sync'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/admin/strategies'
     | '/admin/users'
     | '/approval/$id'
+    | '/api/public/hooks/sap-sync'
   id:
     | '__root__'
     | '/'
@@ -142,12 +153,14 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/strategies'
     | '/_authenticated/admin/users'
     | '/_authenticated/approval/$id'
+    | '/api/public/hooks/sap-sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiPublicHooksSapSyncRoute: typeof ApiPublicHooksSapSyncRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -222,6 +235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminStrategiesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/hooks/sap-sync': {
+      id: '/api/public/hooks/sap-sync'
+      path: '/api/public/hooks/sap-sync'
+      fullPath: '/api/public/hooks/sap-sync'
+      preLoaderRoute: typeof ApiPublicHooksSapSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -253,7 +273,18 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiPublicHooksSapSyncRoute: ApiPublicHooksSapSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
