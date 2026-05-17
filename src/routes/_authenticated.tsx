@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Inbox, History, Settings, Users, LogOut, Leaf, Bell, RefreshCcw, ShieldCheck } from "lucide-react";
+import { Inbox, History, Settings, Users, LogOut, Leaf, Bell, RefreshCcw, ShieldCheck, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -94,7 +94,8 @@ function AuthenticatedLayout() {
     { to: "/history", label: "History", icon: History },
     ...(isAdmin ? [
       { to: "/admin/users", label: "Users & Roles", icon: Users },
-      { to: "/admin/strategies", label: "Release Strategies", icon: ShieldCheck },
+     { to: "/admin/strategies", label: "Release Strategies", icon: ShieldCheck },
+     { to: "/admin/integrations", label: "Integrations", icon: Plug },
     ] : []),
     { to: "/settings", label: "Settings", icon: Settings },
   ];
