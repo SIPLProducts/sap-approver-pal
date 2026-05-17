@@ -124,6 +124,35 @@ function generateMockBatch(now: Date) {
   return out;
 }
 
+/** Convert a real-SAP item into the same shape as the mock batch entries. */
+function mapSapItem(it: SapApprovalItem) {
+  return {
+    doc: {
+      module: it.module,
+      doc_type: it.doc_type as any,
+      sap_t_code: it.sap_t_code,
+      sap_doc_no: it.sap_doc_no,
+      title: it.title,
+      description: it.description ?? null,
+      plant: it.plant ?? null,
+      business_unit: it.business_unit ?? null,
+      company_code: it.company_code ?? null,
+      vendor_name: it.vendor_name ?? null,
+      customer_name: it.customer_name ?? null,
+      requester_name: it.requester_name,
+      requester_sap_id: it.requester_sap_id ?? null,
+      total_value: it.total_value,
+      currency: it.currency || "INR",
+      document_date: it.document_date,
+      current_step_seq: 1,
+      status: "pending" as const,
+      sap_payload: { source: "SAP", t_code: it.sap_t_code },
+    },
+    steps: it.steps,
+    lines: it.lines,
+  };
+}
+
 /**
  * Sync open documents from SAP (mocked).
  * Upserts documents and (re)creates step chain, assigning step.assigned_user
