@@ -11,6 +11,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { z } from "zod";
+import {
+  sapEnabled,
+  fetchOpenApprovals,
+  postDecision,
+  type SapApprovalItem,
+} from "@/lib/sap/sap-client.server";
+import { sendPushToUser } from "@/lib/push/push.server";
 
 const DOC_TYPES = [
   "ZNFA", "ZNFA_TER", "PR", "PO", "SR", "MIGO", "ZGP", "ZMM_REV",
