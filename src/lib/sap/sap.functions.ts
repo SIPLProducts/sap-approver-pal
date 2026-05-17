@@ -234,6 +234,12 @@ export const syncFromSAP = createServerFn({ method: "POST" })
           body: `${doc.title} — ₹${doc.total_value.toLocaleString("en-IN")}`,
           kind: "assignment",
         });
+        await sendPushToUser(firstAssignee, {
+          title: `New approval: ${doc.sap_doc_no}`,
+          body: `${doc.title} — ₹${doc.total_value.toLocaleString("en-IN")}`,
+          url: `/approval/${doc.id}`,
+          tag: `doc-${doc.id}`,
+        });
       }
 
       await supabaseAdmin.from("audit_log").insert({
