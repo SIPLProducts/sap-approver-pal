@@ -102,6 +102,30 @@ function LoginPage() {
           <button onClick={() => setMode(mode === "signin" ? "signup" : "signin")} className="mt-4 text-sm text-muted-foreground hover:text-foreground w-full text-center">
             {mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in"}
           </button>
+
+          {mode === "signin" && (
+            <div className="mt-6 rounded-md border border-dashed p-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Demo accounts (password: Demo@1234)</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Admin", email: "admin@demo.app" },
+                  { label: "HOD", email: "hod@demo.app" },
+                  { label: "Finance", email: "finance@demo.app" },
+                  { label: "Requester", email: "requester@demo.app" },
+                ].map((a) => (
+                  <Button
+                    key={a.email}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => { setEmail(a.email); setPassword("Demo@1234"); }}
+                  >
+                    {a.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
