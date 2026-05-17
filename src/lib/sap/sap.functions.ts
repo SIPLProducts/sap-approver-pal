@@ -314,6 +314,12 @@ export const decideStep = createServerFn({ method: "POST" })
             body: `${doc.title} — your action required`,
             kind: "assignment",
           });
+          await sendPushToUser(next.assigned_user, {
+            title: `Approval pending: ${doc.sap_doc_no}`,
+            body: `${doc.title} — your action required`,
+            url: `/approval/${doc.id}`,
+            tag: `doc-${doc.id}`,
+          });
         }
       } else {
         await supabaseAdmin.from("approval_documents").update({ status: "approved" }).eq("id", doc.id);
@@ -324,6 +330,12 @@ export const decideStep = createServerFn({ method: "POST" })
             title: `Approved: ${doc.sap_doc_no}`,
             body: `${doc.title} is fully approved.`,
             kind: "outcome",
+          });
+          await sendPushToUser(doc.raised_by_user, {
+            title: `Approved: ${doc.sap_doc_no}`,
+            body: `${doc.title} is fully approved.`,
+            url: `/approval/${doc.id}`,
+            tag: `doc-${doc.id}`,
           });
         }
       }
@@ -340,6 +352,12 @@ export const decideStep = createServerFn({ method: "POST" })
           body: data.comments ?? "",
           kind: "outcome",
         });
+        await sendPushToUser(doc.raised_by_user, {
+          title: `${newStatus.toUpperCase()}: ${doc.sap_doc_no}`,
+          body: data.comments ?? "",
+          url: `/approval/${doc.id}`,
+          tag: `doc-${doc.id}`,
+        });
       }
     }
 
@@ -351,6 +369,27 @@ export const decideStep = createServerFn({ method: "POST" })
       details: { comments: data.comments ?? null, step_seq: current.seq, role: current.role },
     });
 
-    // TODO Phase 2: POST decision back to SAP via OData here.
+    // Phase 2: post the decision back to SAP if real-mode is enabled.
+    if (sapEnabled()) {
+      try {
+        await postDecision({
+          sapDocNo: doc.sap_doc_no,
+          action: data.action,
+          comments: data.comments ?? null,
+          role: current.role,
+          stepSeq: current.seq,
+          actorSapId: null,
+        });
+      } catch (err) {
+        console.error("SAP postDecision failed", err);
+        await supabaseAdmin.from("audit_log").insert({
+          document_id: doc.id,
+          actor: userId,
+          action: "sap_post_failed",
+          details: { error: (err as Error).message },
+        });
+      }
+    }
+
     return { ok: true };
   });
