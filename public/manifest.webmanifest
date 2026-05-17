@@ -1,0 +1,12 @@
+{
+  "name": "Resustainability SAP Approvals",
+  "short_name": "RES Approvals",
+  "description": "Role-based SAP MM & SD approvals with real-time notifications.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7fbf7",
+  "theme_color": "#1f6f4a",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon" }
+  ]
+}
