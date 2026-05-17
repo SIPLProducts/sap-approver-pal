@@ -11,6 +11,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { z } from "zod";
+import {
+  sapEnabled,
+  fetchOpenApprovals,
+  postDecision,
+  type SapApprovalItem,
+} from "@/lib/sap/sap-client.server";
+import { sendPushToUser } from "@/lib/push/push.server";
 
 const DOC_TYPES = [
   "ZNFA", "ZNFA_TER", "PR", "PO", "SR", "MIGO", "ZGP", "ZMM_REV",
@@ -117,6 +124,35 @@ function generateMockBatch(now: Date) {
   return out;
 }
 
+/** Convert a real-SAP item into the same shape as the mock batch entries. */
+function mapSapItem(it: SapApprovalItem) {
+  return {
+    doc: {
+      module: it.module,
+      doc_type: it.doc_type as any,
+      sap_t_code: it.sap_t_code,
+      sap_doc_no: it.sap_doc_no,
+      title: it.title,
+      description: it.description ?? null,
+      plant: it.plant ?? null,
+      business_unit: it.business_unit ?? null,
+      company_code: it.company_code ?? null,
+      vendor_name: it.vendor_name ?? null,
+      customer_name: it.customer_name ?? null,
+      requester_name: it.requester_name,
+      requester_sap_id: it.requester_sap_id ?? null,
+      total_value: it.total_value,
+      currency: it.currency || "INR",
+      document_date: it.document_date,
+      current_step_seq: 1,
+      status: "pending" as const,
+      sap_payload: { source: "SAP", t_code: it.sap_t_code },
+    },
+    steps: it.steps,
+    lines: it.lines,
+  };
+}
+
 /**
  * Sync open documents from SAP (mocked).
  * Upserts documents and (re)creates step chain, assigning step.assigned_user
@@ -125,7 +161,19 @@ function generateMockBatch(now: Date) {
 export const syncFromSAP = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const batch = generateMockBatch(new Date());
+    // Phase 2: when SAP_USE_REAL=true, pull from the real Gateway. Otherwise
+    // fall back to the mock generator so demo flows keep working.
+    let batch: Array<{
+      doc: any;
+      steps: Array<{ seq: number; role: string }>;
+      lines: any[];
+    }>;
+    if (sapEnabled()) {
+      const items = await fetchOpenApprovals();
+      batch = items.map(mapSapItem);
+    } else {
+      batch = generateMockBatch(new Date());
+    }
 
     // Map role -> list of user ids
     const { data: roleRows } = await supabaseAdmin.from("user_roles").select("user_id, role");
@@ -185,6 +233,12 @@ export const syncFromSAP = createServerFn({ method: "POST" })
           title: `New approval: ${doc.sap_doc_no}`,
           body: `${doc.title} — ₹${doc.total_value.toLocaleString("en-IN")}`,
           kind: "assignment",
+        });
+        await sendPushToUser(firstAssignee, {
+          title: `New approval: ${doc.sap_doc_no}`,
+          body: `${doc.title} — ₹${doc.total_value.toLocaleString("en-IN")}`,
+          url: `/approval/${doc.id}`,
+          tag: `doc-${doc.id}`,
         });
       }
 
@@ -260,6 +314,12 @@ export const decideStep = createServerFn({ method: "POST" })
             body: `${doc.title} — your action required`,
             kind: "assignment",
           });
+          await sendPushToUser(next.assigned_user, {
+            title: `Approval pending: ${doc.sap_doc_no}`,
+            body: `${doc.title} — your action required`,
+            url: `/approval/${doc.id}`,
+            tag: `doc-${doc.id}`,
+          });
         }
       } else {
         await supabaseAdmin.from("approval_documents").update({ status: "approved" }).eq("id", doc.id);
@@ -270,6 +330,12 @@ export const decideStep = createServerFn({ method: "POST" })
             title: `Approved: ${doc.sap_doc_no}`,
             body: `${doc.title} is fully approved.`,
             kind: "outcome",
+          });
+          await sendPushToUser(doc.raised_by_user, {
+            title: `Approved: ${doc.sap_doc_no}`,
+            body: `${doc.title} is fully approved.`,
+            url: `/approval/${doc.id}`,
+            tag: `doc-${doc.id}`,
           });
         }
       }
@@ -286,6 +352,12 @@ export const decideStep = createServerFn({ method: "POST" })
           body: data.comments ?? "",
           kind: "outcome",
         });
+        await sendPushToUser(doc.raised_by_user, {
+          title: `${newStatus.toUpperCase()}: ${doc.sap_doc_no}`,
+          body: data.comments ?? "",
+          url: `/approval/${doc.id}`,
+          tag: `doc-${doc.id}`,
+        });
       }
     }
 
@@ -297,6 +369,27 @@ export const decideStep = createServerFn({ method: "POST" })
       details: { comments: data.comments ?? null, step_seq: current.seq, role: current.role },
     });
 
-    // TODO Phase 2: POST decision back to SAP via OData here.
+    // Phase 2: post the decision back to SAP if real-mode is enabled.
+    if (sapEnabled()) {
+      try {
+        await postDecision({
+          sapDocNo: doc.sap_doc_no,
+          action: data.action,
+          comments: data.comments ?? null,
+          role: current.role,
+          stepSeq: current.seq,
+          actorSapId: null,
+        });
+      } catch (err) {
+        console.error("SAP postDecision failed", err);
+        await supabaseAdmin.from("audit_log").insert({
+          document_id: doc.id,
+          actor: userId,
+          action: "sap_post_failed",
+          details: { error: (err as Error).message },
+        });
+      }
+    }
+
     return { ok: true };
   });

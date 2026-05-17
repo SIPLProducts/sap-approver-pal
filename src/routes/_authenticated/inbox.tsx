@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DOC_TYPE_LABELS } from "@/lib/approvals/constants";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -13,8 +13,22 @@ export const Route = createFileRoute("/_authenticated/inbox")({ component: Inbox
 
 function InboxPage() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"ALL" | "MM" | "SD">("ALL");
+
+  // Phase 3: live-refresh inbox when steps or notifications change for me.
+  useEffect(() => {
+    if (!user) return;
+    const ch = supabase
+      .channel(`inbox-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "approval_steps", filter: `assigned_user=eq.${user.id}` },
+        () => qc.invalidateQueries({ queryKey: ["inbox", user.id] }))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        () => qc.invalidateQueries({ queryKey: ["inbox", user.id] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user, qc]);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["inbox", user?.id],
