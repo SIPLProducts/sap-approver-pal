@@ -132,7 +132,19 @@ function generateMockBatch(now: Date) {
 export const syncFromSAP = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const batch = generateMockBatch(new Date());
+    // Phase 2: when SAP_USE_REAL=true, pull from the real Gateway. Otherwise
+    // fall back to the mock generator so demo flows keep working.
+    let batch: Array<{
+      doc: any;
+      steps: Array<{ seq: number; role: string }>;
+      lines: any[];
+    }>;
+    if (sapEnabled()) {
+      const items = await fetchOpenApprovals();
+      batch = items.map(mapSapItem);
+    } else {
+      batch = generateMockBatch(new Date());
+    }
 
     // Map role -> list of user ids
     const { data: roleRows } = await supabaseAdmin.from("user_roles").select("user_id, role");
