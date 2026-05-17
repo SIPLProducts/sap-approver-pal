@@ -40,7 +40,7 @@ function ApprovalDetail() {
   if (!doc) return <Card className="p-8 text-center text-muted-foreground">Loading…</Card>;
 
   const currentStep = steps.find((s) => s.seq === doc.current_step_seq);
-  const canAct = currentStep?.assigned_user === user?.id && currentStep.status === "pending" && doc.status === "pending";
+  const canAct = !!currentStep && currentStep.assigned_user === user?.id && currentStep.status === "pending" && doc.status === "pending";
   const meta = DOC_TYPE_LABELS[doc.doc_type];
 
   async function act(action: "approve" | "reject" | "send_back") {
