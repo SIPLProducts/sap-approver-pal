@@ -1,31 +1,32 @@
-## Demo accounts to seed
+## Goal
+Split the single "Inbox" sidebar entry into two separate navigation items: **MM Approvals** and **SD Approvals**, so users can jump directly to the module they care about.
 
-Create 4 demo users in Lovable Cloud auth + profiles + user_roles, covering each role in the approval flow. Password is the same for all so it's easy to demo.
+## Changes
 
-**Accounts** (password: `Demo@1234`)
+### 1. Sidebar (`src/routes/_authenticated.tsx`)
+Replace the single `Inbox` nav item with two entries:
+- **MM Approvals** → `/inbox/mm` (Package icon)
+- **SD Approvals** → `/inbox/sd` (Truck or ShoppingCart icon)
 
-| Email | Name | Role | Purpose |
-|---|---|---|---|
-| admin@demo.app | Aisha Khan | Admin | Manages strategies, users, integrations |
-| manager@demo.app | Rahul Verma | Manager | First-level approver |
-| finance@demo.app | Priya Shah | Finance | Second-level approver |
-| requester@demo.app | Karan Mehta | Requester | Raises documents |
+Keep History, Admin, and Settings as-is. The unread badge in the header stays global.
 
-(If you want different roles/names/emails, tell me and I'll adjust.)
+### 2. Routes
+- Rename `src/routes/_authenticated/inbox.tsx` → `src/routes/_authenticated/inbox.$module.tsx` (dynamic `$module` param: `mm` | `sd`).
+- The route component reads `module` from params, normalizes to `MM`/`SD`, removes the module tab selector, and shows only documents for that module. Title becomes "MM Approvals" or "SD Approvals".
+- Add `src/routes/_authenticated/inbox.index.tsx` that redirects `/inbox` → `/inbox/mm` (backward-compat for any existing links, e.g. notification deep-links).
 
-## How it gets created
+### 3. Link updates
+- `src/routes/index.tsx`, `src/routes/_authenticated/notifications.tsx`, and any other place linking to `/inbox` → point to `/inbox/mm` by default, or keep `/inbox` (the index redirect handles it).
+- Approval detail back-links use the document's `module` to return to the correct inbox.
 
-A single migration that:
-1. Inserts 4 users into `auth.users` with encrypted password `Demo@1234` and `email_confirmed_at = now()` (so they can sign in immediately without email verification).
-2. Relies on the existing `handle_new_user` trigger to populate `public.profiles`.
-3. Inserts matching rows into `public.user_roles` mapping each user to their `app_role`.
-
-## After it runs
-
-- Go to `/login`, use any email above with `Demo@1234`.
-- A small "Demo accounts" helper panel will be added to the login page (sign-in mode only) with one-click fill buttons for each account — purely a UI convenience, no logic change.
+### 4. Active-state highlighting
+Sidebar `pathname.startsWith(it.to)` already works for `/inbox/mm` and `/inbox/sd` independently.
 
 ## Out of scope
+- No DB / RLS / server-function changes.
+- No change to the Sync SAP button, notifications, or push.
+- Header bell still aggregates all unread.
 
-- No seed approval documents yet (let me know if you also want sample inbox data).
-- No Google OAuth wiring for these accounts — password login only.
+## Technical notes
+- TanStack file-based routing: `inbox.$module.tsx` maps to `/_authenticated/inbox/$module`. `routeTree.gen.ts` regenerates automatically.
+- The current `inbox.tsx` already filters by `module` client-side via tab state — we just drive that filter from the route param instead.
