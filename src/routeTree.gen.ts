@@ -14,8 +14,9 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
-import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
+import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
 import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
@@ -47,16 +48,22 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
-  id: '/inbox',
-  path: '/inbox',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
   id: '/history',
   path: '/history',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedInboxIndexRoute = AuthenticatedInboxIndexRouteImport.update({
+  id: '/inbox/',
+  path: '/inbox/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedInboxModuleRoute =
+  AuthenticatedInboxModuleRouteImport.update({
+    id: '/inbox/$module',
+    path: '/inbox/$module',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedApprovalIdRoute = AuthenticatedApprovalIdRouteImport.update({
   id: '/approval/$id',
   path: '/approval/$id',
@@ -89,26 +96,28 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/history': typeof AuthenticatedHistoryRoute
-  '/inbox': typeof AuthenticatedInboxRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/inbox/': typeof AuthenticatedInboxIndexRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/history': typeof AuthenticatedHistoryRoute
-  '/inbox': typeof AuthenticatedInboxRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/inbox': typeof AuthenticatedInboxIndexRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
 }
 export interface FileRoutesById {
@@ -117,13 +126,14 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
-  '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/_authenticated/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/_authenticated/inbox/': typeof AuthenticatedInboxIndexRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
 }
 export interface FileRouteTypes {
@@ -132,26 +142,28 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/history'
-    | '/inbox'
     | '/notifications'
     | '/settings'
     | '/admin/integrations'
     | '/admin/strategies'
     | '/admin/users'
     | '/approval/$id'
+    | '/inbox/$module'
+    | '/inbox/'
     | '/api/public/hooks/sap-sync'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/history'
-    | '/inbox'
     | '/notifications'
     | '/settings'
     | '/admin/integrations'
     | '/admin/strategies'
     | '/admin/users'
     | '/approval/$id'
+    | '/inbox/$module'
+    | '/inbox'
     | '/api/public/hooks/sap-sync'
   id:
     | '__root__'
@@ -159,13 +171,14 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/history'
-    | '/_authenticated/inbox'
     | '/_authenticated/notifications'
     | '/_authenticated/settings'
     | '/_authenticated/admin/integrations'
     | '/_authenticated/admin/strategies'
     | '/_authenticated/admin/users'
     | '/_authenticated/approval/$id'
+    | '/_authenticated/inbox/$module'
+    | '/_authenticated/inbox/'
     | '/api/public/hooks/sap-sync'
   fileRoutesById: FileRoutesById
 }
@@ -213,18 +226,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/inbox': {
-      id: '/_authenticated/inbox'
-      path: '/inbox'
-      fullPath: '/inbox'
-      preLoaderRoute: typeof AuthenticatedInboxRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/history': {
       id: '/_authenticated/history'
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof AuthenticatedHistoryRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inbox/': {
+      id: '/_authenticated/inbox/'
+      path: '/inbox'
+      fullPath: '/inbox/'
+      preLoaderRoute: typeof AuthenticatedInboxIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inbox/$module': {
+      id: '/_authenticated/inbox/$module'
+      path: '/inbox/$module'
+      fullPath: '/inbox/$module'
+      preLoaderRoute: typeof AuthenticatedInboxModuleRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/approval/$id': {
@@ -267,24 +287,26 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
-  AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedAdminIntegrationsRoute: typeof AuthenticatedAdminIntegrationsRoute
   AuthenticatedAdminStrategiesRoute: typeof AuthenticatedAdminStrategiesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
+  AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
+  AuthenticatedInboxIndexRoute: typeof AuthenticatedInboxIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
-  AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedAdminIntegrationsRoute: AuthenticatedAdminIntegrationsRoute,
   AuthenticatedAdminStrategiesRoute: AuthenticatedAdminStrategiesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
+  AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
+  AuthenticatedInboxIndexRoute: AuthenticatedInboxIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
