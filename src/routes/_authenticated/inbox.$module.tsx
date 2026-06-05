@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,34 +7,38 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo, useEffect } from "react";
 import { DOC_TYPE_LABELS } from "@/lib/approvals/constants";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const Route = createFileRoute("/_authenticated/inbox")({ component: InboxPage });
+export const Route = createFileRoute("/_authenticated/inbox/$module")({
+  beforeLoad: ({ params }) => {
+    const m = params.module.toUpperCase();
+    if (m !== "MM" && m !== "SD") throw notFound();
+  },
+  component: InboxPage,
+});
 
 function InboxPage() {
+  const { module } = Route.useParams();
+  const mod = module.toUpperCase() as "MM" | "SD";
   const { user } = useAuth();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState<"ALL" | "MM" | "SD">("ALL");
 
-  // Phase 3: live-refresh inbox when steps or notifications change for me.
   useEffect(() => {
     if (!user) return;
     const ch = supabase
-      .channel(`inbox-${user.id}`)
+      .channel(`inbox-${user.id}-${mod}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "approval_steps", filter: `assigned_user=eq.${user.id}` },
         () => qc.invalidateQueries({ queryKey: ["inbox", user.id] }))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
         () => qc.invalidateQueries({ queryKey: ["inbox", user.id] }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [user, qc]);
+  }, [user, qc, mod]);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["inbox", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      // Documents where the current pending step is assigned to me
       const { data: mySteps } = await supabase
         .from("approval_steps")
         .select("document_id, seq, role, status")
@@ -52,25 +56,23 @@ function InboxPage() {
   });
 
   const filtered = useMemo(() => rows.filter((r) =>
-    (tab === "ALL" || r.module === tab) &&
+    r.module === mod &&
     (!q || r.sap_doc_no.toLowerCase().includes(q.toLowerCase()) || r.title.toLowerCase().includes(q.toLowerCase()) || (r.vendor_name ?? r.customer_name ?? "").toLowerCase().includes(q.toLowerCase()))
-  ), [rows, q, tab]);
+  ), [rows, q, mod]);
+
+  const heading = mod === "MM" ? "MM Approvals" : "SD Approvals";
+  const subtitle = mod === "MM"
+    ? "Materials Management documents awaiting your approval, synced live from SAP."
+    : "Sales & Distribution documents awaiting your approval, synced live from SAP.";
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">My Inbox</h1>
-        <p className="text-sm text-muted-foreground">Documents awaiting your approval, synced live from SAP.</p>
+        <h1 className="text-2xl font-bold tracking-tight">{heading}</h1>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-          <TabsList>
-            <TabsTrigger value="ALL">All ({rows.length})</TabsTrigger>
-            <TabsTrigger value="MM">MM</TabsTrigger>
-            <TabsTrigger value="SD">SD</TabsTrigger>
-          </TabsList>
-        </Tabs>
         <Input className="max-w-sm" placeholder="Search by doc no, title, vendor…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
