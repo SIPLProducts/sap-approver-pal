@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Inbox, History, Settings, Users, LogOut, Leaf, Bell, RefreshCcw, ShieldCheck, Plug } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Leaf, Bell, RefreshCcw, ShieldCheck, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -90,7 +90,8 @@ function AuthenticatedLayout() {
   }
 
   const nav_items = [
-    { to: "/inbox", label: "Inbox", icon: Inbox },
+    { to: "/inbox/mm", label: "MM Approvals", icon: Package },
+    { to: "/inbox/sd", label: "SD Approvals", icon: Truck },
     { to: "/history", label: "History", icon: History },
     ...(isAdmin ? [
       { to: "/admin/users", label: "Users & Roles", icon: Users },
