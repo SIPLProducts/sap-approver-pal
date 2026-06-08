@@ -143,10 +143,11 @@ function AuthenticatedLayout() {
 
       <div className="flex-1 min-w-0">
         <header className="h-14 border-b bg-card flex items-center gap-3 px-4 lg:px-6 sticky top-0 z-20">
-          <button className="lg:hidden text-muted-foreground" onClick={() => setOpen(true)}>☰</button>
+          <button className="lg:hidden text-muted-foreground" onClick={() => setOpen(true)} aria-label="Open menu">☰</button>
+          <div className="lg:hidden flex items-center"><BrandLogo className="h-7" /></div>
           <div className="flex-1" />
           <Button variant="outline" size="sm" onClick={pullSap}>
-            <RefreshCcw className="h-4 w-4 mr-2" /> Sync SAP
+            <RefreshCcw className="h-4 w-4 mr-2" /> <span className="hidden sm:inline">Sync SAP</span>
           </Button>
           <Link to="/notifications" className="relative p-2 rounded-md hover:bg-accent">
             <Bell className="h-5 w-5" />
