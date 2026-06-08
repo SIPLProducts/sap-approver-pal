@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Truck, History, Settings, Users, LogOut, Leaf, Bell, RefreshCcw, ShieldCheck, Plug } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -105,11 +106,13 @@ function AuthenticatedLayout() {
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
       <aside className={`fixed lg:static z-40 inset-y-0 left-0 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-          <div className="h-8 w-8 rounded-md bg-gradient-primary grid place-items-center"><Leaf className="h-4 w-4 text-primary-foreground" /></div>
-          <div>
-            <div className="font-display font-semibold leading-tight">Resustainability</div>
-            <div className="text-xs text-sidebar-foreground/60">SAP Approvals</div>
+        <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
+          <div className="rounded-md bg-white px-2 py-1.5 shadow-card flex items-center">
+            <BrandLogo className="h-7" />
+          </div>
+          <div className="min-w-0">
+            <div className="font-display font-semibold leading-tight text-sm">Re Sustainability</div>
+            <div className="text-[11px] text-sidebar-foreground/60">SAP Approvals Suite</div>
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-1">
@@ -140,10 +143,11 @@ function AuthenticatedLayout() {
 
       <div className="flex-1 min-w-0">
         <header className="h-14 border-b bg-card flex items-center gap-3 px-4 lg:px-6 sticky top-0 z-20">
-          <button className="lg:hidden text-muted-foreground" onClick={() => setOpen(true)}>☰</button>
+          <button className="lg:hidden text-muted-foreground" onClick={() => setOpen(true)} aria-label="Open menu">☰</button>
+          <div className="lg:hidden flex items-center"><BrandLogo className="h-7" /></div>
           <div className="flex-1" />
           <Button variant="outline" size="sm" onClick={pullSap}>
-            <RefreshCcw className="h-4 w-4 mr-2" /> Sync SAP
+            <RefreshCcw className="h-4 w-4 mr-2" /> <span className="hidden sm:inline">Sync SAP</span>
           </Button>
           <Link to="/notifications" className="relative p-2 rounded-md hover:bg-accent">
             <Bell className="h-5 w-5" />

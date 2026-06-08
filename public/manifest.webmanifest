@@ -4,8 +4,8 @@
   "description": "Role-based SAP MM & SD approvals with real-time notifications.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f7fbf7",
-  "theme_color": "#1f6f4a",
+  "background_color": "#ffffff",
+  "theme_color": "#d4202a",
   "icons": [
     { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon" }
   ]
