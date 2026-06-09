@@ -40,7 +40,7 @@ function SoPage() {
       docType="BMW_SO"
       columns={columns}
       status={status}
-      onStatusChange={(s) => navigate({ search: (prev) => ({ ...prev, status: s }) })}
+      onStatusChange={(s) => navigate({ search: (prev: any) => ({ ...prev, status: s }) })}
     />
   );
 }
