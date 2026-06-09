@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 export const Route = createFileRoute("/_authenticated/sd/contract")({ component: ContractPage });
 
 const columns: ColumnDef[] = [
-  { key: "customer", label: "Customer", mono: true, render: (d) => d.customer_sap_id ?? "—" },
+  { key: "customer", label: "Customer", mono: true, render: (d) => d.customer_name?.slice(0, 10) ?? "—" },
   { key: "customer_name", label: "Customer Name", render: (d) => <span className="font-medium">{d.customer_name ?? "—"}</span> },
   { key: "contract_no", label: "Contract No", mono: true, render: (d) => d.sap_doc_no },
   { key: "creation", label: "Con. Creation", render: (d) => fmtDate(d.document_date) },

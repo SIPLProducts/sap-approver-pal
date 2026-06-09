@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authenticated/sd/sales-order")({ compone
 const columns: ColumnDef[] = [
   { key: "sales_org", label: "Sales Org", mono: true, render: () => "3801" },
   { key: "plant", label: "Plant", mono: true, render: (d) => d.plant },
-  { key: "sold_to", label: "Sold-To", mono: true, render: (d) => d.customer_sap_id ?? "—" },
+  { key: "sold_to", label: "Sold-To", mono: true, render: (d) => d.customer_name?.slice(0, 10) ?? "—" },
   { key: "customer_name", label: "Customer Name", render: (d) => <span className="font-medium">{d.customer_name ?? "—"}</span> },
   { key: "so_no", label: "SO No", mono: true, render: (d) => d.sap_doc_no },
   { key: "so_date", label: "SO Date", render: (d) => fmtDate(d.document_date) },

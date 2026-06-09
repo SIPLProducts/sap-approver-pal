@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authenticated/sd/price")({ component: Pr
 const columns: ColumnDef[] = [
   { key: "plant", label: "Plant", mono: true, render: (d) => d.plant },
   { key: "sap_doc_no", label: "Condition Doc", mono: true, render: (d) => d.sap_doc_no },
-  { key: "customer", label: "Customer", mono: true, render: (d) => d.customer_sap_id ?? "—" },
+  { key: "customer", label: "Customer", mono: true, render: (d) => d.customer_name?.slice(0, 10) ?? "—" },
   { key: "customer_name", label: "Customer Name", render: (d) => <span className="font-medium">{d.customer_name ?? "—"}</span> },
   { key: "material", label: "Material / Title", render: (d) => d.title },
   { key: "valid_from", label: "Valid From", render: (d) => fmtDate(d.document_date) },
