@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          payload: Json | null
+          target_id: string | null
+          target_table: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          target_id?: string | null
+          target_table?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          target_id?: string | null
+          target_table?: string | null
+        }
+        Relationships: []
+      }
       approval_attachments: {
         Row: {
           created_at: string
@@ -177,6 +207,53 @@ export type Database = {
           },
         ]
       }
+      approval_matrix: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          is_active: boolean
+          max_amount: number | null
+          min_amount: number
+          role_key: string
+          stage_no: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          max_amount?: number | null
+          min_amount?: number
+          role_key: string
+          stage_no: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          max_amount?: number | null
+          min_amount?: number
+          role_key?: string
+          stage_no?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_matrix_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_steps: {
         Row: {
           assigned_user: string | null
@@ -295,6 +372,47 @@ export type Database = {
           },
         ]
       }
+      custom_roles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -408,6 +526,312 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          action: string
+          allowed: boolean
+          built_in_role: Database["public"]["Enums"]["app_role"] | null
+          created_at: string
+          custom_role_id: string | null
+          id: string
+          screen_key: string
+        }
+        Insert: {
+          action: string
+          allowed?: boolean
+          built_in_role?: Database["public"]["Enums"]["app_role"] | null
+          created_at?: string
+          custom_role_id?: string | null
+          id?: string
+          screen_key: string
+        }
+        Update: {
+          action?: string
+          allowed?: boolean
+          built_in_role?: Database["public"]["Enums"]["app_role"] | null
+          created_at?: string
+          custom_role_id?: string | null
+          id?: string
+          screen_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sap_api_configs: {
+        Row: {
+          api_type: string
+          auth_type: string
+          auto_sync_enabled: boolean
+          created_at: string
+          created_by: string | null
+          description: string | null
+          endpoint_url: string
+          http_method: string
+          id: string
+          is_active: boolean
+          last_synced_at: string | null
+          middleware_url: string | null
+          module: string
+          name: string
+          next_sync_at: string | null
+          proxy_secret_ref: string | null
+          schedule_cron: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_type?: string
+          auth_type?: string
+          auto_sync_enabled?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          endpoint_url: string
+          http_method?: string
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          middleware_url?: string | null
+          module?: string
+          name: string
+          next_sync_at?: string | null
+          proxy_secret_ref?: string | null
+          schedule_cron?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_type?: string
+          auth_type?: string
+          auto_sync_enabled?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          endpoint_url?: string
+          http_method?: string
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          middleware_url?: string | null
+          module?: string
+          name?: string
+          next_sync_at?: string | null
+          proxy_secret_ref?: string | null
+          schedule_cron?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sap_api_credentials: {
+        Row: {
+          config_id: string
+          extra_headers: Json
+          password_encrypted: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          config_id: string
+          extra_headers?: Json
+          password_encrypted?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          config_id?: string
+          extra_headers?: Json
+          password_encrypted?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sap_api_credentials_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: true
+            referencedRelation: "sap_api_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sap_api_request_fields: {
+        Row: {
+          config_id: string
+          default_value: string | null
+          field_name: string
+          id: string
+          required: boolean
+          sort_order: number
+          source: string
+        }
+        Insert: {
+          config_id: string
+          default_value?: string | null
+          field_name: string
+          id?: string
+          required?: boolean
+          sort_order?: number
+          source?: string
+        }
+        Update: {
+          config_id?: string
+          default_value?: string | null
+          field_name?: string
+          id?: string
+          required?: boolean
+          sort_order?: number
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sap_api_request_fields_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "sap_api_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sap_api_response_fields: {
+        Row: {
+          config_id: string
+          field_name: string
+          id: string
+          sort_order: number
+          target_column: string | null
+          target_table: string | null
+          transform_expr: string | null
+        }
+        Insert: {
+          config_id: string
+          field_name: string
+          id?: string
+          sort_order?: number
+          target_column?: string | null
+          target_table?: string | null
+          transform_expr?: string | null
+        }
+        Update: {
+          config_id?: string
+          field_name?: string
+          id?: string
+          sort_order?: number
+          target_column?: string | null
+          target_table?: string | null
+          transform_expr?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sap_api_response_fields_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "sap_api_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sap_api_sync_log: {
+        Row: {
+          config_id: string
+          id: string
+          latency_ms: number | null
+          message: string | null
+          rows_processed: number | null
+          run_at: string
+          status: string
+        }
+        Insert: {
+          config_id: string
+          id?: string
+          latency_ms?: number | null
+          message?: string | null
+          rows_processed?: number | null
+          run_at?: string
+          status: string
+        }
+        Update: {
+          config_id?: string
+          id?: string
+          latency_ms?: number | null
+          message?: string | null
+          rows_processed?: number | null
+          run_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sap_api_sync_log_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "sap_api_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_custom_roles: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          custom_role_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          custom_role_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          custom_role_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_custom_roles_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -428,6 +852,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_tenants: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_tenants_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
