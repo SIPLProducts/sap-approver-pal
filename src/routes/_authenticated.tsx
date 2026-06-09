@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +97,7 @@ function AuthenticatedLayout() {
     ...(isAdmin ? [
       { to: "/admin/users", label: "Users & Roles", icon: Users },
      { to: "/admin/strategies", label: "Release Strategies", icon: ShieldCheck },
+     { to: "/admin/sap-api", label: "SAP API Settings", icon: Server },
      { to: "/admin/integrations", label: "Integrations", icon: Plug },
     ] : []),
     { to: "/settings", label: "Settings", icon: Settings },
