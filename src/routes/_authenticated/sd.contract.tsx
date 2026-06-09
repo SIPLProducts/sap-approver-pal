@@ -1,8 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { SdApprovalShell, fmtINR, fmtDate, type ColumnDef } from "@/components/sd/sd-approval-shell";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_authenticated/sd/contract")({ component: ContractPage });
+const searchSchema = z.object({
+  status: fallback(z.enum(["pending", "accepted", "rejected"]), "pending").default("pending"),
+});
+
+export const Route = createFileRoute("/_authenticated/sd/contract")({
+  validateSearch: zodValidator(searchSchema),
+  component: ContractPage,
+});
 
 const columns: ColumnDef[] = [
   { key: "customer", label: "Customer", mono: true, render: (d) => d.customer_name?.slice(0, 10) ?? "—" },
@@ -21,6 +30,8 @@ const columns: ColumnDef[] = [
 ];
 
 function ContractPage() {
+  const { status } = Route.useSearch();
+  const navigate = useNavigate({ from: "/_authenticated/sd/contract" });
   return (
     <SdApprovalShell
       title="Contract Approvals"
@@ -29,6 +40,8 @@ function ContractPage() {
       levels="2 levels"
       docType="BMW_CONTRACT"
       columns={columns}
+      status={status}
+      onStatusChange={(s) => navigate({ search: (prev) => ({ ...prev, status: s }) })}
     />
   );
 }
