@@ -1,87 +1,536 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ROLE_LABELS } from "@/lib/approvals/constants";
-import type { AppRole } from "@/lib/approvals/constants";
-import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@/components/ui/table";
+import { ROLE_LABELS, type AppRole } from "@/lib/approvals/constants";
+import { SCREEN_GROUPS, PERMISSION_ACTIONS } from "@/lib/admin/screen-keys";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { X, UserPlus, Search, Trash2, Plus, ShieldCheck, Building2 } from "lucide-react";
+import { inviteUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
 
-export const Route = createFileRoute("/_authenticated/admin/users")({ component: AdminUsers });
+export const Route = createFileRoute("/_authenticated/admin/users")({
+  component: UserManagementPage,
+});
 
 const ALL_ROLES = Object.keys(ROLE_LABELS) as AppRole[];
 
-function AdminUsers() {
-  const qc = useQueryClient();
-  const [pick, setPick] = useState<Record<string, AppRole>>({});
+function UserManagementPage() {
+  const [tab, setTab] = useState("users");
+  const [tenantScope, setTenantScope] = useState<string>("all");
 
-  const { data: users = [] } = useQuery({
-    queryKey: ["admin-users"],
-    queryFn: async () => (await supabase.from("profiles").select("*").order("full_name")).data ?? [],
+  const { data: tenants = [] } = useQuery({
+    queryKey: ["tenants"],
+    queryFn: async () => (await supabase.from("tenants").select("*").order("name")).data ?? [],
   });
-  const { data: roles = [] } = useQuery({
-    queryKey: ["admin-roles"],
-    queryFn: async () => (await supabase.from("user_roles").select("user_id, role, id")).data ?? [],
-  });
-
-  async function addRole(userId: string) {
-    const role = pick[userId];
-    if (!role) return;
-    const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
-    if (error) toast.error(error.message); else { toast.success("Role added"); qc.invalidateQueries({ queryKey: ["admin-roles"] }); }
-  }
-  async function removeRole(id: string) {
-    const { error } = await supabase.from("user_roles").delete().eq("id", id);
-    if (error) toast.error(error.message); else { toast.success("Role removed"); qc.invalidateQueries({ queryKey: ["admin-roles"] }); }
-  }
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Users & Roles</h1>
-        <p className="text-sm text-muted-foreground">Assign SAP release-strategy roles to each user.</p>
-      </div>
-      <div className="grid gap-3">
-        {users.map((u) => {
-          const userRoles = roles.filter((r) => r.user_id === u.id);
-          return (
-            <Card key={u.id} className="p-4">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex-1 min-w-[200px]">
-                  <div className="font-semibold">{u.full_name || u.email}</div>
-                  <div className="text-xs text-muted-foreground">{u.email} {u.sap_user_id ? `• SAP: ${u.sap_user_id}` : ""}</div>
-                </div>
-                <div className="flex flex-wrap gap-1 flex-1">
-                  {userRoles.length === 0 && <span className="text-xs text-muted-foreground">No roles</span>}
-                  {userRoles.map((r) => (
-                    <Badge key={r.id} variant="secondary" className="gap-1">
-                      {r.role}
-                      <button onClick={() => removeRole(r.id)}><X className="h-3 w-3" /></button>
-                    </Badge>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Select value={pick[u.id] ?? ""} onValueChange={(v) => setPick({ ...pick, [u.id]: v as AppRole })}>
-                    <SelectTrigger className="w-40"><SelectValue placeholder="Add role…" /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button size="sm" onClick={() => addRole(u.id)}>Add</Button>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-        {!users.length && <Card className="p-8 text-center text-muted-foreground">No users yet. Sign up the first account from /login.</Card>}
-      </div>
-      <Card className="p-4 bg-accent/40 text-sm">
-        <strong>Tip:</strong> The first signed-up user should give themselves the <code>Admin</code> role from the Backend dashboard to manage this page.
-      </Card>
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
+          <p className="text-sm text-muted-foreground">Manage users, roles, permissions, and per-tenant approval matrix.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <Select value={tenantScope} onValueChange={setTenantScope}>
+            <SelectTrigger className="w-56"><SelectValue placeholder="Tenant scope" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tenants</SelectItem>
+              {tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name} ({t.code})</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </header>
+
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="custom_roles">Custom Roles</TabsTrigger>
+          <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
+          <TabsTrigger value="matrix">Approval Matrix</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users"><UsersTab tenants={tenants} /></TabsContent>
+        <TabsContent value="custom_roles"><CustomRolesTab tenantScope={tenantScope} /></TabsContent>
+        <TabsContent value="permissions"><PermissionsTab /></TabsContent>
+        <TabsContent value="matrix"><ApprovalMatrixTab tenantScope={tenantScope} tenants={tenants} /></TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+/* ============================================================
+ * USERS TAB
+ * ============================================================ */
+function UsersTab({ tenants }: { tenants: any[] }) {
+  const qc = useQueryClient();
+  const { user: me } = useAuth();
+  const [search, setSearch] = useState("");
+  const [filterRole, setFilterRole] = useState<string>("all");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const inviteFn = useServerFn(inviteUser);
+  const deleteFn = useServerFn(deleteUser);
+  const roleFn = useServerFn(setBuiltInRole);
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["admin-profiles"],
+    queryFn: async () => (await supabase.from("profiles").select("*").order("full_name")).data ?? [],
+  });
+  const { data: roles = [] } = useQuery({
+    queryKey: ["admin-user-roles"],
+    queryFn: async () => (await supabase.from("user_roles").select("*")).data ?? [],
+  });
+  const { data: customLinks = [] } = useQuery({
+    queryKey: ["admin-user-custom-roles"],
+    queryFn: async () => (await supabase.from("user_custom_roles").select("*, custom_roles(name)")).data ?? [],
+  });
+  const { data: tenantLinks = [] } = useQuery({
+    queryKey: ["admin-user-tenants"],
+    queryFn: async () => (await supabase.from("user_tenants").select("*, tenants(name, code)")).data ?? [],
+  });
+
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return profiles.filter((p) => {
+      if (s && !`${p.full_name ?? ""} ${p.email ?? ""}`.toLowerCase().includes(s)) return false;
+      if (filterRole !== "all") {
+        const userRoles = roles.filter((r) => r.user_id === p.id).map((r) => r.role);
+        if (!userRoles.includes(filterRole)) return false;
+      }
+      return true;
+    });
+  }, [profiles, roles, search, filterRole]);
+
+  const [form, setForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", tenant_id: "" });
+
+  async function submitInvite() {
+    if (!form.email || !form.full_name) return toast.error("Email and full name are required");
+    try {
+      await inviteFn({ data: {
+        email: form.email, full_name: form.full_name,
+        role: (form.role || undefined) as AppRole | undefined,
+        tenant_id: form.tenant_id || undefined,
+      } });
+      toast.success("Invitation sent");
+      setInviteOpen(false);
+      setForm({ email: "", full_name: "", role: "", tenant_id: "" });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function removeTenant(id: string) {
+    const { error } = await supabase.from("user_tenants").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Tenant unassigned");
+    qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
+  }
+
+  async function handleDelete(userId: string) {
+    if (!confirm("Delete this user permanently?")) return;
+    try {
+      await deleteFn({ data: { user_id: userId } });
+      toast.success("User deleted");
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function toggleRole(userId: string, role: AppRole, has: boolean) {
+    try {
+      await roleFn({ data: { user_id: userId, role, action: has ? "remove" : "add" } });
+      qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search users by name or email" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        </div>
+        <Select value={filterRole} onValueChange={setFilterRole}>
+          <SelectTrigger className="w-48"><SelectValue placeholder="All roles" /></SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value="all">All roles</SelectItem>
+            {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+          <DialogTrigger asChild>
+            <Button><UserPlus className="h-4 w-4 mr-2" /> Invite user</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Invite a new user</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>Full name</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
+              <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              <div>
+                <Label>Initial role (optional)</Label>
+                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as AppRole })}>
+                  <SelectTrigger><SelectValue placeholder="No role" /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Tenant (optional)</Label>
+                <Select value={form.tenant_id} onValueChange={(v) => setForm({ ...form, tenant_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Global" /></SelectTrigger>
+                  <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+              <Button onClick={submitInvite}>Send invite</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="rounded-md border overflow-x-auto">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Name</TableHead><TableHead>Email</TableHead>
+            <TableHead>Roles</TableHead><TableHead>Custom Roles</TableHead>
+            <TableHead>Tenants</TableHead><TableHead>Joined</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {filtered.map((p) => {
+              const userRoles = roles.filter((r) => r.user_id === p.id);
+              const userCustom = customLinks.filter((r) => r.user_id === p.id);
+              const userTenants = tenantLinks.filter((r) => r.user_id === p.id);
+              const isSelf = p.id === me?.id;
+              return (
+                <TableRow key={p.id}>
+                  <TableCell className="font-medium">{p.full_name || "—"} {isSelf && <Badge variant="outline" className="ml-1">you</Badge>}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {userRoles.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                      {userRoles.map((r) => <Badge key={r.id} variant="secondary">{r.role}</Badge>)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {userCustom.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                      {userCustom.map((r: any) => <Badge key={r.id} variant="outline">{r.custom_roles?.name ?? "?"}</Badge>)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {userTenants.length === 0 ? <span className="text-xs text-muted-foreground">—</span> : (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7"><Building2 className="h-3 w-3 mr-1" /> {userTenants.length}</Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2">
+                          {userTenants.map((t: any) => (
+                            <div key={t.id} className="flex items-center justify-between py-1 text-sm">
+                              <span>{t.tenants?.name}</span>
+                              <button onClick={() => removeTenant(t.id)} className="text-muted-foreground hover:text-destructive">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right space-x-1">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="outline" disabled={isSelf}>Role</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 max-h-80 overflow-y-auto p-2">
+                        {ALL_ROLES.map((r) => {
+                          const has = userRoles.some((ur) => ur.role === r);
+                          return (
+                            <button key={r} onClick={() => toggleRole(p.id, r, has)}
+                              className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center justify-between">
+                              <span>{ROLE_LABELS[r]}</span>
+                              {has && <Badge variant="secondary" className="text-[10px]">on</Badge>}
+                            </button>
+                          );
+                        })}
+                      </PopoverContent>
+                    </Popover>
+                    <Button size="sm" variant="ghost" disabled={isSelf} onClick={() => handleDelete(p.id)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {filtered.length === 0 && (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No users match the filters.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
+/* ============================================================
+ * CUSTOM ROLES TAB
+ * ============================================================ */
+function CustomRolesTab({ tenantScope }: { tenantScope: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", tenant_id: "" });
+
+  const { data: customRoles = [] } = useQuery({
+    queryKey: ["admin-custom-roles"],
+    queryFn: async () => (await supabase.from("custom_roles").select("*, user_custom_roles(count)").order("name")).data ?? [],
+  });
+  const { data: tenants = [] } = useQuery({
+    queryKey: ["tenants"],
+    queryFn: async () => (await supabase.from("tenants").select("*").order("name")).data ?? [],
+  });
+
+  async function createRole() {
+    if (!form.name) return toast.error("Name required");
+    const { error } = await supabase.from("custom_roles").insert({
+      name: form.name, description: form.description || null,
+      tenant_id: form.tenant_id || (tenantScope !== "all" ? tenantScope : null),
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Custom role created");
+    setOpen(false); setForm({ name: "", description: "", tenant_id: "" });
+    qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
+  }
+
+  async function deleteRole(id: string, userCount: number) {
+    if (userCount > 0) return toast.error("Unassign users from this role first");
+    const { error } = await supabase.from("custom_roles").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
+    qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
+  }
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Define custom roles that map to fine-grained screen permissions.</p>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New role</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Create custom role</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+              <div><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+              <div>
+                <Label>Tenant scope</Label>
+                <Select value={form.tenant_id} onValueChange={(v) => setForm({ ...form, tenant_id: v })}>
+                  <SelectTrigger><SelectValue placeholder={tenantScope !== "all" ? "Current tenant" : "Global"} /></SelectTrigger>
+                  <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={createRole}>Create</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {customRoles.map((r: any) => (
+          <Card key={r.id} className="p-4 space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="font-semibold">{r.name}</div>
+                <div className="text-xs text-muted-foreground">{r.tenant_id ? "Tenant-scoped" : "Global"}</div>
+              </div>
+              <Badge variant={r.is_active ? "secondary" : "outline"}>{r.is_active ? "Active" : "Inactive"}</Badge>
+            </div>
+            {r.description && <p className="text-sm text-muted-foreground line-clamp-2">{r.description}</p>}
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-muted-foreground">{r.user_custom_roles?.[0]?.count ?? 0} users</span>
+              <Button size="sm" variant="ghost" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)} className="text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </Card>
+        ))}
+        {customRoles.length === 0 && <p className="text-sm text-muted-foreground col-span-full py-8 text-center">No custom roles yet.</p>}
+      </div>
+    </Card>
+  );
+}
+
+/* ============================================================
+ * PERMISSIONS TAB
+ * ============================================================ */
+function PermissionsTab() {
+  const qc = useQueryClient();
+  const [target, setTarget] = useState<string>("builtin:Admin");
+
+  const { data: customRoles = [] } = useQuery({
+    queryKey: ["admin-custom-roles-simple"],
+    queryFn: async () => (await supabase.from("custom_roles").select("id, name").order("name")).data ?? [],
+  });
+  const { data: perms = [] } = useQuery({
+    queryKey: ["role-permissions", target],
+    queryFn: async () => {
+      const q = supabase.from("role_permissions").select("*");
+      if (target.startsWith("builtin:")) q.eq("built_in_role", target.slice(8));
+      else q.eq("custom_role_id", target.slice(7));
+      return (await q).data ?? [];
+    },
+  });
+
+  const allowedSet = useMemo(() => new Set(perms.filter((p) => p.allowed).map((p) => `${p.screen_key}:${p.action}`)), [perms]);
+
+  async function toggle(screen: string, action: string) {
+    const key = `${screen}:${action}`;
+    const allowed = !allowedSet.has(key);
+    const row: any = { screen_key: screen, action, allowed };
+    if (target.startsWith("builtin:")) row.built_in_role = target.slice(8);
+    else row.custom_role_id = target.slice(7);
+
+    const existing = perms.find((p) => p.screen_key === screen && p.action === action);
+    if (existing) {
+      await supabase.from("role_permissions").update({ allowed }).eq("id", existing.id);
+    } else {
+      await supabase.from("role_permissions").insert(row);
+    }
+    qc.invalidateQueries({ queryKey: ["role-permissions", target] });
+  }
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <p className="font-medium">Role permission matrix</p>
+          <p className="text-sm text-muted-foreground">Toggles persist immediately. Select a role to load its current allowed permissions.</p>
+        </div>
+        <Select value={target} onValueChange={setTarget}>
+          <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
+          <SelectContent className="max-h-80">
+            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Built-in roles</div>
+            {ALL_ROLES.map((r) => <SelectItem key={r} value={`builtin:${r}`}>{ROLE_LABELS[r]}</SelectItem>)}
+            {customRoles.length > 0 && <div className="px-2 py-1 text-xs font-semibold text-muted-foreground mt-2">Custom roles</div>}
+            {customRoles.map((r) => <SelectItem key={r.id} value={`custom:${r.id}`}>{r.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {SCREEN_GROUPS.map((g) => (
+        <div key={g.module}>
+          <h3 className="font-semibold mb-2 text-sm tracking-wide uppercase text-muted-foreground">{g.module}</h3>
+          <div className="rounded-md border overflow-x-auto">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Screen</TableHead>
+                {PERMISSION_ACTIONS.map((a) => <TableHead key={a} className="capitalize text-center">{a}</TableHead>)}
+              </TableRow></TableHeader>
+              <TableBody>
+                {g.screens.map((s) => (
+                  <TableRow key={s.key}>
+                    <TableCell className="font-medium">{s.label} <code className="text-[10px] text-muted-foreground">{s.key}</code></TableCell>
+                    {PERMISSION_ACTIONS.map((a) => (
+                      <TableCell key={a} className="text-center">
+                        <Switch checked={allowedSet.has(`${s.key}:${a}`)} onCheckedChange={() => toggle(s.key, a)} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ))}
+    </Card>
+  );
+}
+
+/* ============================================================
+ * APPROVAL MATRIX TAB
+ * ============================================================ */
+function ApprovalMatrixTab({ tenantScope, tenants }: { tenantScope: string; tenants: any[] }) {
+  const qc = useQueryClient();
+  const activeTenant = tenantScope !== "all" ? tenantScope : tenants[0]?.id;
+
+  const { data: rows = [] } = useQuery({
+    queryKey: ["approval-matrix", activeTenant],
+    enabled: !!activeTenant,
+    queryFn: async () => (await supabase.from("approval_matrix").select("*").eq("tenant_id", activeTenant).order("stage_no")).data ?? [],
+  });
+
+  async function addRow() {
+    if (!activeTenant) return toast.error("Select a tenant scope first");
+    const { error } = await supabase.from("approval_matrix").insert({
+      tenant_id: activeTenant, stage_no: (rows.at(-1)?.stage_no ?? 0) + 1,
+      role_key: "Admin", min_amount: 0, max_amount: null, currency: "INR",
+    });
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["approval-matrix", activeTenant] });
+  }
+  async function patchRow(id: string, patch: any) {
+    const { error } = await supabase.from("approval_matrix").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["approval-matrix", activeTenant] });
+  }
+  async function deleteRow(id: string) {
+    await supabase.from("approval_matrix").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["approval-matrix", activeTenant] });
+  }
+
+  if (!activeTenant) {
+    return <Card className="p-8 text-center text-muted-foreground"><ShieldCheck className="h-8 w-8 mx-auto mb-2" />Create a tenant first to configure an approval matrix.</Card>;
+  }
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Tenant: <b>{tenants.find((t) => t.id === activeTenant)?.name ?? activeTenant}</b></p>
+        <Button onClick={addRow}><Plus className="h-4 w-4 mr-2" /> Add stage</Button>
+      </div>
+      <div className="rounded-md border overflow-x-auto">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Stage</TableHead><TableHead>Role</TableHead>
+            <TableHead>Min amount</TableHead><TableHead>Max amount</TableHead>
+            <TableHead>Currency</TableHead><TableHead>Active</TableHead><TableHead></TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell>
+                  <Input type="number" value={r.stage_no} onChange={(e) => patchRow(r.id, { stage_no: Number(e.target.value) })} className="w-20" />
+                </TableCell>
+                <TableCell>
+                  <Select value={r.role_key} onValueChange={(v) => patchRow(r.id, { role_key: v })}>
+                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-72">{ALL_ROLES.map((rr) => <SelectItem key={rr} value={rr}>{rr}</SelectItem>)}</SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell><Input type="number" value={r.min_amount} onChange={(e) => patchRow(r.id, { min_amount: Number(e.target.value) })} className="w-32" /></TableCell>
+                <TableCell><Input type="number" value={r.max_amount ?? ""} onChange={(e) => patchRow(r.id, { max_amount: e.target.value ? Number(e.target.value) : null })} className="w-32" placeholder="∞" /></TableCell>
+                <TableCell><Input value={r.currency} onChange={(e) => patchRow(r.id, { currency: e.target.value })} className="w-20" /></TableCell>
+                <TableCell><Switch checked={r.is_active} onCheckedChange={(v) => patchRow(r.id, { is_active: v })} /></TableCell>
+                <TableCell><Button variant="ghost" size="sm" onClick={() => deleteRow(r.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button></TableCell>
+              </TableRow>
+            ))}
+            {rows.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">No stages configured for this tenant.</TableCell></TableRow>}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
   );
 }

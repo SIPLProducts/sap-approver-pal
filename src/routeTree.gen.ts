@@ -21,7 +21,9 @@ import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
 import { Route as AuthenticatedAdminIntegrationsRouteImport } from './routes/_authenticated/admin.integrations'
+import { Route as AuthenticatedAdminSapApiIndexRouteImport } from './routes/_authenticated/admin.sap-api.index'
 import { Route as ApiPublicHooksSapSyncRouteImport } from './routes/api/public/hooks/sap-sync'
+import { Route as AuthenticatedAdminSapApiIdRouteImport } from './routes/_authenticated/admin.sap-api.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -86,11 +88,23 @@ const AuthenticatedAdminIntegrationsRoute =
     path: '/admin/integrations',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminSapApiIndexRoute =
+  AuthenticatedAdminSapApiIndexRouteImport.update({
+    id: '/admin/sap-api/',
+    path: '/admin/sap-api/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicHooksSapSyncRoute = ApiPublicHooksSapSyncRouteImport.update({
   id: '/api/public/hooks/sap-sync',
   path: '/api/public/hooks/sap-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminSapApiIdRoute =
+  AuthenticatedAdminSapApiIdRouteImport.update({
+    id: '/admin/sap-api/$id',
+    path: '/admin/sap-api/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -104,7 +118,9 @@ export interface FileRoutesByFullPath {
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/inbox/': typeof AuthenticatedInboxIndexRoute
+  '/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
+  '/admin/sap-api/': typeof AuthenticatedAdminSapApiIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,7 +134,9 @@ export interface FileRoutesByTo {
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/inbox': typeof AuthenticatedInboxIndexRoute
+  '/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
+  '/admin/sap-api': typeof AuthenticatedAdminSapApiIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,7 +152,9 @@ export interface FileRoutesById {
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/_authenticated/inbox/': typeof AuthenticatedInboxIndexRoute
+  '/_authenticated/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
+  '/_authenticated/admin/sap-api/': typeof AuthenticatedAdminSapApiIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -150,7 +170,9 @@ export interface FileRouteTypes {
     | '/approval/$id'
     | '/inbox/$module'
     | '/inbox/'
+    | '/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
+    | '/admin/sap-api/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -164,7 +186,9 @@ export interface FileRouteTypes {
     | '/approval/$id'
     | '/inbox/$module'
     | '/inbox'
+    | '/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
+    | '/admin/sap-api'
   id:
     | '__root__'
     | '/'
@@ -179,7 +203,9 @@ export interface FileRouteTypes {
     | '/_authenticated/approval/$id'
     | '/_authenticated/inbox/$module'
     | '/_authenticated/inbox/'
+    | '/_authenticated/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
+    | '/_authenticated/admin/sap-api/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -275,12 +301,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIntegrationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/sap-api/': {
+      id: '/_authenticated/admin/sap-api/'
+      path: '/admin/sap-api'
+      fullPath: '/admin/sap-api/'
+      preLoaderRoute: typeof AuthenticatedAdminSapApiIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/hooks/sap-sync': {
       id: '/api/public/hooks/sap-sync'
       path: '/api/public/hooks/sap-sync'
       fullPath: '/api/public/hooks/sap-sync'
       preLoaderRoute: typeof ApiPublicHooksSapSyncRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin/sap-api/$id': {
+      id: '/_authenticated/admin/sap-api/$id'
+      path: '/admin/sap-api/$id'
+      fullPath: '/admin/sap-api/$id'
+      preLoaderRoute: typeof AuthenticatedAdminSapApiIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
@@ -295,6 +335,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
   AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
   AuthenticatedInboxIndexRoute: typeof AuthenticatedInboxIndexRoute
+  AuthenticatedAdminSapApiIdRoute: typeof AuthenticatedAdminSapApiIdRoute
+  AuthenticatedAdminSapApiIndexRoute: typeof AuthenticatedAdminSapApiIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -307,6 +349,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
   AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
   AuthenticatedInboxIndexRoute: AuthenticatedInboxIndexRoute,
+  AuthenticatedAdminSapApiIdRoute: AuthenticatedAdminSapApiIdRoute,
+  AuthenticatedAdminSapApiIndexRoute: AuthenticatedAdminSapApiIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -322,3 +366,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
