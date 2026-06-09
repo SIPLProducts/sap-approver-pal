@@ -108,7 +108,7 @@ function UsersTab({ tenants }: { tenants: any[] }) {
       if (s && !`${p.full_name ?? ""} ${p.email ?? ""}`.toLowerCase().includes(s)) return false;
       if (filterRole !== "all") {
         const userRoles = roles.filter((r) => r.user_id === p.id).map((r) => r.role);
-        if (!userRoles.includes(filterRole)) return false;
+        if (!userRoles.includes(filterRole as AppRole)) return false;
       }
       return true;
     });
@@ -388,7 +388,7 @@ function PermissionsTab() {
     queryKey: ["role-permissions", target],
     queryFn: async () => {
       const q = supabase.from("role_permissions").select("*");
-      if (target.startsWith("builtin:")) q.eq("built_in_role", target.slice(8));
+      if (target.startsWith("builtin:")) q.eq("built_in_role", target.slice(8) as AppRole);
       else q.eq("custom_role_id", target.slice(7));
       return (await q).data ?? [];
     },
