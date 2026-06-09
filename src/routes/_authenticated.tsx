@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,9 +90,18 @@ function AuthenticatedLayout() {
     return <div className="min-h-screen grid place-items-center text-muted-foreground">Loading…</div>;
   }
 
+  const sdChildren = [
+    { to: "/sd/price", label: "Price Approvals", icon: Tag },
+    { to: "/sd/contract", label: "Contract Approvals", icon: FileText },
+    { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2 },
+    { to: "/sd/sales-order", label: "Sales Order Approvals", icon: ShoppingCart },
+  ];
+  const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
+  const [sdExpanded, setSdExpanded] = useState(sdOpen);
+  useEffect(() => { if (sdOpen) setSdExpanded(true); }, [sdOpen]);
+
   const nav_items = [
     { to: "/inbox/mm", label: "MM Approvals", icon: Package },
-    { to: "/inbox/sd", label: "SD Approvals", icon: Truck },
     { to: "/history", label: "History", icon: History },
     ...(isAdmin ? [
       { to: "/admin/users", label: "Users & Roles", icon: Users },
@@ -116,8 +125,38 @@ function AuthenticatedLayout() {
             <div className="text-[11px] text-sidebar-foreground/60">SAP Approvals Suite</div>
           </div>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
-          {nav_items.map((it) => {
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          <Link to="/inbox/mm" onClick={() => setOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/inbox/mm") ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
+            <Package className="h-4 w-4" /> MM Approvals
+          </Link>
+
+          {/* SD Approvals expandable group */}
+          <button
+            type="button"
+            onClick={() => setSdExpanded((v) => !v)}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "text-sidebar-foreground" : "text-sidebar-foreground/80"} hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}
+          >
+            <Truck className="h-4 w-4" />
+            <span className="flex-1 text-left">SD Approvals</span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />
+          </button>
+          {sdExpanded && (
+            <div className="ml-3 pl-3 border-l border-sidebar-border space-y-1">
+              {sdChildren.map((it) => {
+                const active = pathname.startsWith(it.to);
+                const Icon = it.icon;
+                return (
+                  <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-colors ${active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
+                    <Icon className="h-3.5 w-3.5" /> {it.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {nav_items.slice(1).map((it) => {
             const active = pathname.startsWith(it.to);
             const Icon = it.icon;
             return (
