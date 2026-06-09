@@ -19,6 +19,9 @@ function AuthenticatedLayout() {
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
+  const [sdExpanded, setSdExpanded] = useState(sdOpen);
+  useEffect(() => { if (sdOpen) setSdExpanded(true); }, [sdOpen]);
 
   useEffect(() => { if (!loading && !user) nav({ to: "/login" }); }, [loading, user, nav]);
 
@@ -96,9 +99,6 @@ function AuthenticatedLayout() {
     { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2 },
     { to: "/sd/sales-order", label: "Sales Order Approvals", icon: ShoppingCart },
   ];
-  const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
-  const [sdExpanded, setSdExpanded] = useState(sdOpen);
-  useEffect(() => { if (sdOpen) setSdExpanded(true); }, [sdOpen]);
 
   const nav_items = [
     { to: "/inbox/mm", label: "MM Approvals", icon: Package },
