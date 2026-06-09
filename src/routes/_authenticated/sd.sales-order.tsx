@@ -1,8 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { SdApprovalShell, fmtINR, fmtDate, type ColumnDef } from "@/components/sd/sd-approval-shell";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_authenticated/sd/sales-order")({ component: SoPage });
+const searchSchema = z.object({
+  status: fallback(z.enum(["pending", "accepted", "rejected"]), "pending").default("pending"),
+});
+
+export const Route = createFileRoute("/_authenticated/sd/sales-order")({
+  validateSearch: zodValidator(searchSchema),
+  component: SoPage,
+});
 
 const columns: ColumnDef[] = [
   { key: "sales_org", label: "Sales Org", mono: true, render: () => "3801" },
@@ -20,6 +29,8 @@ const columns: ColumnDef[] = [
 ];
 
 function SoPage() {
+  const { status } = Route.useSearch();
+  const navigate = useNavigate({ from: "/_authenticated/sd/sales-order" });
   return (
     <SdApprovalShell
       title="Sales Order Approvals"
@@ -28,6 +39,8 @@ function SoPage() {
       levels="Single level"
       docType="BMW_SO"
       columns={columns}
+      status={status}
+      onStatusChange={(s) => navigate({ search: (prev: any) => ({ ...prev, status: s }) })}
     />
   );
 }

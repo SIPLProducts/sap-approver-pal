@@ -1,7 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { SdApprovalShell, fmtINR, fmtDate, type ColumnDef } from "@/components/sd/sd-approval-shell";
 
-export const Route = createFileRoute("/_authenticated/sd/sc-so")({ component: ScSoPage });
+const searchSchema = z.object({
+  status: fallback(z.enum(["pending", "accepted", "rejected"]), "pending").default("pending"),
+});
+
+export const Route = createFileRoute("/_authenticated/sd/sc-so")({
+  validateSearch: zodValidator(searchSchema),
+  component: ScSoPage,
+});
 
 const columns: ColumnDef[] = [
   { key: "company", label: "Co. Code", mono: true, render: () => "3101" },
@@ -22,6 +31,8 @@ const columns: ColumnDef[] = [
 ];
 
 function ScSoPage() {
+  const { status } = Route.useSearch();
+  const navigate = useNavigate({ from: "/_authenticated/sd/sc-so" });
   return (
     <SdApprovalShell
       title="Service Certificate & SO Approvals"
@@ -35,6 +46,8 @@ function ScSoPage() {
         { id: "so", label: "Sales Order Approvals" },
       ]}
       defaultExtra={["sc"]}
+      status={status}
+      onStatusChange={(s) => navigate({ search: (prev: any) => ({ ...prev, status: s }) })}
     />
   );
 }

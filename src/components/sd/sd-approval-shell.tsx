@@ -35,16 +35,18 @@ interface Props {
   columns: ColumnDef[];
   extraFilters?: ExtraFilter[];
   defaultExtra?: string[];
+  status: Status;
+  onStatusChange: (s: Status) => void;
 }
 
 type Status = "pending" | "accepted" | "rejected";
 
 export function SdApprovalShell({
   title, subtitle, tCode, levels, docType, columns, extraFilters, defaultExtra,
+  status, onStatusChange,
 }: Props) {
   const [plant, setPlant] = useState("");
   const [customer, setCustomer] = useState("");
-  const [status, setStatus] = useState<Status>("pending");
   const [extra, setExtra] = useState<string[]>(defaultExtra ?? (extraFilters?.[0] ? [extraFilters[0].id] : []));
 
   const { data: rows = [], isLoading, refetch, isFetching } = useQuery({
@@ -66,7 +68,7 @@ export function SdApprovalShell({
     (!customer || (r.customer_name ?? "").toLowerCase().includes(customer.toLowerCase()) || (r.sap_doc_no ?? "").toLowerCase().includes(customer.toLowerCase()))
   ), [rows, plant, customer]);
 
-  function reset() { setPlant(""); setCustomer(""); setStatus("pending"); }
+  function reset() { setPlant(""); setCustomer(""); onStatusChange("pending"); }
 
   function toggleExtra(id: string) {
     setExtra((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
@@ -122,7 +124,7 @@ export function SdApprovalShell({
         <div className="mt-4 -mx-4 px-4 pt-3 border-t">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <Label className="text-xs text-muted-foreground">Action</Label>
-            <Tabs value={status} onValueChange={(v) => setStatus(v as Status)}>
+            <Tabs value={status} onValueChange={(v) => onStatusChange(v as Status)}>
               <TabsList>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
                 <TabsTrigger value="accepted">Accepted</TabsTrigger>

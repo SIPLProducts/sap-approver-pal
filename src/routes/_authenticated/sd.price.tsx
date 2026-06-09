@@ -1,8 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { SdApprovalShell, fmtINR, fmtDate, type ColumnDef } from "@/components/sd/sd-approval-shell";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_authenticated/sd/price")({ component: PricePage });
+const searchSchema = z.object({
+  status: fallback(z.enum(["pending", "accepted", "rejected"]), "pending").default("pending"),
+});
+
+export const Route = createFileRoute("/_authenticated/sd/price")({
+  validateSearch: zodValidator(searchSchema),
+  component: PricePage,
+});
 
 const columns: ColumnDef[] = [
   { key: "plant", label: "Plant", mono: true, render: (d) => d.plant },
@@ -17,6 +26,8 @@ const columns: ColumnDef[] = [
 ];
 
 function PricePage() {
+  const { status } = Route.useSearch();
+  const navigate = useNavigate({ from: "/_authenticated/sd/price" });
   return (
     <SdApprovalShell
       title="Price Approvals"
@@ -25,6 +36,8 @@ function PricePage() {
       levels="Single level"
       docType="BMW_PRICE"
       columns={columns}
+      status={status}
+      onStatusChange={(s) => navigate({ search: (prev: any) => ({ ...prev, status: s }) })}
     />
   );
 }
