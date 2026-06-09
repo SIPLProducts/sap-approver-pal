@@ -161,12 +161,12 @@ export const upsertCredentials = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // Note: v1 stores password as-is in service-role-only table. Vault encryption is a follow-up.
-    const update: Record<string, unknown> = {
+    const update = {
       config_id: data.config_id,
       username: data.username ?? null,
       extra_headers: data.extra_headers ?? {},
+      ...(data.password ? { password_encrypted: data.password } : {}),
     };
-    if (data.password) update.password_encrypted = data.password;
     const { error } = await supabaseAdmin.from("sap_api_credentials").upsert(update);
     if (error) throw new Error(error.message);
     await supabaseAdmin.from("admin_audit_log").insert({
