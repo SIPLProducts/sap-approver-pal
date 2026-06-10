@@ -1,37 +1,78 @@
 ## Goal
-On the SAP API config edit page (`/admin/sap-api/:id`), let admins upload a sample JSON payload (or paste it) for **Request** and **Response** tabs, then auto-generate field mapping rows from the detected keys.
 
-## UX
+Integrate the configured `Price_Approval_Fetch` SAP API into **SD Approval → Price Approvals** so the user enters a Plant, executes a live fetch, sees the returned rows, multi-selects them, and clicks Accept/Reject (UI-only for now — toast + clear selection; no backend write until a post-decision API is configured).
 
-In both the **Request** and **Response** tab headers, add two controls next to "Add row" / "Save":
-- **Upload payload** — file picker accepting `.json` / `.txt`
-- **Paste & autodetect** — opens a dialog with a JSON textarea + "Detect fields" button
+## Scope
 
-After parsing, show a preview list of detected field paths with checkboxes (all on by default) and a **Merge mode** select:
-- `Replace existing rows` (default)
-- `Append new fields only` (skip names already present)
+- Only the route `src/routes/_authenticated/sd/price.tsx` (and a new dedicated component) changes UI-side.
+- The existing generic `SdApprovalShell` (DB-backed list) is **not** modified — Price now uses its own dedicated screen because the data source and columns differ. Other SD screens (Contract, SO, SC-SO) keep using the shell unchanged.
+- Existing `?status=pending|accepted|rejected` URL behaviour and tests are preserved (status drives a client-side filter over the fetched + locally-decided rows).
 
-Confirm → populates the table. User still has to click **Save** to persist (no silent writes).
+## UX flow
 
-## Autodetect logic (client-only, in `src/lib/admin/payload-detect.ts`)
+```text
+[ Selection Screen ]
+  Plant *  [____]   USER_ID (auto)   [Execute]  [Reset]
+  Tabs: Pending | Accepted | Rejected      ← URL ?status=
 
-Accepts a parsed JSON value. Flattens to dot/bracket paths:
-- Objects → recurse with `parent.child`
-- Arrays → take the first element, recurse with `parent[].child`; if array of primitives, treat as leaf
-- Leaves → record `{ path, sampleValue, inferredType }` where type ∈ `string | number | boolean | date | null`
-  - `date` if string matches ISO 8601 / `YYYY-MM-DD`
-- Caps: max 500 fields, max recursion depth 8, payload size ≤ 1 MB → show error toast otherwise
+[ Toolbar above table ]
+  N selected     [Accept]  [Reject]        ← disabled when N = 0 or status ≠ pending
 
-Mapping to rows:
-- **Request row**: `field_name = path`, `source = "static"`, `default_value = String(sampleValue ?? "")`, `required = false`
-- **Response row**: `field_name = path`, `target_table = ""`, `target_column = path.split(/[.\[]/).pop()` (snake_cased), `transform_expr = ""`
+[ Table ]
+  [☑] Sel | Key Comb | Cond Type | Customer | Material | Plant
+        | Old Price | New Price | Curr | UOM | Valid From | Valid To
+```
 
-## Files to change
-- New: `src/lib/admin/payload-detect.ts` — `flattenPayload()`, `toReqRows()`, `toResRows()` + small unit-test friendly pure functions.
-- New: `src/components/admin/payload-import-dialog.tsx` — reusable dialog (`mode: "request" | "response"`, `onApply(rows, mergeMode)`); contains upload input, textarea, detect preview, merge select.
-- Edit: `src/routes/_authenticated/admin.sap-api.$id.tsx` — add dialog triggers in Request and Response tab toolbars; wire `onApply` to merge into `reqRows` / `resRows` state. No server-side or schema changes.
+- **Plant is mandatory.** Execute button stays disabled until Plant is non-empty; on click, calls the new server fn.
+- **USER_ID** = `profiles.sap_user_id` for the signed-in user, falling back to the config's request-field default (`NEOBMWCONS`). Shown read-only next to Plant.
+- **Selection**: header checkbox toggles all visible rows; per-row checkbox toggles one. Selected state lives in component state, keyed by a stable row key (KEY_COMBINATION + CONDITION_TYPE + CUSTOMER + MATERIAL + PLANT).
+- **Accept / Reject**: only enabled on the Pending tab when ≥1 row selected. Click → move selected rows from the in-memory `pending` set into `accepted` / `rejected` set, show `toast.success("3 rows accepted")`, clear selection. Decided rows then appear under the Accepted / Rejected tabs (still client-side only).
+- **Status tabs**: filter the same fetched dataset by which local bucket the row is in (`pending` by default for every fetched row). URL `?status=` is preserved and back/forward still works (existing test stays green because `searchSchema` is unchanged).
+
+## Server function
+
+New file `src/lib/sd/price-approval.functions.ts`:
+
+- `fetchPriceApprovals` — `createServerFn({ method: "POST" })` with `requireSupabaseAuth`, input `{ plant: string (min 1) }`.
+- Inside handler (admin client, loaded with `await import("@/integrations/supabase/client.server")`):
+  1. Look up the active `sap_api_configs` row named `Price_Approval_Fetch` (and its `sap_api_credentials`).
+  2. Look up `profiles.sap_user_id` for `context.userId`; fall back to the config's `USER_ID` request-field default.
+  3. Build URL: append `&PLANT=<plant>&USER_ID=<user_id>` to `endpoint_url` (the endpoint already has `?sap-client=300`).
+  4. Honour `auth_type`:
+     - `basic` → `Authorization: Basic base64(user:pass)` from credentials.
+     - `proxy` → POST/GET via `middleware_url` with `x-shared-secret: process.env[proxy_secret_ref]`, mirroring `testSapConnection`'s pattern.
+  5. Merge any `extra_headers` from credentials.
+  6. `fetch()` the endpoint; on non-2xx, throw with status + truncated body.
+  7. Parse JSON, read `DATA` array, map each item to a plain DTO using the configured response-field paths (lowercase keys: `select_flg`, `key_combination`, `condition_type`, `customer`, `price_group`, `plant`, `material`, `new_price`, `currency`, `uom`, `calculation_sc`, `valid_from_sc`, `valid_to_sc`, `old_price`).
+  8. Insert one row into `sap_api_sync_log` (`status: ok|error`, `latency_ms`, `message`) — same pattern as `testSapConnection`.
+  9. Return `{ rows: PriceRow[], fetched_at: ISO, count }`.
+
+No DB schema changes. No mutation server fn yet (Accept/Reject is UI-only this round).
+
+## Route + component
+
+`src/routes/_authenticated/sd/price.tsx` is rewritten to host a dedicated `PricePage`:
+
+- Keeps `validateSearch` with `status` enum (`pending|accepted|rejected`, fallback `pending`) — unchanged shape so existing test passes.
+- Local state: `plant` (string), `userIdHint` (loaded via small companion server fn `getMySapUserId` or read from a profile query), `rows` (PriceRow[]), `decided` (`Map<rowKey, "accepted"|"rejected">`), `selected` (`Set<rowKey>`), `isFetching`, `lastFetchedAt`.
+- Uses `useMutation` (TanStack Query) to call `fetchPriceApprovals`; on success, replace `rows`, clear `selected`, leave `decided` intact.
+- Renders:
+  - Header (title, T-code badge, single-level badge).
+  - Selection card: Plant input (required), USER_ID readonly, Execute (disabled if !plant || isFetching), Reset.
+  - Status tabs bound to `?status=` via `navigate({ search: prev => ({...prev, status})})` (same pattern as today).
+  - Toolbar: "N selected" + Accept (variant default) + Reject (variant destructive), both disabled unless `status==='pending' && selected.size>0`.
+  - Table with header checkbox + per-row checkbox, filtered by current bucket.
+  - Empty state: "Enter a Plant and click Execute to load price approvals from SAP."
+
+## Files touched
+
+- **New** `src/lib/sd/price-approval.functions.ts` — `fetchPriceApprovals`, `getMySapUserId` server fns, shared `PriceRow` type.
+- **Rewrite** `src/routes/_authenticated/sd/price.tsx` — dedicated component (no longer uses `SdApprovalShell`), preserves `searchSchema`.
+- **Unchanged**: `src/components/sd/sd-approval-shell.tsx`, the other SD route files, the existing `sd-status-search.test.tsx`.
 
 ## Out of scope
-- No backend changes, no new tables, no schema migration.
-- XML/CSV payloads (JSON only for v1).
-- Auto-saving after detect — user reviews + clicks Save.
+
+- Posting decisions back to SAP (waiting on a second API config).
+- Persisting decisions to `approval_documents` / audit log.
+- Pagination / server-side filtering beyond Plant (the API only takes PLANT + USER_ID).
+- XML/CSV payloads (response is JSON).
