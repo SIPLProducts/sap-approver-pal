@@ -79,10 +79,15 @@ function PricePage() {
       setDecided({});
       setSelected(new Set());
       setLastFetchedAt(res.fetched_at);
-      toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
+      }
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
   });
+
 
   function setStatus(s: Status) {
     navigate({ search: (prev: any) => ({ ...prev, status: s }) });
