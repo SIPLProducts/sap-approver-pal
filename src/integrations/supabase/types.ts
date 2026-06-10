@@ -773,6 +773,54 @@ export type Database = {
           },
         ]
       }
+      sap_global_secrets: {
+        Row: {
+          id: string
+          proxy_secret: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          proxy_secret?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          proxy_secret?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sap_global_settings: {
+        Row: {
+          connection_mode: string
+          deployment_mode: string
+          id: string
+          middleware_port: number
+          middleware_url: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          connection_mode?: string
+          deployment_mode?: string
+          id?: string
+          middleware_port?: number
+          middleware_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          connection_mode?: string
+          deployment_mode?: string
+          id?: string
+          middleware_port?: number
+          middleware_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
           code: string

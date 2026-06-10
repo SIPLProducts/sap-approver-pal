@@ -187,17 +187,18 @@ export const testSapConnection = createServerFn({ method: "POST" })
     if (!cfg) throw new Error("Config not found");
     const { data: creds } = await supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", data.id).maybeSingle();
 
-    const target = cfg.auth_type === "proxy"
-      ? `${(cfg.middleware_url ?? "").replace(/\/$/, "")}/__health`
-      : cfg.endpoint_url;
-
+    let target = cfg.endpoint_url;
     const headers: Record<string, string> = { Accept: "application/json" };
+
+    if (cfg.auth_type === "proxy") {
+      const { data: g } = await supabaseAdmin.from("sap_global_settings").select("middleware_url").eq("id", "default").maybeSingle();
+      const { data: gs } = await supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle();
+      if (!g?.middleware_url) throw new Error("Global Node.js Middleware URL is not configured. Set it in SAP API Settings → Middleware Configuration.");
+      target = `${g.middleware_url.replace(/\/$/, "")}/__health`;
+      if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
+    }
     if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
       headers.Authorization = "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
-    }
-    if (cfg.auth_type === "proxy" && cfg.proxy_secret_ref) {
-      const secretVal = process.env[cfg.proxy_secret_ref];
-      if (secretVal) headers["x-shared-secret"] = secretVal;
     }
     for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) headers[k] = v;
 
