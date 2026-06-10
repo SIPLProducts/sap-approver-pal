@@ -1,46 +1,37 @@
 ## Goal
-Add a "SD Approvals" expandable section in the sidebar with four sub-screens. Each screen models the corresponding SAP T-code (filter panel + Pending/Accepted/Rejected tabs + columnar data table + bulk Approve/Reject actions).
+On the SAP API config edit page (`/admin/sap-api/:id`), let admins upload a sample JSON payload (or paste it) for **Request** and **Response** tabs, then auto-generate field mapping rows from the detected keys.
 
-## New sidebar structure
-SD Approvals (group, expandable) — replaces the single `/inbox/sd` link
-- Price Approvals → `/sd/price` (ZBMW_VK11_APP, single level)
-- Contract Approvals → `/sd/contract` (ZBMW_CONTRACT_APP, 2 levels)
-- Service Certificate & SO Approvals → `/sd/sc-so` (ZBMW_SC_ISSUE_PH, single level, two modes via checkbox)
-- Sales Order Approvals → `/sd/sales-order` (ZSD_BMW_SO_APP)
+## UX
 
-The existing combined `/inbox/sd` route stays for back-compat (kept reachable, not in nav).
+In both the **Request** and **Response** tab headers, add two controls next to "Add row" / "Save":
+- **Upload payload** — file picker accepting `.json` / `.txt`
+- **Paste & autodetect** — opens a dialog with a JSON textarea + "Detect fields" button
 
-## Screen pattern (shared)
-Each screen uses the same shell:
-1. **Header** — title, T-code chip, "Levels of approval" badge.
-2. **Filter card** — Plant, Customer No (and Sold-to / approval-type checkboxes where the SAP screen has them); Action radios: Pending / Accepted / Rejected.
-3. **Tabs** bound to the Action filter (Pending shows checkboxes + Approve/Reject bulk bar; Accepted/Rejected are read-only).
-4. **Data table** — horizontally scrollable, sticky first column, columns sourced from the SAP output exactly:
-   - **Price**: Plant, Sales Org, Material, Customer, **Customer Name** (new column called out in doc), Condition, Amount, Valid From/To, Created By, Status.
-   - **Contract**: Customer, Customer Name, Contract No, Creation Date, Material, Fixed Rate, No Of Beds To Be Inv, Per Bed Rate, Net Value, Tax Value, Total Agreement, From/To Agreement, Service Valid From/To, Service Start, Registration Date, Upper Slab, Excess Qty, Rate, Dist Channel, Division, Customer Group, Customer Price Group, Contract Item, Sales Org, Company Code, Year, Reason.
-   - **SC & SO**: top toggle (Service Certificate Approvals / Sales Order Approvals checkboxes). Columns: Company Code, Sales Org, Customer, Customer Name, Year, Contract No, Contract Item, Contract Ref No, Contract Ref Date, Creation Date, Contract Start/End, Down Pay Req Amount, Adv Doc Num, Adv Amount, Profit Center, Clearing Doc.
-   - **Sales Order**: Sales Org, Plant, Sold-to, Customer Name, SO No, SO Date, Material, Qty, Net Value, Tax, Total, Delivery Date, Status.
-5. **Row actions** — Approve (toast "Contract Rejected/Approved Successfully – {doc no}" pattern from doc), Reject (opens reason dialog; reason mandatory; 2-level docs show "Pending L2" after L1 approve).
-6. **Detail drawer** — slide-over with all SAP fields grouped (Header / Financials / Validity / Classification / Reason).
+After parsing, show a preview list of detected field paths with checkboxes (all on by default) and a **Merge mode** select:
+- `Replace existing rows` (default)
+- `Append new fields only` (skip names already present)
 
-## Data
-Reuse existing tables `approval_documents` + `approval_steps` + doc_type enum values already present (`BMW_PRICE`, `BMW_CONTRACT`, `BMW_SO`, `BMW_SC_ISSUE`). Each screen queries by `doc_type` and joins steps to drive Pending/Accepted/Rejected tabs and current step seq. No schema changes.
+Confirm → populates the table. User still has to click **Save** to persist (no silent writes).
 
-Approve / Reject use the same RPC pattern already in `approval.$id.tsx` (insert into `approval_steps`, advance `current_step_seq`, write `notifications`). 2-level Contract sets next step on first approve.
+## Autodetect logic (client-only, in `src/lib/admin/payload-detect.ts`)
 
-## Files
-- New: `src/routes/_authenticated/sd.price.tsx`
-- New: `src/routes/_authenticated/sd.contract.tsx`
-- New: `src/routes/_authenticated/sd.sc-so.tsx`
-- New: `src/routes/_authenticated/sd.sales-order.tsx`
-- New: `src/components/sd/sd-approval-shell.tsx` — shared filter/tabs/table shell.
-- New: `src/components/sd/sd-row-actions.tsx` — approve/reject + reason dialog.
-- New: `src/lib/sd/sd.functions.ts` — `listSdDocs({ docType, status, plant, customer })`, `approveSdDoc`, `rejectSdDoc(reason)`.
-- Edit: `src/routes/_authenticated.tsx` — replace `/inbox/sd` link with an expandable "SD Approvals" group containing the 4 children; auto-expand when pathname starts with `/sd/`.
+Accepts a parsed JSON value. Flattens to dot/bracket paths:
+- Objects → recurse with `parent.child`
+- Arrays → take the first element, recurse with `parent[].child`; if array of primitives, treat as leaf
+- Leaves → record `{ path, sampleValue, inferredType }` where type ∈ `string | number | boolean | date | null`
+  - `date` if string matches ISO 8601 / `YYYY-MM-DD`
+- Caps: max 500 fields, max recursion depth 8, payload size ≤ 1 MB → show error toast otherwise
 
-## Design
-Reuses existing tokens (`bg-card`, `Card`, `Badge`, `Tabs`, `Table`). SAP-like density: compact rows, monospace for doc numbers, right-aligned amounts in `tabular-nums`, ₹ formatting consistent with the inbox. Sticky table header, horizontal scroll with shadow edges. Pending tab gets a bottom action bar when ≥1 row selected.
+Mapping to rows:
+- **Request row**: `field_name = path`, `source = "static"`, `default_value = String(sampleValue ?? "")`, `required = false`
+- **Response row**: `field_name = path`, `target_table = ""`, `target_column = path.split(/[.\[]/).pop()` (snake_cased), `transform_expr = ""`
+
+## Files to change
+- New: `src/lib/admin/payload-detect.ts` — `flattenPayload()`, `toReqRows()`, `toResRows()` + small unit-test friendly pure functions.
+- New: `src/components/admin/payload-import-dialog.tsx` — reusable dialog (`mode: "request" | "response"`, `onApply(rows, mergeMode)`); contains upload input, textarea, detect preview, merge select.
+- Edit: `src/routes/_authenticated/admin.sap-api.$id.tsx` — add dialog triggers in Request and Response tab toolbars; wire `onApply` to merge into `reqRows` / `resRows` state. No server-side or schema changes.
 
 ## Out of scope
-- No schema migration; no changes to MM screens, admin, or SAP API settings.
-- Real SAP push is mocked by reading from `approval_documents` already synced.
+- No backend changes, no new tables, no schema migration.
+- XML/CSV payloads (JSON only for v1).
+- Auto-saving after detect — user reviews + clicks Save.
