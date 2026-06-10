@@ -173,10 +173,9 @@ function SapApiEditPage() {
               </div>
               <div className="flex items-end gap-2"><Switch checked={cfg.is_active} onCheckedChange={(v) => setCfg({ ...cfg, is_active: v })} /><Label>Active</Label></div>
               {cfg.auth_type === "proxy" && (
-                <>
-                  <div className="sm:col-span-2"><Label>Middleware URL <span className="text-destructive">*</span></Label><Input value={cfg.middleware_url ?? ""} onChange={(e) => setCfg({ ...cfg, middleware_url: e.target.value })} placeholder="https://your-middleware/relay" /></div>
-                  <div className="sm:col-span-2"><Label>Proxy secret name <span className="text-destructive">*</span></Label><Input value={cfg.proxy_secret_ref ?? ""} onChange={(e) => setCfg({ ...cfg, proxy_secret_ref: e.target.value })} placeholder="MIDDLEWARE_SHARED_SECRET" /><p className="text-xs text-muted-foreground mt-1">Name of the Lovable Cloud secret holding the middleware shared secret. Set it in Backend → Secrets.</p></div>
-                </>
+                <div className="sm:col-span-2 rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  Middleware URL and Proxy Secret are managed globally. Set them in <Link to="/admin/sap-api" className="underline font-medium">SAP API Settings → Middleware Configuration</Link>.
+                </div>
               )}
             </div>
             <Button onClick={saveDetails} disabled={busy}><Save className="h-4 w-4 mr-2" /> Save details</Button>
