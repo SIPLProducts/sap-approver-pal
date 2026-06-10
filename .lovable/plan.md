@@ -1,78 +1,36 @@
 ## Goal
+Add a new **Middleware Configuration** tab on the SAP API Settings list screen with global Node.js middleware settings shared by all SAP API integrations.
 
-Integrate the configured `Price_Approval_Fetch` SAP API into **SD Approval → Price Approvals** so the user enters a Plant, executes a live fetch, sees the returned rows, multi-selects them, and clicks Accept/Reject (UI-only for now — toast + clear selection; no backend write until a post-decision API is configured).
+## Fields (global, single row)
+- **Connection Mode** — `direct` | `via_proxy`
+- **Deployment Mode** — `lovable_cloud` | `self_hosted`
+- **Middleware Port** — number (default 3002)
+- **Node.js Middleware URL** * — required when Connection Mode = via_proxy
+- **Proxy Secret / Password** * — required when Connection Mode = via_proxy
 
-## Scope
+## Plan
 
-- Only the route `src/routes/_authenticated/sd/price.tsx` (and a new dedicated component) changes UI-side.
-- The existing generic `SdApprovalShell` (DB-backed list) is **not** modified — Price now uses its own dedicated screen because the data source and columns differ. Other SD screens (Contract, SO, SC-SO) keep using the shell unchanged.
-- Existing `?status=pending|accepted|rejected` URL behaviour and tests are preserved (status drives a client-side filter over the fetched + locally-decided rows).
+### 1. Database (migration)
+- `public.sap_global_settings` (singleton): `id text pk default 'default'`, `connection_mode text`, `deployment_mode text`, `middleware_port int`, `middleware_url text`, `updated_at`, `updated_by`. RLS on. Admin-only read/write via `has_role(auth.uid(),'Admin')`. GRANT to authenticated + service_role.
+- `public.sap_global_secrets`: `id text pk`, `proxy_secret text`. RLS on, no policies (service-role only). GRANT all to service_role only.
+- Seed `('default','direct','lovable_cloud',3002,null)`.
 
-## UX flow
+### 2. Server functions — `src/lib/admin/sap-global.functions.ts`
+- `getSapGlobalSettings` — Admin only; returns the singleton row + `proxy_secret_set: boolean` (secret value never sent to client).
+- `upsertSapGlobalSettings` — Admin only; validates `via_proxy` ⇒ middleware_url required & secret present; writes secret via `supabaseAdmin` only when caller passes a non-empty value (blank keeps existing).
+- Server helper `getGlobalMiddleware()` used by `testSapConnection`, `src/lib/sap/sap-client.server.ts`, and `src/lib/sd/price-approval.functions.ts` so any API with `auth_type='proxy'` resolves URL + secret from the global row instead of per-config fields.
 
-```text
-[ Selection Screen ]
-  Plant *  [____]   USER_ID (auto)   [Execute]  [Reset]
-  Tabs: Pending | Accepted | Rejected      ← URL ?status=
-
-[ Toolbar above table ]
-  N selected     [Accept]  [Reject]        ← disabled when N = 0 or status ≠ pending
-
-[ Table ]
-  [☑] Sel | Key Comb | Cond Type | Customer | Material | Plant
-        | Old Price | New Price | Curr | UOM | Valid From | Valid To
-```
-
-- **Plant is mandatory.** Execute button stays disabled until Plant is non-empty; on click, calls the new server fn.
-- **USER_ID** = `profiles.sap_user_id` for the signed-in user, falling back to the config's request-field default (`NEOBMWCONS`). Shown read-only next to Plant.
-- **Selection**: header checkbox toggles all visible rows; per-row checkbox toggles one. Selected state lives in component state, keyed by a stable row key (KEY_COMBINATION + CONDITION_TYPE + CUSTOMER + MATERIAL + PLANT).
-- **Accept / Reject**: only enabled on the Pending tab when ≥1 row selected. Click → move selected rows from the in-memory `pending` set into `accepted` / `rejected` set, show `toast.success("3 rows accepted")`, clear selection. Decided rows then appear under the Accepted / Rejected tabs (still client-side only).
-- **Status tabs**: filter the same fetched dataset by which local bucket the row is in (`pending` by default for every fetched row). URL `?status=` is preserved and back/forward still works (existing test stays green because `searchSchema` is unchanged).
-
-## Server function
-
-New file `src/lib/sd/price-approval.functions.ts`:
-
-- `fetchPriceApprovals` — `createServerFn({ method: "POST" })` with `requireSupabaseAuth`, input `{ plant: string (min 1) }`.
-- Inside handler (admin client, loaded with `await import("@/integrations/supabase/client.server")`):
-  1. Look up the active `sap_api_configs` row named `Price_Approval_Fetch` (and its `sap_api_credentials`).
-  2. Look up `profiles.sap_user_id` for `context.userId`; fall back to the config's `USER_ID` request-field default.
-  3. Build URL: append `&PLANT=<plant>&USER_ID=<user_id>` to `endpoint_url` (the endpoint already has `?sap-client=300`).
-  4. Honour `auth_type`:
-     - `basic` → `Authorization: Basic base64(user:pass)` from credentials.
-     - `proxy` → POST/GET via `middleware_url` with `x-shared-secret: process.env[proxy_secret_ref]`, mirroring `testSapConnection`'s pattern.
-  5. Merge any `extra_headers` from credentials.
-  6. `fetch()` the endpoint; on non-2xx, throw with status + truncated body.
-  7. Parse JSON, read `DATA` array, map each item to a plain DTO using the configured response-field paths (lowercase keys: `select_flg`, `key_combination`, `condition_type`, `customer`, `price_group`, `plant`, `material`, `new_price`, `currency`, `uom`, `calculation_sc`, `valid_from_sc`, `valid_to_sc`, `old_price`).
-  8. Insert one row into `sap_api_sync_log` (`status: ok|error`, `latency_ms`, `message`) — same pattern as `testSapConnection`.
-  9. Return `{ rows: PriceRow[], fetched_at: ISO, count }`.
-
-No DB schema changes. No mutation server fn yet (Accept/Reject is UI-only this round).
-
-## Route + component
-
-`src/routes/_authenticated/sd/price.tsx` is rewritten to host a dedicated `PricePage`:
-
-- Keeps `validateSearch` with `status` enum (`pending|accepted|rejected`, fallback `pending`) — unchanged shape so existing test passes.
-- Local state: `plant` (string), `userIdHint` (loaded via small companion server fn `getMySapUserId` or read from a profile query), `rows` (PriceRow[]), `decided` (`Map<rowKey, "accepted"|"rejected">`), `selected` (`Set<rowKey>`), `isFetching`, `lastFetchedAt`.
-- Uses `useMutation` (TanStack Query) to call `fetchPriceApprovals`; on success, replace `rows`, clear `selected`, leave `decided` intact.
-- Renders:
-  - Header (title, T-code badge, single-level badge).
-  - Selection card: Plant input (required), USER_ID readonly, Execute (disabled if !plant || isFetching), Reset.
-  - Status tabs bound to `?status=` via `navigate({ search: prev => ({...prev, status})})` (same pattern as today).
-  - Toolbar: "N selected" + Accept (variant default) + Reject (variant destructive), both disabled unless `status==='pending' && selected.size>0`.
-  - Table with header checkbox + per-row checkbox, filtered by current bucket.
-  - Empty state: "Enter a Plant and click Execute to load price approvals from SAP."
-
-## Files touched
-
-- **New** `src/lib/sd/price-approval.functions.ts` — `fetchPriceApprovals`, `getMySapUserId` server fns, shared `PriceRow` type.
-- **Rewrite** `src/routes/_authenticated/sd/price.tsx` — dedicated component (no longer uses `SdApprovalShell`), preserves `searchSchema`.
-- **Unchanged**: `src/components/sd/sd-approval-shell.tsx`, the other SD route files, the existing `sd-status-search.test.tsx`.
+### 3. UI
+- Convert `src/routes/_authenticated/admin.sap-api.index.tsx` to a `<Tabs>` layout with two tabs:
+  - **APIs** — existing list/table.
+  - **Middleware Configuration** — new card with the 5 fields above, Connection-Mode-aware required validation, Save button + toast, plus a "Test middleware" action that pings the configured URL and shows latency.
+- Per-API edit screen (`admin.sap-api.$id.tsx`) keeps `auth_type='proxy'` as the opt-in switch; the Connectivity tab is updated to point at this new tab. Existing per-config `middleware_url` / `proxy_secret_ref` inputs are hidden (columns kept for back-compat but no longer edited).
 
 ## Out of scope
+- Migrating existing per-config middleware values into the global row.
+- Multiple middleware profiles or per-environment splits.
+- Encryption-at-rest for the secret (mirrors existing `sap_api_credentials` pattern; follow-up).
 
-- Posting decisions back to SAP (waiting on a second API config).
-- Persisting decisions to `approval_documents` / audit log.
-- Pagination / server-side filtering beyond Plant (the API only takes PLANT + USER_ID).
-- XML/CSV payloads (response is JSON).
+## Technical notes
+- Secret lives in a service-role-only table (`sap_global_secrets`) so it never reaches the browser; UI shows a "set" badge and a blank input.
+- `getGlobalMiddleware()` is the single source of truth for both Test Connection and runtime SAP calls.
