@@ -18,6 +18,8 @@ import {
   getSapConfig, upsertSapConfig, replaceRequestFields, replaceResponseFields,
   upsertCredentials, testSapConnection,
 } from "@/lib/admin/sap-api.functions";
+import { PayloadImportDialog } from "@/components/admin/payload-import-dialog";
+import { mergeRows } from "@/lib/admin/payload-detect";
 
 export const Route = createFileRoute("/_authenticated/admin/sap-api/$id")({
   component: SapApiEditPage,
@@ -187,6 +189,10 @@ function SapApiEditPage() {
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Configure how request payload fields are built.</p>
               <div className="flex gap-2">
+                <PayloadImportDialog
+                  mode="request"
+                  onApply={(rows, merge) => setReqRows(mergeRows(reqRows, rows, merge))}
+                />
                 <Button size="sm" variant="outline" onClick={() => setReqRows([...reqRows, { field_name: "", source: "static", default_value: "", required: false, sort_order: reqRows.length }])}>
                   <Plus className="h-4 w-4 mr-1" /> Add row
                 </Button>
@@ -225,6 +231,10 @@ function SapApiEditPage() {
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Map response fields to local table columns for sync.</p>
               <div className="flex gap-2">
+                <PayloadImportDialog
+                  mode="response"
+                  onApply={(rows, merge) => setResRows(mergeRows(resRows, rows, merge))}
+                />
                 <Button size="sm" variant="outline" onClick={() => setResRows([...resRows, { field_name: "", target_table: "", target_column: "", transform_expr: "", sort_order: resRows.length }])}>
                   <Plus className="h-4 w-4 mr-1" /> Add row
                 </Button>
