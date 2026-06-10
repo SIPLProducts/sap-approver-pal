@@ -140,51 +140,79 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
 
     const t0 = Date.now();
     let rows: PriceRow[] = [];
-    let ok = false;
     let message = "";
+    let res: Response;
     try {
-      const res = await fetch(target, { method: cfg.http_method ?? "GET", headers });
-      const text = await res.text();
-      message = `${res.status} ${res.statusText}`;
-      if (!res.ok) {
-        await supabaseAdmin.from("sap_api_sync_log").insert({
-          config_id: cfg.id,
-          status: "error",
-          latency_ms: Date.now() - t0,
-          message: `price-fetch: ${message} ${text.slice(0, 500)}`,
-        });
-        throw new Error(`SAP returned ${message}: ${text.slice(0, 300)}`);
-      }
-      let json: any = {};
-      try {
-        json = text ? JSON.parse(text) : {};
-      } catch {
-        throw new Error(`Invalid JSON from SAP: ${text.slice(0, 200)}`);
-      }
-      const arr: any[] = Array.isArray(json?.DATA)
-        ? json.DATA
-        : Array.isArray(json?.data)
-          ? json.data
-          : Array.isArray(json)
-            ? json
-            : [];
-      rows = arr.map(mapRow);
-      ok = true;
+      res = await fetch(target, { method: cfg.http_method ?? "GET", headers });
     } catch (e) {
-      if (!message) message = (e as Error).message;
-      throw e;
-    } finally {
+      const errMsg = (e as Error).message || "fetch failed";
       const latency_ms = Date.now() - t0;
-      if (ok) {
-        await supabaseAdmin.from("sap_api_sync_log").insert({
-          config_id: cfg.id,
-          status: "ok",
-          latency_ms,
-          rows_processed: rows.length,
-          message: `price-fetch: ${message}`,
-        });
-      }
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `price-fetch network: ${errMsg}`,
+      });
+      // Friendly error — the SAP host is unreachable from this environment
+      // (typical when the endpoint is on a private/VPN network).
+      return {
+        rows: [] as PriceRow[],
+        fetched_at: new Date().toISOString(),
+        count: 0,
+        user_id: userId,
+        error: `Could not reach SAP at ${cfg.endpoint_url.split("?")[0]}. ${errMsg}. The endpoint may be on a private network not accessible from this server.`,
+      };
     }
 
-    return { rows, fetched_at: new Date().toISOString(), count: rows.length, user_id: userId };
+    const text = await res.text().catch(() => "");
+    message = `${res.status} ${res.statusText}`;
+    const latency_ms = Date.now() - t0;
+
+    if (!res.ok) {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `price-fetch: ${message} ${text.slice(0, 500)}`,
+      });
+      return {
+        rows: [] as PriceRow[],
+        fetched_at: new Date().toISOString(),
+        count: 0,
+        user_id: userId,
+        error: `SAP returned ${message}: ${text.slice(0, 200)}`,
+      };
+    }
+
+    let json: any = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      return {
+        rows: [] as PriceRow[],
+        fetched_at: new Date().toISOString(),
+        count: 0,
+        user_id: userId,
+        error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
+      };
+    }
+    const arr: any[] = Array.isArray(json?.DATA)
+      ? json.DATA
+      : Array.isArray(json?.data)
+        ? json.data
+        : Array.isArray(json)
+          ? json
+          : [];
+    rows = arr.map(mapRow);
+
+    await supabaseAdmin.from("sap_api_sync_log").insert({
+      config_id: cfg.id,
+      status: "ok",
+      latency_ms,
+      rows_processed: rows.length,
+      message: `price-fetch: ${message}`,
+    });
+
+    return { rows, fetched_at: new Date().toISOString(), count: rows.length, user_id: userId, error: null as string | null };
   });
+
