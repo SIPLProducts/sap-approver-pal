@@ -96,7 +96,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     if (!cfg) throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
     if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
 
-    const [{ data: creds }, { data: prof }, { data: userIdField }] = await Promise.all([
+    const [{ data: creds }, { data: prof }, { data: userIdField }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
       supabaseAdmin.from("profiles").select("sap_user_id").eq("id", context.userId).maybeSingle(),
       supabaseAdmin
@@ -105,6 +105,8 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
         .eq("config_id", cfg.id)
         .eq("field_name", "USER_ID")
         .maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
     const userId =
@@ -116,22 +118,34 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     const join = cfg.endpoint_url.includes("?") ? "&" : "?";
     const qs = `${join}PLANT=${encodeURIComponent(data.plant)}&USER_ID=${encodeURIComponent(userId)}`;
 
+    // Decide whether to proxy. Either:
+    //   - per-config auth_type === 'proxy' (legacy), OR
+    //   - global connection_mode === 'via_proxy' AND a middleware URL is set.
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" &&
+      !!(globalSettings?.middleware_url || cfg.middleware_url);
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl =
+      (cfg.middleware_url && cfg.middleware_url.trim()) ||
+      (globalSettings?.middleware_url ?? null);
+
     let target: string;
     let method: string = cfg.http_method ?? "GET";
     let bodyOut: string | undefined;
     const headers: Record<string, string> = { Accept: "application/json" };
     let proxied = false;
 
-    if (cfg.auth_type === "proxy") {
-      if (!cfg.middleware_url) throw new Error("Proxy mode requires middleware_url.");
-      // Route through the local middleware's /sap/invoke endpoint. Middleware
-      // loads creds from the app, calls SAP from the LAN, and returns
+    if (useProxy) {
+      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      // Route through the middleware's /sap/invoke endpoint. Middleware loads
+      // creds from the app and calls SAP from the LAN, returning
       // { ok, status, latency_ms, data }.
-      target = `${cfg.middleware_url.replace(/\/$/, "")}/sap/invoke`;
+      target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
         (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
       bodyOut = JSON.stringify({
@@ -146,6 +160,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
           "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
       }
     }
+
 
     for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
       headers[k] = v;
