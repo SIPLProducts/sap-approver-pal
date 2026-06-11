@@ -1,57 +1,61 @@
+## Problem
 
-## Goal
+The value you pasted as `SUPABASE_SERVICE_ROLE_KEY` is actually the **anon/publishable** key (its JWT payload says `"role":"anon"`). On Lovable Cloud, the real service-role key is not exposed to users — so the middleware can't keep that key on your laptop.
 
-Bring `middleware/server.js` in line with the env-variable style from your other project (the snippet you pasted), while keeping per-endpoint SAP details (URL, username, password, headers) sourced dynamically from the **SAP API Settings** screens in Lovable (screenshots 1 & 2). No frontend changes.
+If we just leave the anon key there, the middleware will start, but every query to `sap_api_configs` / `sap_api_credentials` / `sap_api_sync_log` will return 0 rows because those tables have RLS enabled with only `authenticated + Admin` policies. And we can't fix it by granting `anon` access to `sap_api_credentials` — it holds SAP passwords; the anon key is public (it's in your frontend bundle), so anyone could read those passwords.
 
-## What changes in `middleware/server.js`
+## Solution: move the DB calls into the app (server route), keep the middleware DB-free
 
-1. **Env variable naming + defaults** — match your snippet:
-   - `PORT` → default `3002` (keep, matches Middleware Port field).
-   - `SHARED_SECRET` → renamed to **`MIDDLEWARE_SHARED_SECRET`** (still matches "Proxy Secret / Password" in Middleware Configuration tab). Default `123456` for dev.
-   - Add timeout knobs, all read once at boot:
-     - `SAP_REQUEST_TIMEOUT_MS` (default `30000`)
-     - `SAP_CONNECT_TIMEOUT_MS` (default `60000`)
-     - `SAP_HEADERS_TIMEOUT_MS` (default `60000`)
-     - `SAP_BODY_TIMEOUT_MS` (default `60000`)
-   - Add **optional** fallback envs, only used when a config row is missing fields:
-     - `SAP_BP_API_URL`, `SAP_DMS_API_URL`, `SAP_BP_USERNAME`, `SAP_BP_PASSWORD`.
-   - Keep `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (required — these load the dynamic configs).
+Instead of the middleware talking to the database directly, it will call a small **public server route in your Lovable app** that uses the admin client internally. The middleware only needs the shared secret. Your laptop holds no Supabase keys at all.
 
-2. **Per-call SAP details still come from the DB** (Screenshot 1 — Credentials tab, Details tab):
-   - `endpoint_url`, `http_method`, `auth_type` from `sap_api_configs`.
-   - `username`, `password_encrypted`, `extra_headers` from `sap_api_credentials`.
-   - Request/response field mappings from `sap_api_request_fields` / `sap_api_response_fields`.
-   - Env-level `SAP_BP_*` only kicks in as a last-resort fallback when the row has no URL/creds (useful for local smoke tests).
+```text
+SAP UI ──► middleware (your laptop, port 3005) ──► server route in app ──► Supabase (admin) ──► returns config
+                       │
+                       └───────────────────────────────► SAP (basic/oauth)
+```
 
-3. **Apply timeouts to outbound SAP `fetch` calls** using `AbortSignal.timeout(SAP_REQUEST_TIMEOUT_MS)` on both `/sap/test` (HEAD probe) and `/sap/invoke`. Surface a clean `{ ok:false, status:0, message:"timeout after Xms" }` instead of a hung request.
+The middleware still owns: outbound SAP HTTP call, timeouts, basic/oauth header building, field mapping, response shaping. The app owns: reading `sap_api_configs` / `sap_api_credentials` / `sap_api_request_fields` / `sap_api_response_fields` and writing `sap_api_sync_log`.
 
-4. **Apply server-level timeouts** to the Express HTTP server:
-   - `server.headersTimeout = HEADERS_TIMEOUT_MS`
-   - `server.requestTimeout = BODY_TIMEOUT_MS`
-   - `server.keepAliveTimeout = CONNECT_TIMEOUT_MS`
+## Changes
 
-5. **Update `middleware/.env.example`** to list the new vars with comments explaining which UI field each one maps to.
+### 1. New server routes in the app (admin-only, gated by middleware shared secret)
 
-6. **Update `middleware/README.md`** env table to match.
+Add `src/routes/api/public/middleware/config.ts` and `src/routes/api/public/middleware/log.ts`:
 
-## What does NOT change
+- `POST /api/public/middleware/config` → body `{ configId }`, header `x-shared-secret`. Uses `supabaseAdmin` to load the config + credentials + request/response fields and returns a single resolved JSON object (same shape `loadConfig` builds today). Returns 401 if the shared secret doesn't match `MIDDLEWARE_SHARED_SECRET` env on the app side.
+- `POST /api/public/middleware/log` → body `{ configId, status, latency_ms, message }`. Inserts one row into `sap_api_sync_log`. Same shared-secret gate.
 
-- Database schema, SAP API Settings UI, Middleware Configuration UI.
-- Frontend `testSapConnection` server function and the `/sap/test` + `/sap/invoke` HTTP contract.
-- Route structure (`/__health`, `/sap/test`, `/sap/invoke`).
-- Single-file `server.js` layout, Dockerfile, Windows service installer.
+Both routes are under `/api/public/*` so they bypass auth gates, but they require the shared secret header. We verify with `timingSafeEqual`.
 
-## Files touched
+### 2. Add `MIDDLEWARE_SHARED_SECRET` as a Lovable Cloud secret
 
-- `middleware/server.js` — env renames, timeout consts, fetch timeouts, server timeouts, optional fallback when DB row lacks URL/creds.
-- `middleware/.env.example` — new var names + comments.
-- `middleware/README.md` — env table refreshed.
+So the app-side routes can validate the header. (The middleware on your laptop already has the same value in its `.env`.)
 
-## Open question
+### 3. Rewrite `middleware/server.js` to stop using Supabase directly
 
-Your snippet has `SAP_BP_API_URL` / `SAP_DMS_API_URL` as **hardcoded defaults**. In this app, every SAP endpoint is already configured per-row in **SAP API Settings → Details tab** (e.g. `Price_Approval_Fetch` in screenshot 1 has its own URL + username `SARVIINFO`). Confirm one of:
+- Remove `@supabase/supabase-js`, remove `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` requirement.
+- Add `APP_BASE_URL` env (e.g. `https://id-preview--06a5c0be-58b7-41a6-ac2d-e7706e765b64.lovable.app` for now; later the published URL).
+- `loadConfig(configId)` → `POST {APP_BASE_URL}/api/public/middleware/config` with `x-shared-secret`.
+- `writeLog(...)` → `POST {APP_BASE_URL}/api/public/middleware/log` with `x-shared-secret`.
+- Keep `probeSap`, `invokeSap`, basic/oauth header build, timeouts, in-memory 30s config cache, oauth token cache exactly as they are.
 
-- **(A) Recommended:** keep env URLs as *fallback only* — DB row always wins. Matches the existing dynamic-config design.
-- **(B)** Make env URLs *override* whatever is in the DB row (useful if you want to point all calls at a staging SAP from the middleware host without editing the UI).
+### 4. Update `middleware/.env.example` + `middleware/README.md`
 
-Reply **A** or **B** and I'll build it.
+Remove `SUPABASE_*`. Add `APP_BASE_URL`. Keep `PORT`, `MIDDLEWARE_SHARED_SECRET`, timeout knobs, and the optional `SAP_BP_*` / `SAP_DMS_*` fallbacks.
+
+### 5. (Optional) mock mode for offline smoke testing
+
+Add `MIDDLEWARE_MOCK=1` — when set, `loadConfig` skips the app call entirely and builds a config from `SAP_BP_API_URL` + `SAP_BP_USERNAME` + `SAP_BP_PASSWORD` so you can verify SAP connectivity from your laptop without the app being reachable.
+
+## Why this is the right shape on Lovable Cloud
+
+- The service-role key never leaves Lovable Cloud (it can't — you don't have it).
+- `sap_api_credentials` stays RLS-locked; SAP passwords are never readable by the anon key.
+- The middleware stays a thin SAP proxy you can ship as a Windows service or container later, without bundling any database driver.
+- Same model works in production: just change `APP_BASE_URL` to your published `project--<id>.lovable.app` URL.
+
+## What I need from you before building
+
+1. Confirm we go with this architecture (middleware → app route → DB), instead of granting `anon` direct read access to the SAP tables (which would leak credentials).
+2. Confirm you want me to add `MIDDLEWARE_SHARED_SECRET` as a Lovable Cloud secret in the same step. Value will be `123456` to match your local `.env` — you can change it later via the secrets UI.
+3. For `APP_BASE_URL` during local dev, OK to default to the current preview URL `https://id-preview--06a5c0be-58b7-41a6-ac2d-e7706e765b64.lovable.app`?
