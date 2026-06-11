@@ -45,7 +45,7 @@ Response envelope:
 
 ```bash
 cp .env.example .env
-# Fill SHARED_SECRET to match the Proxy Secret in the UI.
+# Fill MIDDLEWARE_SHARED_SECRET to match the Proxy Secret in the UI.
 # Fill SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from Lovable Cloud project settings.
 
 npm install
@@ -53,6 +53,27 @@ npm start            # listens on PORT (default 3002)
 # or for auto-reload during development:
 npm run dev
 ```
+
+## Environment variables
+
+| Variable                    | Default  | Purpose                                                                 |
+| --------------------------- | -------- | ----------------------------------------------------------------------- |
+| `PORT`                      | `3002`   | Port the middleware listens on. Match the UI "Middleware Port" field.   |
+| `MIDDLEWARE_SHARED_SECRET`  | `123456` | Must equal "Proxy Secret / Password" in the UI. (`SHARED_SECRET` also accepted.) |
+| `SUPABASE_URL`              | —        | Lovable Cloud URL. Required.                                            |
+| `SUPABASE_SERVICE_ROLE_KEY` | —        | Lovable Cloud service-role key. Required.                               |
+| `SAP_REQUEST_TIMEOUT_MS`    | `30000`  | Timeout for outbound SAP HTTP calls (probe + invoke).                   |
+| `SAP_CONNECT_TIMEOUT_MS`    | `60000`  | HTTP keep-alive timeout for incoming clients.                           |
+| `SAP_HEADERS_TIMEOUT_MS`    | `60000`  | Max time to receive incoming request headers.                           |
+| `SAP_BODY_TIMEOUT_MS`       | `60000`  | Max time to receive incoming request body.                              |
+| `SAP_BP_API_URL`            | —        | Optional fallback endpoint for `COMMON`/`SD` rows missing a URL.        |
+| `SAP_DMS_API_URL`           | —        | Optional fallback endpoint for `MM` rows missing a URL.                 |
+| `SAP_BP_USERNAME`           | —        | Optional fallback username when a row has no credentials.               |
+| `SAP_BP_PASSWORD`           | —        | Optional fallback password when a row has no credentials.               |
+
+Per-row values from **SAP API Settings → APIs → Details / Credentials** always
+win; the `SAP_BP_*` / `SAP_DMS_*` envs are only used when a row is missing
+that field.
 
 ## Docker
 
@@ -83,7 +104,7 @@ and can be managed via `services.msc`, `net start SAPMiddleware`, etc.
    - Connection Mode = `Via Proxy`
    - Middleware Port = `3002`
    - Node.js Middleware URL = `http://<host-running-this-service>:3002`
-   - Proxy Secret / Password = same value as `SHARED_SECRET` in `.env`
+   - Proxy Secret / Password = same value as `MIDDLEWARE_SHARED_SECRET` in `.env`
 3. Save, then click **Test middleware**. It hits `GET /__health`.
 4. Open any API row in the APIs tab and click **Test connection** — it now
    hits `POST /sap/test` so it actually exercises the SAP endpoint with the
