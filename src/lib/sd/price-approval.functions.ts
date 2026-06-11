@@ -171,6 +171,24 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     try {
       res = await fetch(target, { method, headers, body: bodyOut });
 
+      // Fallback: older middleware doesn't have /price_approval/Fetch yet.
+      // Express returns 404 "Cannot POST /price_approval/Fetch". Retry the
+      // generic /sap/invoke route so the user doesn't need to redeploy first.
+      if (proxied && res.status === 404) {
+        const peek = await res.clone().text().catch(() => "");
+        if (/Cannot\s+POST/i.test(peek)) {
+          const fallback = `${middlewareUrl!.replace(/\/$/, "")}/sap/invoke`;
+          res = await fetch(fallback, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              configId: cfg.id,
+              inputs: { PLANT: data.plant, USER_ID: userId },
+            }),
+          });
+          target = fallback;
+        }
+      }
     } catch (e) {
       const errMsg = (e as Error).message || "fetch failed";
       const latency_ms = Date.now() - t0;
@@ -196,6 +214,9 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     const latency_ms = Date.now() - t0;
 
     if (!res.ok) {
+      if (proxied && res.status === 404 && /Cannot\s+POST/i.test(text)) {
+        message = `Middleware is outdated — copy the latest middleware/server.js and restart it (${res.status})`;
+      }
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "error",
