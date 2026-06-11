@@ -296,6 +296,7 @@ function PricePage() {
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">UOM</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Valid From</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Valid To</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Old Price</th>
               </tr>
             </thead>
             <tbody>
