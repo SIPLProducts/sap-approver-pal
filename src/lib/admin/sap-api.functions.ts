@@ -188,30 +188,39 @@ export const testSapConnection = createServerFn({ method: "POST" })
     const { data: creds } = await supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", data.id).maybeSingle();
 
     let target = cfg.endpoint_url;
+    let method: "GET" | "HEAD" | "POST" = "HEAD";
+    let body: string | undefined;
     const headers: Record<string, string> = { Accept: "application/json" };
 
     if (cfg.auth_type === "proxy") {
       const { data: g } = await supabaseAdmin.from("sap_global_settings").select("middleware_url").eq("id", "default").maybeSingle();
       const { data: gs } = await supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle();
       if (!g?.middleware_url) throw new Error("Global Node.js Middleware URL is not configured. Set it in SAP API Settings → Middleware Configuration.");
-      target = `${g.middleware_url.replace(/\/$/, "")}/__health`;
+      // Hit the middleware's /sap/test so it actually probes the configured SAP endpoint
+      // (with credentials + headers) instead of only checking middleware liveness.
+      target = `${g.middleware_url.replace(/\/$/, "")}/sap/test`;
+      method = "POST";
+      headers["Content-Type"] = "application/json";
       if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
+      body = JSON.stringify({ configId: data.id });
+    } else {
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization = "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+      for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) headers[k] = v;
     }
-    if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
-      headers.Authorization = "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
-    }
-    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) headers[k] = v;
 
     const t0 = Date.now();
     let ok = false, status = 0, message = "";
     try {
-      const res = await fetch(target, { method: "HEAD", headers });
+      const res = await fetch(target, { method, headers, body });
       status = res.status;
       ok = res.ok;
       message = `${res.status} ${res.statusText}`;
     } catch (e) {
       message = (e as Error).message;
     }
+
     const latency_ms = Date.now() - t0;
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: data.id, status: ok ? "ok" : "error", latency_ms, message: `test: ${message}`,

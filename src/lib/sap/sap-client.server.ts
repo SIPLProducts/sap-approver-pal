@@ -122,3 +122,40 @@ export async function postDecision(input: {
   }
   return res.json().catch(() => ({}));
 }
+
+/**
+ * Invoke a configured SAP API via the global Node.js middleware.
+ * Reads middleware URL + shared secret from sap_global_settings / sap_global_secrets
+ * and POSTs to {middleware_url}/sap/invoke.
+ */
+export async function invokeViaMiddleware(
+  configId: string,
+  inputs: Record<string, unknown> = {},
+): Promise<{ ok: boolean; status: number; latency_ms: number; data: unknown; error?: string }> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const [{ data: g }, { data: gs }] = await Promise.all([
+    supabaseAdmin.from("sap_global_settings").select("middleware_url").eq("id", "default").maybeSingle(),
+    supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+  ]);
+  if (!g?.middleware_url) {
+    throw new Error("Node.js Middleware URL is not configured. Set it in SAP API Settings → Middleware Configuration.");
+  }
+  const url = `${g.middleware_url.replace(/\/$/, "")}/sap/invoke`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
+  const t0 = Date.now();
+  try {
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify({ configId, inputs }) });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return {
+      ok: !!body.ok,
+      status: typeof body.status === "number" ? body.status : res.status,
+      latency_ms: typeof body.latency_ms === "number" ? body.latency_ms : Date.now() - t0,
+      data: body.data ?? null,
+      error: typeof body.error === "string" ? body.error : undefined,
+    };
+  } catch (e) {
+    return { ok: false, status: 0, latency_ms: Date.now() - t0, data: null, error: (e as Error).message };
+  }
+}
+
