@@ -1,0 +1,126 @@
+/**
+ * Public endpoint called by the standalone SAP middleware (Node.js/Express
+ * service running on a customer's machine) to load a SAP API configuration.
+ *
+ * Protected by a shared secret header (x-shared-secret) that must match the
+ * MIDDLEWARE_SHARED_SECRET env on the app side AND the middleware's .env.
+ *
+ * The middleware NEVER talks to Supabase directly — it goes through this
+ * route, which uses the service-role admin client server-side. This keeps
+ * SAP credentials behind RLS (anon key cannot read sap_api_credentials).
+ */
+import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
+import { timingSafeEqual } from "node:crypto";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, x-shared-secret",
+};
+
+function checkSecret(req: Request): boolean {
+  const expected = process.env.MIDDLEWARE_SHARED_SECRET;
+  const got = req.headers.get("x-shared-secret");
+  if (!expected || !got) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(got);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+const Body = z.object({ configId: z.string().uuid() });
+
+export const Route = createFileRoute("/api/public/middleware/config")({
+  server: {
+    handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
+      POST: async ({ request }) => {
+        if (!checkSecret(request)) {
+          return Response.json(
+            { ok: false, error: "Invalid or missing x-shared-secret" },
+            { status: 401, headers: CORS },
+          );
+        }
+
+        let parsed;
+        try {
+          parsed = Body.parse(await request.json());
+        } catch (e: any) {
+          return Response.json(
+            { ok: false, error: e?.message ?? "Invalid body" },
+            { status: 400, headers: CORS },
+          );
+        }
+
+        const { supabaseAdmin } = await import(
+          "@/integrations/supabase/client.server"
+        );
+
+        const { data: cfg, error } = await supabaseAdmin
+          .from("sap_api_configs")
+          .select("*")
+          .eq("id", parsed.configId)
+          .maybeSingle();
+
+        if (error) {
+          return Response.json(
+            { ok: false, error: `Load config failed: ${error.message}` },
+            { status: 500, headers: CORS },
+          );
+        }
+        if (!cfg) {
+          return Response.json(
+            { ok: false, error: `Config not found: ${parsed.configId}` },
+            { status: 404, headers: CORS },
+          );
+        }
+        if (!cfg.is_active) {
+          return Response.json(
+            { ok: false, error: `Config is inactive: ${parsed.configId}` },
+            { status: 409, headers: CORS },
+          );
+        }
+
+        const [credsRes, reqFieldsRes, resFieldsRes] = await Promise.all([
+          supabaseAdmin
+            .from("sap_api_credentials")
+            .select("*")
+            .eq("config_id", parsed.configId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("sap_api_request_fields")
+            .select("*")
+            .eq("config_id", parsed.configId)
+            .order("sort_order"),
+          supabaseAdmin
+            .from("sap_api_response_fields")
+            .select("*")
+            .eq("config_id", parsed.configId)
+            .order("sort_order"),
+        ]);
+
+        const creds = credsRes.data;
+        const resolved = {
+          id: cfg.id,
+          name: cfg.name,
+          module: cfg.module,
+          endpoint_url: cfg.endpoint_url ?? null,
+          http_method: cfg.http_method,
+          auth_type: cfg.auth_type,
+          is_active: cfg.is_active,
+          updated_at: cfg.updated_at,
+          credentials: {
+            username: creds?.username ?? null,
+            password: creds?.password_encrypted ?? null,
+            extra_headers: creds?.extra_headers ?? {},
+          },
+          requestFields: reqFieldsRes.data ?? [],
+          responseFields: resFieldsRes.data ?? [],
+        };
+
+        return Response.json({ ok: true, config: resolved }, { headers: CORS });
+      },
+    },
+  },
+});

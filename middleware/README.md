@@ -1,17 +1,14 @@
 # SAP Middleware
 
-Standalone Node.js (Express) service that sits between the React/TanStack
-frontend and SAP. It reads its configuration from Lovable Cloud:
-
-- **Middleware Configuration** (URL, port, shared secret) — set in the
-  SAP API Settings → Middleware Configuration tab.
-- **API Configuration** rows (endpoint URL, method, auth, request/response
-  field maps) — set in the SAP API Settings → APIs tab.
-
-The frontend never calls SAP directly. The flow is:
+Standalone Node.js (Express) service that sits between SAP and the Lovable
+app. It holds **no database credentials** — it talks to two public endpoints
+in the Lovable app (gated by a shared secret) to load SAP configs and write
+the sync log, then forwards calls to SAP.
 
 ```
-React → TanStack server fn → (this middleware) → SAP
+SAP UI ──► middleware (this service) ──► Lovable app ──► database
+                  │
+                  └────────────────────► SAP (basic / oauth / none)
 ```
 
 ## Folder layout
@@ -45,11 +42,11 @@ Response envelope:
 
 ```bash
 cp .env.example .env
-# Fill MIDDLEWARE_SHARED_SECRET to match the Proxy Secret in the UI.
-# Fill SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from Lovable Cloud project settings.
+# Fill MIDDLEWARE_SHARED_SECRET to match the same secret in the Lovable app.
+# Fill APP_BASE_URL to point at your Lovable preview or published URL.
 
 npm install
-npm start            # listens on PORT (default 3002)
+npm start            # listens on PORT (default 3005)
 # or for auto-reload during development:
 npm run dev
 ```
@@ -58,28 +55,37 @@ npm run dev
 
 | Variable                    | Default  | Purpose                                                                 |
 | --------------------------- | -------- | ----------------------------------------------------------------------- |
-| `PORT`                      | `3002`   | Port the middleware listens on. Match the UI "Middleware Port" field.   |
-| `MIDDLEWARE_SHARED_SECRET`  | `123456` | Must equal "Proxy Secret / Password" in the UI. (`SHARED_SECRET` also accepted.) |
-| `SUPABASE_URL`              | —        | Lovable Cloud URL. Required.                                            |
-| `SUPABASE_SERVICE_ROLE_KEY` | —        | Lovable Cloud service-role key. Required.                               |
-| `SAP_REQUEST_TIMEOUT_MS`    | `30000`  | Timeout for outbound SAP HTTP calls (probe + invoke).                   |
+| `PORT`                      | `3005`   | Port the middleware listens on. Match the UI "Middleware Port" field.   |
+| `MIDDLEWARE_SHARED_SECRET`  | —        | Must equal the `MIDDLEWARE_SHARED_SECRET` secret in Lovable Cloud and the "Proxy Secret / Password" in the UI. Required. |
+| `APP_BASE_URL`              | —        | Base URL of the Lovable app (preview or published). Required unless `MIDDLEWARE_MOCK=1`. |
+| `MIDDLEWARE_MOCK`           | `0`      | Set to `1` to skip the app call and use only the `SAP_BP_*` envs below (offline smoke test). |
+| `SAP_REQUEST_TIMEOUT_MS`    | `30000`  | Timeout for outbound SAP HTTP calls (probe + invoke) and app calls.     |
 | `SAP_CONNECT_TIMEOUT_MS`    | `60000`  | HTTP keep-alive timeout for incoming clients.                           |
 | `SAP_HEADERS_TIMEOUT_MS`    | `60000`  | Max time to receive incoming request headers.                           |
 | `SAP_BODY_TIMEOUT_MS`       | `60000`  | Max time to receive incoming request body.                              |
-| `SAP_BP_API_URL`            | —        | Optional fallback endpoint for `COMMON`/`SD` rows missing a URL.        |
-| `SAP_DMS_API_URL`           | —        | Optional fallback endpoint for `MM` rows missing a URL.                 |
-| `SAP_BP_USERNAME`           | —        | Optional fallback username when a row has no credentials.               |
-| `SAP_BP_PASSWORD`           | —        | Optional fallback password when a row has no credentials.               |
+| `SAP_BP_API_URL`            | —        | Fallback endpoint for `COMMON`/`SD` rows missing a URL (and for mock).  |
+| `SAP_DMS_API_URL`           | —        | Fallback endpoint for `MM` rows missing a URL.                          |
+| `SAP_BP_USERNAME`           | —        | Fallback username when a row has no credentials.                        |
+| `SAP_BP_PASSWORD`           | —        | Fallback password when a row has no credentials.                        |
 
 Per-row values from **SAP API Settings → APIs → Details / Credentials** always
 win; the `SAP_BP_*` / `SAP_DMS_*` envs are only used when a row is missing
-that field.
+that field, or when `MIDDLEWARE_MOCK=1`.
+
+## Why no Supabase keys here?
+
+The middleware deliberately does NOT use the Supabase service-role key. That
+key is not exposed to users on Lovable Cloud. Instead, the Lovable app
+exposes two public endpoints — `POST /api/public/middleware/config` and
+`POST /api/public/middleware/log` — protected by the same
+`MIDDLEWARE_SHARED_SECRET`. The app uses its server-side admin client to
+read the SAP tables, so SAP credentials stay behind RLS.
 
 ## Docker
 
 ```bash
 docker build -t sap-middleware .
-docker run -p 3002:3002 --env-file .env sap-middleware
+docker run -p 3005:3005 --env-file .env sap-middleware
 ```
 
 ## Windows Service (production on-prem)
@@ -102,20 +108,27 @@ and can be managed via `services.msc`, `net start SAPMiddleware`, etc.
 1. Open **SAP API Settings → Middleware Configuration**.
 2. Set:
    - Connection Mode = `Via Proxy`
-   - Middleware Port = `3002`
-   - Node.js Middleware URL = `http://<host-running-this-service>:3002`
+   - Middleware Port = `3005`
+   - Node.js Middleware URL = `http://<host-running-this-service>:3005`
    - Proxy Secret / Password = same value as `MIDDLEWARE_SHARED_SECRET` in `.env`
 3. Save, then click **Test middleware**. It hits `GET /__health`.
 4. Open any API row in the APIs tab and click **Test connection** — it now
-   hits `POST /sap/test` so it actually exercises the SAP endpoint with the
-   configured auth + headers.
+   hits `POST /sap/test`, which loads the config from the Lovable app, then
+   exercises the SAP endpoint with the configured auth + headers.
 
-## Notes
+## Quick offline test
 
-- The middleware uses the Supabase **service role** key to load API configs
-  and credentials directly from Lovable Cloud. SAP credentials never travel
-  between TanStack and this service — only `{ configId, inputs }` does.
-- Configs are cached in memory for 30 seconds and invalidate automatically
-  when their `updated_at` changes.
-- Supported auth modes: `basic`, `oauth` (client-credentials, token cached
-  until expiry), `none`. `proxy` is not applicable here — this *is* the proxy.
+Without filling `APP_BASE_URL`, you can verify SAP connectivity from the
+middleware host:
+
+```bash
+MIDDLEWARE_MOCK=1 \
+SAP_BP_API_URL='http://10.200.1.2:8000/vendor/bp/create?sap-client=300' \
+SAP_BP_USERNAME='YOUR_USER' \
+SAP_BP_PASSWORD='YOUR_PASS' \
+node server.js
+
+curl -X POST http://localhost:3005/sap/test \
+  -H 'x-shared-secret: 123456' -H 'content-type: application/json' \
+  -d '{"configId":"00000000-0000-0000-0000-000000000000"}'
+```

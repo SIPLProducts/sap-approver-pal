@@ -26,6 +26,8 @@ import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
 import { Route as AuthenticatedAdminIntegrationsRouteImport } from './routes/_authenticated/admin.integrations'
 import { Route as AuthenticatedAdminSapApiIndexRouteImport } from './routes/_authenticated/admin.sap-api.index'
+import { Route as ApiPublicMiddlewareLogRouteImport } from './routes/api/public/middleware/log'
+import { Route as ApiPublicMiddlewareConfigRouteImport } from './routes/api/public/middleware/config'
 import { Route as ApiPublicHooksSapSyncRouteImport } from './routes/api/public/hooks/sap-sync'
 import { Route as AuthenticatedAdminSapApiIdRouteImport } from './routes/_authenticated/admin.sap-api.$id'
 
@@ -119,6 +121,17 @@ const AuthenticatedAdminSapApiIndexRoute =
     path: '/admin/sap-api/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicMiddlewareLogRoute = ApiPublicMiddlewareLogRouteImport.update({
+  id: '/api/public/middleware/log',
+  path: '/api/public/middleware/log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMiddlewareConfigRoute =
+  ApiPublicMiddlewareConfigRouteImport.update({
+    id: '/api/public/middleware/config',
+    path: '/api/public/middleware/config',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksSapSyncRoute = ApiPublicHooksSapSyncRouteImport.update({
   id: '/api/public/hooks/sap-sync',
   path: '/api/public/hooks/sap-sync',
@@ -149,6 +162,8 @@ export interface FileRoutesByFullPath {
   '/inbox/': typeof AuthenticatedInboxIndexRoute
   '/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
+  '/api/public/middleware/config': typeof ApiPublicMiddlewareConfigRoute
+  '/api/public/middleware/log': typeof ApiPublicMiddlewareLogRoute
   '/admin/sap-api/': typeof AuthenticatedAdminSapApiIndexRoute
 }
 export interface FileRoutesByTo {
@@ -169,6 +184,8 @@ export interface FileRoutesByTo {
   '/inbox': typeof AuthenticatedInboxIndexRoute
   '/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
+  '/api/public/middleware/config': typeof ApiPublicMiddlewareConfigRoute
+  '/api/public/middleware/log': typeof ApiPublicMiddlewareLogRoute
   '/admin/sap-api': typeof AuthenticatedAdminSapApiIndexRoute
 }
 export interface FileRoutesById {
@@ -191,6 +208,8 @@ export interface FileRoutesById {
   '/_authenticated/inbox/': typeof AuthenticatedInboxIndexRoute
   '/_authenticated/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
+  '/api/public/middleware/config': typeof ApiPublicMiddlewareConfigRoute
+  '/api/public/middleware/log': typeof ApiPublicMiddlewareLogRoute
   '/_authenticated/admin/sap-api/': typeof AuthenticatedAdminSapApiIndexRoute
 }
 export interface FileRouteTypes {
@@ -213,6 +232,8 @@ export interface FileRouteTypes {
     | '/inbox/'
     | '/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
+    | '/api/public/middleware/config'
+    | '/api/public/middleware/log'
     | '/admin/sap-api/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -233,6 +254,8 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
+    | '/api/public/middleware/config'
+    | '/api/public/middleware/log'
     | '/admin/sap-api'
   id:
     | '__root__'
@@ -254,6 +277,8 @@ export interface FileRouteTypes {
     | '/_authenticated/inbox/'
     | '/_authenticated/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
+    | '/api/public/middleware/config'
+    | '/api/public/middleware/log'
     | '/_authenticated/admin/sap-api/'
   fileRoutesById: FileRoutesById
 }
@@ -262,6 +287,8 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiPublicHooksSapSyncRoute: typeof ApiPublicHooksSapSyncRoute
+  ApiPublicMiddlewareConfigRoute: typeof ApiPublicMiddlewareConfigRoute
+  ApiPublicMiddlewareLogRoute: typeof ApiPublicMiddlewareLogRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -385,6 +412,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSapApiIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/middleware/log': {
+      id: '/api/public/middleware/log'
+      path: '/api/public/middleware/log'
+      fullPath: '/api/public/middleware/log'
+      preLoaderRoute: typeof ApiPublicMiddlewareLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/middleware/config': {
+      id: '/api/public/middleware/config'
+      path: '/api/public/middleware/config'
+      fullPath: '/api/public/middleware/config'
+      preLoaderRoute: typeof ApiPublicMiddlewareConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/sap-sync': {
       id: '/api/public/hooks/sap-sync'
       path: '/api/public/hooks/sap-sync'
@@ -447,6 +488,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiPublicHooksSapSyncRoute: ApiPublicHooksSapSyncRoute,
+  ApiPublicMiddlewareConfigRoute: ApiPublicMiddlewareConfigRoute,
+  ApiPublicMiddlewareLogRoute: ApiPublicMiddlewareLogRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
