@@ -146,17 +146,29 @@ function PricePage() {
     });
   }
 
+  const decisionMutation = useMutation({
+    mutationFn: (vars: { action: "accepted" | "rejected"; rows: PriceRow[] }) =>
+      decisionFn({ data: vars }),
+    onSuccess: (_res, vars) => {
+      const keys = Array.from(selected);
+      setDecided((prev) => {
+        const next = { ...prev };
+        keys.forEach((k) => (next[k] = vars.action));
+        return next;
+      });
+      setSelected(new Set());
+      toast.success(`${vars.rows.length} record${vars.rows.length === 1 ? "" : "s"} ${vars.action} in SAP`);
+      setStatus(vars.action);
+    },
+    onError: (e: Error) => toast.error(e.message ?? "SAP submission failed"),
+  });
+
   function decide(action: "accepted" | "rejected") {
-    if (status !== "pending" || selected.size === 0) return;
-    const count = selected.size;
-    setDecided((prev) => {
-      const next = { ...prev };
-      selected.forEach((k) => (next[k] = action));
-      return next;
-    });
-    setSelected(new Set());
-    toast.success(`${count} record${count === 1 ? "" : "s"} ${action}`);
+    if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
+    const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
+    decisionMutation.mutate({ action, rows: selectedRows });
   }
+
 
   const canAct = status === "pending" && selected.size > 0;
 
