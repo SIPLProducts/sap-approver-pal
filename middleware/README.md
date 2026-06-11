@@ -43,7 +43,13 @@ Response envelope:
 ```bash
 cp .env.example .env
 # Fill MIDDLEWARE_SHARED_SECRET to match the same secret in the Lovable app.
-# Fill APP_BASE_URL to point at your Lovable preview or published URL.
+# Fill APP_BASE_URL with a STABLE host:
+#   https://project--<project-id>-dev.lovable.app   (latest preview build)
+#   https://project--<project-id>.lovable.app       (published / production)
+# DO NOT use https://id-preview--<project-id>.lovable.app — that host is
+# auth-gated and the middleware cannot call it (it will fail with
+# "APP_BASE_URL is auth-gated").
+
 
 npm install
 npm start            # listens on PORT (default 3005)
