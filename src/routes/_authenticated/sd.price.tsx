@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   fetchPriceApprovals,
   getMySapUserId,
+  submitPriceDecision,
   type PriceRow,
 } from "@/lib/sd/price-approval.functions";
 
@@ -60,6 +61,7 @@ function PricePage() {
 
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
+  const decisionFn = useServerFn(submitPriceDecision);
 
   const { data: userIdData } = useQuery({
     queryKey: ["sd-price", "sap-user-id"],
@@ -144,17 +146,29 @@ function PricePage() {
     });
   }
 
+  const decisionMutation = useMutation({
+    mutationFn: (vars: { action: "accepted" | "rejected"; rows: PriceRow[] }) =>
+      decisionFn({ data: vars }),
+    onSuccess: (_res, vars) => {
+      const keys = Array.from(selected);
+      setDecided((prev) => {
+        const next = { ...prev };
+        keys.forEach((k) => (next[k] = vars.action));
+        return next;
+      });
+      setSelected(new Set());
+      toast.success(`${vars.rows.length} record${vars.rows.length === 1 ? "" : "s"} ${vars.action} in SAP`);
+      setStatus(vars.action);
+    },
+    onError: (e: Error) => toast.error(e.message ?? "SAP submission failed"),
+  });
+
   function decide(action: "accepted" | "rejected") {
-    if (status !== "pending" || selected.size === 0) return;
-    const count = selected.size;
-    setDecided((prev) => {
-      const next = { ...prev };
-      selected.forEach((k) => (next[k] = action));
-      return next;
-    });
-    setSelected(new Set());
-    toast.success(`${count} record${count === 1 ? "" : "s"} ${action}`);
+    if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
+    const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
+    decisionMutation.mutate({ action, rows: selectedRows });
   }
+
 
   const canAct = status === "pending" && selected.size > 0;
 
@@ -240,11 +254,21 @@ function PricePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => decide("accepted")} disabled={!canAct}>
-              <Check className="h-3.5 w-3.5 mr-1" /> Accept
+            <Button size="sm" onClick={() => decide("accepted")} disabled={!canAct || decisionMutation.isPending}>
+              {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              ) : (
+                <Check className="h-3.5 w-3.5 mr-1" />
+              )}
+              Accept
             </Button>
-            <Button size="sm" variant="destructive" onClick={() => decide("rejected")} disabled={!canAct}>
-              <X className="h-3.5 w-3.5 mr-1" /> Reject
+            <Button size="sm" variant="destructive" onClick={() => decide("rejected")} disabled={!canAct || decisionMutation.isPending}>
+              {decisionMutation.isPending && decisionMutation.variables?.action === "rejected" ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              ) : (
+                <X className="h-3.5 w-3.5 mr-1" />
+              )}
+              Reject
             </Button>
           </div>
         </div>
@@ -267,12 +291,12 @@ function PricePage() {
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Price Grp</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Plant</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Material</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Old Price</th>
                 <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">New Price</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Curr</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">UOM</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Valid From</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Valid To</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Old Price</th>
               </tr>
             </thead>
             <tbody>
@@ -312,12 +336,12 @@ function PricePage() {
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.price_group ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.plant ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.old_price)}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(r.new_price)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.currency ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.uom ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.valid_from_sc)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.valid_to_sc)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.old_price)}</td>
                     </tr>
                   );
                 })
