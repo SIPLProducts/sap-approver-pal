@@ -14,6 +14,19 @@ The frontend never calls SAP directly. The flow is:
 React → TanStack server fn → (this middleware) → SAP
 ```
 
+## Folder layout
+
+```
+middleware/
+├── .env.example
+├── .gitignore
+├── Dockerfile
+├── install-windows-service.ps1
+├── package.json
+├── README.md
+└── server.js               ← single-file Express app
+```
+
 ## Endpoints
 
 | Method | Path           | Auth (`x-shared-secret`) | Purpose                                                  |
@@ -36,7 +49,9 @@ cp .env.example .env
 # Fill SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from Lovable Cloud project settings.
 
 npm install
-npm run dev      # listens on PORT (default 3002)
+npm start            # listens on PORT (default 3002)
+# or for auto-reload during development:
+npm run dev
 ```
 
 ## Docker
@@ -45,6 +60,21 @@ npm run dev      # listens on PORT (default 3002)
 docker build -t sap-middleware .
 docker run -p 3002:3002 --env-file .env sap-middleware
 ```
+
+## Windows Service (production on-prem)
+
+From an **elevated PowerShell** in this folder:
+
+```powershell
+# Install + start
+.\install-windows-service.ps1
+
+# Stop + uninstall
+.\install-windows-service.ps1 -Uninstall
+```
+
+The service is registered as `SAPMiddleware`, runs `node server.js` on boot,
+and can be managed via `services.msc`, `net start SAPMiddleware`, etc.
 
 ## Wiring in the UI
 

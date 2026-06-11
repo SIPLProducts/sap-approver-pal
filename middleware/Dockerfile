@@ -1,12 +1,13 @@
 FROM node:20-alpine
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --omit=dev && npm install tsx typescript
+COPY package*.json ./
+RUN npm install --omit=dev --ignore-scripts
 
-COPY tsconfig.json ./
-COPY src ./src
+COPY server.js ./
+COPY .env.example ./
 
 ENV NODE_ENV=production
 EXPOSE 3002
-CMD ["npx", "tsx", "src/server.ts"]
+
+CMD ["node", "server.js"]
