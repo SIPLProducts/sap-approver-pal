@@ -431,6 +431,53 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
   }
 });
 
+// ---------- Named business endpoints ----------
+// These aliases make the middleware log human-readable. Each one resolves a
+// config by NAME (not UUID) via the same /api/public/middleware/config route,
+// then runs the same invoke pipeline as /sap/invoke. Add a new route here
+// whenever you wire a new SAP API into the app.
+const NamedInvokeBody = z.object({
+  inputs: z.record(z.string(), z.unknown()).optional().default({}),
+});
+
+function namedInvokeRoute(path, configName) {
+  app.post(path, requireSharedSecret, async (req, res) => {
+    const parsed = NamedInvokeBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.message });
+    const { inputs } = parsed.data;
+
+    let cfgId = null;
+    try {
+      const cfg = await loadConfig(configName);
+      cfgId = cfg.id;
+      const result = await invokeSap(cfg, inputs);
+      await writeLog({
+        configId: cfg.id,
+        status: result.ok ? "ok" : "error",
+        latency_ms: result.latency_ms,
+        message: `${path}: ${result.status}`,
+      });
+      return res.status(result.ok ? 200 : 502).json(result);
+    } catch (e) {
+      console.error(`[${path}] failed`, e.message);
+      if (cfgId) {
+        await writeLog({
+          configId: cfgId,
+          status: "error",
+          latency_ms: 0,
+          message: `${path}: ${e.message}`.slice(0, 500),
+        });
+      }
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+}
+
+// SD — Price Approvals
+namedInvokeRoute("/price_approval/Fetch",                "Price_Approval_Fetch");
+namedInvokeRoute("/price_approval/Price_Approve_Reject", "Price_Approve_Reject");
+
+
 // Error handler
 app.use((err, _req, res, _next) => {
   console.error("[unhandled]", err.message);
