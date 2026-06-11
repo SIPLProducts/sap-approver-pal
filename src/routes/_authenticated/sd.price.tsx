@@ -291,7 +291,6 @@ function PricePage() {
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Price Grp</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Plant</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Material</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Old Price</th>
                 <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">New Price</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Curr</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">UOM</th>
