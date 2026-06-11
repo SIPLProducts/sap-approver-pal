@@ -1,5 +1,7 @@
 # SAP Approver Middleware
 
+<!-- sync: trigger push to SIPLProducts/sap-approver-pal -->
+
 The `middleware/` folder in this repo is a standalone Node.js service that acts as a secure bridge between this Lovable frontend and your on-premise / private-network SAP system. It is deployed separately from the frontend (self-hosted, or temporarily exposed via ngrok during development).
 
 ## Why a middleware?
