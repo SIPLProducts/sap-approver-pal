@@ -210,13 +210,17 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
         error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
       };
     }
-    const arr: any[] = Array.isArray(json?.DATA)
-      ? json.DATA
-      : Array.isArray(json?.data)
-        ? json.data
-        : Array.isArray(json)
-          ? json
+    // When proxied through the middleware, the actual SAP payload is in json.data
+    // (middleware wraps as { ok, status, latency_ms, data }). Unwrap it.
+    const sapJson: any = proxied ? (json?.data ?? {}) : json;
+    const arr: any[] = Array.isArray(sapJson?.DATA)
+      ? sapJson.DATA
+      : Array.isArray(sapJson?.data)
+        ? sapJson.data
+        : Array.isArray(sapJson)
+          ? sapJson
           : [];
+
     rows = arr.map(mapRow);
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
