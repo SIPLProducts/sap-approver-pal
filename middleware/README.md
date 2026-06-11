@@ -63,7 +63,7 @@ npm run dev
 | --------------------------- | -------- | ----------------------------------------------------------------------- |
 | `PORT`                      | `3005`   | Port the middleware listens on. Match the UI "Middleware Port" field.   |
 | `MIDDLEWARE_SHARED_SECRET`  | —        | Must equal the `MIDDLEWARE_SHARED_SECRET` secret in Lovable Cloud and the "Proxy Secret / Password" in the UI. Required. |
-| `APP_BASE_URL`              | —        | Base URL of the Lovable app (preview or published). Required unless `MIDDLEWARE_MOCK=1`. |
+| `APP_BASE_URL`              | —        | Base URL of the Lovable app. **Must be a stable host**: `https://project--<id>-dev.lovable.app` (preview) or `https://project--<id>.lovable.app` (published). The `id-preview--<id>.lovable.app` host is auth-gated and will not work. Required unless `MIDDLEWARE_MOCK=1`. |
 | `MIDDLEWARE_MOCK`           | `0`      | Set to `1` to skip the app call and use only the `SAP_BP_*` envs below (offline smoke test). |
 | `SAP_REQUEST_TIMEOUT_MS`    | `30000`  | Timeout for outbound SAP HTTP calls (probe + invoke) and app calls.     |
 | `SAP_CONNECT_TIMEOUT_MS`    | `60000`  | HTTP keep-alive timeout for incoming clients.                           |
