@@ -231,6 +231,15 @@ function getByPath(obj, path) {
 }
 
 function mapResponse(fields, raw) {
+  // List responses: SAP returns { DATA: [...] } or { data: [...] } — pass
+  // the payload through unchanged so the calling app can iterate the rows
+  // and apply per-row mapping itself. Field mapping at the middleware level
+  // only makes sense for single-object responses.
+  if (raw && typeof raw === "object") {
+    if (Array.isArray(raw.DATA) || Array.isArray(raw.data) || Array.isArray(raw)) {
+      return raw;
+    }
+  }
   if (!fields.length) return raw;
   const root = raw && typeof raw === "object" ? raw : {};
   const out = {};
