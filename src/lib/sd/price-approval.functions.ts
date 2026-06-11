@@ -117,15 +117,28 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     const qs = `${join}PLANT=${encodeURIComponent(data.plant)}&USER_ID=${encodeURIComponent(userId)}`;
 
     let target: string;
+    let method: string = cfg.http_method ?? "GET";
+    let bodyOut: string | undefined;
     const headers: Record<string, string> = { Accept: "application/json" };
+    let proxied = false;
 
     if (cfg.auth_type === "proxy") {
       if (!cfg.middleware_url) throw new Error("Proxy mode requires middleware_url.");
-      target = `${cfg.middleware_url.replace(/\/$/, "")}/proxy?upstream=${encodeURIComponent(cfg.endpoint_url + qs)}`;
-      if (cfg.proxy_secret_ref) {
-        const secret = process.env[cfg.proxy_secret_ref];
-        if (secret) headers["x-shared-secret"] = secret;
-      }
+      // Route through the local middleware's /sap/invoke endpoint. Middleware
+      // loads creds from the app, calls SAP from the LAN, and returns
+      // { ok, status, latency_ms, data }.
+      target = `${cfg.middleware_url.replace(/\/$/, "")}/sap/invoke`;
+      method = "POST";
+      headers["Content-Type"] = "application/json";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      bodyOut = JSON.stringify({
+        configId: cfg.id,
+        inputs: { PLANT: data.plant, USER_ID: userId },
+      });
+      proxied = true;
     } else {
       target = cfg.endpoint_url + qs;
       if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
@@ -143,7 +156,8 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     let message = "";
     let res: Response;
     try {
-      res = await fetch(target, { method: cfg.http_method ?? "GET", headers });
+      res = await fetch(target, { method, headers, body: bodyOut });
+
     } catch (e) {
       const errMsg = (e as Error).message || "fetch failed";
       const latency_ms = Date.now() - t0;
@@ -196,13 +210,17 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
         error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
       };
     }
-    const arr: any[] = Array.isArray(json?.DATA)
-      ? json.DATA
-      : Array.isArray(json?.data)
-        ? json.data
-        : Array.isArray(json)
-          ? json
+    // When proxied through the middleware, the actual SAP payload is in json.data
+    // (middleware wraps as { ok, status, latency_ms, data }). Unwrap it.
+    const sapJson: any = proxied ? (json?.data ?? {}) : json;
+    const arr: any[] = Array.isArray(sapJson?.DATA)
+      ? sapJson.DATA
+      : Array.isArray(sapJson?.data)
+        ? sapJson.data
+        : Array.isArray(sapJson)
+          ? sapJson
           : [];
+
     rows = arr.map(mapRow);
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
