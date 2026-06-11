@@ -131,7 +131,7 @@ export async function postDecision(input: {
 export async function invokeViaMiddleware(
   configId: string,
   inputs: Record<string, unknown> = {},
-): Promise<{ ok: boolean; status: number; latency_ms: number; data: unknown; error?: string }> {
+): Promise<{ ok: boolean; status: number; latency_ms: number; data: any; error?: string }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const [{ data: g }, { data: gs }] = await Promise.all([
     supabaseAdmin.from("sap_global_settings").select("middleware_url").eq("id", "default").maybeSingle(),
