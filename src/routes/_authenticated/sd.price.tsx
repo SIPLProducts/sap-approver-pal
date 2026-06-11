@@ -254,11 +254,21 @@ function PricePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => decide("accepted")} disabled={!canAct}>
-              <Check className="h-3.5 w-3.5 mr-1" /> Accept
+            <Button size="sm" onClick={() => decide("accepted")} disabled={!canAct || decisionMutation.isPending}>
+              {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              ) : (
+                <Check className="h-3.5 w-3.5 mr-1" />
+              )}
+              Accept
             </Button>
-            <Button size="sm" variant="destructive" onClick={() => decide("rejected")} disabled={!canAct}>
-              <X className="h-3.5 w-3.5 mr-1" /> Reject
+            <Button size="sm" variant="destructive" onClick={() => decide("rejected")} disabled={!canAct || decisionMutation.isPending}>
+              {decisionMutation.isPending && decisionMutation.variables?.action === "rejected" ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              ) : (
+                <X className="h-3.5 w-3.5 mr-1" />
+              )}
+              Reject
             </Button>
           </div>
         </div>
