@@ -341,6 +341,7 @@ function PricePage() {
                       <td className="px-3 py-2 whitespace-nowrap">{r.uom ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.valid_from_sc)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.valid_to_sc)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.old_price)}</td>
                     </tr>
                   );
                 })
