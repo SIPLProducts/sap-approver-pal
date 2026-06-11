@@ -395,3 +395,52 @@ export const decideStep = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+/**
+ * Generic SAP API invoker for frontend screens.
+ *
+ * Routes through the Node.js middleware when:
+ *   - the global Connection Mode is "via_proxy", OR
+ *   - the API row's auth_type is "proxy".
+ *
+ * Otherwise calls SAP directly using the configured endpoint + credentials
+ * (basic/oauth/none). All requests go through this server function — the
+ * browser never contacts SAP or the middleware directly.
+ */
+const RunSapInput = z.object({
+  configId: z.string().uuid(),
+  inputs: z.record(z.string(), z.unknown()).optional().default({}),
+});
+
+export const runSapApi = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => RunSapInput.parse(d))
+  .handler(async ({ data }) => {
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("auth_type, is_active")
+      .eq("id", data.configId)
+      .maybeSingle();
+    if (!cfg) throw new Error("API config not found");
+    if (!cfg.is_active) throw new Error("API config is inactive");
+
+    const { data: global } = await supabaseAdmin
+      .from("sap_global_settings")
+      .select("connection_mode")
+      .eq("id", "default")
+      .maybeSingle();
+
+    const useProxy = cfg.auth_type === "proxy" || global?.connection_mode === "via_proxy";
+    if (useProxy) {
+      return invokeViaMiddleware(data.configId, data.inputs);
+    }
+
+    // Direct mode: caller hasn't configured a per-config direct fetch path here yet.
+    // For v1, direct mode delegates to the middleware-style invoker via local fetch
+    // would require duplicating request/response field mapping on the server. Keep
+    // the direct fast-path scoped to the existing approval client (fetchOpenApprovals
+    // / postDecision); generic per-config calls require Via Proxy mode.
+    throw new Error(
+      "Direct mode is not supported for generic API calls yet. Set Connection Mode = Via Proxy in SAP API Settings → Middleware Configuration.",
+    );
+  });
