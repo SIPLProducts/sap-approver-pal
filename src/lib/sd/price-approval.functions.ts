@@ -137,10 +137,9 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      // Route through the middleware's /sap/invoke endpoint. Middleware loads
-      // creds from the app and calls SAP from the LAN, returning
-      // { ok, status, latency_ms, data }.
-      target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
+      // Route through the middleware's named alias so the middleware log
+      // clearly shows which business call ran (e.g. POST /price_approval/Fetch).
+      target = `${middlewareUrl.replace(/\/$/, "")}/price_approval/Fetch`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
@@ -149,7 +148,6 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
       bodyOut = JSON.stringify({
-        configId: cfg.id,
         inputs: { PLANT: data.plant, USER_ID: userId },
       });
       proxied = true;

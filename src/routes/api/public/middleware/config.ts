@@ -29,7 +29,10 @@ function checkSecret(req: Request): boolean {
   return timingSafeEqual(a, b);
 }
 
-const Body = z.object({ configId: z.string().uuid() });
+const Body = z.union([
+  z.object({ configId: z.string().uuid() }),
+  z.object({ name: z.string().min(1).max(120) }),
+]);
 
 export const Route = createFileRoute("/api/public/middleware/config")({
   server: {
@@ -57,10 +60,13 @@ export const Route = createFileRoute("/api/public/middleware/config")({
           "@/integrations/supabase/client.server"
         );
 
+        const lookupKey = "configId" in parsed ? parsed.configId : parsed.name;
+        const lookupCol = "configId" in parsed ? "id" : "name";
+
         const { data: cfg, error } = await supabaseAdmin
           .from("sap_api_configs")
           .select("*")
-          .eq("id", parsed.configId)
+          .eq(lookupCol, lookupKey)
           .maybeSingle();
 
         if (error) {
@@ -71,13 +77,13 @@ export const Route = createFileRoute("/api/public/middleware/config")({
         }
         if (!cfg) {
           return Response.json(
-            { ok: false, error: `Config not found: ${parsed.configId}` },
+            { ok: false, error: `Config not found: ${lookupKey}` },
             { status: 404, headers: CORS },
           );
         }
         if (!cfg.is_active) {
           return Response.json(
-            { ok: false, error: `Config is inactive: ${parsed.configId}` },
+            { ok: false, error: `Config is inactive: ${lookupKey}` },
             { status: 409, headers: CORS },
           );
         }
@@ -86,17 +92,17 @@ export const Route = createFileRoute("/api/public/middleware/config")({
           supabaseAdmin
             .from("sap_api_credentials")
             .select("*")
-            .eq("config_id", parsed.configId)
+            .eq("config_id", cfg.id)
             .maybeSingle(),
           supabaseAdmin
             .from("sap_api_request_fields")
             .select("*")
-            .eq("config_id", parsed.configId)
+            .eq("config_id", cfg.id)
             .order("sort_order"),
           supabaseAdmin
             .from("sap_api_response_fields")
             .select("*")
-            .eq("config_id", parsed.configId)
+            .eq("config_id", cfg.id)
             .order("sort_order"),
         ]);
 

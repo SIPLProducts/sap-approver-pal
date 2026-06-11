@@ -142,15 +142,18 @@ function buildMockConfig(configId) {
   };
 }
 
-async function loadConfig(configId) {
-  const cached = configCache.get(configId);
+async function loadConfig(key) {
+  // `key` is either a UUID configId or a config name (e.g. "Price_Approval_Fetch").
+  const cached = configCache.get(key);
   if (cached && Date.now() - cached.at < TTL_MS) return cached.cfg;
 
   let cfg;
   if (MOCK_MODE) {
-    cfg = buildMockConfig(configId);
+    cfg = buildMockConfig(key);
   } else {
-    const json = await appFetch("/api/public/middleware/config", { configId });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key);
+    const body = isUuid ? { configId: key } : { name: key };
+    const json = await appFetch("/api/public/middleware/config", body);
     cfg = json.config;
   }
 
@@ -166,10 +169,12 @@ async function loadConfig(configId) {
   cfg.credentials.extra_headers = cfg.credentials.extra_headers || {};
 
   if (!cfg.endpoint_url) {
-    throw new Error(`Config ${configId} has no endpoint_url and no fallback env URL is set`);
+    throw new Error(`Config ${key} has no endpoint_url and no fallback env URL is set`);
   }
 
-  configCache.set(configId, { at: Date.now(), cfg });
+  // Cache under both the lookup key and the resolved id so subsequent calls hit it either way.
+  configCache.set(key, { at: Date.now(), cfg });
+  if (cfg.id && cfg.id !== key) configCache.set(cfg.id, { at: Date.now(), cfg });
   return cfg;
 }
 
@@ -226,6 +231,15 @@ function getByPath(obj, path) {
 }
 
 function mapResponse(fields, raw) {
+  // List responses: SAP returns { DATA: [...] } or { data: [...] } — pass
+  // the payload through unchanged so the calling app can iterate the rows
+  // and apply per-row mapping itself. Field mapping at the middleware level
+  // only makes sense for single-object responses.
+  if (raw && typeof raw === "object") {
+    if (Array.isArray(raw.DATA) || Array.isArray(raw.data) || Array.isArray(raw)) {
+      return raw;
+    }
+  }
   if (!fields.length) return raw;
   const root = raw && typeof raw === "object" ? raw : {};
   const out = {};
@@ -416,6 +430,53 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+// ---------- Named business endpoints ----------
+// These aliases make the middleware log human-readable. Each one resolves a
+// config by NAME (not UUID) via the same /api/public/middleware/config route,
+// then runs the same invoke pipeline as /sap/invoke. Add a new route here
+// whenever you wire a new SAP API into the app.
+const NamedInvokeBody = z.object({
+  inputs: z.record(z.string(), z.unknown()).optional().default({}),
+});
+
+function namedInvokeRoute(path, configName) {
+  app.post(path, requireSharedSecret, async (req, res) => {
+    const parsed = NamedInvokeBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.message });
+    const { inputs } = parsed.data;
+
+    let cfgId = null;
+    try {
+      const cfg = await loadConfig(configName);
+      cfgId = cfg.id;
+      const result = await invokeSap(cfg, inputs);
+      await writeLog({
+        configId: cfg.id,
+        status: result.ok ? "ok" : "error",
+        latency_ms: result.latency_ms,
+        message: `${path}: ${result.status}`,
+      });
+      return res.status(result.ok ? 200 : 502).json(result);
+    } catch (e) {
+      console.error(`[${path}] failed`, e.message);
+      if (cfgId) {
+        await writeLog({
+          configId: cfgId,
+          status: "error",
+          latency_ms: 0,
+          message: `${path}: ${e.message}`.slice(0, 500),
+        });
+      }
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+}
+
+// SD — Price Approvals
+namedInvokeRoute("/price_approval/Fetch",                "Price_Approval_Fetch");
+namedInvokeRoute("/price_approval/Price_Approve_Reject", "Price_Approve_Reject");
+
 
 // Error handler
 app.use((err, _req, res, _next) => {
