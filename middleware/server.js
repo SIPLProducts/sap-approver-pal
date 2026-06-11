@@ -142,15 +142,18 @@ function buildMockConfig(configId) {
   };
 }
 
-async function loadConfig(configId) {
-  const cached = configCache.get(configId);
+async function loadConfig(key) {
+  // `key` is either a UUID configId or a config name (e.g. "Price_Approval_Fetch").
+  const cached = configCache.get(key);
   if (cached && Date.now() - cached.at < TTL_MS) return cached.cfg;
 
   let cfg;
   if (MOCK_MODE) {
-    cfg = buildMockConfig(configId);
+    cfg = buildMockConfig(key);
   } else {
-    const json = await appFetch("/api/public/middleware/config", { configId });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key);
+    const body = isUuid ? { configId: key } : { name: key };
+    const json = await appFetch("/api/public/middleware/config", body);
     cfg = json.config;
   }
 
@@ -166,10 +169,12 @@ async function loadConfig(configId) {
   cfg.credentials.extra_headers = cfg.credentials.extra_headers || {};
 
   if (!cfg.endpoint_url) {
-    throw new Error(`Config ${configId} has no endpoint_url and no fallback env URL is set`);
+    throw new Error(`Config ${key} has no endpoint_url and no fallback env URL is set`);
   }
 
-  configCache.set(configId, { at: Date.now(), cfg });
+  // Cache under both the lookup key and the resolved id so subsequent calls hit it either way.
+  configCache.set(key, { at: Date.now(), cfg });
+  if (cfg.id && cfg.id !== key) configCache.set(cfg.id, { at: Date.now(), cfg });
   return cfg;
 }
 
