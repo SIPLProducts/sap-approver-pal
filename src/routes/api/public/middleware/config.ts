@@ -29,7 +29,10 @@ function checkSecret(req: Request): boolean {
   return timingSafeEqual(a, b);
 }
 
-const Body = z.object({ configId: z.string().uuid() });
+const Body = z.union([
+  z.object({ configId: z.string().uuid() }),
+  z.object({ name: z.string().min(1).max(120) }),
+]);
 
 export const Route = createFileRoute("/api/public/middleware/config")({
   server: {
