@@ -61,6 +61,7 @@ function PricePage() {
 
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
+  const decisionFn = useServerFn(submitPriceDecision);
 
   const { data: userIdData } = useQuery({
     queryKey: ["sd-price", "sap-user-id"],
