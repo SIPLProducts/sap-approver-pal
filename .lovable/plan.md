@@ -1,22 +1,28 @@
-# Fix: "Cannot POST /price_approval/Fetch" (404 from middleware)
+## Goal
+1. On Accept/Reject, actually call the SAP `Price_Approve_Reject` API (via middleware) with the selected rows, then move them into the Accepted/Rejected tab.
+2. Move the **Old Price** column to the last position in the table.
 
-## Root cause
-The app now calls `POST {middleware}/price_approval/Fetch`, but the middleware process running on your machine is **an older copy of `middleware/server.js`** that doesn't have that route yet. Express replies with its default 404 page ("Cannot POST /price_approval/Fetch"), which the app shows as "SAP returned 404".
+## Background — why nothing happened on click today
+The current `decide()` only updates local React state — no network call. The `Price_Approve_Reject` SAP config exists (`PUT http://10.150.150.154:8103/.../vk11_app?sap-client=300`) and the middleware already exposes `POST /price_approval/Price_Approve_Reject`. The SAP payload shape (from the configured request fields) is:
+```json
+{ "APPROV": "X", "REJ": "",  "DATA": [ { "SELECT_FLG":"X", "KEY_COMBINATION":"1", "CONDITION_TYPE":"ZBPL", "CUSTOMER":"...", "PRICE_GROUP":"...", "PLANT":"...", "MATERIAL":"...", "NEW_PRICE":"...", "CURRENCY":"...", "UOM":"...", "CALCULATION_SC":"", "VALID_FROM_SC":"...", "VALID_TO_SC":"...", "OLD_PRICE":"..." } ] }
+```
+For reject: `APPROV=""`, `REJ="X"`.
 
-The updated `middleware/server.js` in this project already contains the route — it just hasn't been copied to your machine and restarted.
+## Changes
 
-## What I'll change in the app (so this can never break again)
+### 1. `src/lib/sd/price-approval.functions.ts` — add `submitPriceDecision`
+New server function `submitPriceDecision({ action: 'accepted'|'rejected', rows: PriceRow[] })`:
+- Loads `Price_Approve_Reject` config, creds, global proxy settings (same pattern as `fetchPriceApprovals`).
+- Builds SAP payload: `APPROV='X', REJ=''` for accept; `APPROV='', REJ='X'` for reject. `DATA` is the selected rows re-cased to SAP UPPER_SNAKE field names with `SELECT_FLG:'X'`.
+- If proxy mode → `PUT/POST {middleware}/price_approval/Price_Approve_Reject` body `{ inputs: <sapPayload> }` (with `x-shared-secret`). 404 fallback to `/sap/invoke` with `{ configId, inputs }` (same pattern as fetch).
+- Direct mode → `PUT {endpoint_url}` with JSON body + basic auth.
+- Logs to `sap_api_sync_log`. Returns `{ ok, message, sap_response }`.
 
-**`src/lib/sd/price-approval.functions.ts`** — add an automatic fallback:
-1. Try `POST {middleware}/price_approval/Fetch` with `{ inputs }` (nice readable name in logs).
-2. If the response is a 404 whose body contains `Cannot POST` (old middleware), automatically retry `POST {middleware}/sap/invoke` with `{ configId, inputs }` — the route every middleware version has.
-3. Surface a clearer error message if both fail ("Middleware is outdated — copy the latest middleware/server.js and restart it").
+### 2. `src/routes/_authenticated/sd.price.tsx`
+- Use `useServerFn(submitPriceDecision)` inside a `useMutation`.
+- `decide(action)` becomes async: call mutation with the selected `PriceRow[]`. On success → mark those keys as `accepted`/`rejected` in `decided`, clear selection, toast "N records accepted/rejected (SAP OK)". On error → toast the error and leave state unchanged so the user can retry. Disable Accept/Reject buttons + show spinner while pending.
+- Reorder table header + body cells so **Old Price** appears AFTER `Valid To` (last data column, before the row end). Update colSpan on the empty/loading rows to match.
 
-No database, UI, or middleware-file changes needed.
-
-## What YOU must do (required for the named endpoints to appear)
-1. Copy the latest `middleware/server.js` from this project to your machine (replace the old file).
-2. Stop the running middleware (Ctrl+C) and start it again: `node server.js`.
-3. On startup you should see it listening; then click **Execute** — the network log will show `POST /price_approval/Fetch 200`.
-
-Until you restart with the new file, the fallback will keep things working via `/sap/invoke`.
+## Out of scope
+No DB schema change, no middleware change (the named route already exists; fallback to `/sap/invoke` covers older deploys). No persistence — accepted/rejected state stays per-fetch as today; persisting across reloads would need a separate decisions table.

@@ -268,3 +268,164 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     return { rows, fetched_at: new Date().toISOString(), count: rows.length, user_id: userId, error: null as string | null };
   });
 
+const DECISION_CONFIG_NAME = "Price_Approve_Reject";
+
+const PriceRowSchema = z.object({
+  select_flg: z.string().nullable().optional(),
+  key_combination: z.string().nullable().optional(),
+  condition_type: z.string().nullable().optional(),
+  customer: z.string().nullable().optional(),
+  price_group: z.string().nullable().optional(),
+  plant: z.string().nullable().optional(),
+  material: z.string().nullable().optional(),
+  new_price: z.union([z.string(), z.number()]).nullable().optional(),
+  currency: z.string().nullable().optional(),
+  uom: z.string().nullable().optional(),
+  calculation_sc: z.string().nullable().optional(),
+  valid_from_sc: z.string().nullable().optional(),
+  valid_to_sc: z.string().nullable().optional(),
+  old_price: z.union([z.string(), z.number()]).nullable().optional(),
+});
+
+function toSapRow(r: z.infer<typeof PriceRowSchema>) {
+  return {
+    SELECT_FLG: "X",
+    KEY_COMBINATION: r.key_combination ?? "",
+    CONDITION_TYPE: r.condition_type ?? "",
+    CUSTOMER: r.customer ?? "",
+    PRICE_GROUP: r.price_group ?? "",
+    PLANT: r.plant ?? "",
+    MATERIAL: r.material ?? "",
+    NEW_PRICE: r.new_price ?? "",
+    CURRENCY: r.currency ?? "",
+    UOM: r.uom ?? "",
+    CALCULATION_SC: r.calculation_sc ?? "",
+    VALID_FROM_SC: r.valid_from_sc ?? "",
+    VALID_TO_SC: r.valid_to_sc ?? "",
+    OLD_PRICE: r.old_price ?? "",
+  };
+}
+
+export const submitPriceDecision = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      action: z.enum(["accepted", "rejected"]),
+      rows: z.array(PriceRowSchema).min(1, "Select at least one row"),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", DECISION_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg) throw new Error(`SAP API config "${DECISION_CONFIG_NAME}" not found.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${DECISION_CONFIG_NAME}" is disabled.`);
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+    ]);
+
+    const sapPayload = {
+      APPROV: data.action === "accepted" ? "X" : "",
+      REJ: data.action === "rejected" ? "X" : "",
+      DATA: data.rows.map(toSapRow),
+    };
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" &&
+      !!(globalSettings?.middleware_url || cfg.middleware_url);
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl =
+      (cfg.middleware_url && cfg.middleware_url.trim()) ||
+      (globalSettings?.middleware_url ?? null);
+
+    let target: string;
+    let method: string = cfg.http_method ?? "PUT";
+    let bodyOut: string;
+    const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/json" };
+    let proxied = false;
+
+    if (useProxy) {
+      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      target = `${middlewareUrl.replace(/\/$/, "")}/price_approval/Price_Approve_Reject`;
+      method = "POST";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      bodyOut = JSON.stringify({ inputs: sapPayload });
+      proxied = true;
+    } else {
+      target = cfg.endpoint_url.trim();
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization =
+          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+      bodyOut = JSON.stringify(sapPayload);
+    }
+
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      headers[k] = v;
+    }
+
+    const t0 = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(target, { method, headers, body: bodyOut });
+      if (proxied && res.status === 404) {
+        const peek = await res.clone().text().catch(() => "");
+        if (/Cannot\s+(POST|PUT)/i.test(peek)) {
+          const fallback = `${middlewareUrl!.replace(/\/$/, "")}/sap/invoke`;
+          res = await fetch(fallback, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ configId: cfg.id, inputs: sapPayload }),
+          });
+          target = fallback;
+        }
+      }
+    } catch (e) {
+      const errMsg = (e as Error).message || "fetch failed";
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms: Date.now() - t0,
+        message: `price-decision ${data.action}: network ${errMsg}`,
+      });
+      throw new Error(`Could not reach SAP: ${errMsg}`);
+    }
+
+    const text = await res.text().catch(() => "");
+    const latency_ms = Date.now() - t0;
+
+    if (!res.ok) {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `price-decision ${data.action}: ${res.status} ${text.slice(0, 500)}`,
+      });
+      throw new Error(`SAP returned ${res.status} ${res.statusText}: ${text.slice(0, 200)}`);
+    }
+
+    let json: any = {};
+    try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+
+    await supabaseAdmin.from("sap_api_sync_log").insert({
+      config_id: cfg.id,
+      status: "ok",
+      latency_ms,
+      rows_processed: data.rows.length,
+      message: `price-decision ${data.action}: ${res.status}`,
+    });
+
+    return { ok: true, action: data.action, count: data.rows.length, sap_response: json };
+  });
+
