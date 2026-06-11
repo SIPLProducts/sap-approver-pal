@@ -75,14 +75,46 @@ async function appFetch(path, body) {
       "x-shared-secret": SHARED_SECRET,
     },
     body: JSON.stringify(body),
+    redirect: "manual",
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  const json = await res.json().catch(() => ({}));
+
+  // Detect auth-gated hosts (id-preview--*.lovable.app) that 302 to auth-bridge.
+  if (res.status >= 300 && res.status < 400) {
+    const loc = res.headers.get("location") || "";
+    throw new Error(
+      `APP_BASE_URL is auth-gated (redirected to ${loc || "an auth page"}). ` +
+      `Use the STABLE host instead — e.g. https://project--<project-id>-dev.lovable.app ` +
+      `(preview) or https://project--<project-id>.lovable.app (published). ` +
+      `Never use the id-preview--... host.`,
+    );
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  const rawText = await res.text();
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `${path} returned non-JSON (HTTP ${res.status}, content-type=${contentType || "unknown"}). ` +
+      `APP_BASE_URL is likely wrong or auth-gated. ` +
+      `Use https://project--<project-id>-dev.lovable.app instead of id-preview--... ` +
+      `First 120 chars: ${rawText.slice(0, 120)}`,
+    );
+  }
+
+  let json;
+  try {
+    json = JSON.parse(rawText);
+  } catch {
+    throw new Error(`${path} returned invalid JSON (HTTP ${res.status})`);
+  }
+
   if (!res.ok || !json.ok) {
     throw new Error(json.error || `${path} failed: HTTP ${res.status}`);
   }
   return json;
 }
+
 
 // ---------- config loader (30s cache) ----------
 const TTL_MS = 30_000;

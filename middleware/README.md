@@ -43,7 +43,13 @@ Response envelope:
 ```bash
 cp .env.example .env
 # Fill MIDDLEWARE_SHARED_SECRET to match the same secret in the Lovable app.
-# Fill APP_BASE_URL to point at your Lovable preview or published URL.
+# Fill APP_BASE_URL with a STABLE host:
+#   https://project--<project-id>-dev.lovable.app   (latest preview build)
+#   https://project--<project-id>.lovable.app       (published / production)
+# DO NOT use https://id-preview--<project-id>.lovable.app — that host is
+# auth-gated and the middleware cannot call it (it will fail with
+# "APP_BASE_URL is auth-gated").
+
 
 npm install
 npm start            # listens on PORT (default 3005)
@@ -57,7 +63,7 @@ npm run dev
 | --------------------------- | -------- | ----------------------------------------------------------------------- |
 | `PORT`                      | `3005`   | Port the middleware listens on. Match the UI "Middleware Port" field.   |
 | `MIDDLEWARE_SHARED_SECRET`  | —        | Must equal the `MIDDLEWARE_SHARED_SECRET` secret in Lovable Cloud and the "Proxy Secret / Password" in the UI. Required. |
-| `APP_BASE_URL`              | —        | Base URL of the Lovable app (preview or published). Required unless `MIDDLEWARE_MOCK=1`. |
+| `APP_BASE_URL`              | —        | Base URL of the Lovable app. **Must be a stable host**: `https://project--<id>-dev.lovable.app` (preview) or `https://project--<id>.lovable.app` (published). The `id-preview--<id>.lovable.app` host is auth-gated and will not work. Required unless `MIDDLEWARE_MOCK=1`. |
 | `MIDDLEWARE_MOCK`           | `0`      | Set to `1` to skip the app call and use only the `SAP_BP_*` envs below (offline smoke test). |
 | `SAP_REQUEST_TIMEOUT_MS`    | `30000`  | Timeout for outbound SAP HTTP calls (probe + invoke) and app calls.     |
 | `SAP_CONNECT_TIMEOUT_MS`    | `60000`  | HTTP keep-alive timeout for incoming clients.                           |

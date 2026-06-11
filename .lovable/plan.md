@@ -1,70 +1,65 @@
+## Which API is being hit (and why it fails)
 
-## What's wrong
-
-The Price Approvals "Execute" button calls a server function that runs on **Lovable Cloud (Cloudflare Workers)**. That function tries to `fetch()` the SAP endpoint directly:
+When you click **Execute**, this chain runs:
 
 ```
-http://10.150.150.154:8103/sd_approval_mng/zvk11_app/vk11_app?sap-client=300
+Browser → Lovable server fn (price-approval)
+        → ngrok → your local middleware (server.js)
+        → middleware calls back to the app:
+             POST {APP_BASE_URL}/api/public/middleware/config
+          to load SAP URL + credentials
+        → middleware calls SAP 10.150.150.154:8103
 ```
 
-`10.150.150.154` is a **private LAN IP**. Cloudflare Workers blocks direct connections to private IPs and returns **`403 Forbidden, error code: 1003`** in ~1ms. The 403 is from Cloudflare's edge, not from SAP — that's why no SAP auth log entry was created and latency is 1ms.
+The error in your screenshot:
 
-Your local middleware was built precisely for this case (it CAN reach the SAP LAN host), but the `Price_Approval_Fetch` config is currently:
-
-- `auth_type = basic`
-- `middleware_url = NULL`
-- `proxy_secret_ref = NULL`
-
-…so the cloud bypasses your middleware entirely.
-
-You confirmed you're already running ngrok against the middleware. Plan: switch this config to **proxy mode** through your ngrok URL, and make the existing middleware actually serve the price-fetch call.
-
-## Changes
-
-### 1. Admin DB update (one row)
-Migration that flips the config to proxy mode:
-```sql
-UPDATE public.sap_api_configs
-SET auth_type        = 'proxy',
-    middleware_url   = '<your-ngrok-https-url>',   -- e.g. https://abc123.ngrok-free.app
-    proxy_secret_ref = 'MIDDLEWARE_SHARED_SECRET'
-WHERE name = 'Price_Approval_Fetch';
 ```
-(You'll paste the current ngrok URL when we go to build mode. Re-run this whenever ngrok rotates.)
+SAP returned 500 Internal Server Error:
+{"ok":false,"error":"/api/public/middleware/config failed: HTTP 200"}
+```
 
-### 2. Server function — `src/lib/sd/price-approval.functions.ts`
-Today's proxy branch sends a GET with `?upstream=...` query string. The new middleware doesn't have an `/upstream` passthrough — it expects POST `/sap/run` with `{ configId, params }`. Rewrite the proxy branch to:
+is thrown by `server.js → appFetch()` — **before** SAP is ever called. The "SAP returned 500" prefix in the UI is misleading; the real failure is the middleware → app callback.
 
-- POST to `${middleware_url}/sap/run`
-- Body: `{ configId: cfg.id, params: { PLANT, USER_ID } }`
-- Header: `x-shared-secret: process.env.MIDDLEWARE_SHARED_SECRET`
-- Parse the same `DATA[]` shape from the response
+## Root cause
 
-The basic-auth branch stays as a fallback for SAP endpoints that ARE publicly reachable.
+Your `middleware/.env` has:
 
-### 3. Middleware — `middleware/server.js`
-Add a `POST /sap/run` endpoint:
+```
+APP_BASE_URL=https://id-preview--06a5c0be-58b7-41a6-ac2d-e7706e765b64.lovable.app
+```
 
-1. Verify `x-shared-secret`.
-2. `appFetch('/api/public/middleware/config', { configId })` to load endpoint + creds (already implemented).
-3. Build URL: `endpoint_url + (& or ?)` + `PLANT=...&USER_ID=...`.
-4. `fetch()` SAP with Basic auth from credentials (using existing keepAlive + timeouts).
-5. Return `{ ok, status, body }` JSON to the cloud caller.
-6. Log via `appFetch('/api/public/middleware/log', ...)`.
+That `id-preview--…` host is **auth-gated**. I just probed it from outside:
 
-### 4. No UI changes
-The Price Approvals page already shows the error toast and uses the same server fn — once the call succeeds, rows will populate normally.
+```
+POST /api/public/middleware/config
+HTTP/2 302
+location: https://lovable.dev/auth-bridge?...
+```
 
-## Operational notes
+Your middleware (no browser cookies) follows the redirect, lands on the auth-bridge HTML page with status 200, `await res.json()` fails, `json.ok` is undefined → it throws `"… failed: HTTP 200"`.
 
-- **ngrok URL changes every restart** on the free plan. Each time it rotates, update the config (Admin → SAP API → Price_Approval_Fetch → Middleware URL). I'll add a small note to the admin page if useful.
-- **Secret must match**: `MIDDLEWARE_SHARED_SECRET` in your local `middleware/.env` must equal the Lovable Cloud secret (already set to `123456`).
-- This same proxy mode will work for any other SAP API that targets a private IP — just set `auth_type=proxy` + `middleware_url` on those configs too.
+The `/api/public/*` bypass only works on the **stable** preview/published hosts, not on `id-preview--…`.
 
-## Verification
+## The fix (one-line config change, no code edits)
 
-After the changes:
-1. Restart `node server.js` locally.
-2. Confirm ngrok is forwarding to port 3005 over HTTPS.
-3. In the app: Plant `3806` → Execute. Expect rows (or a real SAP error message with `latency_ms > 100ms`, proving the request hit SAP through your machine).
-4. Check `sap_api_sync_log` — a new entry with `status='ok'` and a non-trivial latency confirms the round-trip.
+Update `middleware/.env` to use the stable preview host:
+
+```
+APP_BASE_URL=https://project--06a5c0be-58b7-41a6-ac2d-e7706e765b64-dev.lovable.app
+```
+
+I verified this host returns proper JSON for `/api/public/middleware/config` with no auth gate (it correctly returned `{"ok":false,"error":"Config not found: …"}` for a fake UUID).
+
+Then:
+
+1. Save `middleware/.env`
+2. Restart: `node server.js`
+3. In the app: Plant `3806` → **Execute**
+
+You should now see either real SAP rows or a real SAP error with non-trivial latency in `sap_api_sync_log` — proving the request reached SAP through your machine.
+
+## Optional code hardening (recommend doing this too)
+
+To make this failure mode obvious in the future, I'll also update `middleware/server.js → appFetch()` so that when the app response isn't JSON (HTML auth page, etc.) the error message says **"APP_BASE_URL is auth-gated or wrong — got non-JSON response"** instead of the cryptic `"failed: HTTP 200"`. And update `middleware/README.md` + `.env.example` to call out that only `project--{id}-dev.lovable.app` / `project--{id}.lovable.app` work — never `id-preview--…`.
+
+No DB changes, no app-side code changes needed.
