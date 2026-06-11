@@ -1,30 +1,37 @@
 // SAP Middleware — single-file Node.js (Express) service.
-// Sits between the React/TanStack frontend and SAP. Reads dynamic API
-// configurations from Lovable Cloud (Supabase) and forwards calls to SAP.
+// Sits between SAP and the Lovable app. Holds NO database credentials:
+// it calls the app's public middleware endpoints
+// (POST /api/public/middleware/config and /log) with a shared-secret
+// header, and forwards the resolved config to SAP.
 //
 // Routes:
-//   GET  /__health      — public liveness probe
-//   POST /sap/test      — probes a configured SAP endpoint (auth: x-shared-secret)
-//   POST /sap/invoke    — runs a configured SAP API call      (auth: x-shared-secret)
+//   GET  /__health     — public liveness probe
+//   POST /sap/test     — probes a configured SAP endpoint (auth: x-shared-secret)
+//   POST /sap/invoke   — runs a configured SAP API call    (auth: x-shared-secret)
 
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
 
 // ---------- env ----------
-const PORT = parseInt(process.env.PORT || "3002", 10);
+const PORT = parseInt(process.env.PORT || "3005", 10);
 
-// Shared secret — MUST match "Proxy Secret / Password" in
-// SAP API Settings → Middleware Configuration tab.
-// Accepts MIDDLEWARE_SHARED_SECRET (preferred) or legacy SHARED_SECRET.
+// Shared secret — MUST match MIDDLEWARE_SHARED_SECRET secret on the
+// Lovable app side AND "Proxy Secret / Password" in SAP API Settings →
+// Middleware Configuration tab.
 const SHARED_SECRET =
-  process.env.MIDDLEWARE_SHARED_SECRET || process.env.SHARED_SECRET || "123456";
+  process.env.MIDDLEWARE_SHARED_SECRET || process.env.SHARED_SECRET || "";
 
-// Lovable Cloud (Supabase) — required to load dynamic SAP API configs.
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Base URL of the Lovable app. Used to fetch SAP configs and write sync log.
+// Examples:
+//   https://id-preview--<project-id>.lovable.app   (preview)
+//   https://project--<project-id>.lovable.app      (published / stable)
+const APP_BASE_URL = (process.env.APP_BASE_URL || "").replace(/\/+$/, "");
+
+// Optional offline smoke-test mode. When MIDDLEWARE_MOCK=1, the middleware
+// skips the app call and builds a config from SAP_BP_* env vars below.
+const MOCK_MODE = process.env.MIDDLEWARE_MOCK === "1";
 
 // Timeouts.
 const TIMEOUT_MS         = parseInt(process.env.SAP_REQUEST_TIMEOUT_MS || "30000", 10);
@@ -32,33 +39,26 @@ const CONNECT_TIMEOUT_MS = parseInt(process.env.SAP_CONNECT_TIMEOUT_MS || "60000
 const HEADERS_TIMEOUT_MS = parseInt(process.env.SAP_HEADERS_TIMEOUT_MS || "60000", 10);
 const BODY_TIMEOUT_MS    = parseInt(process.env.SAP_BODY_TIMEOUT_MS    || "60000", 10);
 
-// Optional last-resort fallbacks. Per-row values in SAP API Settings
-// always win; these only fill in when a config row has no URL/credentials
-// (useful for local smoke tests).
+// Optional SAP fallbacks — only used in MOCK_MODE or when the app returns
+// a row without URL/credentials.
 const FALLBACK_BP_URL      = process.env.SAP_BP_API_URL  || "";
 const FALLBACK_DMS_URL     = process.env.SAP_DMS_API_URL || FALLBACK_BP_URL;
 const FALLBACK_BP_USERNAME = process.env.SAP_BP_USERNAME || "";
 const FALLBACK_BP_PASSWORD = process.env.SAP_BP_PASSWORD || "";
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+if (!SHARED_SECRET) {
+  console.error("[fatal] MIDDLEWARE_SHARED_SECRET is required.");
+  process.exit(1);
+}
+if (!MOCK_MODE && !APP_BASE_URL) {
   console.error(
-    "[fatal] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required. Copy .env.example to .env and fill them in.",
+    "[fatal] APP_BASE_URL is required (or set MIDDLEWARE_MOCK=1 for offline mode).",
   );
   process.exit(1);
 }
-if (!SHARED_SECRET) {
-  console.warn("[warn] MIDDLEWARE_SHARED_SECRET is empty — protected routes will reject every request.");
-}
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-
-// ---------- shared-secret auth ----------
+// ---------- shared-secret auth (incoming) ----------
 function requireSharedSecret(req, res, next) {
-  if (!SHARED_SECRET) {
-    return res.status(500).json({ ok: false, error: "Middleware misconfigured: shared secret not set" });
-  }
   const got = req.header("x-shared-secret");
   if (!got || got !== SHARED_SECRET) {
     return res.status(401).json({ ok: false, error: "Invalid or missing x-shared-secret" });
@@ -66,57 +66,88 @@ function requireSharedSecret(req, res, next) {
   next();
 }
 
-// ---------- config loader (30s cache, invalidates on updated_at) ----------
+// ---------- app-side calls (config + log) ----------
+async function appFetch(path, body) {
+  const res = await fetch(`${APP_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-shared-secret": SHARED_SECRET,
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error || `${path} failed: HTTP ${res.status}`);
+  }
+  return json;
+}
+
+// ---------- config loader (30s cache) ----------
 const TTL_MS = 30_000;
 const configCache = new Map();
+
+function buildMockConfig(configId) {
+  const url = FALLBACK_BP_URL || FALLBACK_DMS_URL;
+  if (!url) throw new Error("MOCK_MODE: no SAP_BP_API_URL configured");
+  return {
+    id: configId,
+    name: "mock",
+    module: "COMMON",
+    endpoint_url: url,
+    http_method: "GET",
+    auth_type: FALLBACK_BP_USERNAME ? "basic" : "none",
+    is_active: true,
+    updated_at: new Date().toISOString(),
+    credentials: {
+      username: FALLBACK_BP_USERNAME || null,
+      password: FALLBACK_BP_PASSWORD || null,
+      extra_headers: {},
+    },
+    requestFields: [],
+    responseFields: [],
+  };
+}
 
 async function loadConfig(configId) {
   const cached = configCache.get(configId);
   if (cached && Date.now() - cached.at < TTL_MS) return cached.cfg;
 
-  const { data: cfg, error } = await supabase
-    .from("sap_api_configs")
-    .select("*")
-    .eq("id", configId)
-    .maybeSingle();
-  if (error) throw new Error(`Load config failed: ${error.message}`);
-  if (!cfg) throw new Error(`Config not found: ${configId}`);
-  if (!cfg.is_active) throw new Error(`Config is inactive: ${configId}`);
+  let cfg;
+  if (MOCK_MODE) {
+    cfg = buildMockConfig(configId);
+  } else {
+    const json = await appFetch("/api/public/middleware/config", { configId });
+    cfg = json.config;
+  }
 
-  const [{ data: creds }, { data: reqFields }, { data: resFields }] = await Promise.all([
-    supabase.from("sap_api_credentials").select("*").eq("config_id", configId).maybeSingle(),
-    supabase.from("sap_api_request_fields").select("*").eq("config_id", configId).order("sort_order"),
-    supabase.from("sap_api_response_fields").select("*").eq("config_id", configId).order("sort_order"),
-  ]);
+  // Apply per-module URL fallback if app returned no endpoint_url.
+  if (!cfg.endpoint_url) {
+    cfg.endpoint_url =
+      cfg.module === "MM" ? FALLBACK_DMS_URL : FALLBACK_BP_URL;
+  }
+  // Apply credential fallbacks.
+  cfg.credentials = cfg.credentials || { extra_headers: {} };
+  if (!cfg.credentials.username) cfg.credentials.username = FALLBACK_BP_USERNAME || null;
+  if (!cfg.credentials.password) cfg.credentials.password = FALLBACK_BP_PASSWORD || null;
+  cfg.credentials.extra_headers = cfg.credentials.extra_headers || {};
 
-  // Pick a fallback URL based on module — only used when row lacks one.
-  const moduleFallback =
-    cfg.module === "MM" ? FALLBACK_DMS_URL : FALLBACK_BP_URL;
-
-  const resolved = {
-    id: cfg.id,
-    name: cfg.name,
-    module: cfg.module,
-    endpoint_url: cfg.endpoint_url || moduleFallback,
-    http_method: cfg.http_method,
-    auth_type: cfg.auth_type,
-    is_active: cfg.is_active,
-    updated_at: cfg.updated_at,
-    credentials: {
-      username: creds?.username ?? FALLBACK_BP_USERNAME ?? null,
-      password: creds?.password_encrypted ?? FALLBACK_BP_PASSWORD ?? null,
-      extra_headers: creds?.extra_headers ?? {},
-    },
-    requestFields: reqFields ?? [],
-    responseFields: resFields ?? [],
-  };
-
-  if (!resolved.endpoint_url) {
+  if (!cfg.endpoint_url) {
     throw new Error(`Config ${configId} has no endpoint_url and no fallback env URL is set`);
   }
 
-  configCache.set(configId, { at: Date.now(), updated_at: cfg.updated_at, cfg: resolved });
-  return resolved;
+  configCache.set(configId, { at: Date.now(), cfg });
+  return cfg;
+}
+
+async function writeLog(entry) {
+  if (MOCK_MODE) return;
+  try {
+    await appFetch("/api/public/middleware/log", entry);
+  } catch (e) {
+    console.error("[log] failed", e.message);
+  }
 }
 
 // ---------- field mapping ----------
@@ -291,7 +322,13 @@ app.use(express.json({ limit: "1mb" }));
 
 // Health
 app.get("/__health", (_req, res) => {
-  res.json({ ok: true, service: "sap-middleware", time: new Date().toISOString() });
+  res.json({
+    ok: true,
+    service: "sap-middleware",
+    mode: MOCK_MODE ? "mock" : "live",
+    app_base_url: MOCK_MODE ? null : APP_BASE_URL,
+    time: new Date().toISOString(),
+  });
 });
 
 // Test connection
@@ -303,8 +340,8 @@ app.post("/sap/test", requireSharedSecret, async (req, res) => {
   try {
     const cfg = await loadConfig(parsed.data.configId);
     const result = await probeSap(cfg);
-    await supabase.from("sap_api_sync_log").insert({
-      config_id: parsed.data.configId,
+    await writeLog({
+      configId: parsed.data.configId,
       status: result.ok ? "ok" : "error",
       latency_ms: result.latency_ms,
       message: `test: ${result.message}`,
@@ -329,19 +366,17 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
   try {
     const cfg = await loadConfig(configId);
     const result = await invokeSap(cfg, inputs);
-
-    await supabase.from("sap_api_sync_log").insert({
-      config_id: configId,
+    await writeLog({
+      configId,
       status: result.ok ? "ok" : "error",
       latency_ms: result.latency_ms,
       message: `invoke: ${result.status}`,
     });
-
     return res.status(result.ok ? 200 : 502).json(result);
   } catch (e) {
     console.error("[invoke] failed", e.message);
-    await supabase.from("sap_api_sync_log").insert({
-      config_id: configId,
+    await writeLog({
+      configId,
       status: "error",
       latency_ms: 0,
       message: `invoke: ${e.message}`.slice(0, 500),
@@ -357,11 +392,11 @@ app.use((err, _req, res, _next) => {
 });
 
 const server = app.listen(PORT, () => {
-  console.log(`[sap-middleware] listening on :${PORT}`);
+  console.log(`[sap-middleware] listening on :${PORT} (${MOCK_MODE ? "mock" : "live"} mode)`);
+  if (!MOCK_MODE) console.log(`[sap-middleware] app: ${APP_BASE_URL}`);
   console.log(`[sap-middleware] timeouts request=${TIMEOUT_MS}ms headers=${HEADERS_TIMEOUT_MS}ms body=${BODY_TIMEOUT_MS}ms keepAlive=${CONNECT_TIMEOUT_MS}ms`);
 });
 
-// HTTP server-level timeouts.
 server.headersTimeout   = HEADERS_TIMEOUT_MS;
 server.requestTimeout   = BODY_TIMEOUT_MS;
 server.keepAliveTimeout = CONNECT_TIMEOUT_MS;
