@@ -1,65 +1,30 @@
-## Which API is being hit (and why it fails)
+# Fix: Price Approvals bypasses the middleware
 
-When you click **Execute**, this chain runs:
+## What's wrong
 
-```
-Browser → Lovable server fn (price-approval)
-        → ngrok → your local middleware (server.js)
-        → middleware calls back to the app:
-             POST {APP_BASE_URL}/api/public/middleware/config
-          to load SAP URL + credentials
-        → middleware calls SAP 10.150.150.154:8103
-```
+The error `Could not reach SAP at http://10.150.150.154:8103/...` means the cloud server is trying to hit the private SAP IP **directly**, instead of going through your ngrok middleware.
 
-The error in your screenshot:
+Why: `src/lib/sd/price-approval.functions.ts` decides whether to proxy by checking `cfg.auth_type === "proxy"` on the per-config row. But your config has:
 
-```
-SAP returned 500 Internal Server Error:
-{"ok":false,"error":"/api/public/middleware/config failed: HTTP 200"}
-```
+- `sap_api_configs.auth_type = 'basic'` (per-row auth — correct, that's how SAP is authenticated)
+- `sap_global_settings.connection_mode = 'via_proxy'` (global routing — says "send everything through middleware")
+- `sap_global_settings.middleware_url = https://...ngrok...` ✓
 
-is thrown by `server.js → appFetch()` — **before** SAP is ever called. The "SAP returned 500" prefix in the UI is misleading; the real failure is the middleware → app callback.
+The per-config `auth_type` and the global `connection_mode` are two different things, but the code only looks at `auth_type`. So the proxy branch is never taken and the Worker tries the private IP directly.
 
-## Root cause
+## Fix
 
-Your `middleware/.env` has:
+In `src/lib/sd/price-approval.functions.ts`:
 
-```
-APP_BASE_URL=https://id-preview--06a5c0be-58b7-41a6-ac2d-e7706e765b64.lovable.app
-```
+1. Also read `sap_global_settings` (connection_mode, middleware_url) and `sap_global_secrets` (proxy_secret).
+2. Treat the request as proxied when **either**:
+   - `cfg.auth_type === 'proxy'` (existing behavior), OR
+   - global `connection_mode === 'via_proxy'` AND a `middleware_url` is set (new).
+3. When proxied, POST to `{middleware_url}/sap/invoke` with `x-shared-secret: <global proxy_secret>` (fall back to `cfg.proxy_secret_ref` env / `MIDDLEWARE_SHARED_SECRET` like today). Body stays `{ configId, inputs: { PLANT, USER_ID } }`.
+4. Middleware already loads the SAP creds via `/api/public/middleware/config` and calls SAP from your LAN — no middleware change needed.
 
-That `id-preview--…` host is **auth-gated**. I just probed it from outside:
+No DB migration, no UI change. Only `price-approval.functions.ts` is edited.
 
-```
-POST /api/public/middleware/config
-HTTP/2 302
-location: https://lovable.dev/auth-bridge?...
-```
+## After the fix
 
-Your middleware (no browser cookies) follows the redirect, lands on the auth-bridge HTML page with status 200, `await res.json()` fails, `json.ok` is undefined → it throws `"… failed: HTTP 200"`.
-
-The `/api/public/*` bypass only works on the **stable** preview/published hosts, not on `id-preview--…`.
-
-## The fix (one-line config change, no code edits)
-
-Update `middleware/.env` to use the stable preview host:
-
-```
-APP_BASE_URL=https://project--06a5c0be-58b7-41a6-ac2d-e7706e765b64-dev.lovable.app
-```
-
-I verified this host returns proper JSON for `/api/public/middleware/config` with no auth gate (it correctly returned `{"ok":false,"error":"Config not found: …"}` for a fake UUID).
-
-Then:
-
-1. Save `middleware/.env`
-2. Restart: `node server.js`
-3. In the app: Plant `3806` → **Execute**
-
-You should now see either real SAP rows or a real SAP error with non-trivial latency in `sap_api_sync_log` — proving the request reached SAP through your machine.
-
-## Optional code hardening (recommend doing this too)
-
-To make this failure mode obvious in the future, I'll also update `middleware/server.js → appFetch()` so that when the app response isn't JSON (HTML auth page, etc.) the error message says **"APP_BASE_URL is auth-gated or wrong — got non-JSON response"** instead of the cryptic `"failed: HTTP 200"`. And update `middleware/README.md` + `.env.example` to call out that only `project--{id}-dev.lovable.app` / `project--{id}.lovable.app` work — never `id-preview--…`.
-
-No DB changes, no app-side code changes needed.
+Click Execute again. The request will go: Worker → ngrok → your middleware → SAP `10.150.150.154`. You should see a `POST /sap/invoke` hit in the middleware logs and rows back in the UI.
