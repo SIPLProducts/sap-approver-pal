@@ -336,7 +336,6 @@ function PricePage() {
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.price_group ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.plant ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.old_price)}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(r.new_price)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.currency ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.uom ?? "—"}</td>
