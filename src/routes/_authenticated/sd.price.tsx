@@ -163,7 +163,9 @@ function PricePage() {
       setSelected(new Set());
 
       const sap: any = (res as any)?.sap_response ?? {};
-      const rawMsgs = sap?.MESSAGE ?? sap?.message ?? sap?.Messages ?? [];
+      const inner: any = sap?.data ?? sap;
+      const rawMsgs =
+        inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? sap?.MESSAGE ?? [];
       const msgs: Array<{ CUSTOMER?: string; TYPE?: string; MESSAGE?: string }> = Array.isArray(rawMsgs)
         ? rawMsgs
         : rawMsgs
