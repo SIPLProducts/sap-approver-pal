@@ -181,43 +181,10 @@ function PricePage() {
       const inner: any = sap?.data ?? sap;
       const rawMsgs =
         inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? sap?.MESSAGE ?? [];
-      const msgs: Array<{ CUSTOMER?: string; TYPE?: string; MESSAGE?: string }> = Array.isArray(rawMsgs)
-        ? rawMsgs
-        : rawMsgs
-          ? [rawMsgs]
-          : [];
+      const msgs: SapMsg[] = Array.isArray(rawMsgs) ? rawMsgs : rawMsgs ? [rawMsgs] : [];
 
-      const types = msgs.map((m) => String(m?.TYPE ?? "").toUpperCase());
-      const icon: "success" | "error" | "warning" | "info" =
-        types.some((t) => t === "E" || t === "A")
-          ? "error"
-          : types.some((t) => t === "W")
-            ? "warning"
-            : msgs.length && types.every((t) => t === "S")
-              ? "success"
-              : "info";
-
-      const title = vars.action === "accepted" ? "Approved" : "Rejected";
-      const html = msgs.length
-        ? `<div style="max-height:300px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
-            <thead><tr style="background:#f1f5f9">
-              <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Customer</th>
-              <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Type</th>
-              <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Message</th>
-            </tr></thead><tbody>
-            ${msgs
-              .map(
-                (m) => `<tr>
-                  <td style="padding:6px;border:1px solid #e2e8f0;font-family:monospace">${m?.CUSTOMER ?? "—"}</td>
-                  <td style="padding:6px;border:1px solid #e2e8f0">${m?.TYPE ?? "—"}</td>
-                  <td style="padding:6px;border:1px solid #e2e8f0">${m?.MESSAGE ?? ""}</td>
-                </tr>`,
-              )
-              .join("")}
-            </tbody></table></div>`
-        : `<p>${vars.rows.length} record${vars.rows.length === 1 ? "" : "s"} ${vars.action} in SAP.</p>`;
-
-      Swal.fire({ icon, title, html, confirmButtonText: "OK" });
+      setResultData({ action: vars.action, messages: msgs, total: vars.rows.length });
+      setResultOpen(true);
     },
     onError: (e: Error) => {
       console.error("[price-decision] failed", e);
