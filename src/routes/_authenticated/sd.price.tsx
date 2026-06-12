@@ -97,7 +97,8 @@ function PricePage() {
   }>({ action: "accepted", messages: [], total: 0 });
 
   const mutation = useMutation({
-    mutationFn: (p: string) => fetchFn({ data: { plant: p } }),
+    mutationFn: (vars: { plant: string; user_id: string }) =>
+      fetchFn({ data: { plant: vars.plant, user_id: vars.user_id || undefined } }),
     onSuccess: (res) => {
       setRows(res.rows);
       setDecided({});
@@ -123,7 +124,7 @@ function PricePage() {
       toast.error("Plant is required");
       return;
     }
-    mutation.mutate(p);
+    mutation.mutate({ plant: p, user_id: userId.trim() });
   }
 
   function reset() {
