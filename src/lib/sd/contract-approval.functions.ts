@@ -88,6 +88,8 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
       plant: z.string().trim().min(1, "Plant is required").max(40),
       user_id_from: z.string().trim().min(1, "USER_ID From is required").max(40),
       user_id_to: z.string().trim().max(40).optional(),
+      customer_from: z.string().trim().max(40).optional(),
+      customer_to: z.string().trim().max(40).optional(),
       status: z.enum(["pending", "accepted", "rejected"]).default("pending"),
     }).parse(d),
   )
@@ -113,15 +115,19 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
     const R_ACCP = data.status === "accepted" ? "X" : "";
     const R_REJ = data.status === "rejected" ? "X" : "";
 
+    const custFrom = (data.customer_from ?? "").trim();
+    const custTo = (data.customer_to ?? "").trim() || custFrom;
+
     const inputs = {
       PLANT: data.plant,
-      CUSTOMER_FROM: "",
-      CUSTOMER_TO: "",
+      CUSTOMER_FROM: custFrom,
+      CUSTOMER_TO: custTo,
       USER_ID: userId,
       R_PEND,
       R_ACCP,
       R_REJ,
     };
+
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
