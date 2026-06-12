@@ -396,3 +396,130 @@ function PricePage() {
     </div>
   );
 }
+
+type SapMsg = { CUSTOMER?: string; TYPE?: string; MESSAGE?: string };
+
+function ResultDialog({
+  open,
+  onOpenChange,
+  action,
+  messages,
+  total,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  action: "accepted" | "rejected";
+  messages: SapMsg[];
+  total: number;
+}) {
+  const types = messages.map((m) => String(m?.TYPE ?? "").toUpperCase());
+  const hasError = types.some((t) => t === "E" || t === "A");
+  const hasWarn = types.some((t) => t === "W");
+  const successCount = types.filter((t) => t === "S").length;
+
+  const tone: "success" | "error" | "warning" = hasError
+    ? "error"
+    : hasWarn
+      ? "warning"
+      : "success";
+
+  const banner = {
+    success: {
+      bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900",
+      icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />,
+      title:
+        action === "accepted"
+          ? "Approved successfully"
+          : "Rejected successfully",
+    },
+    error: {
+      bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900",
+      icon: <XCircle className="h-5 w-5 text-red-600" />,
+      title: "Completed with errors",
+    },
+    warning: {
+      bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900",
+      icon: <AlertTriangle className="h-5 w-5 text-amber-600" />,
+      title: "Completed with warnings",
+    },
+  }[tone];
+
+  function badge(type?: string) {
+    const t = String(type ?? "").toUpperCase();
+    if (t === "S")
+      return (
+        <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+          Success
+        </span>
+      );
+    if (t === "E" || t === "A")
+      return (
+        <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+          Error
+        </span>
+      );
+    if (t === "W")
+      return (
+        <span className="inline-flex items-center rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+          Warning
+        </span>
+      );
+    return (
+      <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-foreground">
+        Info
+      </span>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>SAP Response</DialogTitle>
+        </DialogHeader>
+
+        <div className={`flex items-start gap-3 rounded-lg border p-3 ${banner.bg}`}>
+          {banner.icon}
+          <div className="min-w-0">
+            <div className="font-semibold text-sm">{banner.title}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {successCount} of {total} condition record{total === 1 ? "" : "s"} saved in SAP
+            </div>
+          </div>
+        </div>
+
+        {messages.length > 0 && (
+          <>
+            <div className="text-xs font-semibold text-muted-foreground mt-2">
+              SAP Response Details
+            </div>
+            <div className="max-h-[55vh] overflow-auto space-y-2 pr-1">
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className="flex items-start justify-between gap-3 rounded-md border bg-card p-3"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium leading-snug">
+                      {m?.MESSAGE || "—"}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1 font-mono">
+                      Customer: {m?.CUSTOMER?.trim() ? m.CUSTOMER : "—"}
+                    </div>
+                  </div>
+                  <div className="shrink-0">{badge(m?.TYPE)}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
