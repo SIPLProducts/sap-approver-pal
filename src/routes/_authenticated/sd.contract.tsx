@@ -42,8 +42,7 @@ function ContractPage() {
   const fetchFn = useServerFn(fetchContractApprovals);
 
   const [plant, setPlant] = useState("");
-  const [userIdFrom, setUserIdFrom] = useState("");
-  const [userIdTo, setUserIdTo] = useState("");
+  const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
   const [customerTo, setCustomerTo] = useState("");
   const [status, setStatus] = useState<Status>("pending");
@@ -53,8 +52,7 @@ function ContractPage() {
   const mutation = useMutation({
     mutationFn: (vars: {
       plant: string;
-      user_id_from: string;
-      user_id_to: string;
+      user_id: string;
       customer_from: string;
       customer_to: string;
       status: Status;
@@ -70,13 +68,10 @@ function ContractPage() {
 
   function execute() {
     const p = plant.trim();
-    const uf = userIdFrom.trim();
     if (!p) return toast.error("Plant is required");
-    if (!uf) return toast.error("USER_ID From is required");
     mutation.mutate({
       plant: p,
-      user_id_from: uf,
-      user_id_to: userIdTo.trim() || uf,
+      user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerTo.trim() || customerFrom.trim(),
       status,
@@ -85,8 +80,7 @@ function ContractPage() {
 
   function reset() {
     setPlant("");
-    setUserIdFrom("");
-    setUserIdTo("");
+    setUserId("");
     setCustomerFrom("");
     setCustomerTo("");
     setStatus("pending");
@@ -94,7 +88,7 @@ function ContractPage() {
     setLastFetchedAt(null);
   }
 
-  const canExecute = !!plant.trim() && !!userIdFrom.trim() && !mutation.isPending;
+  const canExecute = !!plant.trim() && !mutation.isPending;
 
 
   return (
@@ -116,7 +110,7 @@ function ContractPage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6 items-end">
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-5 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
@@ -131,29 +125,13 @@ function ContractPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">
-              USER_ID From <span className="text-destructive">*</span>
-            </Label>
+            <Label className="text-xs">User ID</Label>
             <Input
-              value={userIdFrom}
-              onChange={(e) => setUserIdFrom(e.target.value)}
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="e.g. NEOBMWCONS1"
+              placeholder="optional"
               className="h-9 font-mono"
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              USER_ID To <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              value={userIdTo}
-              onChange={(e) => setUserIdTo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="e.g. NEOBMWCONS1"
-              className="h-9 font-mono"
-              required
             />
           </div>
           <div className="space-y-1.5">
@@ -262,7 +240,7 @@ function ContractPage() {
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={18} className="py-12 text-center text-muted-foreground">
-                    Enter Plant + USER_ID and click Execute to load contracts from SAP.
+                    Enter Plant and click Execute to load contracts from SAP.
                   </td>
                 </tr>
               ) : (

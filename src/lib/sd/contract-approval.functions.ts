@@ -86,8 +86,7 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({
       plant: z.string().trim().min(1, "Plant is required").max(40),
-      user_id_from: z.string().trim().min(1, "USER_ID From is required").max(40),
-      user_id_to: z.string().trim().max(40).optional(),
+      user_id: z.string().trim().max(40).optional(),
       customer_from: z.string().trim().max(40).optional(),
       customer_to: z.string().trim().max(40).optional(),
       status: z.enum(["pending", "accepted", "rejected"]).default("pending"),
@@ -110,7 +109,7 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const userId = data.user_id_from;
+    const userId = (data.user_id ?? "").trim();
     const R_PEND = data.status === "pending" ? "X" : "";
     const R_ACCP = data.status === "accepted" ? "X" : "";
     const R_REJ = data.status === "rejected" ? "X" : "";
