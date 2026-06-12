@@ -227,9 +227,10 @@ function ContractPage() {
             {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[60vh]">
           <table className="w-full text-xs">
-            <thead className="bg-muted/50 border-b sticky top-0">
+            <thead className="bg-muted/50 border-b sticky top-0 z-10">
+
               <tr>
                 <th className="text-left font-semibold px-3 py-2 w-10">#</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
