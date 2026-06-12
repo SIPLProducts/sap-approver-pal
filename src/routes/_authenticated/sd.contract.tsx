@@ -240,7 +240,7 @@ function ContractPage() {
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={18} className="py-12 text-center text-muted-foreground">
-                    Enter Plant + USER_ID and click Execute to load contracts from SAP.
+                    Enter Plant and click Execute to load contracts from SAP.
                   </td>
                 </tr>
               ) : (
