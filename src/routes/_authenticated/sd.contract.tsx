@@ -110,7 +110,7 @@ function ContractPage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6 items-end">
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-5 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
@@ -125,29 +125,13 @@ function ContractPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">
-              USER_ID From <span className="text-destructive">*</span>
-            </Label>
+            <Label className="text-xs">User ID</Label>
             <Input
-              value={userIdFrom}
-              onChange={(e) => setUserIdFrom(e.target.value)}
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="e.g. NEOBMWCONS1"
+              placeholder="optional"
               className="h-9 font-mono"
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              USER_ID To <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              value={userIdTo}
-              onChange={(e) => setUserIdTo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="e.g. NEOBMWCONS1"
-              className="h-9 font-mono"
-              required
             />
           </div>
           <div className="space-y-1.5">
