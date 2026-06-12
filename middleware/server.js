@@ -473,6 +473,65 @@ function namedInvokeRoute(path, configName) {
   });
 }
 
+// Raw passthrough invoker — sends inputs verbatim as the SAP request body.
+// Used for write endpoints (e.g. Approve/Reject) where the caller has already
+// shaped the exact SAP payload and field mapping must NOT be applied.
+async function invokeSapRaw(cfg, rawBody) {
+  const url = cfg.endpoint_url;
+  const method = (cfg.http_method || "PUT").toUpperCase();
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    ...cfg.credentials.extra_headers,
+    ...(await buildAuthHeaders(cfg)),
+  };
+  const body = JSON.stringify(rawBody);
+  console.log(`[raw-invoke] ${method} ${url} payload=`, body);
+  const t0 = Date.now();
+  const res = await fetchWithTimeout(url, { method, headers, body });
+  const latency_ms = Date.now() - t0;
+  const contentType = res.headers.get("content-type") ?? "";
+  const data = contentType.includes("application/json")
+    ? await res.json().catch(() => null)
+    : await res.text().catch(() => "");
+  console.log(`[raw-invoke] ${method} ${url} status=${res.status} body=`,
+    typeof data === "string" ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500));
+  return { ok: res.ok, status: res.status, latency_ms, data };
+}
+
+function namedRawInvokeRoute(path, configName) {
+  app.post(path, requireSharedSecret, async (req, res) => {
+    const parsed = NamedInvokeBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.message });
+    const { inputs } = parsed.data;
+
+    let cfgId = null;
+    try {
+      const cfg = await loadConfig(configName);
+      cfgId = cfg.id;
+      const result = await invokeSapRaw(cfg, inputs);
+      await writeLog({
+        configId: cfg.id,
+        status: result.ok ? "ok" : "error",
+        latency_ms: result.latency_ms,
+        message: `${path}: ${result.status}`,
+      });
+      return res.status(result.ok ? 200 : 502).json(result);
+    } catch (e) {
+      console.error(`[${path}] failed`, e.message);
+      if (cfgId) {
+        await writeLog({
+          configId: cfgId,
+          status: "error",
+          latency_ms: 0,
+          message: `${path}: ${e.message}`.slice(0, 500),
+        });
+      }
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+}
+
 // SD — Price Approvals
 namedInvokeRoute("/price_approval/Fetch",                "Price_Approval_Fetch");
 namedInvokeRoute("/price_approval/Price_Approve_Reject", "Price_Approve_Reject");
