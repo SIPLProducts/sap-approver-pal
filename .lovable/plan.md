@@ -1,19 +1,44 @@
-## Goal
-Make the `USER_ID` field on the Price Approvals selection screen editable so the user can type/override the SAP user ID instead of it being locked to the auto-fetched value.
+# Contract Approvals — Live SAP Fetch
 
-## Changes (frontend only — `src/routes/_authenticated/sd.price.tsx`)
+Rewrite `src/routes/_authenticated/sd.contract.tsx` to mirror the Price Approvals pattern: live SAP fetch via the configured `Contract_Approval_Fetch` API, mandatory Plant, USER_ID From/To inputs, and status radios driving the SAP `R_PEND / R_ACCP / R_REJ` flags. The old DB-backed `SdApprovalShell` tabs are removed for this screen.
 
-1. Add local state `const [userId, setUserId] = useState("")`.
-2. When `userIdData?.sap_user_id` loads (via a `useEffect`), prefill `userId` only if the field is still empty (so user edits aren't overwritten).
-3. Update the `USER_ID` `<Input>`:
-   - Remove `readOnly` and the muted background.
-   - Bind `value={userId}` and `onChange={(e) => setUserId(e.target.value)}`.
-   - Add `placeholder="SAP USER_ID"` and keep `font-mono h-9`.
-4. Pass `userId` to the fetch call in `execute()` — extend `mutation.mutationFn` and `fetchPriceApprovals` payload to include `user_id` (trimmed). If the server function currently ignores it, it still does no harm; if it accepts it, it overrides the default.
-5. Reset: clear `userId` back to the fetched default in `reset()`.
+## Selection Screen
 
-## Out of scope
-- No backend / server-function signature changes unless `fetchPriceApprovals` already accepts `user_id`. If it doesn't, I'll add an optional `user_id` to its input validator and forward it to the SAP call — confirm before I touch the server function.
+- **Plant** — mandatory text input (`*`). Execute disabled until filled. Prefilled from request-field default (`3801`) if available.
+- **USER_ID From** — mandatory text input. Prefilled from profile `sap_user_id` or request-field default (`NEOBMWCONS1`).
+- **USER_ID To** — mandatory text input. Defaults to same value as From.
+- **Status** (radio group, exactly one selected, mandatory, default Pending):
+  - Pending → `R_PEND="X"`, others blank
+  - Accepted → `R_ACCP="X"`, others blank
+  - Rejected → `R_REJ="X"`, others blank
+- **Execute** — calls the new server function. **Reset** — clears inputs and rows.
+- Old `Pending / Accepted / Rejected` tabs removed.
 
-## Question
-Should the entered `USER_ID` actually be sent to SAP for the fetch/decision calls, or is it display-only (informational) for now?
+## Output Table
+
+Replace shell table with a flat table bound to the live response. Columns map to the 30 response fields (Customer, Customer Name, Contract No, Con Creation, Material, Qty, Net Value, Tax Value, Total, Agreement From/To, Service Valid From/To, Sales Org, Co. Code, Reason, etc.). Currency-style numbers right-aligned; dates formatted like price screen.
+
+Empty state: "Enter Plant + USER_ID and click Execute". Loading state: spinner. Shows row count + last fetched time.
+
+## New Server Function
+
+Add `fetchContractApprovals` in a new file `src/lib/sd/contract-approval.functions.ts`, modeled on `fetchPriceApprovals`:
+
+- Config name: `Contract_Approval_Fetch`
+- Input: `{ plant, user_id_from, user_id_to, status: "pending"|"accepted"|"rejected" }` (zod-validated, plant + user_id_from required)
+- Builds query string: `PLANT, CUSTOMER_FROM (empty), CUSTOMER_TO (empty), USER_ID (=user_id_from), R_PEND, R_ACCP, R_REJ`
+- Proxy mode: posts to `${middleware}/contract_approval/Fetch` (with `/sap/invoke` fallback on 404), body `{ inputs: { PLANT, CUSTOMER_FROM:"", CUSTOMER_TO:"", USER_ID, R_PEND, R_ACCP, R_REJ } }`
+- Direct mode: GET to `cfg.endpoint_url` with the params appended and Basic auth from `sap_api_credentials`
+- Unwraps middleware envelope `json.data`, then `DATA[]`, maps each row to a typed `ContractRow` (all 30 fields, case-insensitive pick)
+- Logs to `sap_api_sync_log` on success/error; returns `{ rows, fetched_at, count, error }` (never throws on SAP errors — returns friendly `error`)
+
+## Out of Scope
+
+- No changes to `SdApprovalShell` (other SD screens still use it).
+- No DB writes — the screen is purely a live SAP viewer for now (no Accept/Reject actions). If you want Accept/Reject like the price screen, that's a follow-up.
+- No changes to the `Contract_Approval_Fetch` config or its request/response field definitions.
+
+## Files
+
+- **New**: `src/lib/sd/contract-approval.functions.ts`
+- **Rewritten**: `src/routes/_authenticated/sd.contract.tsx` (drops `SdApprovalShell` import, drops `status` search param)
