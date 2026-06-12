@@ -1,47 +1,264 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { z } from "zod";
-import { SdApprovalShell, fmtINR, fmtDate, type ColumnDef } from "@/components/sd/sd-approval-shell";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { Filter, RotateCcw, Loader2 } from "lucide-react";
 
-const searchSchema = z.object({
-  status: fallback(z.enum(["pending", "accepted", "rejected"]), "pending").default("pending"),
-});
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  fetchContractApprovals,
+  type ContractRow,
+} from "@/lib/sd/contract-approval.functions";
+
+type Status = "pending" | "accepted" | "rejected";
 
 export const Route = createFileRoute("/_authenticated/sd/contract")({
-  validateSearch: zodValidator(searchSchema),
   component: ContractPage,
 });
 
-const columns: ColumnDef[] = [
-  { key: "customer", label: "Customer", mono: true, render: (d) => d.customer_name?.slice(0, 10) ?? "—" },
-  { key: "customer_name", label: "Customer Name", render: (d) => <span className="font-medium">{d.customer_name ?? "—"}</span> },
-  { key: "contract_no", label: "Contract No", mono: true, render: (d) => d.sap_doc_no },
-  { key: "creation", label: "Con. Creation", render: (d) => fmtDate(d.document_date) },
-  { key: "material", label: "Material", render: (d) => d.title },
-  { key: "net", label: "Net Value", align: "right", render: (d) => fmtINR(d.total_value) },
-  { key: "tax", label: "Tax Value", align: "right", render: (d) => fmtINR(Number(d.total_value) * 0.18) },
-  { key: "total", label: "Total Agreement", align: "right", render: (d) => fmtINR(Number(d.total_value) * 1.18) },
-  { key: "from", label: "From Agreement", render: (d) => fmtDate(d.document_date) },
-  { key: "to", label: "To Service Valid", render: (d) => fmtDate(d.created_at) },
-  { key: "sales_org", label: "Sales Org", mono: true, render: (d) => "3801" },
-  { key: "company", label: "Co. Code", mono: true, render: (d) => "3101" },
-  { key: "step", label: "Level", align: "center", render: (d) => <Badge variant="secondary">L{d.current_step_seq}</Badge> },
-];
+function fmtNum(v: string | number | null) {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (!isFinite(n)) return String(v);
+  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(v: string | null) {
+  if (!v) return "—";
+  const s = String(v);
+  if (/^\d{8}$/.test(s)) return `${s.slice(6, 8)}.${s.slice(4, 6)}.${s.slice(0, 4)}`;
+  const d = new Date(s);
+  if (!isNaN(+d)) return d.toLocaleDateString("en-GB").replaceAll("/", ".");
+  return s;
+}
 
 function ContractPage() {
-  const { status } = Route.useSearch();
-  const navigate = useNavigate({ from: "/_authenticated/sd/contract" });
+  const fetchFn = useServerFn(fetchContractApprovals);
+
+  const [plant, setPlant] = useState("");
+  const [userIdFrom, setUserIdFrom] = useState("");
+  const [userIdTo, setUserIdTo] = useState("");
+  const [status, setStatus] = useState<Status>("pending");
+  const [rows, setRows] = useState<ContractRow[]>([]);
+  const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (vars: { plant: string; user_id_from: string; user_id_to: string; status: Status }) =>
+      fetchFn({ data: vars }),
+    onSuccess: (res) => {
+      setRows(res.rows);
+      setLastFetchedAt(res.fetched_at);
+      if (res.error) toast.error(res.error);
+      else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
+  });
+
+  function execute() {
+    const p = plant.trim();
+    const uf = userIdFrom.trim();
+    if (!p) return toast.error("Plant is required");
+    if (!uf) return toast.error("USER_ID From is required");
+    mutation.mutate({
+      plant: p,
+      user_id_from: uf,
+      user_id_to: userIdTo.trim() || uf,
+      status,
+    });
+  }
+
+  function reset() {
+    setPlant("");
+    setUserIdFrom("");
+    setUserIdTo("");
+    setStatus("pending");
+    setRows([]);
+    setLastFetchedAt(null);
+  }
+
+  const canExecute = !!plant.trim() && !!userIdFrom.trim() && !mutation.isPending;
+
   return (
-    <SdApprovalShell
-      title="Contract Approvals"
-      subtitle="BMW contract value approvals with 2-level release strategy."
-      tCode="ZBMW_CONTRACT_APP"
-      levels="2 levels"
-      docType="BMW_CONTRACT"
-      columns={columns}
-      status={status}
-      onStatusChange={(s) => navigate({ search: (prev: any) => ({ ...prev, status: s }) })}
-    />
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">Contract Approvals</h1>
+          <p className="text-sm text-muted-foreground">
+            BMW contract approvals fetched live from SAP via Contract_Approval_Fetch.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="font-mono text-xs">ZBMW_CONTRACT_APP</Badge>
+          <Badge variant="secondary" className="text-xs">2 levels</Badge>
+        </div>
+      </div>
+
+      <Card className="p-4">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
+          <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
+        </div>
+        <div className="grid gap-3 md:grid-cols-[180px_180px_180px_1fr_auto] items-end">
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Plant <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={plant}
+              onChange={(e) => setPlant(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              placeholder="e.g. 3801"
+              className="h-9 font-mono"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              USER_ID From <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={userIdFrom}
+              onChange={(e) => setUserIdFrom(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              placeholder="e.g. NEOBMWCONS1"
+              className="h-9 font-mono"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              USER_ID To <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={userIdTo}
+              onChange={(e) => setUserIdTo(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              placeholder="e.g. NEOBMWCONS1"
+              className="h-9 font-mono"
+              required
+            />
+          </div>
+          <div />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={execute} disabled={!canExecute}>
+              {mutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Execute
+            </Button>
+            <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
+          </div>
+        </div>
+
+        <div className="mt-4 -mx-4 px-4 pt-3 border-t">
+          <div className="flex items-center gap-6 flex-wrap">
+            <Label className="text-xs text-muted-foreground">
+              Status <span className="text-destructive">*</span>
+            </Label>
+            <RadioGroup
+              value={status}
+              onValueChange={(v) => setStatus(v as Status)}
+              className="flex items-center gap-5"
+            >
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="pending" id="st-pending" />
+                Pending
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="accepted" id="st-accepted" />
+                Accepted
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="rejected" id="st-rejected" />
+                Rejected
+              </label>
+            </RadioGroup>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-0 overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Output — {status}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {rows.length} record{rows.length === 1 ? "" : "s"}
+            {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50 border-b sticky top-0">
+              <tr>
+                <th className="text-left font-semibold px-3 py-2 w-10">#</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Name</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract No</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Item</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Con. Creation</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Material</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Qty</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Net Value</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Tax Value</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Total</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Agr. From</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Agr. To</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Svc Valid From</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Svc Valid To</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Org</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Co. Code</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mutation.isPending ? (
+                <tr>
+                  <td colSpan={18} className="py-12 text-center text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={18} className="py-12 text-center text-muted-foreground">
+                    Enter Plant + USER_ID and click Execute to load contracts from SAP.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r, i) => (
+                  <tr key={i} className="border-b last:border-0 hover:bg-accent/40">
+                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_item ?? "—"}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.con_creation_date)}</td>
+                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.qty)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.net_value)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.tax_value)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(r.total)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.agreement_from)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.agreement_to)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_from)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_to)}</td>
+                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{r.reason ?? "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }
