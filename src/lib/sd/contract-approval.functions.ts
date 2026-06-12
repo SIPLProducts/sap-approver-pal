@@ -86,8 +86,7 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({
       plant: z.string().trim().min(1, "Plant is required").max(40),
-      user_id_from: z.string().trim().min(1, "USER_ID From is required").max(40),
-      user_id_to: z.string().trim().max(40).optional(),
+      user_id: z.string().trim().max(40).optional(),
       customer_from: z.string().trim().max(40).optional(),
       customer_to: z.string().trim().max(40).optional(),
       status: z.enum(["pending", "accepted", "rejected"]).default("pending"),

@@ -1,27 +1,27 @@
-## Contract Approvals — add Customer From/To and scrollable table
+## Replace USER_ID From/To with single optional User ID
 
-### Selection screen
-Add two new optional inputs alongside the existing Plant + USER_ID From/To fields:
-- **Customer From** — text input, optional, mapped to SAP `CUSTOMER_FROM`
-- **Customer To** — text input, optional, mapped to SAP `CUSTOMER_TO` (defaults to Customer From if only From provided)
+### Problem
+The Contract Approvals screen currently has two mandatory USER_ID fields (From / To). The user wants a single optional "User ID" field instead.
 
-Layout becomes a 6-column responsive grid: Plant*, USER_ID From*, USER_ID To*, Customer From, Customer To, then action buttons wrap to the next row. Status radio group stays as-is below.
+### Changes
 
-### Output table — scrollable
-Make the table area independently scrollable in both directions with a sticky header:
-- Wrap the `<table>` in a container with fixed `max-h-[60vh]` and `overflow-auto` (both X and Y).
-- Keep the existing sticky `<thead>` (already `sticky top-0`), add `bg-muted/50 z-10` so it stays solid over scrolled rows.
-- Table card content uses the scroll container instead of the current `overflow-x-auto` only wrapper, so vertical scrolling stays inside the card (page no longer grows tall with many rows).
+#### 1. UI (`src/routes/_authenticated/sd.contract.tsx`)
+- Replace `userIdFrom` + `userIdTo` state with a single `userId` state.
+- Replace the two "USER_ID From / To" inputs with one "User ID" input (optional, no red asterisk).
+- Remove USER_ID from the `execute()` validation (only Plant remains required).
+- Update `mutation.mutate()` payload to send a single `user_id` string.
+- Update `canExecute` to only depend on `plant.trim()`.
+- Update the responsive grid from `lg:grid-cols-6` to `lg:grid-cols-5` since one field is removed.
+- Update the empty-state helper text to say "Enter Plant and click Execute...".
 
-### Server function
-`fetchContractApprovals` in `src/lib/sd/contract-approval.functions.ts`:
-- Extend `inputValidator` with optional `customer_from` and `customer_to` (trimmed, max 40).
-- Populate `inputs.CUSTOMER_FROM` / `inputs.CUSTOMER_TO` from the new fields (instead of hardcoded `""`).
-- No other logic changes; proxy + direct paths already forward both fields.
+#### 2. Server function (`src/lib/sd/contract-approval.functions.ts`)
+- In `inputValidator`: replace `user_id_from` (required) and `user_id_to` (optional) with a single optional `user_id` string.
+- In handler: read `data.user_id` instead of `data.user_id_from`. If blank, pass empty string to SAP for `USER_ID`.
+- No changes to SAP request/response mapping, table columns, status radio, or Customer From/To logic.
 
 ### Out of scope
-No changes to status radio behaviour, table columns, API config, or the `Contract_Approval_Fetch` request/response mapping.
+- Table columns, scroll behaviour, status radio, Customer From/To, SAP API config.
 
 ### Files
-- edit `src/routes/_authenticated/sd.contract.tsx`
-- edit `src/lib/sd/contract-approval.functions.ts`
+- `src/routes/_authenticated/sd.contract.tsx`
+- `src/lib/sd/contract-approval.functions.ts`
