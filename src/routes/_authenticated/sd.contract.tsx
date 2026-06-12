@@ -44,13 +44,21 @@ function ContractPage() {
   const [plant, setPlant] = useState("");
   const [userIdFrom, setUserIdFrom] = useState("");
   const [userIdTo, setUserIdTo] = useState("");
+  const [customerFrom, setCustomerFrom] = useState("");
+  const [customerTo, setCustomerTo] = useState("");
   const [status, setStatus] = useState<Status>("pending");
   const [rows, setRows] = useState<ContractRow[]>([]);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (vars: { plant: string; user_id_from: string; user_id_to: string; status: Status }) =>
-      fetchFn({ data: vars }),
+    mutationFn: (vars: {
+      plant: string;
+      user_id_from: string;
+      user_id_to: string;
+      customer_from: string;
+      customer_to: string;
+      status: Status;
+    }) => fetchFn({ data: vars }),
     onSuccess: (res) => {
       setRows(res.rows);
       setLastFetchedAt(res.fetched_at);
@@ -69,6 +77,8 @@ function ContractPage() {
       plant: p,
       user_id_from: uf,
       user_id_to: userIdTo.trim() || uf,
+      customer_from: customerFrom.trim(),
+      customer_to: customerTo.trim() || customerFrom.trim(),
       status,
     });
   }
@@ -77,12 +87,15 @@ function ContractPage() {
     setPlant("");
     setUserIdFrom("");
     setUserIdTo("");
+    setCustomerFrom("");
+    setCustomerTo("");
     setStatus("pending");
     setRows([]);
     setLastFetchedAt(null);
   }
 
   const canExecute = !!plant.trim() && !!userIdFrom.trim() && !mutation.isPending;
+
 
   return (
     <div className="space-y-5">
