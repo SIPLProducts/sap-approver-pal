@@ -1,50 +1,27 @@
-## Contract Approvals — auto-refetch on status change + Pending Accept/Reject
+## Root cause
 
-Mirror the Price Approvals UX in the Contract Approvals screen.
+In Admin → SAP API, all 7 request fields of `Contract_Approval_Fetch` are saved as `source = 'static'` with `R_PEND=X` hard-coded. The middleware therefore sends `R_PEND=X` to SAP on every call and ignores the radio (Pending / Accepted / Rejected) and the Plant / User ID / Customer From–To the screen sends. SAP correctly returns the same pending list each time.
 
-### 1. Auto re-fetch on status change
+## Fix — one tiny data change
 
-In `src/routes/_authenticated/sd.contract.tsx`:
-- After the first successful Execute, switching the status radio (Pending / Accepted / Rejected) triggers a new SAP fetch automatically with the same Plant / User ID / Customer From / Customer To and the new status flag (`R_PEND` / `R_ACCP` / `R_REJ`).
-- If the user has not yet clicked Execute (no plant entered / no prior fetch), changing the radio just updates local state — no fetch.
-- Track whether a fetch has happened (e.g. `lastFetchedAt != null`) and call `mutation.mutate(...)` from a small `onStatusChange` handler.
-- Clear `selected` set on every fetch and on status change.
+Flip `source` from `static` to `column` for those 7 fields. With `column`, the middleware uses the value the app sends (so the status flag, plant, user, customer range from the screen actually reach SAP) and only falls back to the saved default when the app sends nothing.
 
-### 2. Pending-only checkboxes + Accept / Reject
+```sql
+UPDATE public.sap_api_request_fields
+SET source = 'column'
+WHERE config_id = (SELECT id FROM public.sap_api_configs WHERE name = 'Contract_Approval_Fetch')
+  AND field_name IN ('PLANT','USER_ID','CUSTOMER_FROM','CUSTOMER_TO','R_PEND','R_ACCP','R_REJ');
+```
 
-UI (Pending tab only — Accepted & Rejected tabs render exactly as today, no checkbox column, no action buttons):
+Defaults stay (`PLANT=3801`, `USER_ID=NEOBMWCONS1`, `R_PEND=X`) so behaviour is unchanged when the screen sends nothing.
 
-- Add a left-most checkbox column to the table header and each row, only when `status === "pending"`.
-- Header checkbox is select-all / deselect-all for the currently visible rows (with indeterminate state when partially selected).
-- Add "Accept" (green) and "Reject" (destructive) buttons in the table header bar on the right, only when `status === "pending"`. Disabled when no row is selected or while the decision mutation is in flight. Show a spinner on the active button.
-- Selected-row highlight (`bg-accent/30`) and a "· N selected" counter in the header, matching Price Approvals.
-- Reuse the same `ResultDialog` UX pattern as Price Approvals to show SAP messages after submit; on success, re-fetch the Pending list so accepted/rejected rows drop out.
+No code edits. No middleware changes. After the update:
+- Pending → SAP gets `R_PEND=X, R_ACCP="", R_REJ=""`
+- Accepted → SAP gets `R_PEND="", R_ACCP=X, R_REJ=""`
+- Rejected → SAP gets `R_PEND="", R_ACCP="", R_REJ=X`
 
-Row identity key for the selection `Set<string>`:
-`contract_no | contract_item | customer | material | index`.
+The UI already auto-refetches when the radio changes, so each tab will show the rows SAP returns for that status.
 
-### 3. Server function — new `submitContractDecision`
+## Files
 
-New export in `src/lib/sd/contract-approval.functions.ts` (same shape as `submitPriceDecision`):
-
-- `inputValidator`: `{ action: "accepted" | "rejected", rows: ContractRow[] (min 1) }`.
-- Reads SAP API config `Contract_Approve_Reject` from `sap_api_configs` (default; if not present the function throws a clear "Configure it in Admin → SAP API" error — matches Price pattern).
-- Builds SAP payload mirroring Price's flag convention:
-  ```
-  {
-    APPROV: action === "accepted" ? "X" : "",
-    REJ:    action === "rejected" ? "X" : "",
-    DATA:   rows.map(toSapContractRow)   // SELECT_FLG: "X" + all CONTRACT_* fields as strings
-  }
-  ```
-- Proxy vs direct call, headers, x-shared-secret, basic auth, `/sap/invoke` 404 fallback, `sap_api_sync_log` insert — all copied 1:1 from `submitPriceDecision`.
-- Returns `{ ok, action, count, sap_response }`.
-
-Field mapping for `toSapContractRow` covers every column already on `ContractRow` (CUSTOMER zero-padded to 10 digits like Price does, all other values stringified, empty for null).
-
-### Out of scope
-- SAP `Contract_Approve_Reject` config row itself — assumed to exist (or to be created in Admin → SAP API). The fetch logic, table columns, Customer From/To, and single User ID field are unchanged.
-
-### Files
-- `src/routes/_authenticated/sd.contract.tsx` — auto-refetch on radio change, pending-only checkbox column + select-all, Accept/Reject buttons, ResultDialog, decision mutation wiring.
-- `src/lib/sd/contract-approval.functions.ts` — add `submitContractDecision` server function + `toSapContractRow` helper.
+- One data update on `public.sap_api_request_fields` (no schema change, no code change).
