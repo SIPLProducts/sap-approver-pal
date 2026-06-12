@@ -434,7 +434,24 @@ function ContractPage() {
                       <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_to)}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.reason ?? "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {status === "pending" ? (
+                          <Input
+                            value={reasons.get(k) ?? ""}
+                            onChange={(e) => setReasonFor(k, e.target.value)}
+                            placeholder="Required"
+                            maxLength={50}
+                            aria-invalid={isSel && !(reasons.get(k) ?? "").trim()}
+                            className={`h-8 w-44 font-mono text-xs ${
+                              isSel && !(reasons.get(k) ?? "").trim()
+                                ? "border-destructive focus-visible:ring-destructive"
+                                : ""
+                            }`}
+                          />
+                        ) : (
+                          r.reason ?? "—"
+                        )}
+                      </td>
                     </tr>
                   );
                 })
