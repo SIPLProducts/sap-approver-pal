@@ -1,27 +1,22 @@
-## Issues
+## Root cause
 
-1. After a successful Approve, `decisionMutation.onSuccess` calls `setStatus(vars.action)` which flips the tab to **Accepted**. That tab is empty (rows just moved to local `decided` state) — the page looks blank / "another page". That's what reads as "going to another page / 404".
-2. The SAP response (e.g. `{ MESSAGE: [{ CUSTOMER, TYPE, MESSAGE }] }`) is currently only shown as a generic `toast.success("1 record accepted in SAP")` — the actual per-customer messages from SAP are dropped.
+`sap_response` returned by the server fn is the middleware envelope (`{ ok, status, data: { MESSAGE: [...] } }`), not SAP's body directly. The current swal looks for `sap_response.MESSAGE`, doesn't find it, and falls back to the generic "2 records accepted in SAP." line.
 
 ## Fix (frontend only, `src/routes/_authenticated/sd.price.tsx`)
 
-### 1. Install SweetAlert2
-`bun add sweetalert2`
+Update `decisionMutation.onSuccess` MESSAGE extraction to also check the envelope's `.data`:
 
-### 2. Show SAP messages in a SweetAlert popup
-In `decisionMutation.onSuccess`, read `res.sap_response.MESSAGE` (always treat as array, may be empty/missing). Build an HTML table of `CUSTOMER · TYPE · MESSAGE`. Pick icon by message types:
-- all `TYPE === "S"` → `success`
-- any `TYPE === "E"` / `"A"` → `error`
-- any `TYPE === "W"` → `warning`
-- otherwise → `info`
+```ts
+const sap: any = (res as any)?.sap_response ?? {};
+const inner = sap?.data ?? sap;        // unwrap middleware envelope if present
+const rawMsgs = inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? [];
+```
 
-Title: `"Approved"` or `"Rejected"`. Fallback when SAP returns no MESSAGE array: show the generic success line.
+Everything else (icon picking by TYPE, HTML table of Customer · Type · Message, title Approved/Rejected) stays as-is and will now render rows like:
 
-### 3. Stop the unwanted tab switch
-Remove `setStatus(vars.action)` from `onSuccess`. User stays on the Pending tab; processed rows are already removed from `selected` and shown with the green/red badge via the existing `decided` map. They can manually click Accepted/Rejected tab if they want.
+- `(blank)` · `E` · `There are no access sequences for condition type ZBAS`
+- `0001061569` · `S` · `Condition records saved`
 
-### 4. Re-fetch fresh data (optional but matches user flow)
-After the alert closes, optionally re-run `mutation.mutate(plant)` so the Pending list reflects what SAP now sees. Default: do not auto-refetch; just close the popup. (Can add a "Refresh" button on the alert if you want.)
+Icon stays `error` whenever any row is `E`/`A`, so mixed responses correctly surface as an error popup.
 
-## Out of scope
-No backend, server-function, or middleware changes. The server function already returns `sap_response` verbatim — we just surface it in the UI.
+No backend / middleware changes.
