@@ -109,7 +109,7 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const userId = data.user_id_from;
+    const userId = (data.user_id ?? "").trim();
     const R_PEND = data.status === "pending" ? "X" : "";
     const R_ACCP = data.status === "accepted" ? "X" : "";
     const R_REJ = data.status === "rejected" ? "X" : "";
