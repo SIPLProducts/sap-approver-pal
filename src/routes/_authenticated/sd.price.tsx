@@ -246,7 +246,12 @@ function PricePage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">USER_ID</Label>
-            <Input value={userIdData?.sap_user_id ?? ""} readOnly className="h-9 font-mono bg-muted/40" />
+            <Input
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              placeholder="SAP USER_ID"
+              className="h-9 font-mono"
+            />
           </div>
           <div />
           <div className="flex gap-2">
