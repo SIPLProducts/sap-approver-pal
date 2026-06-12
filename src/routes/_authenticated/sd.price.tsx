@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -77,6 +77,12 @@ function PricePage() {
   });
 
   const [plant, setPlant] = useState("");
+  const [userId, setUserId] = useState("");
+
+  useEffect(() => {
+    if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userIdData?.sap_user_id]);
   const [rows, setRows] = useState<PriceRow[]>([]);
   const [decided, setDecided] = useState<Record<string, "accepted" | "rejected">>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -91,7 +97,8 @@ function PricePage() {
   }>({ action: "accepted", messages: [], total: 0 });
 
   const mutation = useMutation({
-    mutationFn: (p: string) => fetchFn({ data: { plant: p } }),
+    mutationFn: (vars: { plant: string; user_id: string }) =>
+      fetchFn({ data: { plant: vars.plant, user_id: vars.user_id || undefined } }),
     onSuccess: (res) => {
       setRows(res.rows);
       setDecided({});
@@ -117,11 +124,12 @@ function PricePage() {
       toast.error("Plant is required");
       return;
     }
-    mutation.mutate(p);
+    mutation.mutate({ plant: p, user_id: userId.trim() });
   }
 
   function reset() {
     setPlant("");
+    setUserId(userIdData?.sap_user_id ?? "");
     setRows([]);
     setDecided({});
     setSelected(new Set());
@@ -238,7 +246,12 @@ function PricePage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">USER_ID</Label>
-            <Input value={userIdData?.sap_user_id ?? ""} readOnly className="h-9 font-mono bg-muted/40" />
+            <Input
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              placeholder="SAP USER_ID"
+              className="h-9 font-mono"
+            />
           </div>
           <div />
           <div className="flex gap-2">

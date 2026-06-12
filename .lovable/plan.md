@@ -1,33 +1,19 @@
 ## Goal
+Make the `USER_ID` field on the Price Approvals selection screen editable so the user can type/override the SAP user ID instead of it being locked to the auto-fetched value.
 
-After Approve/Reject on Price Approvals, show the SAP response in a polished modal like the attached screenshot (header banner + per-message cards with Success/Error badge), instead of the current SweetAlert HTML table.
+## Changes (frontend only — `src/routes/_authenticated/sd.price.tsx`)
 
-## Approach
+1. Add local state `const [userId, setUserId] = useState("")`.
+2. When `userIdData?.sap_user_id` loads (via a `useEffect`), prefill `userId` only if the field is still empty (so user edits aren't overwritten).
+3. Update the `USER_ID` `<Input>`:
+   - Remove `readOnly` and the muted background.
+   - Bind `value={userId}` and `onChange={(e) => setUserId(e.target.value)}`.
+   - Add `placeholder="SAP USER_ID"` and keep `font-mono h-9`.
+4. Pass `userId` to the fetch call in `execute()` — extend `mutation.mutationFn` and `fetchPriceApprovals` payload to include `user_id` (trimmed). If the server function currently ignores it, it still does no harm; if it accepts it, it overrides the default.
+5. Reset: clear `userId` back to the fetched default in `reset()`.
 
-Drop SweetAlert for this flow and use the existing shadcn `Dialog` component (already in the project), so the popup matches the app's design system, supports scrolling cleanly, and is easier to style than swal HTML strings.
+## Out of scope
+- No backend / server-function signature changes unless `fetchPriceApprovals` already accepts `user_id`. If it doesn't, I'll add an optional `user_id` to its input validator and forward it to the SAP call — confirm before I touch the server function.
 
-## What changes (frontend only, `src/routes/_authenticated/sd.price.tsx`)
-
-1. Remove `import Swal from "sweetalert2"` and the `Swal.fire(...)` call inside `decisionMutation.onSuccess`.
-2. Add local state:
-   - `resultOpen: boolean`
-   - `resultData: { action: "accepted" | "rejected"; messages: Array<{CUSTOMER?: string; TYPE?: string; MESSAGE?: string}>; total: number }`
-3. In `onSuccess`, keep the existing envelope unwrap (`sap.data ?? sap` → `MESSAGE`), then set `resultData` + open the dialog (no swal).
-4. Render a new `<Dialog open={resultOpen} onOpenChange={setResultOpen}>` at the bottom of the page with:
-   - **Header banner** (green if all `S`, red if any `E`/`A`, amber if any `W`):
-     - Icon (`CheckCircle2` / `XCircle` / `AlertTriangle`)
-     - Title: `Approved`, `Rejected`, or `Completed with errors`
-     - Subtitle: `{successCount} of {total} condition record(s) saved in SAP`
-   - **"SAP Response Details"** heading
-   - **Scrollable list** (`max-h-[60vh] overflow-auto`) of cards, one per `MESSAGE` row:
-     - Card left: `MESSAGE` text as title (bold), then small muted meta line `Customer: {CUSTOMER || "—"}`
-     - Card right: pill badge `Success` (green) or `Error` (red) or `Warning` (amber) based on `TYPE`
-   - Footer: `Close` button.
-5. Errors keep using `toast.error` (unchanged).
-6. Keep `decided`/`selected` state updates as they are — only the popup UI changes.
-
-## Notes
-
-- No backend / server-function changes.
-- `sweetalert2` import is removed from this file; package stays installed (no need to uninstall).
-- Uses existing tokens (`bg-green-50/600`, `bg-red-50/600`, `border`, `Badge`) so it respects light/dark theme.
+## Question
+Should the entered `USER_ID` actually be sent to SAP for the fetch/decision calls, or is it display-only (informational) for now?
