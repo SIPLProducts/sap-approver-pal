@@ -534,7 +534,7 @@ function namedRawInvokeRoute(path, configName) {
 
 // SD — Price Approvals
 namedInvokeRoute("/price_approval/Fetch",                "Price_Approval_Fetch");
-namedInvokeRoute("/price_approval/Price_Approve_Reject", "Price_Approve_Reject");
+namedRawInvokeRoute("/price_approval/Price_Approve_Reject", "Price_Approve_Reject");
 
 
 // Error handler
