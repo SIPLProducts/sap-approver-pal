@@ -265,3 +265,219 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
       error: null as string | null,
     };
   });
+
+// ============================================================================
+// Approve / Reject submit
+// ============================================================================
+
+const DECISION_CONFIG_NAME = "Contract_Approve_Reject";
+
+function s(v: string | number | null | undefined): string {
+  return v == null ? "" : String(v);
+}
+
+function padCustomer(v: string | number | null | undefined): string {
+  const x = s(v).trim();
+  return x && /^\d+$/.test(x) ? x.padStart(10, "0") : x;
+}
+
+const ContractRowSchema = z.object({
+  select: z.string().nullable().optional(),
+  company_code: z.string().nullable().optional(),
+  sales_org: z.string().nullable().optional(),
+  customer: z.string().nullable().optional(),
+  customer_name: z.string().nullable().optional(),
+  year: z.string().nullable().optional(),
+  contract_no: z.string().nullable().optional(),
+  contract_item: z.string().nullable().optional(),
+  con_creation_date: z.string().nullable().optional(),
+  dis_chanel: z.string().nullable().optional(),
+  division: z.string().nullable().optional(),
+  material: z.string().nullable().optional(),
+  qty: z.union([z.string(), z.number()]).nullable().optional(),
+  customer_group: z.string().nullable().optional(),
+  customer_price_group: z.string().nullable().optional(),
+  net_value: z.union([z.string(), z.number()]).nullable().optional(),
+  tax_value: z.union([z.string(), z.number()]).nullable().optional(),
+  total: z.union([z.string(), z.number()]).nullable().optional(),
+  agreement_from: z.string().nullable().optional(),
+  agreement_to: z.string().nullable().optional(),
+  service_valid_from: z.string().nullable().optional(),
+  service_valid_to: z.string().nullable().optional(),
+  service_start_date: z.string().nullable().optional(),
+  registration_date: z.string().nullable().optional(),
+  upper_slab: z.string().nullable().optional(),
+  no_of_beds_to_be_inv: z.union([z.string(), z.number()]).nullable().optional(),
+  fixed_rate: z.union([z.string(), z.number()]).nullable().optional(),
+  per_bed_rate: z.union([z.string(), z.number()]).nullable().optional(),
+  excess_qty_rate: z.union([z.string(), z.number()]).nullable().optional(),
+  reason: z.string().nullable().optional(),
+});
+
+function toSapContractRow(r: z.infer<typeof ContractRowSchema>) {
+  return {
+    SELECT: "X",
+    COMPANY_CODE: s(r.company_code),
+    SALES_ORG: s(r.sales_org),
+    CUSTOMER: padCustomer(r.customer),
+    CUSTOMER_NAME: s(r.customer_name),
+    YEAR: s(r.year),
+    CONTRACT_NO: s(r.contract_no),
+    CONTRACT_ITEM: s(r.contract_item),
+    CON_CREATION_DATE: s(r.con_creation_date),
+    DIS_CHANEL: s(r.dis_chanel),
+    DIVISION: s(r.division),
+    MATERIAL: s(r.material),
+    QTY: s(r.qty),
+    CUSTOMER_GROUP: s(r.customer_group),
+    CUSTOMER_PRICE_GROUP: s(r.customer_price_group),
+    NET_VALUE: s(r.net_value),
+    TAX_VALUE: s(r.tax_value),
+    TOTAL: s(r.total),
+    AGREEMENT_FROM: s(r.agreement_from),
+    AGREEMENT_TO: s(r.agreement_to),
+    SERVICE_VALID_FROM: s(r.service_valid_from),
+    SERVICE_VALID_TO: s(r.service_valid_to),
+    SERVICE_START_DATE: s(r.service_start_date),
+    REGISTRATION_DATE: s(r.registration_date),
+    UPPER_SLAB: s(r.upper_slab),
+    NO_OF_BEDS_TO_BE_INV: s(r.no_of_beds_to_be_inv),
+    FIXED_RATE: s(r.fixed_rate),
+    PER_BED_RATE: s(r.per_bed_rate),
+    EXCESS_QTY_RATE: s(r.excess_qty_rate),
+    REASON: s(r.reason),
+  };
+}
+
+export const submitContractDecision = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      action: z.enum(["accepted", "rejected"]),
+      rows: z.array(ContractRowSchema).min(1, "Select at least one row"),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", DECISION_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg) throw new Error(`SAP API config "${DECISION_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${DECISION_CONFIG_NAME}" is disabled.`);
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+    ]);
+
+    const sapPayload = {
+      APPROV: data.action === "accepted" ? "X" : "",
+      REJ: data.action === "rejected" ? "X" : "",
+      DATA: data.rows.map(toSapContractRow),
+    };
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" &&
+      !!(globalSettings?.middleware_url || cfg.middleware_url);
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl =
+      (cfg.middleware_url && cfg.middleware_url.trim()) ||
+      (globalSettings?.middleware_url?.trim() ?? null);
+
+    let target: string;
+    let method: string = cfg.http_method ?? "PUT";
+    let bodyOut: string;
+    const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/json" };
+    let proxied = false;
+
+    if (useProxy) {
+      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      target = `${middlewareUrl.replace(/\/$/, "")}/contract_approval/Contract_Approve_Reject`;
+      method = "POST";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      bodyOut = JSON.stringify({ inputs: sapPayload });
+      proxied = true;
+    } else {
+      target = cfg.endpoint_url.trim();
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization =
+          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+      bodyOut = JSON.stringify(sapPayload);
+    }
+
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      headers[k] = v;
+    }
+
+    const t0 = Date.now();
+    console.log("[submitContractDecision] target=", target, "method=", method, "proxied=", proxied, "payload=", sapPayload);
+    let res: Response;
+    try {
+      res = await fetch(target, { method, headers, body: bodyOut });
+      if (proxied && res.status === 404) {
+        const peek = await res.clone().text().catch(() => "");
+        if (/Cannot\s+(POST|PUT)/i.test(peek)) {
+          const fallback = `${middlewareUrl!.replace(/\/$/, "")}/sap/invoke`;
+          res = await fetch(fallback, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ configId: cfg.id, inputs: sapPayload }),
+          });
+          target = fallback;
+        }
+      }
+    } catch (e) {
+      const errMsg = (e as Error).message || "fetch failed";
+      console.error("[submitContractDecision] network error", errMsg);
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms: Date.now() - t0,
+        message: `contract-decision ${data.action}: network ${errMsg}`,
+      });
+      throw new Error(`Could not reach SAP: ${errMsg}`);
+    }
+
+    const text = await res.text().catch(() => "");
+    const latency_ms = Date.now() - t0;
+    console.log("[submitContractDecision] status=", res.status, "latency_ms=", latency_ms, "body=", text.slice(0, 1000));
+
+    if (!res.ok) {
+      let upstream = "";
+      try {
+        const j = JSON.parse(text);
+        if (j?.error) upstream = String(j.error);
+        else if (j?.data) upstream = typeof j.data === "string" ? j.data : JSON.stringify(j.data);
+      } catch { /* ignore */ }
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `contract-decision ${data.action}: ${res.status} ${text.slice(0, 500)}`,
+      });
+      throw new Error(`SAP returned ${res.status} ${res.statusText}: ${upstream || text.slice(0, 300)}`);
+    }
+
+    let json: any = {};
+    try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+
+    await supabaseAdmin.from("sap_api_sync_log").insert({
+      config_id: cfg.id,
+      status: "ok",
+      latency_ms,
+      rows_processed: data.rows.length,
+      message: `contract-decision ${data.action}: ${res.status}`,
+    });
+
+    return { ok: true, action: data.action, count: data.rows.length, sap_response: json };
+  });
+
