@@ -66,7 +66,16 @@ function ContractPage() {
   const [status, setStatusState] = useState<Status>("pending");
   const [rows, setRows] = useState<ContractRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [reasons, setReasons] = useState<Map<string, string>>(new Map());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+
+  function setReasonFor(k: string, value: string) {
+    setReasons((prev) => {
+      const next = new Map(prev);
+      next.set(k, value);
+      return next;
+    });
+  }
 
   const [resultOpen, setResultOpen] = useState(false);
   const [resultData, setResultData] = useState<{
@@ -86,6 +95,7 @@ function ContractPage() {
     onSuccess: (res) => {
       setRows(res.rows);
       setSelected(new Set());
+      setReasons(new Map());
       setLastFetchedAt(res.fetched_at);
       if (res.error) toast.error(res.error);
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
@@ -113,6 +123,7 @@ function ContractPage() {
   function onStatusChange(s: Status) {
     setStatusState(s);
     setSelected(new Set());
+    setReasons(new Map());
     if (lastFetchedAt && plant.trim()) fetchFor(s);
   }
 
@@ -124,6 +135,7 @@ function ContractPage() {
     setStatusState("pending");
     setRows([]);
     setSelected(new Set());
+    setReasons(new Map());
     setLastFetchedAt(null);
   }
 
@@ -161,20 +173,35 @@ function ContractPage() {
       setResultData({ action: vars.action, messages: msgs, total: vars.rows.length });
       setResultOpen(true);
       setSelected(new Set());
+      setReasons(new Map());
       // Refresh pending list so processed rows drop out
       fetchFor("pending");
     },
     onError: (e: Error) => toast.error(e.message ?? "SAP submission failed"),
   });
 
+  const missingReason = useMemo(() => {
+    if (status !== "pending") return false;
+    for (const { k } of indexed) {
+      if (selected.has(k) && !(reasons.get(k) ?? "").trim()) return true;
+    }
+    return false;
+  }, [status, indexed, selected, reasons]);
+
   function decide(action: "accepted" | "rejected") {
     if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
-    const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
+    const selectedRows = indexed
+      .filter(({ k }) => selected.has(k))
+      .map(({ r, k }) => ({ ...r, reason: (reasons.get(k) ?? "").trim() }));
+    if (selectedRows.some((r) => !r.reason)) {
+      toast.error("Reason is required for all selected rows");
+      return;
+    }
     decisionMutation.mutate({ action, rows: selectedRows });
   }
 
   const showSelect = status === "pending";
-  const canAct = showSelect && selected.size > 0;
+  const canAct = showSelect && selected.size > 0 && !missingReason;
   const colSpan = showSelect ? 19 : 18;
 
   return (
@@ -407,7 +434,24 @@ function ContractPage() {
                       <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_to)}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.reason ?? "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {status === "pending" ? (
+                          <Input
+                            value={reasons.get(k) ?? ""}
+                            onChange={(e) => setReasonFor(k, e.target.value)}
+                            placeholder="Required"
+                            maxLength={50}
+                            aria-invalid={isSel && !(reasons.get(k) ?? "").trim()}
+                            className={`h-8 w-44 font-mono text-xs ${
+                              isSel && !(reasons.get(k) ?? "").trim()
+                                ? "border-destructive focus-visible:ring-destructive"
+                                : ""
+                            }`}
+                          />
+                        ) : (
+                          r.reason ?? "—"
+                        )}
+                      </td>
                     </tr>
                   );
                 })
