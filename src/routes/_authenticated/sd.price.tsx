@@ -5,8 +5,15 @@ import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import Swal from "sweetalert2";
-import { Filter, RotateCcw, Check, X, Loader2 } from "lucide-react";
+import { Filter, RotateCcw, Check, X, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +81,14 @@ function PricePage() {
   const [decided, setDecided] = useState<Record<string, "accepted" | "rejected">>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+
+  type SapMsg = { CUSTOMER?: string; TYPE?: string; MESSAGE?: string };
+  const [resultOpen, setResultOpen] = useState(false);
+  const [resultData, setResultData] = useState<{
+    action: "accepted" | "rejected";
+    messages: SapMsg[];
+    total: number;
+  }>({ action: "accepted", messages: [], total: 0 });
 
   const mutation = useMutation({
     mutationFn: (p: string) => fetchFn({ data: { plant: p } }),
@@ -166,43 +181,10 @@ function PricePage() {
       const inner: any = sap?.data ?? sap;
       const rawMsgs =
         inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? sap?.MESSAGE ?? [];
-      const msgs: Array<{ CUSTOMER?: string; TYPE?: string; MESSAGE?: string }> = Array.isArray(rawMsgs)
-        ? rawMsgs
-        : rawMsgs
-          ? [rawMsgs]
-          : [];
+      const msgs: SapMsg[] = Array.isArray(rawMsgs) ? rawMsgs : rawMsgs ? [rawMsgs] : [];
 
-      const types = msgs.map((m) => String(m?.TYPE ?? "").toUpperCase());
-      const icon: "success" | "error" | "warning" | "info" =
-        types.some((t) => t === "E" || t === "A")
-          ? "error"
-          : types.some((t) => t === "W")
-            ? "warning"
-            : msgs.length && types.every((t) => t === "S")
-              ? "success"
-              : "info";
-
-      const title = vars.action === "accepted" ? "Approved" : "Rejected";
-      const html = msgs.length
-        ? `<div style="max-height:300px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
-            <thead><tr style="background:#f1f5f9">
-              <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Customer</th>
-              <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Type</th>
-              <th style="text-align:left;padding:6px;border:1px solid #e2e8f0">Message</th>
-            </tr></thead><tbody>
-            ${msgs
-              .map(
-                (m) => `<tr>
-                  <td style="padding:6px;border:1px solid #e2e8f0;font-family:monospace">${m?.CUSTOMER ?? "—"}</td>
-                  <td style="padding:6px;border:1px solid #e2e8f0">${m?.TYPE ?? "—"}</td>
-                  <td style="padding:6px;border:1px solid #e2e8f0">${m?.MESSAGE ?? ""}</td>
-                </tr>`,
-              )
-              .join("")}
-            </tbody></table></div>`
-        : `<p>${vars.rows.length} record${vars.rows.length === 1 ? "" : "s"} ${vars.action} in SAP.</p>`;
-
-      Swal.fire({ icon, title, html, confirmButtonText: "OK" });
+      setResultData({ action: vars.action, messages: msgs, total: vars.rows.length });
+      setResultOpen(true);
     },
     onError: (e: Error) => {
       console.error("[price-decision] failed", e);
@@ -403,6 +385,141 @@ function PricePage() {
           </table>
         </div>
       </Card>
+
+      <ResultDialog
+        open={resultOpen}
+        onOpenChange={setResultOpen}
+        action={resultData.action}
+        messages={resultData.messages}
+        total={resultData.total}
+      />
     </div>
+  );
+}
+
+type SapMsg = { CUSTOMER?: string; TYPE?: string; MESSAGE?: string };
+
+function ResultDialog({
+  open,
+  onOpenChange,
+  action,
+  messages,
+  total,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  action: "accepted" | "rejected";
+  messages: SapMsg[];
+  total: number;
+}) {
+  const types = messages.map((m) => String(m?.TYPE ?? "").toUpperCase());
+  const hasError = types.some((t) => t === "E" || t === "A");
+  const hasWarn = types.some((t) => t === "W");
+  const successCount = types.filter((t) => t === "S").length;
+
+  const tone: "success" | "error" | "warning" = hasError
+    ? "error"
+    : hasWarn
+      ? "warning"
+      : "success";
+
+  const banner = {
+    success: {
+      bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900",
+      icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />,
+      title:
+        action === "accepted"
+          ? "Approved successfully"
+          : "Rejected successfully",
+    },
+    error: {
+      bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900",
+      icon: <XCircle className="h-5 w-5 text-red-600" />,
+      title: "Completed with errors",
+    },
+    warning: {
+      bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900",
+      icon: <AlertTriangle className="h-5 w-5 text-amber-600" />,
+      title: "Completed with warnings",
+    },
+  }[tone];
+
+  function badge(type?: string) {
+    const t = String(type ?? "").toUpperCase();
+    if (t === "S")
+      return (
+        <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+          Success
+        </span>
+      );
+    if (t === "E" || t === "A")
+      return (
+        <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+          Error
+        </span>
+      );
+    if (t === "W")
+      return (
+        <span className="inline-flex items-center rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+          Warning
+        </span>
+      );
+    return (
+      <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-foreground">
+        Info
+      </span>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>SAP Response</DialogTitle>
+        </DialogHeader>
+
+        <div className={`flex items-start gap-3 rounded-lg border p-3 ${banner.bg}`}>
+          {banner.icon}
+          <div className="min-w-0">
+            <div className="font-semibold text-sm">{banner.title}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {successCount} of {total} condition record{total === 1 ? "" : "s"} saved in SAP
+            </div>
+          </div>
+        </div>
+
+        {messages.length > 0 && (
+          <>
+            <div className="text-xs font-semibold text-muted-foreground mt-2">
+              SAP Response Details
+            </div>
+            <div className="max-h-[55vh] overflow-auto space-y-2 pr-1">
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className="flex items-start justify-between gap-3 rounded-md border bg-card p-3"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium leading-snug">
+                      {m?.MESSAGE || "—"}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1 font-mono">
+                      Customer: {m?.CUSTOMER?.trim() ? m.CUSTOMER : "—"}
+                    </div>
+                  </div>
+                  <div className="shrink-0">{badge(m?.TYPE)}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
