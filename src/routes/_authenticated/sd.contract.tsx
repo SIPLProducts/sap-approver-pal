@@ -44,13 +44,21 @@ function ContractPage() {
   const [plant, setPlant] = useState("");
   const [userIdFrom, setUserIdFrom] = useState("");
   const [userIdTo, setUserIdTo] = useState("");
+  const [customerFrom, setCustomerFrom] = useState("");
+  const [customerTo, setCustomerTo] = useState("");
   const [status, setStatus] = useState<Status>("pending");
   const [rows, setRows] = useState<ContractRow[]>([]);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (vars: { plant: string; user_id_from: string; user_id_to: string; status: Status }) =>
-      fetchFn({ data: vars }),
+    mutationFn: (vars: {
+      plant: string;
+      user_id_from: string;
+      user_id_to: string;
+      customer_from: string;
+      customer_to: string;
+      status: Status;
+    }) => fetchFn({ data: vars }),
     onSuccess: (res) => {
       setRows(res.rows);
       setLastFetchedAt(res.fetched_at);
@@ -69,6 +77,8 @@ function ContractPage() {
       plant: p,
       user_id_from: uf,
       user_id_to: userIdTo.trim() || uf,
+      customer_from: customerFrom.trim(),
+      customer_to: customerTo.trim() || customerFrom.trim(),
       status,
     });
   }
@@ -77,12 +87,15 @@ function ContractPage() {
     setPlant("");
     setUserIdFrom("");
     setUserIdTo("");
+    setCustomerFrom("");
+    setCustomerTo("");
     setStatus("pending");
     setRows([]);
     setLastFetchedAt(null);
   }
 
   const canExecute = !!plant.trim() && !!userIdFrom.trim() && !mutation.isPending;
+
 
   return (
     <div className="space-y-5">
@@ -103,7 +116,7 @@ function ContractPage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-        <div className="grid gap-3 md:grid-cols-[180px_180px_180px_1fr_auto] items-end">
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
@@ -143,7 +156,26 @@ function ContractPage() {
               required
             />
           </div>
-          <div />
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer From</Label>
+            <Input
+              value={customerFrom}
+              onChange={(e) => setCustomerFrom(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              placeholder="optional"
+              className="h-9 font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer To</Label>
+            <Input
+              value={customerTo}
+              onChange={(e) => setCustomerTo(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              placeholder="optional"
+              className="h-9 font-mono"
+            />
+          </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={!canExecute}>
               {mutation.isPending ? (
@@ -168,6 +200,7 @@ function ContractPage() {
               className="flex items-center gap-5"
             >
               <label className="flex items-center gap-2 text-sm cursor-pointer">
+
                 <RadioGroupItem value="pending" id="st-pending" />
                 Pending
               </label>
@@ -194,9 +227,10 @@ function ContractPage() {
             {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[60vh]">
           <table className="w-full text-xs">
-            <thead className="bg-muted/50 border-b sticky top-0">
+            <thead className="bg-muted/50 border-b sticky top-0 z-10">
+
               <tr>
                 <th className="text-left font-semibold px-3 py-2 w-10">#</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
