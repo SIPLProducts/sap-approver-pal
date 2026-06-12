@@ -116,7 +116,7 @@ function ContractPage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-        <div className="grid gap-3 md:grid-cols-[180px_180px_180px_1fr_auto] items-end">
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
@@ -156,7 +156,26 @@ function ContractPage() {
               required
             />
           </div>
-          <div />
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer From</Label>
+            <Input
+              value={customerFrom}
+              onChange={(e) => setCustomerFrom(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              placeholder="optional"
+              className="h-9 font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer To</Label>
+            <Input
+              value={customerTo}
+              onChange={(e) => setCustomerTo(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              placeholder="optional"
+              className="h-9 font-mono"
+            />
+          </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={!canExecute}>
               {mutation.isPending ? (
@@ -181,6 +200,7 @@ function ContractPage() {
               className="flex items-center gap-5"
             >
               <label className="flex items-center gap-2 text-sm cursor-pointer">
+
                 <RadioGroupItem value="pending" id="st-pending" />
                 Pending
               </label>
