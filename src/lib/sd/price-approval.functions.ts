@@ -376,6 +376,7 @@ export const submitPriceDecision = createServerFn({ method: "POST" })
     }
 
     const t0 = Date.now();
+    console.log("[submitPriceDecision] target=", target, "method=", method, "proxied=", proxied, "payload=", sapPayload);
     let res: Response;
     try {
       res = await fetch(target, { method, headers, body: bodyOut });
@@ -393,6 +394,7 @@ export const submitPriceDecision = createServerFn({ method: "POST" })
       }
     } catch (e) {
       const errMsg = (e as Error).message || "fetch failed";
+      console.error("[submitPriceDecision] network error", errMsg);
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "error",
@@ -404,15 +406,23 @@ export const submitPriceDecision = createServerFn({ method: "POST" })
 
     const text = await res.text().catch(() => "");
     const latency_ms = Date.now() - t0;
+    console.log("[submitPriceDecision] status=", res.status, "latency_ms=", latency_ms, "body=", text.slice(0, 1000));
 
     if (!res.ok) {
+      // Try to extract SAP's real error from middleware envelope { ok, status, data }
+      let upstream = "";
+      try {
+        const j = JSON.parse(text);
+        if (j?.error) upstream = String(j.error);
+        else if (j?.data) upstream = typeof j.data === "string" ? j.data : JSON.stringify(j.data);
+      } catch { /* ignore */ }
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "error",
         latency_ms,
         message: `price-decision ${data.action}: ${res.status} ${text.slice(0, 500)}`,
       });
-      throw new Error(`SAP returned ${res.status} ${res.statusText}: ${text.slice(0, 200)}`);
+      throw new Error(`SAP returned ${res.status} ${res.statusText}: ${upstream || text.slice(0, 300)}`);
     }
 
     let json: any = {};
