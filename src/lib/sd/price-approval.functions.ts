@@ -290,20 +290,32 @@ const PriceRowSchema = z.object({
 function toSapRow(r: z.infer<typeof PriceRowSchema>) {
   return {
     SELECT_FLG: "X",
-    KEY_COMBINATION: r.key_combination ?? "",
-    CONDITION_TYPE: r.condition_type ?? "",
-    CUSTOMER: r.customer ?? "",
-    PRICE_GROUP: r.price_group ?? "",
-    PLANT: r.plant ?? "",
-    MATERIAL: r.material ?? "",
-    NEW_PRICE: r.new_price ?? "",
-    CURRENCY: r.currency ?? "",
-    UOM: r.uom ?? "",
-    CALCULATION_SC: r.calculation_sc ?? "",
-    VALID_FROM_SC: r.valid_from_sc ?? "",
-    VALID_TO_SC: r.valid_to_sc ?? "",
-    OLD_PRICE: r.old_price ?? "",
+    KEY_COMBINATION: str(r.key_combination),
+    CONDITION_TYPE: str(r.condition_type),
+    CUSTOMER: padCustomer(r.customer),
+    PRICE_GROUP: str(r.price_group),
+    PLANT: str(r.plant),
+    MATERIAL: str(r.material),
+    NEW_PRICE: str(r.new_price),
+    CURRENCY: str(r.currency),
+    UOM: str(r.uom),
+    CALCULATION_SC: str(r.calculation_sc),
+    VALID_FROM_SC: str(r.valid_from_sc),
+    VALID_TO_SC: str(r.valid_to_sc),
+    OLD_PRICE: str(r.old_price),
   };
+}
+
+// SAP's JSON deserializer dumps on type mismatches — every value must be a
+// string, exactly like the sample payload imported in SAP API Settings.
+function str(v: string | number | null | undefined): string {
+  return v == null ? "" : String(v);
+}
+
+// SAP customer numbers are 10-char zero-padded (e.g. "0001061570").
+function padCustomer(v: string | number | null | undefined): string {
+  const s = str(v).trim();
+  return s && /^\d+$/.test(s) ? s.padStart(10, "0") : s;
 }
 
 export const submitPriceDecision = createServerFn({ method: "POST" })
