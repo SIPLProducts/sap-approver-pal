@@ -123,6 +123,7 @@ function ContractPage() {
   function onStatusChange(s: Status) {
     setStatusState(s);
     setSelected(new Set());
+    setReasons(new Map());
     if (lastFetchedAt && plant.trim()) fetchFor(s);
   }
 
@@ -134,6 +135,7 @@ function ContractPage() {
     setStatusState("pending");
     setRows([]);
     setSelected(new Set());
+    setReasons(new Map());
     setLastFetchedAt(null);
   }
 
@@ -171,20 +173,35 @@ function ContractPage() {
       setResultData({ action: vars.action, messages: msgs, total: vars.rows.length });
       setResultOpen(true);
       setSelected(new Set());
+      setReasons(new Map());
       // Refresh pending list so processed rows drop out
       fetchFor("pending");
     },
     onError: (e: Error) => toast.error(e.message ?? "SAP submission failed"),
   });
 
+  const missingReason = useMemo(() => {
+    if (status !== "pending") return false;
+    for (const { k } of indexed) {
+      if (selected.has(k) && !(reasons.get(k) ?? "").trim()) return true;
+    }
+    return false;
+  }, [status, indexed, selected, reasons]);
+
   function decide(action: "accepted" | "rejected") {
     if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
-    const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
+    const selectedRows = indexed
+      .filter(({ k }) => selected.has(k))
+      .map(({ r, k }) => ({ ...r, reason: (reasons.get(k) ?? "").trim() }));
+    if (selectedRows.some((r) => !r.reason)) {
+      toast.error("Reason is required for all selected rows");
+      return;
+    }
     decisionMutation.mutate({ action, rows: selectedRows });
   }
 
   const showSelect = status === "pending";
-  const canAct = showSelect && selected.size > 0;
+  const canAct = showSelect && selected.size > 0 && !missingReason;
   const colSpan = showSelect ? 19 : 18;
 
   return (
