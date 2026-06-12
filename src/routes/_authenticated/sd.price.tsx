@@ -147,9 +147,12 @@ function PricePage() {
   }
 
   const decisionMutation = useMutation({
-    mutationFn: (vars: { action: "accepted" | "rejected"; rows: PriceRow[] }) =>
-      decisionFn({ data: vars }),
-    onSuccess: (_res, vars) => {
+    mutationFn: (vars: { action: "accepted" | "rejected"; rows: PriceRow[] }) => {
+      console.log("[price-decision] sending", vars);
+      return decisionFn({ data: vars });
+    },
+    onSuccess: (res, vars) => {
+      console.log("[price-decision] response", res);
       const keys = Array.from(selected);
       setDecided((prev) => {
         const next = { ...prev };
@@ -160,7 +163,10 @@ function PricePage() {
       toast.success(`${vars.rows.length} record${vars.rows.length === 1 ? "" : "s"} ${vars.action} in SAP`);
       setStatus(vars.action);
     },
-    onError: (e: Error) => toast.error(e.message ?? "SAP submission failed"),
+    onError: (e: Error) => {
+      console.error("[price-decision] failed", e);
+      toast.error(e.message ?? "SAP submission failed");
+    },
   });
 
   function decide(action: "accepted" | "rejected") {
@@ -284,7 +290,7 @@ function PricePage() {
               <tr>
                 <th className="px-3 py-2 w-10">
                   <Checkbox
-                    checked={allChecked ? true : someChecked ? "indeterminate" : false}
+                    checked={allChecked}
                     onCheckedChange={toggleAll}
                     disabled={visible.length === 0}
                     aria-label="Select all"
