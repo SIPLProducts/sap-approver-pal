@@ -42,8 +42,7 @@ function ContractPage() {
   const fetchFn = useServerFn(fetchContractApprovals);
 
   const [plant, setPlant] = useState("");
-  const [userIdFrom, setUserIdFrom] = useState("");
-  const [userIdTo, setUserIdTo] = useState("");
+  const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
   const [customerTo, setCustomerTo] = useState("");
   const [status, setStatus] = useState<Status>("pending");
@@ -53,8 +52,7 @@ function ContractPage() {
   const mutation = useMutation({
     mutationFn: (vars: {
       plant: string;
-      user_id_from: string;
-      user_id_to: string;
+      user_id: string;
       customer_from: string;
       customer_to: string;
       status: Status;
@@ -70,13 +68,10 @@ function ContractPage() {
 
   function execute() {
     const p = plant.trim();
-    const uf = userIdFrom.trim();
     if (!p) return toast.error("Plant is required");
-    if (!uf) return toast.error("USER_ID From is required");
     mutation.mutate({
       plant: p,
-      user_id_from: uf,
-      user_id_to: userIdTo.trim() || uf,
+      user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerTo.trim() || customerFrom.trim(),
       status,
@@ -85,8 +80,7 @@ function ContractPage() {
 
   function reset() {
     setPlant("");
-    setUserIdFrom("");
-    setUserIdTo("");
+    setUserId("");
     setCustomerFrom("");
     setCustomerTo("");
     setStatus("pending");
@@ -94,7 +88,7 @@ function ContractPage() {
     setLastFetchedAt(null);
   }
 
-  const canExecute = !!plant.trim() && !!userIdFrom.trim() && !mutation.isPending;
+  const canExecute = !!plant.trim() && !mutation.isPending;
 
 
   return (
