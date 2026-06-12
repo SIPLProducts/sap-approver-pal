@@ -66,7 +66,16 @@ function ContractPage() {
   const [status, setStatusState] = useState<Status>("pending");
   const [rows, setRows] = useState<ContractRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [reasons, setReasons] = useState<Map<string, string>>(new Map());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+
+  function setReasonFor(k: string, value: string) {
+    setReasons((prev) => {
+      const next = new Map(prev);
+      next.set(k, value);
+      return next;
+    });
+  }
 
   const [resultOpen, setResultOpen] = useState(false);
   const [resultData, setResultData] = useState<{

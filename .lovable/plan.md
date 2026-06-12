@@ -1,27 +1,26 @@
-## Root cause
+## Goal
+On the Contract Approvals screen, when **Status = Pending**, the table's **Reason** column becomes an editable text input. Reason is **mandatory** for every selected row before Accept or Reject can be submitted to SAP. The entered reason is saved into the row payload and sent to SAP (`REASON` field, which the server function already maps).
 
-In Admin → SAP API, all 7 request fields of `Contract_Approval_Fetch` are saved as `source = 'static'` with `R_PEND=X` hard-coded. The middleware therefore sends `R_PEND=X` to SAP on every call and ignores the radio (Pending / Accepted / Rejected) and the Plant / User ID / Customer From–To the screen sends. SAP correctly returns the same pending list each time.
+## Changes — single file: `src/routes/_authenticated/sd.contract.tsx`
 
-## Fix — one tiny data change
+1. **Per-row reason state**
+   - Add `const [reasons, setReasons] = useState<Map<string, string>>(new Map())`.
+   - Helper `setReasonFor(k, value)` to update one row.
+   - Clear `reasons` on Reset, on new fetch (`onSuccess`), and after a successful decision submission (alongside `setSelected(new Set())`).
 
-Flip `source` from `static` to `column` for those 7 fields. With `column`, the middleware uses the value the app sends (so the status flag, plant, user, customer range from the screen actually reach SAP) and only falls back to the saved default when the app sends nothing.
+2. **Reason cell rendering (line 410)**
+   - If `status === "pending"`: render an `<Input>` bound to `reasons.get(k) ?? ""`, `maxLength={50}`, placeholder `"Required"`, with red border when the row is selected and the reason is empty/whitespace (`aria-invalid`).
+   - Otherwise (Accepted / Rejected tabs): keep the current read-only `{r.reason ?? "—"}` display.
 
-```sql
-UPDATE public.sap_api_request_fields
-SET source = 'column'
-WHERE config_id = (SELECT id FROM public.sap_api_configs WHERE name = 'Contract_Approval_Fetch')
-  AND field_name IN ('PLANT','USER_ID','CUSTOMER_FROM','CUSTOMER_TO','R_PEND','R_ACCP','R_REJ');
-```
+3. **Mandatory validation in `decide(action)` (line 170)**
+   - Build `selectedRows` and attach reason: `{ ...r, reason: (reasons.get(k) ?? "").trim() }`.
+   - If any selected row's trimmed reason is empty → `toast.error("Reason is required for all selected rows")` and abort (do not call the mutation).
+   - Otherwise submit as today. Server already forwards `reason` → SAP `REASON`.
 
-Defaults stay (`PLANT=3801`, `USER_ID=NEOBMWCONS1`, `R_PEND=X`) so behaviour is unchanged when the screen sends nothing.
+4. **Button affordance**
+   - Disable Accept/Reject when `selected.size > 0` and any selected row's reason is empty (in addition to existing `canAct` check), so the user sees why submission is blocked. Keep the toast as a safety net.
 
-No code edits. No middleware changes. After the update:
-- Pending → SAP gets `R_PEND=X, R_ACCP="", R_REJ=""`
-- Accepted → SAP gets `R_PEND="", R_ACCP=X, R_REJ=""`
-- Rejected → SAP gets `R_PEND="", R_ACCP="", R_REJ=X`
-
-The UI already auto-refetches when the radio changes, so each tab will show the rows SAP returns for that status.
-
-## Files
-
-- One data update on `public.sap_api_request_fields` (no schema change, no code change).
+## Out of scope
+- No backend / server-function / DB changes (the `reason` field is already part of the row schema and SAP payload mapping).
+- No change to Accepted/Rejected tabs' display.
+- No new dependencies.
