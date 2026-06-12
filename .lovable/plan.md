@@ -1,28 +1,30 @@
-## Goal
-1. On Accept/Reject, actually call the SAP `Price_Approve_Reject` API (via middleware) with the selected rows, then move them into the Accepted/Rejected tab.
-2. Move the **Old Price** column to the last position in the table.
+# Price Approval — Accept/Reject polish
 
-## Background — why nothing happened on click today
-The current `decide()` only updates local React state — no network call. The `Price_Approve_Reject` SAP config exists (`PUT http://10.150.150.154:8103/.../vk11_app?sap-client=300`) and the middleware already exposes `POST /price_approval/Price_Approve_Reject`. The SAP payload shape (from the configured request fields) is:
-```json
-{ "APPROV": "X", "REJ": "",  "DATA": [ { "SELECT_FLG":"X", "KEY_COMBINATION":"1", "CONDITION_TYPE":"ZBPL", "CUSTOMER":"...", "PRICE_GROUP":"...", "PLANT":"...", "MATERIAL":"...", "NEW_PRICE":"...", "CURRENCY":"...", "UOM":"...", "CALCULATION_SC":"", "VALID_FROM_SC":"...", "VALID_TO_SC":"...", "OLD_PRICE":"..." } ] }
-```
-For reject: `APPROV=""`, `REJ="X"`.
+Scope is UI + wiring only on `src/routes/_authenticated/sd.price.tsx`. The `submitPriceDecision` server fn (already calls the `Price_Approve_Reject` config from SAP API Settings via middleware/direct mode) stays as-is.
 
 ## Changes
 
-### 1. `src/lib/sd/price-approval.functions.ts` — add `submitPriceDecision`
-New server function `submitPriceDecision({ action: 'accepted'|'rejected', rows: PriceRow[] })`:
-- Loads `Price_Approve_Reject` config, creds, global proxy settings (same pattern as `fetchPriceApprovals`).
-- Builds SAP payload: `APPROV='X', REJ=''` for accept; `APPROV='', REJ='X'` for reject. `DATA` is the selected rows re-cased to SAP UPPER_SNAKE field names with `SELECT_FLG:'X'`.
-- If proxy mode → `PUT/POST {middleware}/price_approval/Price_Approve_Reject` body `{ inputs: <sapPayload> }` (with `x-shared-secret`). 404 fallback to `/sap/invoke` with `{ configId, inputs }` (same pattern as fetch).
-- Direct mode → `PUT {endpoint_url}` with JSON body + basic auth.
-- Logs to `sap_api_sync_log`. Returns `{ ok, message, sap_response }`.
+### 1. Accept button → green
+Replace the default primary Accept `<Button>` with an explicit green style using semantic-safe inline classes:
+```
+className="bg-green-600 hover:bg-green-700 text-white"
+```
+Reject button stays `variant="destructive"` (red). Keep spinner + disabled states intact.
 
-### 2. `src/routes/_authenticated/sd.price.tsx`
-- Use `useServerFn(submitPriceDecision)` inside a `useMutation`.
-- `decide(action)` becomes async: call mutation with the selected `PriceRow[]`. On success → mark those keys as `accepted`/`rejected` in `decided`, clear selection, toast "N records accepted/rejected (SAP OK)". On error → toast the error and leave state unchanged so the user can retry. Disable Accept/Reject buttons + show spinner while pending.
-- Reorder table header + body cells so **Old Price** appears AFTER `Valid To` (last data column, before the row end). Update colSpan on the empty/loading rows to match.
+### 2. Verify Accept/Reject actually fires the API
+`decide()` already calls `decisionMutation.mutate({ action, rows: selectedRows })` which invokes the `submitPriceDecision` server fn. Confirming the guard order:
+- Buttons are disabled unless `status === "pending"` AND `selected.size > 0` AND not pending.
+- If the user is on the Accepted/Rejected tab, buttons are disabled by design — that's why "nothing happens". No code change needed, but add a subtle tooltip/title hint: `title="Switch to Pending tab and select rows"` on disabled state so it's obvious.
 
-## Out of scope
-No DB schema change, no middleware change (the named route already exists; fallback to `/sap/invoke` covers older deploys). No persistence — accepted/rejected state stays per-fetch as today; persisting across reloads would need a separate decisions table.
+### 3. Header checkbox sync (thead ↔ tbody)
+Current logic already derives header state from row selection:
+- `allChecked = visible.length > 0 && visible.every(({k}) => selected.has(k))`
+- `someChecked = visible.some(...) && !allChecked`
+- Header `<Checkbox checked={allChecked ? true : someChecked ? "indeterminate" : false} />`
+
+This already satisfies: select all rows → header checks; uncheck any row → header unchecks (drops to indeterminate or false). No logic change required — will verify in preview after the color change. If the user is seeing stale header state, it's because `selected` is a `Set` and React may not re-render; will switch to `new Set()` cloning on every toggle (already done in `toggleOne`/`toggleAll`) — confirmed correct.
+
+No changes to: server function, middleware, DB, or other routes.
+
+## Files
+- `src/routes/_authenticated/sd.price.tsx` — Accept button className, optional disabled-title hint.
