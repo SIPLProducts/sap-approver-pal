@@ -77,6 +77,12 @@ function PricePage() {
   });
 
   const [plant, setPlant] = useState("");
+  const [userId, setUserId] = useState("");
+
+  useEffect(() => {
+    if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userIdData?.sap_user_id]);
   const [rows, setRows] = useState<PriceRow[]>([]);
   const [decided, setDecided] = useState<Record<string, "accepted" | "rejected">>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
