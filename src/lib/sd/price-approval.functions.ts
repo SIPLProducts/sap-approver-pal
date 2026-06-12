@@ -84,7 +84,12 @@ export const getMySapUserId = createServerFn({ method: "GET" })
 
 export const fetchPriceApprovals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ plant: z.string().min(1, "Plant is required").max(40) }).parse(d))
+  .inputValidator((d) =>
+    z.object({
+      plant: z.string().min(1, "Plant is required").max(40),
+      user_id: z.string().trim().max(40).optional(),
+    }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -110,6 +115,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     ]);
 
     const userId =
+      (data.user_id && data.user_id.trim()) ||
       (prof?.sap_user_id && prof.sap_user_id.trim()) ||
       (userIdField?.default_value as string | null) ||
       "NEOBMWCONS";
