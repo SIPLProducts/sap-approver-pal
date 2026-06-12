@@ -385,6 +385,14 @@ function PricePage() {
           </table>
         </div>
       </Card>
+
+      <ResultDialog
+        open={resultOpen}
+        onOpenChange={setResultOpen}
+        action={resultData.action}
+        messages={resultData.messages}
+        total={resultData.total}
+      />
     </div>
   );
 }
