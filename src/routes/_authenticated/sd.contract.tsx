@@ -95,6 +95,7 @@ function ContractPage() {
     onSuccess: (res) => {
       setRows(res.rows);
       setSelected(new Set());
+      setReasons(new Map());
       setLastFetchedAt(res.fetched_at);
       if (res.error) toast.error(res.error);
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
