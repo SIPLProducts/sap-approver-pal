@@ -129,6 +129,7 @@ function PricePage() {
 
   function reset() {
     setPlant("");
+    setUserId(userIdData?.sap_user_id ?? "");
     setRows([]);
     setDecided({});
     setSelected(new Set());
