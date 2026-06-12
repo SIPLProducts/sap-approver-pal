@@ -290,7 +290,7 @@ function PricePage() {
               <tr>
                 <th className="px-3 py-2 w-10">
                   <Checkbox
-                    checked={allChecked ? true : someChecked ? "indeterminate" : false}
+                    checked={allChecked}
                     onCheckedChange={toggleAll}
                     disabled={visible.length === 0}
                     aria-label="Select all"
