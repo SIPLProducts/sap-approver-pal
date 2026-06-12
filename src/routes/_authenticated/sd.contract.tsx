@@ -1,18 +1,27 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2 } from "lucide-react";
+import { Filter, RotateCcw, Loader2, Check, X, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   fetchContractApprovals,
+  submitContractDecision,
   type ContractRow,
 } from "@/lib/sd/contract-approval.functions";
 
@@ -21,6 +30,12 @@ type Status = "pending" | "accepted" | "rejected";
 export const Route = createFileRoute("/_authenticated/sd/contract")({
   component: ContractPage,
 });
+
+function rowKey(r: ContractRow, i: number) {
+  return [r.contract_no, r.contract_item, r.customer, r.material, i]
+    .map((x) => x ?? "")
+    .join("|");
+}
 
 function fmtNum(v: string | number | null) {
   if (v == null || v === "") return "—";
@@ -38,16 +53,27 @@ function fmtDate(v: string | null) {
   return s;
 }
 
+type SapMsg = { CUSTOMER?: string; TYPE?: string; MESSAGE?: string };
+
 function ContractPage() {
   const fetchFn = useServerFn(fetchContractApprovals);
+  const decisionFn = useServerFn(submitContractDecision);
 
   const [plant, setPlant] = useState("");
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
   const [customerTo, setCustomerTo] = useState("");
-  const [status, setStatus] = useState<Status>("pending");
+  const [status, setStatusState] = useState<Status>("pending");
   const [rows, setRows] = useState<ContractRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+
+  const [resultOpen, setResultOpen] = useState(false);
+  const [resultData, setResultData] = useState<{
+    action: "accepted" | "rejected";
+    messages: SapMsg[];
+    total: number;
+  }>({ action: "accepted", messages: [], total: 0 });
 
   const mutation = useMutation({
     mutationFn: (vars: {
@@ -59,6 +85,7 @@ function ContractPage() {
     }) => fetchFn({ data: vars }),
     onSuccess: (res) => {
       setRows(res.rows);
+      setSelected(new Set());
       setLastFetchedAt(res.fetched_at);
       if (res.error) toast.error(res.error);
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
@@ -66,16 +93,27 @@ function ContractPage() {
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
   });
 
-  function execute() {
+  function fetchFor(s: Status) {
     const p = plant.trim();
-    if (!p) return toast.error("Plant is required");
+    if (!p) return;
     mutation.mutate({
       plant: p,
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerTo.trim() || customerFrom.trim(),
-      status,
+      status: s,
     });
+  }
+
+  function execute() {
+    if (!plant.trim()) return toast.error("Plant is required");
+    fetchFor(status);
+  }
+
+  function onStatusChange(s: Status) {
+    setStatusState(s);
+    setSelected(new Set());
+    if (lastFetchedAt && plant.trim()) fetchFor(s);
   }
 
   function reset() {
@@ -83,13 +121,61 @@ function ContractPage() {
     setUserId("");
     setCustomerFrom("");
     setCustomerTo("");
-    setStatus("pending");
+    setStatusState("pending");
     setRows([]);
+    setSelected(new Set());
     setLastFetchedAt(null);
   }
 
   const canExecute = !!plant.trim() && !mutation.isPending;
 
+  const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
+  const allChecked = indexed.length > 0 && indexed.every(({ k }) => selected.has(k));
+
+  function toggleAll() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allChecked) indexed.forEach(({ k }) => next.delete(k));
+      else indexed.forEach(({ k }) => next.add(k));
+      return next;
+    });
+  }
+  function toggleOne(k: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
+
+  const decisionMutation = useMutation({
+    mutationFn: (vars: { action: "accepted" | "rejected"; rows: ContractRow[] }) =>
+      decisionFn({ data: vars }),
+    onSuccess: (res, vars) => {
+      const sap: any = (res as any)?.sap_response ?? {};
+      const inner: any = sap?.data ?? sap;
+      const rawMsgs =
+        inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? sap?.MESSAGE ?? [];
+      const msgs: SapMsg[] = Array.isArray(rawMsgs) ? rawMsgs : rawMsgs ? [rawMsgs] : [];
+      setResultData({ action: vars.action, messages: msgs, total: vars.rows.length });
+      setResultOpen(true);
+      setSelected(new Set());
+      // Refresh pending list so processed rows drop out
+      fetchFor("pending");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "SAP submission failed"),
+  });
+
+  function decide(action: "accepted" | "rejected") {
+    if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
+    const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
+    decisionMutation.mutate({ action, rows: selectedRows });
+  }
+
+  const showSelect = status === "pending";
+  const canAct = showSelect && selected.size > 0;
+  const colSpan = showSelect ? 19 : 18;
 
   return (
     <div className="space-y-5">
@@ -174,11 +260,10 @@ function ContractPage() {
             </Label>
             <RadioGroup
               value={status}
-              onValueChange={(v) => setStatus(v as Status)}
+              onValueChange={(v) => onStatusChange(v as Status)}
               className="flex items-center gap-5"
             >
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-
                 <RadioGroupItem value="pending" id="st-pending" />
                 Pending
               </label>
@@ -197,19 +282,62 @@ function ContractPage() {
 
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Output — {status}
+          <div className="flex items-center gap-3">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Output — {status}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {rows.length} record{rows.length === 1 ? "" : "s"}
+              {showSelect && selected.size > 0 ? ` · ${selected.size} selected` : ""}
+              {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {rows.length} record{rows.length === 1 ? "" : "s"}
-            {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
-          </div>
+          {showSelect && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => decide("accepted")}
+                disabled={!canAct || decisionMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                title={selected.size === 0 ? "Select at least one row" : undefined}
+              >
+                {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5 mr-1" />
+                )}
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => decide("rejected")}
+                disabled={!canAct || decisionMutation.isPending}
+              >
+                {decisionMutation.isPending && decisionMutation.variables?.action === "rejected" ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <X className="h-3.5 w-3.5 mr-1" />
+                )}
+                Reject
+              </Button>
+            </div>
+          )}
         </div>
         <div className="overflow-auto max-h-[60vh]">
           <table className="w-full text-xs">
             <thead className="bg-muted/50 border-b sticky top-0 z-10">
-
               <tr>
+                {showSelect && (
+                  <th className="px-3 py-2 w-10">
+                    <Checkbox
+                      checked={allChecked}
+                      onCheckedChange={toggleAll}
+                      disabled={rows.length === 0}
+                      aria-label="Select all"
+                    />
+                  </th>
+                )}
                 <th className="text-left font-semibold px-3 py-2 w-10">#</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Name</th>
@@ -233,44 +361,134 @@ function ContractPage() {
             <tbody>
               {mutation.isPending ? (
                 <tr>
-                  <td colSpan={18} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
                   </td>
                 </tr>
-              ) : rows.length === 0 ? (
+              ) : indexed.length === 0 ? (
                 <tr>
-                  <td colSpan={18} className="py-12 text-center text-muted-foreground">
-                    Enter Plant and click Execute to load contracts from SAP.
+                  <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
+                    {lastFetchedAt
+                      ? `No ${status} records.`
+                      : "Enter Plant and click Execute to load contracts from SAP."}
                   </td>
                 </tr>
               ) : (
-                rows.map((r, i) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-accent/40">
-                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
-                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
-                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no ?? "—"}</td>
-                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_item ?? "—"}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.con_creation_date)}</td>
-                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.qty)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.net_value)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.tax_value)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(r.total)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.agreement_from)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.agreement_to)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_from)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_to)}</td>
-                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
-                    <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{r.reason ?? "—"}</td>
-                  </tr>
-                ))
+                indexed.map(({ r, k }, i) => {
+                  const isSel = selected.has(k);
+                  return (
+                    <tr
+                      key={k}
+                      className={`border-b last:border-0 hover:bg-accent/40 ${showSelect && isSel ? "bg-accent/30" : ""}`}
+                    >
+                      {showSelect && (
+                        <td className="px-3 py-2">
+                          <Checkbox
+                            checked={isSel}
+                            onCheckedChange={() => toggleOne(k)}
+                            aria-label="Select row"
+                          />
+                        </td>
+                      )}
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_item ?? "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.con_creation_date)}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.qty)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.net_value)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.tax_value)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(r.total)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.agreement_from)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.agreement_to)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_from)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_to)}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.reason ?? "—"}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </Card>
+
+      <ResultDialog
+        open={resultOpen}
+        onOpenChange={setResultOpen}
+        action={resultData.action}
+        messages={resultData.messages}
+        total={resultData.total}
+      />
     </div>
+  );
+}
+
+function ResultDialog({
+  open,
+  onOpenChange,
+  action,
+  messages,
+  total,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  action: "accepted" | "rejected";
+  messages: SapMsg[];
+  total: number;
+}) {
+  const types = messages.map((m) => String(m?.TYPE ?? "").toUpperCase());
+  const hasError = types.some((t) => t === "E" || t === "A");
+  const hasWarn = types.some((t) => t === "W");
+  const tone: "success" | "error" | "warning" = hasError ? "error" : hasWarn ? "warning" : "success";
+
+  const banner = {
+    success: {
+      icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />,
+      title: action === "accepted" ? "Approved successfully" : "Rejected successfully",
+    },
+    error: {
+      icon: <XCircle className="h-5 w-5 text-destructive" />,
+      title: "SAP reported errors",
+    },
+    warning: {
+      icon: <AlertTriangle className="h-5 w-5 text-amber-600" />,
+      title: "Completed with warnings",
+    },
+  }[tone];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {banner.icon} {banner.title}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 text-sm">
+          <div className="text-muted-foreground">
+            {total} row{total === 1 ? "" : "s"} submitted.
+          </div>
+          {messages.length > 0 && (
+            <div className="border rounded max-h-64 overflow-auto divide-y">
+              {messages.map((m, i) => (
+                <div key={i} className="px-3 py-2 text-xs flex gap-2">
+                  <span className="font-mono text-muted-foreground w-6">{m.TYPE ?? "—"}</span>
+                  <span className="font-mono text-muted-foreground w-24 truncate">{m.CUSTOMER ?? ""}</span>
+                  <span className="flex-1">{m.MESSAGE ?? ""}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button size="sm" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
