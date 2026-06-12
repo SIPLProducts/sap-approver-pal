@@ -82,6 +82,14 @@ function PricePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
+  type SapMsg = { CUSTOMER?: string; TYPE?: string; MESSAGE?: string };
+  const [resultOpen, setResultOpen] = useState(false);
+  const [resultData, setResultData] = useState<{
+    action: "accepted" | "rejected";
+    messages: SapMsg[];
+    total: number;
+  }>({ action: "accepted", messages: [], total: 0 });
+
   const mutation = useMutation({
     mutationFn: (p: string) => fetchFn({ data: { plant: p } }),
     onSuccess: (res) => {
