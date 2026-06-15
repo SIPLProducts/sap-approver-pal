@@ -330,9 +330,10 @@ export const submitPriceDecision = createServerFn({ method: "POST" })
     z.object({
       action: z.enum(["accepted", "rejected"]),
       rows: z.array(PriceRowSchema).min(1, "Select at least one row"),
+      user_id: z.string().trim().max(40).optional(),
     }).parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: cfg } = await supabaseAdmin
