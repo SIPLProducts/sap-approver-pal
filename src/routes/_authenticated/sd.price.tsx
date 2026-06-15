@@ -171,7 +171,7 @@ function PricePage() {
   }
 
   const decisionMutation = useMutation({
-    mutationFn: (vars: { action: "accepted" | "rejected"; rows: PriceRow[] }) => {
+    mutationFn: (vars: { action: "accepted" | "rejected"; rows: PriceRow[]; user_id: string }) => {
       console.log("[price-decision] sending", vars);
       return decisionFn({ data: vars });
     },
@@ -203,7 +203,7 @@ function PricePage() {
   function decide(action: "accepted" | "rejected") {
     if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
     const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
-    decisionMutation.mutate({ action, rows: selectedRows });
+    decisionMutation.mutate({ action, rows: selectedRows, user_id: userId.trim() });
   }
 
 
