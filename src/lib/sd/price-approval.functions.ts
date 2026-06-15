@@ -344,15 +344,29 @@ export const submitPriceDecision = createServerFn({ method: "POST" })
     if (!cfg) throw new Error(`SAP API config "${DECISION_CONFIG_NAME}" not found.`);
     if (!cfg.is_active) throw new Error(`SAP API config "${DECISION_CONFIG_NAME}" is disabled.`);
 
-    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+    const [{ data: creds }, { data: prof }, { data: userIdField }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("profiles").select("sap_user_id").eq("id", context.userId).maybeSingle(),
+      supabaseAdmin
+        .from("sap_api_request_fields")
+        .select("default_value")
+        .eq("config_id", cfg.id)
+        .eq("field_name", "USER_ID")
+        .maybeSingle(),
       supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
+    const resolvedUserId =
+      (data.user_id && data.user_id.trim()) ||
+      (prof?.sap_user_id && prof.sap_user_id.trim()) ||
+      (userIdField?.default_value as string | null) ||
+      "NEOBMWCONS";
+
     const sapPayload = {
       APPROV: data.action === "accepted" ? "X" : "",
       REJ: data.action === "rejected" ? "X" : "",
+      USER_ID: resolvedUserId,
       DATA: data.rows.map(toSapRow),
     };
 
