@@ -1,26 +1,36 @@
-## Goal
-On the Contract Approvals screen, when **Status = Pending**, the table's **Reason** column becomes an editable text input. Reason is **mandatory** for every selected row before Accept or Reject can be submitted to SAP. The entered reason is saved into the row payload and sent to SAP (`REASON` field, which the server function already maps).
+# Make PLANT / USER_ID dynamic (Price + Contract)
 
-## Changes — single file: `src/routes/_authenticated/sd.contract.tsx`
+## Root cause
 
-1. **Per-row reason state**
-   - Add `const [reasons, setReasons] = useState<Map<string, string>>(new Map())`.
-   - Helper `setReasonFor(k, value)` to update one row.
-   - Clear `reasons` on Reset, on new fetch (`onSuccess`), and after a successful decision submission (alongside `setSelected(new Set())`).
+The middleware honors the request-field config in `sap_api_request_fields`. For **Price_Approval_Fetch** both `PLANT` and `USER_ID` are stored with `source = 'static'` and `default_value = '3806' / 'NEOBMWCONS'`. The middleware's `resolveRequestField` for `static` returns `default_value` unconditionally and ignores the caller's `inputs`, so the values typed in the UI (e.g. `3801` / `SARVI_INFO1`) never reach SAP.
 
-2. **Reason cell rendering (line 410)**
-   - If `status === "pending"`: render an `<Input>` bound to `reasons.get(k) ?? ""`, `maxLength={50}`, placeholder `"Required"`, with red border when the row is selected and the reason is empty/whitespace (`aria-invalid`).
-   - Otherwise (Accepted / Rejected tabs): keep the current read-only `{r.reason ?? "—"}` display.
+Current DB state:
 
-3. **Mandatory validation in `decide(action)` (line 170)**
-   - Build `selectedRows` and attach reason: `{ ...r, reason: (reasons.get(k) ?? "").trim() }`.
-   - If any selected row's trimmed reason is empty → `toast.error("Reason is required for all selected rows")` and abort (do not call the mutation).
-   - Otherwise submit as today. Server already forwards `reason` → SAP `REASON`.
+```text
+Price_Approval_Fetch    PLANT      static   3806
+Price_Approval_Fetch    USER_ID    static   NEOBMWCONS
+Contract_Approval_Fetch PLANT      column   3801
+Contract_Approval_Fetch USER_ID    column   NEOBMWCONS1   (required)
+```
 
-4. **Button affordance**
-   - Disable Accept/Reject when `selected.size > 0` and any selected row's reason is empty (in addition to existing `canAct` check), so the user sees why submission is blocked. Keep the toast as a safety net.
+Contract's fields are already `column`, so the user-entered value wins; but Contract still falls back to `NEOBMWCONS1` when USER_ID is blank, which is why the user sees it as "hardcoded".
 
-## Out of scope
-- No backend / server-function / DB changes (the `reason` field is already part of the row schema and SAP payload mapping).
-- No change to Accepted/Rejected tabs' display.
-- No new dependencies.
+## Fix (one DB migration, no code changes)
+
+Update `sap_api_request_fields` so user-entered values always take priority:
+
+1. Price_Approval_Fetch · `PLANT`: `source` → `column`, clear `default_value`.
+2. Price_Approval_Fetch · `USER_ID`: `source` → `column`, clear `default_value`.
+3. Contract_Approval_Fetch · `PLANT`: clear `default_value` (keep `column`).
+4. Contract_Approval_Fetch · `USER_ID`: clear `default_value` (keep `column`, still `required = true`).
+
+After the change, `resolveRequestField` for `column` returns `inputs[field_name] ?? default_value`, so whatever the user types in the Plant / USER_ID inputs is sent as `PLANT` and `USER_ID` in the middleware → SAP payload. If the user leaves USER_ID blank, the server function still falls back to the profile's `sap_user_id` before calling the middleware, so behavior for signed-in users is unchanged.
+
+## Verification
+
+- Enter `Plant = 3801`, `USER_ID = SARVI_INFO1` on Price Approvals → server-fn log line `[submitPriceDecision] payload=` and middleware `[raw-invoke]` / SAP request show `PLANT=3801`, `USER_ID=SARVI_INFO1`.
+- Repeat on Contract Approvals with a different plant / user — payload reflects the typed values.
+
+## Files touched
+
+- New SQL migration only. No TS/TSX edits.
