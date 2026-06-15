@@ -34,7 +34,7 @@ const APP_BASE_URL = (process.env.APP_BASE_URL || "").replace(/\/+$/, "");
 const MOCK_MODE = process.env.MIDDLEWARE_MOCK === "1";
 
 // Timeouts.
-const TIMEOUT_MS         = parseInt(process.env.SAP_REQUEST_TIMEOUT_MS || "30000", 10);
+const TIMEOUT_MS         = parseInt(process.env.SAP_REQUEST_TIMEOUT_MS || "120000", 10);
 const CONNECT_TIMEOUT_MS = parseInt(process.env.SAP_CONNECT_TIMEOUT_MS || "60000", 10);
 const HEADERS_TIMEOUT_MS = parseInt(process.env.SAP_HEADERS_TIMEOUT_MS || "60000", 10);
 const BODY_TIMEOUT_MS    = parseInt(process.env.SAP_BODY_TIMEOUT_MS    || "60000", 10);
