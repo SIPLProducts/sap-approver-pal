@@ -366,6 +366,28 @@ const app = express();
 app.use(cors({ origin: true, allowedHeaders: ["Content-Type", "x-shared-secret"] }));
 app.use(express.json({ limit: "1mb" }));
 
+// Request logger — prints every incoming request URL, headers (redacted),
+// and JSON body so the operator can see exactly what the app is sending.
+app.use((req, _res, next) => {
+  if (req.path === "/__health") return next();
+  const redactedHeaders = {};
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (/^(authorization|x-shared-secret)$/i.test(k)) redactedHeaders[k] = "***redacted***";
+    else redactedHeaders[k] = v;
+  }
+  console.log(`\n[request] ${req.method} ${req.originalUrl}`);
+  console.log(`[request] headers=`, redactedHeaders);
+  if (req.body && Object.keys(req.body).length) {
+    try {
+      console.log(`[request] body=`, JSON.stringify(req.body, null, 2));
+    } catch {
+      console.log(`[request] body=<unserializable>`);
+    }
+  }
+  next();
+});
+
+
 // Health
 app.get("/__health", (_req, res) => {
   res.json({
