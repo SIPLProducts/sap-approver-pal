@@ -278,7 +278,7 @@ function SalesOrderPage() {
 
   const showSelect = status === "pending";
   const canAct = showSelect && selected.size > 0 && !missingReason;
-  const baseCols = 19; // # + 17 data + reason
+  const baseCols = 20; // # + 19 data columns (incl. reason)
   const colSpan = showSelect ? baseCols + 1 : baseCols;
 
   return (
@@ -445,21 +445,22 @@ function SalesOrderPage() {
                 <th className="text-left font-semibold px-3 py-2 w-10">#</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Name</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Year</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract Item</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">SO Doc No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">SO Item</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">SO Creation</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Group</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Price Group</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Material</th>
                 <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Qty</th>
                 <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Net Value</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Tax Value</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Total</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract No</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Document No</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">SO Creation Date</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Item No</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract Item</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Dis Chanel</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Division</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Year</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Org</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Co. Code</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">DC / Div</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Cust Grp / Price</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Company Code</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Tax Value</th>
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Reason</th>
               </tr>
             </thead>
@@ -498,21 +499,22 @@ function SalesOrderPage() {
                       <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.year ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no || "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_item ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_document_no ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_item_no ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.so_creation_date)}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer_group ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer_price_group ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.qty)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.net_value)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.tax_value)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(totalOf(r))}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no || "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_document_no ?? "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.so_creation_date)}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_item_no ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_item ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.dis_chanel ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.division ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.year ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{(r.dis_chanel ?? "—") + " / " + (r.division ?? "—")}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{(r.customer_group ?? "—") + " / " + (r.customer_price_group ?? "—")}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.tax_value)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {status === "pending" ? (
                           <Input

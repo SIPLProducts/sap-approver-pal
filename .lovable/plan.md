@@ -1,26 +1,21 @@
 ## Goal
-On the Sales Order Approvals screen, when the user switches the Status radio (Pending / Accepted / Rejected), immediately clear the current table data and re-fetch from SAP for the newly selected status.
+Restructure the Sales Order Approvals output table columns to match this exact order:
 
-## Current behavior
-`onStatusChange` (src/routes/_authenticated/sd.sales-order.tsx) only refetches when a previous fetch exists AND Plant is filled. Otherwise the old rows (from the previous status) stay on screen, which is confusing.
+SELECT, CUSTOMER, CUSTOMER_NAME, CUSTOMER_GROUP, CUSTOMER_PRICE_GROUP, MATERIAL, QTY, NET_VALUE, CONTRACT_NO, SALES_DOCUMENT_NO, SO_CREATION_DATE, SALES_ITEM_NO, CONTRACT_ITEM, DIS_CHANEL, DIVISION, YEAR, SALES_ORG, COMPANY_CODE, TAX_VALUE, REASON
 
-## Change
-Edit `onStatusChange` in `src/routes/_authenticated/sd/sales-order.tsx`:
+## Changes
+File: `src/routes/_authenticated/sd.sales-order.tsx`
 
-1. Always clear table state on status switch:
-   - `setRows([])`
-   - `setSelected(new Set())`
-   - `setReasons(new Map())`
-   - `setLastFetchedAt(null)`
-2. Update URL search param to the new status (unchanged).
-3. If `Plant` is filled, call `fetchFor(newStatus)` to load fresh data for Accepted / Rejected / Pending.
-4. If `Plant` is empty, show a toast: "Enter Plant and click Execute" (no API call — Plant is mandatory).
+1. **Table headers (`<thead>`):** Reorder `<th>` elements to match the sequence above.
+   - Split combined columns into separate columns:
+     - "DC / Div" → separate `DIS_CHANEL` and `DIVISION` columns
+     - "Cust Grp / Price" → separate `CUSTOMER_GROUP` and `CUSTOMER_PRICE_GROUP` columns
+   - Remove the "Total" column (Net Value + Tax Value calculated field).
+   - `SELECT` maps to the existing checkbox column (shown only for Pending).
 
-No backend / server-function changes. No payload-shape changes. Only the status-switch handler in the page component.
+2. **Table body (`<tbody>`):** Reorder `<td>` elements in each row to match the new header sequence, using the same field accessors (`r.customer`, `r.customer_group`, `r.dis_chanel`, etc.).
 
-## Acceptance
-- Click Accepted → table clears instantly, spinner shows, rows for `R_ACCP=X` load.
-- Click Rejected → same with `R_REJ=X`.
-- Click Pending → same with `R_PEND=X`.
-- Selection + reasons reset on every status switch.
-- Without Plant, switching status clears the grid and prompts for Plant instead of silently keeping stale rows.
+3. **Column count constants:** Update `baseCols` from 19 to 20 (`#` + 19 data columns) so `colSpan` on empty/loading states remains correct.
+
+## No backend changes required
+All fields (`customer_group`, `customer_price_group`, `dis_chanel`, `division`, `sales_org`, `company_code`, etc.) are already defined in the `SalesOrderRow` type and populated by the existing `fetchSalesOrderApprovals` server function.
