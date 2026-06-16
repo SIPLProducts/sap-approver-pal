@@ -163,10 +163,16 @@ function SalesOrderPage() {
 
   function onStatusChange(s: Status) {
     setStatusState(s);
+    setRows([]);
     setSelected(new Set());
     setReasons(new Map());
+    setLastFetchedAt(null);
     navigate({ search: (prev: any) => ({ ...prev, status: s }) });
-    if (lastFetchedAt && plant.trim()) fetchFor(s);
+    if (plant.trim()) {
+      fetchFor(s);
+    } else {
+      toast.info("Enter Plant and click Execute");
+    }
   }
 
   function reset() {
