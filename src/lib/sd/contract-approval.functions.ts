@@ -493,6 +493,20 @@ export const submitContractDecision = createServerFn({ method: "POST" })
       message: `contract-decision ${data.action}: ${res.status}`,
     });
 
-    return { ok: true, action: data.action, count: data.rows.length, sap_response: json };
+    return {
+      ok: true,
+      action: data.action,
+      count: data.rows.length,
+      sap_response: json,
+      debug: {
+        target,
+        method,
+        proxied,
+        request_payload: sapPayload,
+        response_status: res.status,
+        response_body_preview: text.slice(0, 2000),
+        latency_ms,
+      },
+    };
   });
 
