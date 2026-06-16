@@ -536,6 +536,11 @@ function namedRawInvokeRoute(path, configName) {
 namedInvokeRoute("/price_approval/Fetch",                "Price_Approval_Fetch");
 namedRawInvokeRoute("/price_approval/Price_Approve_Reject", "Price_Approve_Reject");
 
+// SD — Contract Approvals
+namedInvokeRoute("/contract_approval/Fetch",                      "Contract_Approval_Fetch");
+namedRawInvokeRoute("/contract_approval/Contract_Approve_Reject", "Contract_Approve_Reject");
+
+
 
 // Error handler
 app.use((err, _req, res, _next) => {
