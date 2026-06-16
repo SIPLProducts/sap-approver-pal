@@ -169,7 +169,7 @@ function SalesOrderPage() {
     setSelected(new Set());
     setReasons(new Map());
     setLastFetchedAt(null);
-    navigate({ search: (prev: any) => ({ ...prev, status: s }) });
+
     if (plant.trim()) {
       fetchFor(s);
     } else {
