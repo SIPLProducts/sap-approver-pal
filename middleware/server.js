@@ -562,6 +562,10 @@ namedRawInvokeRoute("/price_approval/Price_Approve_Reject", "Price_Approve_Rejec
 namedInvokeRoute("/contract_approval/Fetch",                      "Contract_Approval_Fetch");
 namedRawInvokeRoute("/contract_approval/Contract_Approve_Reject", "Contract_Approve_Reject");
 
+// SD — Sales Order Approvals
+namedInvokeRoute("/sales_order_approval/Fetch",                   "Sales_Approval_Fetch");
+namedRawInvokeRoute("/sales_order_approval/Sales_Approve_Reject", "Sales_Approve_Reject");
+
 
 
 // Error handler
