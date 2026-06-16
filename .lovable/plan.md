@@ -1,58 +1,38 @@
-# Fix result dialog after Accept/Reject
+## Sales Order Approvals — mirror Contract Approvals
 
-The SAP response uses `MSG` (not `MESSAGE`) and `TYPE` arrives as a SAP icon code like `@02@` (not `S`/`E`/`W`). The current dialog therefore shows empty rows and the wrong tone (success vs error).
+Rebuild `src/routes/_authenticated/sd.sales-order.tsx` and add a new server-functions module so the SO screen behaves identically to Contract Approvals: same selection screen, live SAP fetch on Execute, table of fetched rows, Accept/Reject with reasons, and the SAP message result dialog.
 
-## Changes — `src/routes/_authenticated/sd.contract.tsx` only
+### 1. New file: `src/lib/sd/sales-order-approval.functions.ts`
 
-No backend, schema, or business-logic changes. Pure presentation fix in the existing `ResultDialog`.
+Mirrors `contract-approval.functions.ts` but tailored to the SO response shape.
 
-### 1. Update `SapMsg` type
-```
-type SapMsg = {
-  TYPE?: string;
-  CUSTOMER?: string;
-  CONTRACT?: string;
-  MSG?: string;
-  MESSAGE?: string; // keep as fallback
-};
-```
+- `SalesOrderRow` type with fields from the sample:
+  `select, company_code, sales_org, dis_chanel, division, customer, customer_name, customer_group, customer_price_group, year, contract_no, contract_item, sales_document_no, so_creation_date, sales_item_no, material, qty, net_value, tax_value, reason`.
+- `fetchSalesOrderApprovals` — uses SAP API config `Sales_Approval_Fetch`. Same inputs as contract (`PLANT`, `CUSTOMER_FROM`, `CUSTOMER_TO`, `USER_ID`, `R_PEND`, `R_ACCP`, `R_REJ`). Same proxy/direct branching. Proxy path: `${middleware}/sales_order_approval/Fetch` with `/sap/invoke` fallback on 404. Parses `DATA[]` from the response.
+- `submitSalesOrderDecision` — uses SAP API config `Sales_Approve_Reject`. Builds the same envelope `{ USER_ID, APPROV, REJ, DATA: [...] }` mapping each row back to UPPERCASE SAP keys (`SELECT:"X"`, `SALES_DOCUMENT_NO`, `SALES_ITEM_NO`, etc.). Proxy path: `${middleware}/sales_order_approval/Sales_Approve_Reject` with `/sap/invoke` fallback. Returns `{ ok, sap_response, debug }` exactly like contract submit so the same result-dialog logic works.
 
-### 2. SAP icon-code → severity mapper
-Map both icon codes and letter codes:
-- `@01@`, `@5B@`, `S` → success
-- `@02@`, `@09@`, `W` → warning
-- `@03@`, `@5C@`, `@AY@`, `E`, `A` → error
-- `@04@`, `@08@`, `I` → info
-- anything else → info (neutral)
+### 2. Rewrite `src/routes/_authenticated/sd.sales-order.tsx`
 
-Use this mapper in two places:
-- `tone` computation for the banner (error if any row maps to error, else warning if any warning, else success).
-- Per-row badge (S/W/E/I) instead of printing the raw `@02@`.
+Replace the current `SdApprovalShell`-based page with a self-contained page modeled on `sd.contract.tsx`:
 
-### 3. Row layout (flat list, one row per message)
-Columns shown per row:
-- Severity badge (color by mapped type)
-- `CUSTOMER`
-- `CONTRACT` (contract no.)
-- `MSG` (fallback to `MESSAGE` if `MSG` missing)
+- Header: "Sales Order Approvals" + badges (`ZBMW_SO_APP`, `Single level`).
+- Selection screen: Plant* / User ID / Customer From / Customer To / Execute / Reset.
+- Status radios: Pending / Accepted / Rejected (drives `R_PEND/R_ACCP/R_REJ`, re-fetches on change).
+- Table columns: Customer, Customer Name, Year, Contract No, Contract Item, SO Doc No, SO Item, SO Creation Date, Material, Qty (right), Net Value (right), Tax Value (right), Total = Net+Tax (right, computed client-side), Sales Org, Co. Code, Dis. Chanel, Division, Cust Grp, Price Grp, Reason (input when pending).
+- Selection: checkbox column + select-all when status=pending. Accept/Reject buttons require reason on every selected row.
+- Result dialog: reuses Contract's `SapMsg`/`mapSeverity`/`SEV_LABEL`/`SEV_CLASS` shape — flat list with Type badge, Customer, Contract, MSG, plus a counts banner. Refreshes pending list on success.
+- Same `useMutation` + `useServerFn` wiring, same console grouping of `debug` payload, same toast messages.
 
-### 4. Header count
-Show `{success} ok · {warning} warn · {error} err` summary line above the list when there are messages.
+### 3. Search params
 
-### 5. `onSuccess` extraction (no behavior change, just guard)
-Keep the existing extraction: `inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? sap?.MESSAGE ?? []`. The new dialog reads `MSG` from each row, so the array of objects shown in your sample will render correctly.
+Keep `status` in the route search (validated via `zod`) so deep links still work, and seed `useState` from `Route.useSearch()`; update the URL on radio change like the existing file does.
 
-## Out of scope
-- No change to `submitContractDecision` server fn.
-- No change to middleware logging.
-- No change to the SAP payload or table.
+### 4. Not changed
 
-## Result
-For your sample response, the dialog will show two rows like:
+- `SdApprovalShell` stays in place (Price screen still uses it).
+- No DB / middleware / schema changes — assumes admin has already created `Sales_Approval_Fetch` and `Sales_Approve_Reject` rows in `sap_api_configs` (same as the contract configs).
 
-```
-[W] 0001060033   44100070   SD document 44100070 is not in the database or has been archived-Not Released
-[W] 0001060033   44100070   SD document 44100070 is not in the database or has been archived-Not Released
-```
+### Technical notes
 
-Banner tone = Warning (since `@02@` → warning), title "Completed with warnings".
+- File length will be close to `sd.contract.tsx` (~600 lines) — most logic is duplicated 1:1 and only column rendering + the row-mapping helpers change.
+- Reused helpers (`fmtNum`, `fmtDate`, `mapSeverity`, `SEV_*`) are copied locally rather than extracted, to keep this change scoped to two files.
