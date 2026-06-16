@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
@@ -96,7 +96,9 @@ function totalOf(r: SalesOrderRow): number {
 
 function SalesOrderPage() {
   const { status: urlStatus } = Route.useSearch();
-  const navigate = useNavigate({ from: "/_authenticated/sd/sales-order" });
+  // status is local UI state only; we don't write back to the URL to avoid
+  // navigating into the route-ID path in the preview (which 404s).
+
   const fetchFn = useServerFn(fetchSalesOrderApprovals);
   const decisionFn = useServerFn(submitSalesOrderDecision);
 
@@ -167,7 +169,7 @@ function SalesOrderPage() {
     setSelected(new Set());
     setReasons(new Map());
     setLastFetchedAt(null);
-    navigate({ search: (prev: any) => ({ ...prev, status: s }) });
+
     if (plant.trim()) {
       fetchFor(s);
     } else {
@@ -185,7 +187,6 @@ function SalesOrderPage() {
     setSelected(new Set());
     setReasons(new Map());
     setLastFetchedAt(null);
-    navigate({ search: (prev: any) => ({ ...prev, status: "pending" }) });
   }
 
   const canExecute = !!plant.trim() && !mutation.isPending;

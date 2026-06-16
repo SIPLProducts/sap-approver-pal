@@ -1,21 +1,42 @@
-## Goal
-Restructure the Sales Order Approvals output table columns to match this exact order:
+# Fix: Accepted / Rejected goes to 404 on Sales Order Approvals
 
-SELECT, CUSTOMER, CUSTOMER_NAME, CUSTOMER_GROUP, CUSTOMER_PRICE_GROUP, MATERIAL, QTY, NET_VALUE, CONTRACT_NO, SALES_DOCUMENT_NO, SO_CREATION_DATE, SALES_ITEM_NO, CONTRACT_ITEM, DIS_CHANEL, DIVISION, YEAR, SALES_ORG, COMPANY_CODE, TAX_VALUE, REASON
+## Problem
 
-## Changes
-File: `src/routes/_authenticated/sd.sales-order.tsx`
+In the Sales Order Approvals screen, clicking the **Accepted** or **Rejected** radio shows the global 404 page even though the toast "Loaded 1 record from SAP" confirms the API succeeded.
 
-1. **Table headers (`<thead>`):** Reorder `<th>` elements to match the sequence above.
-   - Split combined columns into separate columns:
-     - "DC / Div" → separate `DIS_CHANEL` and `DIVISION` columns
-     - "Cust Grp / Price" → separate `CUSTOMER_GROUP` and `CUSTOMER_PRICE_GROUP` columns
-   - Remove the "Total" column (Net Value + Tax Value calculated field).
-   - `SELECT` maps to the existing checkbox column (shown only for Pending).
+Root cause: `onStatusChange` (and `reset`) call
 
-2. **Table body (`<tbody>`):** Reorder `<td>` elements in each row to match the new header sequence, using the same field accessors (`r.customer`, `r.customer_group`, `r.dis_chanel`, etc.).
+```ts
+navigate({ search: (prev) => ({ ...prev, status: s }) })
+```
 
-3. **Column count constants:** Update `baseCols` from 19 to 20 (`#` + 19 data columns) so `colSpan` on empty/loading states remains correct.
+In the Lovable preview the URL carries extra params (`__lovable_sha`, `__lovable_load_id`). That `navigate` call, combined with `useNavigate({ from: "/_authenticated/sd/sales-order" })`, ends up writing the route-ID path (`/_authenticated/sd/sales-order`) into the address bar instead of the public URL `/sd/sales-order`. The route-ID path matches no route → 404. The API call had already fired before the navigation, so its success toast still appears.
 
-## No backend changes required
-All fields (`customer_group`, `customer_price_group`, `dis_chanel`, `division`, `sales_org`, `company_code`, etc.) are already defined in the `SalesOrderRow` type and populated by the existing `fetchSalesOrderApprovals` server function.
+The user-visible effect: the table never gets a chance to render the rows returned by the API.
+
+## Fix (frontend only — `src/routes/_authenticated/sd.sales-order.tsx`)
+
+1. **Stop pushing `status` into the URL.** It's already kept in component state (`statusState`) and is used purely for UI. Removing the navigate eliminates the broken URL rewrite and the 404.
+   - Remove the `navigate({ search: ... })` call from `onStatusChange`.
+   - Remove the `navigate({ search: ... })` call from `reset`.
+   - Remove the now-unused `useNavigate` import + `navigate` binding.
+   - Keep reading the initial value from `Route.useSearch()` so deep links like `?status=accepted` still preselect the tab on first load.
+
+2. **Keep the existing behavior on tab switch** (already in place — verify after edit):
+   - Clear `rows`, `selected`, `reasons`, `lastFetchedAt`.
+   - If `plant` is filled, immediately call `fetchFor(s)` (which sends `R_PEND`/`R_ACCP`/`R_REJ` matching the chosen tab).
+   - If `plant` is empty, toast "Enter Plant and click Execute".
+
+3. **No backend / server-function changes.** `fetchSalesOrderApprovals` already maps `status → R_PEND/R_ACCP/R_REJ` correctly and returns rows; the table rendering code is unchanged.
+
+## Verification
+
+- On `/sd/sales-order`, enter Plant `3806`, click **Execute** → Pending rows load.
+- Click **Accepted** → URL stays at `/sd/sales-order`, table clears, API is called with `R_ACCP=X`, returned rows render in the same table.
+- Click **Rejected** → same behavior with `R_REJ=X`.
+- No 404 page should appear.
+
+## Notes
+
+- Deep-linking via `?status=accepted` is still honored on first render (the initial state seeds from `Route.useSearch()`); only the *write-back* to the URL on tab change is removed.
+- If we later want shareable `?status=` URLs, we can re-add it as `navigate({ to: "/sd/sales-order", search: { status: s }, replace: true })` (explicit `to`, no relative `from`).
