@@ -187,7 +187,6 @@ function SalesOrderPage() {
     setSelected(new Set());
     setReasons(new Map());
     setLastFetchedAt(null);
-    navigate({ search: (prev: any) => ({ ...prev, status: "pending" }) });
   }
 
   const canExecute = !!plant.trim() && !mutation.isPending;
