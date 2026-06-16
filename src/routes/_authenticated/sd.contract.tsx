@@ -538,9 +538,13 @@ function ResultDialog({
   messages: SapMsg[];
   total: number;
 }) {
-  const types = messages.map((m) => String(m?.TYPE ?? "").toUpperCase());
-  const hasError = types.some((t) => t === "E" || t === "A");
-  const hasWarn = types.some((t) => t === "W");
+  const severities = messages.map((m) => mapSeverity(m?.TYPE));
+  const counts = severities.reduce(
+    (acc, s) => ((acc[s] = (acc[s] ?? 0) + 1), acc),
+    {} as Record<Severity, number>,
+  );
+  const hasError = severities.some((s) => s === "error");
+  const hasWarn = severities.some((s) => s === "warning");
   const tone: "success" | "error" | "warning" = hasError ? "error" : hasWarn ? "warning" : "success";
 
   const banner = {
@@ -567,18 +571,36 @@ function ResultDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-2 text-sm">
-          <div className="text-muted-foreground">
-            {total} row{total === 1 ? "" : "s"} submitted.
+          <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+            <span>{total} row{total === 1 ? "" : "s"} submitted.</span>
+            {messages.length > 0 && (
+              <span className="font-mono text-xs">
+                {(counts.success ?? 0)} ok · {(counts.warning ?? 0)} warn · {(counts.error ?? 0)} err
+                {counts.info ? ` · ${counts.info} info` : ""}
+              </span>
+            )}
           </div>
           {messages.length > 0 && (
-            <div className="border rounded max-h-64 overflow-auto divide-y">
-              {messages.map((m, i) => (
-                <div key={i} className="px-3 py-2 text-xs flex gap-2">
-                  <span className="font-mono text-muted-foreground w-6">{m.TYPE ?? "—"}</span>
-                  <span className="font-mono text-muted-foreground w-24 truncate">{m.CUSTOMER ?? ""}</span>
-                  <span className="flex-1">{m.MESSAGE ?? ""}</span>
-                </div>
-              ))}
+            <div className="border rounded max-h-72 overflow-auto divide-y">
+              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/40 flex gap-2">
+                <span className="w-8">Type</span>
+                <span className="w-28">Customer</span>
+                <span className="w-24">Contract</span>
+                <span className="flex-1">Message</span>
+              </div>
+              {messages.map((m, i) => {
+                const sev = severities[i];
+                return (
+                  <div key={i} className="px-3 py-2 text-xs flex gap-2 items-start">
+                    <span className={`w-8 inline-flex justify-center items-center rounded border text-[10px] font-bold px-1 ${SEV_CLASS[sev]}`}>
+                      {SEV_LABEL[sev]}
+                    </span>
+                    <span className="font-mono text-muted-foreground w-28 truncate">{m.CUSTOMER ?? "—"}</span>
+                    <span className="font-mono text-muted-foreground w-24 truncate">{m.CONTRACT ?? "—"}</span>
+                    <span className="flex-1 break-words">{m.MSG ?? m.MESSAGE ?? ""}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
