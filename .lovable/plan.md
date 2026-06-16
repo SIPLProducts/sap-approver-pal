@@ -1,42 +1,26 @@
-## Problem
-The Sales Order request reaches the Node middleware now, so the old 404 is fixed. The remaining 502 is because the middleware rebuilds the SAP payload from the database request-field config, and `Sales_Approval_Fetch` is currently configured with all request fields as `static` values:
+## Goal
+On the Sales Order Approvals screen, when the user switches the Status radio (Pending / Accepted / Rejected), immediately clear the current table data and re-fetch from SAP for the newly selected status.
 
-- `PLANT` static empty
-- `CUSTOMER_FROM` static `1060002`
-- `CUSTOMER_TO` static `1060493`
-- `USER_ID` static empty
-- status flags static/defaulted
+## Current behavior
+`onStatusChange` (src/routes/_authenticated/sd.sales-order.tsx) only refetches when a previous fetch exists AND Plant is filled. Otherwise the old rows (from the previous status) stay on screen, which is confusing.
 
-So the app sends your Postman values to the middleware, but the middleware ignores them and sends the configured static payload to SAP instead. That explains why Postman works while the app/middleware call fails.
+## Change
+Edit `onStatusChange` in `src/routes/_authenticated/sd/sales-order.tsx`:
 
-## Plan
-1. Update the `Sales_Approval_Fetch` request-field configuration in the database so these fields use the incoming app payload:
-   - `PLANT` → `column`
-   - `CUSTOMER_FROM` → `column`
-   - `CUSTOMER_TO` → `column`
-   - `USER_ID` → `column`
-   - `R_PEND` → `column`
-   - `R_ACCP` → `column`
-   - `R_REJ` → `column`
-2. Clear stale static defaults for Sales Order fetch request fields so blank customer range and user/status values pass through exactly like your working Postman payload.
-3. Add targeted middleware logging around named SAP calls so the console prints:
-   - resolved config name/id
-   - final SAP URL and method
-   - outgoing SAP payload
-   - upstream SAP status/body preview
-4. Improve middleware error response for failed upstream SAP calls so the app shows the real SAP status/body instead of only a generic `502 Bad Gateway`.
-5. Keep the frontend payload shape unchanged; your app should continue sending:
-   ```json
-   {
-     "PLANT": "3806",
-     "CUSTOMER_FROM": "",
-     "CUSTOMER_TO": "",
-     "USER_ID": "NEOBMWCONS1",
-     "R_PEND": "X",
-     "R_ACCP": "",
-     "R_REJ": ""
-   }
-   ```
+1. Always clear table state on status switch:
+   - `setRows([])`
+   - `setSelected(new Set())`
+   - `setReasons(new Map())`
+   - `setLastFetchedAt(null)`
+2. Update URL search param to the new status (unchanged).
+3. If `Plant` is filled, call `fetchFor(newStatus)` to load fresh data for Accepted / Rejected / Pending.
+4. If `Plant` is empty, show a toast: "Enter Plant and click Execute" (no API call — Plant is mandatory).
 
-## Verification
-After implementation, restart `middleware/server.js`, click Execute again, and the Node console should show the exact outgoing SAP payload matching the Postman payload.
+No backend / server-function changes. No payload-shape changes. Only the status-switch handler in the page component.
+
+## Acceptance
+- Click Accepted → table clears instantly, spinner shows, rows for `R_ACCP=X` load.
+- Click Rejected → same with `R_REJ=X`.
+- Click Pending → same with `R_PEND=X`.
+- Selection + reasons reset on every status switch.
+- Without Plant, switching status clears the grid and prompts for Plant instead of silently keeping stale rows.
