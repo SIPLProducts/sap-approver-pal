@@ -66,6 +66,18 @@ export function flattenPayload(input: unknown): DetectedField[] {
   return out;
 }
 
+function sanitizeLooseJson(text: string): string {
+  let s = text;
+  // strip /* block */ and // line comments
+  s = s.replace(/\/\*[\s\S]*?\*\//g, "");
+  s = s.replace(/(^|[^:"])\/\/[^\n\r]*/g, "$1");
+  // fill empty values after a colon: `"k": ,` -> `"k": null,` and `"k": }` -> `"k": null}`
+  s = s.replace(/:(\s*)(,|\}|\])/g, ": null$1$2");
+  // strip trailing commas before } or ]
+  s = s.replace(/,(\s*[}\]])/g, "$1");
+  return s;
+}
+
 export function parsePayloadText(text: string): { ok: true; value: unknown } | { ok: false; error: string } {
   if (text.length > MAX_PAYLOAD_BYTES) {
     return { ok: false, error: `Payload exceeds ${Math.round(MAX_PAYLOAD_BYTES / 1000)} KB limit` };
@@ -73,7 +85,12 @@ export function parsePayloadText(text: string): { ok: true; value: unknown } | {
   try {
     return { ok: true, value: JSON.parse(text) };
   } catch (e) {
-    return { ok: false, error: (e as Error).message };
+    const originalError = (e as Error).message;
+    try {
+      return { ok: true, value: JSON.parse(sanitizeLooseJson(text)) };
+    } catch {
+      return { ok: false, error: originalError };
+    }
   }
 }
 

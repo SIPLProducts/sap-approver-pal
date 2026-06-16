@@ -1,42 +1,28 @@
-# Fix: Accepted / Rejected goes to 404 on Sales Order Approvals
-
 ## Problem
 
-In the Sales Order Approvals screen, clicking the **Accepted** or **Rejected** radio shows the global 404 page even though the toast "Loaded 1 record from SAP" confirms the API succeeded.
+The SAP sample payload you pasted is not valid JSON — it contains empty values:
 
-Root cause: `onStatusChange` (and `reset`) call
-
-```ts
-navigate({ search: (prev) => ({ ...prev, status: s }) })
+```
+"ADV_DOC_NUM": { "ZEILE": , "EBELP": }
 ```
 
-In the Lovable preview the URL carries extra params (`__lovable_sha`, `__lovable_load_id`). That `navigate` call, combined with `useNavigate({ from: "/_authenticated/sd/sales-order" })`, ends up writing the route-ID path (`/_authenticated/sd/sales-order`) into the address bar instead of the public URL `/sd/sales-order`. The route-ID path matches no route → 404. The API call had already fired before the navigation, so its success toast still appears.
+A standard `JSON.parse` rejects this with `Unexpected token ','`, which is exactly the error toast on the Response tab. SAP often emits this shape (empty = null), so the import dialog should clean it up before parsing instead of failing.
 
-The user-visible effect: the table never gets a chance to render the rows returned by the API.
+## Fix
 
-## Fix (frontend only — `src/routes/_authenticated/sd.sales-order.tsx`)
+Edit `src/lib/admin/payload-detect.ts` → `parsePayloadText`:
 
-1. **Stop pushing `status` into the URL.** It's already kept in component state (`statusState`) and is used purely for UI. Removing the navigate eliminates the broken URL rewrite and the 404.
-   - Remove the `navigate({ search: ... })` call from `onStatusChange`.
-   - Remove the `navigate({ search: ... })` call from `reset`.
-   - Remove the now-unused `useNavigate` import + `navigate` binding.
-   - Keep reading the initial value from `Route.useSearch()` so deep links like `?status=accepted` still preselect the tab on first load.
+1. Try `JSON.parse(text)` first (fast path for valid payloads).
+2. On failure, run a small sanitizer and retry:
+   - Replace empty values after a colon with `null`: `"key": ,` → `"key": null,` and `"key": }` → `"key": null}` (also handles `]`).
+   - Strip trailing commas before `}` or `]` (`, }` → `}`).
+   - Optionally strip `// ...` and `/* ... */` comments.
+3. If the retry also fails, return the original parser error so users still see a real diagnostic.
+4. Keep the 1 MB size cap and existing return shape unchanged — no UI changes needed; `PayloadImportDialog` already shows the resulting detected fields.
 
-2. **Keep the existing behavior on tab switch** (already in place — verify after edit):
-   - Clear `rows`, `selected`, `reasons`, `lastFetchedAt`.
-   - If `plant` is filled, immediately call `fetchFor(s)` (which sends `R_PEND`/`R_ACCP`/`R_REJ` matching the chosen tab).
-   - If `plant` is empty, toast "Enter Plant and click Execute".
+After this, pasting your SAP payload detects ~33 fields including `DATA[].ADV_DOC_NUM.ZEILE` and `DATA[].ADV_DOC_NUM.EBELP` as `null`, and Import payload populates the Response mapping table.
 
-3. **No backend / server-function changes.** `fetchSalesOrderApprovals` already maps `status → R_PEND/R_ACCP/R_REJ` correctly and returns rows; the table rendering code is unchanged.
+## Out of scope
 
-## Verification
-
-- On `/sd/sales-order`, enter Plant `3806`, click **Execute** → Pending rows load.
-- Click **Accepted** → URL stays at `/sd/sales-order`, table clears, API is called with `R_ACCP=X`, returned rows render in the same table.
-- Click **Rejected** → same behavior with `R_REJ=X`.
-- No 404 page should appear.
-
-## Notes
-
-- Deep-linking via `?status=accepted` is still honored on first render (the initial state seeds from `Route.useSearch()`); only the *write-back* to the URL on tab change is removed.
-- If we later want shareable `?status=` URLs, we can re-add it as `navigate({ to: "/sd/sales-order", search: { status: s }, replace: true })` (explicit `to`, no relative `from`).
+- No changes to the Service Certificate or Sales Order Approvals screens themselves — this is purely the SAP API Settings → Import payload detector.
+- No backend or schema changes.
