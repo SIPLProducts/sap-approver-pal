@@ -53,7 +53,32 @@ function fmtDate(v: string | null) {
   return s;
 }
 
-type SapMsg = { CUSTOMER?: string; TYPE?: string; MESSAGE?: string };
+type SapMsg = {
+  TYPE?: string;
+  CUSTOMER?: string;
+  CONTRACT?: string;
+  MSG?: string;
+  MESSAGE?: string;
+};
+
+type Severity = "success" | "warning" | "error" | "info";
+
+function mapSeverity(raw: string | undefined): Severity {
+  const t = String(raw ?? "").toUpperCase().trim();
+  if (["@01@", "@5B@", "S"].includes(t)) return "success";
+  if (["@02@", "@09@", "W"].includes(t)) return "warning";
+  if (["@03@", "@5C@", "@AY@", "E", "A"].includes(t)) return "error";
+  if (["@04@", "@08@", "I"].includes(t)) return "info";
+  return "info";
+}
+
+const SEV_LABEL: Record<Severity, string> = { success: "S", warning: "W", error: "E", info: "I" };
+const SEV_CLASS: Record<Severity, string> = {
+  success: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  warning: "bg-amber-100 text-amber-700 border-amber-200",
+  error: "bg-red-100 text-red-700 border-red-200",
+  info: "bg-slate-100 text-slate-700 border-slate-200",
+};
 
 function ContractPage() {
   const fetchFn = useServerFn(fetchContractApprovals);
