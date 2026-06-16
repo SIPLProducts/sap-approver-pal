@@ -167,18 +167,27 @@ function ContractPage() {
     onSuccess: (res, vars) => {
       const dbg = (res as any)?.debug;
       if (dbg) {
+        const status = dbg.response_status ?? "ERR";
         // eslint-disable-next-line no-console
-        console.groupCollapsed(`[SAP] Contract_Approve_Reject · ${vars.action} · ${dbg.response_status} (${dbg.latency_ms}ms)`);
+        console.groupCollapsed(`[SAP] Contract_Approve_Reject · ${vars.action} · ${status} (${dbg.latency_ms}ms)`);
         // eslint-disable-next-line no-console
         console.log("URL:", dbg.target);
         // eslint-disable-next-line no-console
         console.log("Method:", dbg.method, "proxied:", dbg.proxied);
         // eslint-disable-next-line no-console
+        console.log("Request headers:", dbg.request_headers);
+        // eslint-disable-next-line no-console
         console.log("Request payload:", dbg.request_payload);
+        // eslint-disable-next-line no-console
+        console.log("Response status:", dbg.response_status);
         // eslint-disable-next-line no-console
         console.log("Response body:", dbg.response_body_preview);
         // eslint-disable-next-line no-console
         console.groupEnd();
+      }
+      if ((res as any)?.ok === false) {
+        toast.error((res as any).error ?? "SAP submission failed");
+        return;
       }
       const sap: any = (res as any)?.sap_response ?? {};
       const inner: any = sap?.data ?? sap;

@@ -433,6 +433,15 @@ export const submitContractDecision = createServerFn({ method: "POST" })
       headers[k] = v;
     }
 
+    const redacted = (h: Record<string, string>) => {
+      const o: Record<string, string> = {};
+      for (const [k, v] of Object.entries(h)) {
+        if (/^(authorization|x-shared-secret)$/i.test(k)) o[k] = "***redacted***";
+        else o[k] = v;
+      }
+      return o;
+    };
+
     const t0 = Date.now();
     console.log("[submitContractDecision] target=", target, "method=", method, "proxied=", proxied, "payload=", sapPayload);
     let res: Response;
@@ -452,26 +461,45 @@ export const submitContractDecision = createServerFn({ method: "POST" })
       }
     } catch (e) {
       const errMsg = (e as Error).message || "fetch failed";
+      const latency_ms = Date.now() - t0;
       console.error("[submitContractDecision] network error", errMsg);
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "error",
-        latency_ms: Date.now() - t0,
+        latency_ms,
         message: `contract-decision ${data.action}: network ${errMsg}`,
       });
-      throw new Error(`Could not reach SAP: ${errMsg}`);
+      return {
+        ok: false as const,
+        action: data.action,
+        count: data.rows.length,
+        error: `Could not reach SAP: ${errMsg}`,
+        sap_response: null,
+        debug: {
+          target,
+          method,
+          proxied,
+          request_headers: redacted(headers),
+          request_payload: sapPayload,
+          response_status: null as number | null,
+          response_body_preview: "",
+          latency_ms,
+        },
+      };
     }
 
     const text = await res.text().catch(() => "");
     const latency_ms = Date.now() - t0;
     console.log("[submitContractDecision] status=", res.status, "latency_ms=", latency_ms, "body=", text.slice(0, 1000));
 
+    let json: any = {};
+    try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+
     if (!res.ok) {
       let upstream = "";
       try {
-        const j = JSON.parse(text);
-        if (j?.error) upstream = String(j.error);
-        else if (j?.data) upstream = typeof j.data === "string" ? j.data : JSON.stringify(j.data);
+        if (json?.error) upstream = String(json.error);
+        else if (json?.data) upstream = typeof json.data === "string" ? json.data : JSON.stringify(json.data);
       } catch { /* ignore */ }
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
@@ -479,11 +507,24 @@ export const submitContractDecision = createServerFn({ method: "POST" })
         latency_ms,
         message: `contract-decision ${data.action}: ${res.status} ${text.slice(0, 500)}`,
       });
-      throw new Error(`SAP returned ${res.status} ${res.statusText}: ${upstream || text.slice(0, 300)}`);
+      return {
+        ok: false as const,
+        action: data.action,
+        count: data.rows.length,
+        error: `SAP returned ${res.status} ${res.statusText}: ${upstream || text.slice(0, 300) || "(empty body)"}`,
+        sap_response: json,
+        debug: {
+          target,
+          method,
+          proxied,
+          request_headers: redacted(headers),
+          request_payload: sapPayload,
+          response_status: res.status,
+          response_body_preview: text.slice(0, 4000),
+          latency_ms,
+        },
+      };
     }
-
-    let json: any = {};
-    try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
@@ -494,17 +535,19 @@ export const submitContractDecision = createServerFn({ method: "POST" })
     });
 
     return {
-      ok: true,
+      ok: true as const,
       action: data.action,
       count: data.rows.length,
+      error: null as string | null,
       sap_response: json,
       debug: {
         target,
         method,
         proxied,
+        request_headers: redacted(headers),
         request_payload: sapPayload,
         response_status: res.status,
-        response_body_preview: text.slice(0, 2000),
+        response_body_preview: text.slice(0, 4000),
         latency_ms,
       },
     };
