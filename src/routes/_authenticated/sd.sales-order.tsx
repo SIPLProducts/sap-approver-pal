@@ -96,7 +96,9 @@ function totalOf(r: SalesOrderRow): number {
 
 function SalesOrderPage() {
   const { status: urlStatus } = Route.useSearch();
-  const navigate = useNavigate({ from: "/_authenticated/sd/sales-order" });
+  // status is local UI state only; we don't write back to the URL to avoid
+  // navigating into the route-ID path in the preview (which 404s).
+
   const fetchFn = useServerFn(fetchSalesOrderApprovals);
   const decisionFn = useServerFn(submitSalesOrderDecision);
 
