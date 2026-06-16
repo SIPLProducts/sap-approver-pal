@@ -472,14 +472,29 @@ function namedInvokeRoute(path, configName) {
     try {
       const cfg = await loadConfig(configName);
       cfgId = cfg.id;
+      console.log(`[${path}] config name=${cfg.name} id=${cfg.id} url=${cfg.endpoint_url} method=${cfg.http_method}`);
+      console.log(`[${path}] inputs from app =`, JSON.stringify(inputs));
       const result = await invokeSap(cfg, inputs);
+      const preview = typeof result.data === "string"
+        ? result.data.slice(0, 500)
+        : JSON.stringify(result.data).slice(0, 500);
+      console.log(`[${path}] sap status=${result.status} latency=${result.latency_ms}ms body=`, preview);
       await writeLog({
         configId: cfg.id,
         status: result.ok ? "ok" : "error",
         latency_ms: result.latency_ms,
-        message: `${path}: ${result.status}`,
+        message: `${path}: ${result.status} ${preview.slice(0, 200)}`,
       });
-      return res.status(result.ok ? 200 : 502).json(result);
+      if (!result.ok) {
+        return res.status(502).json({
+          ok: false,
+          status: result.status,
+          latency_ms: result.latency_ms,
+          error: `SAP returned ${result.status}`,
+          data: result.data,
+        });
+      }
+      return res.status(200).json(result);
     } catch (e) {
       console.error(`[${path}] failed`, e.message);
       if (cfgId) {
