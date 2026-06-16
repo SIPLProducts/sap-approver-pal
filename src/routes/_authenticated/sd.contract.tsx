@@ -162,9 +162,24 @@ function ContractPage() {
   }
 
   const decisionMutation = useMutation({
-    mutationFn: (vars: { action: "accepted" | "rejected"; rows: ContractRow[] }) =>
+    mutationFn: (vars: { action: "accepted" | "rejected"; user_id: string; rows: ContractRow[] }) =>
       decisionFn({ data: vars }),
     onSuccess: (res, vars) => {
+      const dbg = (res as any)?.debug;
+      if (dbg) {
+        // eslint-disable-next-line no-console
+        console.groupCollapsed(`[SAP] Contract_Approve_Reject · ${vars.action} · ${dbg.response_status} (${dbg.latency_ms}ms)`);
+        // eslint-disable-next-line no-console
+        console.log("URL:", dbg.target);
+        // eslint-disable-next-line no-console
+        console.log("Method:", dbg.method, "proxied:", dbg.proxied);
+        // eslint-disable-next-line no-console
+        console.log("Request payload:", dbg.request_payload);
+        // eslint-disable-next-line no-console
+        console.log("Response body:", dbg.response_body_preview);
+        // eslint-disable-next-line no-console
+        console.groupEnd();
+      }
       const sap: any = (res as any)?.sap_response ?? {};
       const inner: any = sap?.data ?? sap;
       const rawMsgs =
@@ -177,7 +192,11 @@ function ContractPage() {
       // Refresh pending list so processed rows drop out
       fetchFor("pending");
     },
-    onError: (e: Error) => toast.error(e.message ?? "SAP submission failed"),
+    onError: (e: Error) => {
+      // eslint-disable-next-line no-console
+      console.error("[SAP] Contract_Approve_Reject failed:", e?.message ?? e);
+      toast.error(e.message ?? "SAP submission failed");
+    },
   });
 
   const missingReason = useMemo(() => {
@@ -197,7 +216,7 @@ function ContractPage() {
       toast.error("Reason is required for all selected rows");
       return;
     }
-    decisionMutation.mutate({ action, rows: selectedRows });
+    decisionMutation.mutate({ action, user_id: userId.trim(), rows: selectedRows });
   }
 
   const showSelect = status === "pending";

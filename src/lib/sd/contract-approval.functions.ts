@@ -354,10 +354,11 @@ export const submitContractDecision = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({
       action: z.enum(["accepted", "rejected"]),
+      user_id: z.string().trim().max(40).optional(),
       rows: z.array(ContractRowSchema).min(1, "Select at least one row"),
     }).parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: cfg } = await supabaseAdmin
@@ -368,13 +369,27 @@ export const submitContractDecision = createServerFn({ method: "POST" })
     if (!cfg) throw new Error(`SAP API config "${DECISION_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
     if (!cfg.is_active) throw new Error(`SAP API config "${DECISION_CONFIG_NAME}" is disabled.`);
 
-    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+    const [{ data: creds }, { data: prof }, { data: userIdField }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("profiles").select("sap_user_id").eq("id", context.userId).maybeSingle(),
+      supabaseAdmin
+        .from("sap_api_request_fields")
+        .select("default_value")
+        .eq("config_id", cfg.id)
+        .eq("field_name", "USER_ID")
+        .maybeSingle(),
       supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
+    const resolvedUserId =
+      (data.user_id && data.user_id.trim()) ||
+      (prof?.sap_user_id && prof.sap_user_id.trim()) ||
+      (userIdField?.default_value as string | null) ||
+      "NEOBMWCONS";
+
     const sapPayload = {
+      USER_ID: resolvedUserId,
       APPROV: data.action === "accepted" ? "X" : "",
       REJ: data.action === "rejected" ? "X" : "",
       DATA: data.rows.map(toSapContractRow),
@@ -478,6 +493,20 @@ export const submitContractDecision = createServerFn({ method: "POST" })
       message: `contract-decision ${data.action}: ${res.status}`,
     });
 
-    return { ok: true, action: data.action, count: data.rows.length, sap_response: json };
+    return {
+      ok: true,
+      action: data.action,
+      count: data.rows.length,
+      sap_response: json,
+      debug: {
+        target,
+        method,
+        proxied,
+        request_payload: sapPayload,
+        response_status: res.status,
+        response_body_preview: text.slice(0, 2000),
+        latency_ms,
+      },
+    };
   });
 
