@@ -1,37 +1,58 @@
-## Plan
+# Fix result dialog after Accept/Reject
 
-1. **Add the missing Contract middleware endpoint**
-   - In `middleware/server.js`, register:
-     - `POST /contract_approval/Contract_Approve_Reject` → `Contract_Approve_Reject`
-   - Use the existing raw passthrough route so the payload is sent exactly as the app builds it.
+The SAP response uses `MSG` (not `MESSAGE`) and `TYPE` arrives as a SAP icon code like `@02@` (not `S`/`E`/`W`). The current dialog therefore shows empty rows and the wrong tone (success vs error).
 
-2. **Make middleware console logs visible for every request**
-   - Add a small request logger for `/contract_approval/Contract_Approve_Reject` and `/sap/invoke` that prints:
-     - incoming URL/path
-     - request payload
-     - resolved SAP API config name
-     - outgoing SAP URL/method
-     - SAP response status/body preview
-   - Keep secrets redacted (`Authorization`, `x-shared-secret`).
+## Changes — `src/routes/_authenticated/sd.contract.tsx` only
 
-3. **Make the app call the named endpoint directly**
-   - Keep Contract approval Accept/Reject targeting:
-     - `{middleware_url}/contract_approval/Contract_Approve_Reject`
-   - Remove/avoid silent fallback to `/sap/invoke` for this flow unless the named route is unavailable, so your Node console clearly shows the Contract API name.
+No backend, schema, or business-logic changes. Pure presentation fix in the existing `ResultDialog`.
 
-4. **Clarify browser Network tab behavior**
-   - Browser Network cannot show the final SAP private URL directly because the browser only calls the app server function; the app server calls Node middleware; Node middleware calls SAP.
-   - The Network tab will show the server-function request/response containing `debug.target`, `request_payload`, `response_status`, and `response_body_preview`.
-   - The actual middleware/SAP URL and payload will show in the Node.js terminal after this middleware logging change.
-
-## Expected result
-
-When you click **Accept** or **Reject**, your PowerShell terminal running `node server.js` will print logs like:
-
-```text
-[request] POST /contract_approval/Contract_Approve_Reject payload=...
-[raw-invoke] Contract_Approve_Reject PUT <SAP URL> payload=...
-[raw-invoke] Contract_Approve_Reject PUT <SAP URL> status=200 body=...
+### 1. Update `SapMsg` type
+```
+type SapMsg = {
+  TYPE?: string;
+  CUSTOMER?: string;
+  CONTRACT?: string;
+  MSG?: string;
+  MESSAGE?: string; // keep as fallback
+};
 ```
 
-No database schema or UI layout changes are needed.
+### 2. SAP icon-code → severity mapper
+Map both icon codes and letter codes:
+- `@01@`, `@5B@`, `S` → success
+- `@02@`, `@09@`, `W` → warning
+- `@03@`, `@5C@`, `@AY@`, `E`, `A` → error
+- `@04@`, `@08@`, `I` → info
+- anything else → info (neutral)
+
+Use this mapper in two places:
+- `tone` computation for the banner (error if any row maps to error, else warning if any warning, else success).
+- Per-row badge (S/W/E/I) instead of printing the raw `@02@`.
+
+### 3. Row layout (flat list, one row per message)
+Columns shown per row:
+- Severity badge (color by mapped type)
+- `CUSTOMER`
+- `CONTRACT` (contract no.)
+- `MSG` (fallback to `MESSAGE` if `MSG` missing)
+
+### 4. Header count
+Show `{success} ok · {warning} warn · {error} err` summary line above the list when there are messages.
+
+### 5. `onSuccess` extraction (no behavior change, just guard)
+Keep the existing extraction: `inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? sap?.MESSAGE ?? []`. The new dialog reads `MSG` from each row, so the array of objects shown in your sample will render correctly.
+
+## Out of scope
+- No change to `submitContractDecision` server fn.
+- No change to middleware logging.
+- No change to the SAP payload or table.
+
+## Result
+For your sample response, the dialog will show two rows like:
+
+```
+[W] 0001060033   44100070   SD document 44100070 is not in the database or has been archived-Not Released
+[W] 0001060033   44100070   SD document 44100070 is not in the database or has been archived-Not Released
+```
+
+Banner tone = Warning (since `@02@` → warning), title "Completed with warnings".
