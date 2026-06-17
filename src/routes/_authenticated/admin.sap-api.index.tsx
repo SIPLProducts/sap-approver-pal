@@ -120,7 +120,11 @@ function ApisTab() {
                   </Select>
                 </div>
               </div>
-              <div><Label>Endpoint URL</Label><Input value={form.endpoint_url} onChange={(e) => setForm({ ...form, endpoint_url: e.target.value })} placeholder="https://sap-gw.example.com/api/..." /></div>
+              <div>
+                <Label>Endpoint Path or URL</Label>
+                <Input value={form.endpoint_url} onChange={(e) => setForm({ ...form, endpoint_url: e.target.value })} placeholder="/sd_approval_mng/zvk11_app/vk11_app?sap-client=300" />
+                <p className="text-[11px] text-muted-foreground mt-1">Use a relative path (starting with <code>/</code>) to inherit the SAP Base URL from <strong>SAP Connection</strong>. A full <code>http(s)://…</code> URL is also accepted.</p>
+              </div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={createNew}>Create</Button></DialogFooter>
           </DialogContent>
