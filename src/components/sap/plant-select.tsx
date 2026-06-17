@@ -30,19 +30,28 @@ interface Props {
 }
 
 function extractPlants(resp: unknown, field: string): string[] {
-  const rows: any[] = Array.isArray(resp)
-    ? resp
-    : Array.isArray((resp as any)?.DATA)
-      ? (resp as any).DATA
-      : Array.isArray((resp as any)?.data?.DATA)
-        ? (resp as any).data.DATA
-        : Array.isArray((resp as any)?.data)
-          ? (resp as any).data
-          : [];
+  const r: any = resp;
+  let rows: any[] = [];
+  if (Array.isArray(r)) rows = r;
+  else if (r && typeof r === "object") {
+    const candidates = [r.DATA, r.data?.DATA, r.data, r.ITEMS, r.items, r.RESULTS, r.results, r.PLANT_LIST];
+    rows = candidates.find((c) => Array.isArray(c)) ?? [];
+    if (!rows.length) {
+      // fallback: first array-valued property
+      for (const v of Object.values(r)) {
+        if (Array.isArray(v)) { rows = v; break; }
+      }
+    }
+  }
+  const keys = [field, "VKORG", "WERKS", "PLANT", "Plant", "Werks", "Vkorg", "plant", "werks", "vkorg"];
   const out = new Set<string>();
-  for (const r of rows) {
-    const v = r?.[field] ?? r?.WERKS ?? r?.PLANT ?? r?.Plant;
-    if (v != null && String(v).trim()) out.add(String(v).trim());
+  for (const row of rows) {
+    if (row == null) continue;
+    if (typeof row === "string" || typeof row === "number") { out.add(String(row)); continue; }
+    for (const k of keys) {
+      const v = row?.[k];
+      if (v != null && String(v).trim()) { out.add(String(v).trim()); break; }
+    }
   }
   return Array.from(out).sort();
 }
@@ -125,14 +134,18 @@ export function PlantSelect({
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching plants…
               </div>
             ) : plantsQuery.isError ? (
-              <div className="px-3 py-4 text-xs text-destructive">
-                Failed to load plants.
-                <button
-                  className="ml-2 underline"
-                  onClick={() => plantsQuery.refetch()}
-                >
+              <div className="px-3 py-4 text-xs text-destructive space-y-1">
+                <div className="font-medium">Failed to load plants.</div>
+                <div className="text-[11px] opacity-80 break-words">
+                  {(plantsQuery.error as Error)?.message ?? "Unknown error"}
+                </div>
+                <button className="underline" onClick={() => plantsQuery.refetch()}>
                   Retry
                 </button>
+              </div>
+            ) : plants.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground">
+                No plants returned by Get_Plant. Check SAP API Settings.
               </div>
             ) : (
               <>
