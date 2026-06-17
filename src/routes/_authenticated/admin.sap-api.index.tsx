@@ -14,8 +14,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listSapConfigs, upsertSapConfig, deleteSapConfig, testSapConnection } from "@/lib/admin/sap-api.functions";
 import { getSapGlobalSettings, upsertSapGlobalSettings, testGlobalMiddleware, upsertSapConnection, testSapConnectionGlobal } from "@/lib/admin/sap-global.functions";
-import { listSapConfigs, upsertSapConfig, deleteSapConfig, testSapConnection } from "@/lib/admin/sap-api.functions";
-import { getSapGlobalSettings, upsertSapGlobalSettings, testGlobalMiddleware } from "@/lib/admin/sap-global.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/sap-api/")({
   component: SapApiListPage,
