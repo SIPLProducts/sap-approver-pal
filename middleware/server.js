@@ -547,11 +547,14 @@ async function invokeSapRaw(cfg, rawBody) {
   const res = await fetchWithTimeout(url, { method, headers, body });
   const latency_ms = Date.now() - t0;
   const contentType = res.headers.get("content-type") ?? "";
-  const data = contentType.includes("application/json")
-    ? await res.json().catch(() => null)
-    : await res.text().catch(() => "");
-  console.log(`[raw-invoke] ${method} ${url} status=${res.status} body=`,
+  const text = await res.text().catch(() => "");
+  console.log(`[raw-invoke] ${method} ${url} status=${res.status} raw=`, text.slice(0, 500));
+  const data = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
+    ? safeParseSapJson(text)
+    : text;
+  console.log(`[raw-invoke] ${method} ${url} parsed=`,
     typeof data === "string" ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500));
+
   return { ok: res.ok, status: res.status, latency_ms, data };
 }
 
