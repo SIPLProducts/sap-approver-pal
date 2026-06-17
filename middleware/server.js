@@ -308,6 +308,23 @@ async function fetchWithTimeout(url, init) {
   }
 }
 
+// SAP sometimes returns malformed JSON with empty values like
+// `"ADV_DOC_NUM": { "ZEILE": , "EBELP": }`. Try strict parse first, then
+// sanitize the empty-value pattern and retry. If both fail, surface the raw
+// text so the app can see what SAP actually sent (instead of silently null).
+function safeParseSapJson(text) {
+  if (text == null || text === "") return null;
+  try { return JSON.parse(text); } catch {}
+  const sanitized = text
+    .replace(/:\s*,/g, ": null,")
+    .replace(/:\s*\}/g, ": null}")
+    .replace(/:\s*\]/g, ": null]");
+  try { return JSON.parse(sanitized); } catch (e) {
+    return { __parse_error: e.message, __raw_preview: String(text).slice(0, 1000) };
+  }
+}
+
+
 async function invokeSap(cfg, inputs) {
   const payload = buildRequestPayload(cfg.requestFields, inputs);
   const url = new URL(cfg.endpoint_url);
@@ -333,13 +350,15 @@ async function invokeSap(cfg, inputs) {
   const latency_ms = Date.now() - t0;
 
   const contentType = res.headers.get("content-type") ?? "";
-  const raw = contentType.includes("application/json")
-    ? await res.json().catch(() => null)
-    : await res.text().catch(() => "");
+  const text = await res.text().catch(() => "");
+  const raw = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
+    ? safeParseSapJson(text)
+    : text;
 
   const data = mapResponse(cfg.responseFields, raw);
   return { ok: res.ok, status: res.status, latency_ms, data };
 }
+
 
 async function probeSap(cfg) {
   const headers = {
@@ -528,11 +547,14 @@ async function invokeSapRaw(cfg, rawBody) {
   const res = await fetchWithTimeout(url, { method, headers, body });
   const latency_ms = Date.now() - t0;
   const contentType = res.headers.get("content-type") ?? "";
-  const data = contentType.includes("application/json")
-    ? await res.json().catch(() => null)
-    : await res.text().catch(() => "");
-  console.log(`[raw-invoke] ${method} ${url} status=${res.status} body=`,
+  const text = await res.text().catch(() => "");
+  console.log(`[raw-invoke] ${method} ${url} status=${res.status} raw=`, text.slice(0, 500));
+  const data = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
+    ? safeParseSapJson(text)
+    : text;
+  console.log(`[raw-invoke] ${method} ${url} parsed=`,
     typeof data === "string" ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500));
+
   return { ok: res.ok, status: res.status, latency_ms, data };
 }
 

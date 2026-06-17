@@ -259,6 +259,19 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
     }
 
     const sapJson: any = proxied ? (json?.data ?? json) : json;
+
+    // Middleware surfaces unparseable SAP bodies as { __parse_error, __raw_preview }.
+    if (sapJson && typeof sapJson === "object" && sapJson.__parse_error) {
+      return {
+        rows: [] as ScSoRow[],
+        fetched_at: new Date().toISOString(),
+        count: 0,
+        error: `SAP returned unparseable JSON: ${sapJson.__parse_error}. Preview: ${String(sapJson.__raw_preview ?? "").slice(0, 200)}`,
+        payload: inputs,
+        debug,
+      };
+    }
+
     const arr: any[] = Array.isArray(sapJson?.DATA)
       ? sapJson.DATA
       : Array.isArray(sapJson?.data)
@@ -268,6 +281,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
           : [];
 
     const rows = arr.map(mapRow);
+
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
