@@ -183,6 +183,9 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
       headers[k] = v;
     }
 
+    console.log("[scso-fetch] target=", target, "method=", method, "proxied=", proxied);
+    console.log("[scso-fetch] payload=", JSON.stringify(inputs));
+
     const t0 = Date.now();
     let res: Response;
     try {
