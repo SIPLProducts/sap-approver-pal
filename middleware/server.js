@@ -168,6 +168,17 @@ async function loadConfig(key) {
   if (!cfg.credentials.password) cfg.credentials.password = FALLBACK_BP_PASSWORD || null;
   cfg.credentials.extra_headers = cfg.credentials.extra_headers || {};
 
+  // Auto-upgrade to Basic auth when credentials are present but auth_type
+  // was left as 'none' / empty on the API row. SAP returns an HTML login
+  // page on unauthenticated requests, which silently looks like "0 rows".
+  if (
+    (!cfg.auth_type || cfg.auth_type === "none") &&
+    cfg.credentials.username &&
+    cfg.credentials.password
+  ) {
+    cfg.auth_type = "basic";
+  }
+
   if (!cfg.endpoint_url) {
     throw new Error(`Config ${key} has no endpoint_url and no fallback env URL is set`);
   }
@@ -351,6 +362,26 @@ async function invokeSap(cfg, inputs) {
 
   const contentType = res.headers.get("content-type") ?? "";
   const text = await res.text().catch(() => "");
+
+  // Detect SAP login / error HTML page — SAP returns 200 OK with HTML when
+  // the request is unauthenticated or the user is locked. Surface this
+  // clearly instead of letting the UI render "0 rows".
+  const looksLikeHtml =
+    contentType.includes("text/html") || /^\s*<(!doctype|html|head|body)/i.test(text);
+  if (looksLikeHtml) {
+    return {
+      ok: false,
+      status: res.status,
+      latency_ms,
+      data: {
+        __sap_html_error: true,
+        message:
+          "SAP returned an HTML page instead of JSON — most likely an authentication failure (check SAP Connection username/password) or wrong sap-client.",
+        __raw_preview: String(text).slice(0, 500),
+      },
+    };
+  }
+
   const raw = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
     ? safeParseSapJson(text)
     : text;
@@ -463,7 +494,7 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
       configId,
       status: result.ok ? "ok" : "error",
       latency_ms: result.latency_ms,
-      message: `invoke: ${result.status} ${fullBody.slice(0, 4000)}`,
+      message: `invoke: ${result.status} ${fullBody.slice(0, 1900)}`,
     });
     return res.status(result.ok ? 200 : 502).json(result);
 
@@ -509,7 +540,7 @@ function namedInvokeRoute(path, configName) {
         configId: cfg.id,
         status: result.ok ? "ok" : "error",
         latency_ms: result.latency_ms,
-        message: `${path}: ${result.status} ${fullBody.slice(0, 4000)}`,
+        message: `${path}: ${result.status} ${fullBody.slice(0, 1900)}`,
       });
 
       if (!result.ok) {
