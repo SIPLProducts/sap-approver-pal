@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { fetchScSoApprovals, type ScSoRow } from "@/lib/sd/sc-so-approval.functions";
+import { PlantSelect } from "@/components/sap/plant-select";
 
 type Status = "pending" | "accepted" | "rejected";
 type ApprovalType = "service" | "sales";
