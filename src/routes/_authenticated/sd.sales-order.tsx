@@ -236,16 +236,44 @@ function SalesOrderPage() {
         // eslint-disable-next-line no-console
         console.groupEnd();
       }
-      if ((res as any)?.ok === false) {
+      // Try to extract SAP MESSAGE[] from any wrapper shape
+      const sap: any = (res as any)?.sap_response ?? {};
+      let inner: any = sap?.data ?? sap;
+      if (typeof inner === "string") {
+        try { inner = JSON.parse(inner); } catch { /* ignore */ }
+      }
+      let rawMsgs: any =
+        inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? inner?.MSG ??
+        sap?.MESSAGE ?? sap?.message ?? sap?.Messages ?? null;
+      if (!rawMsgs) {
+        const preview = (res as any)?.debug?.response_body_preview;
+        if (typeof preview === "string" && preview.trim()) {
+          try {
+            const p = JSON.parse(preview);
+            const pInner = p?.data ?? p;
+            rawMsgs =
+              pInner?.MESSAGE ?? pInner?.message ?? pInner?.Messages ?? pInner?.MSG ??
+              p?.MESSAGE ?? null;
+          } catch { /* ignore */ }
+        }
+      }
+      const msgs: SapMsg[] = Array.isArray(rawMsgs) ? rawMsgs : rawMsgs ? [rawMsgs] : [];
+
+      const isOk = (res as any)?.ok !== false;
+
+      // True transport failure with no SAP body — toast only
+      if (!isOk && msgs.length === 0) {
         toast.error((res as any).error ?? "SAP submission failed");
         return;
       }
-      const sap: any = (res as any)?.sap_response ?? {};
-      const inner: any = sap?.data ?? sap;
-      const rawMsgs =
-        inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? sap?.MESSAGE ?? [];
-      const msgs: SapMsg[] = Array.isArray(rawMsgs) ? rawMsgs : rawMsgs ? [rawMsgs] : [];
-      setResultData({ action: vars.action, messages: msgs, total: vars.rows.length });
+
+      // Success with no parsable messages — show a generic confirmation entry
+      const finalMsgs: SapMsg[] =
+        msgs.length > 0
+          ? msgs
+          : [{ TYPE: "@01@", MSG: "Submitted to SAP" } as SapMsg];
+
+      setResultData({ action: vars.action, messages: finalMsgs, total: vars.rows.length });
       setResultOpen(true);
       setSelected(new Set());
       setReasons(new Map());
