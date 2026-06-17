@@ -186,8 +186,19 @@ export const testSapConnection = createServerFn({ method: "POST" })
     const { data: cfg } = await supabaseAdmin.from("sap_api_configs").select("*").eq("id", data.id).maybeSingle();
     if (!cfg) throw new Error("Config not found");
     const { data: creds } = await supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", data.id).maybeSingle();
+    const { data: global } = await supabaseAdmin
+      .from("sap_global_settings")
+      .select("sap_base_url, sap_username")
+      .eq("id", "default")
+      .maybeSingle();
+    const { data: globalSecret } = await supabaseAdmin
+      .from("sap_global_secrets")
+      .select("sap_password")
+      .eq("id", "default")
+      .maybeSingle();
 
-    let target = cfg.endpoint_url;
+    const { resolveSapUrl } = await import("@/lib/sap/url");
+    let target = resolveSapUrl(cfg.endpoint_url, global?.sap_base_url ?? null);
     let method: "GET" | "HEAD" | "POST" = "HEAD";
     let body: string | undefined;
     const headers: Record<string, string> = { Accept: "application/json" };
@@ -196,16 +207,16 @@ export const testSapConnection = createServerFn({ method: "POST" })
       const { data: g } = await supabaseAdmin.from("sap_global_settings").select("middleware_url").eq("id", "default").maybeSingle();
       const { data: gs } = await supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle();
       if (!g?.middleware_url) throw new Error("Global Node.js Middleware URL is not configured. Set it in SAP API Settings → Middleware Configuration.");
-      // Hit the middleware's /sap/test so it actually probes the configured SAP endpoint
-      // (with credentials + headers) instead of only checking middleware liveness.
       target = `${g.middleware_url.replace(/\/$/, "")}/sap/test`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
       body = JSON.stringify({ configId: data.id });
     } else {
-      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
-        headers.Authorization = "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      const user = creds?.username ?? global?.sap_username ?? null;
+      const pass = creds?.password_encrypted ?? globalSecret?.sap_password ?? null;
+      if (cfg.auth_type === "basic" && user && pass) {
+        headers.Authorization = "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
       }
       for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) headers[k] = v;
     }
