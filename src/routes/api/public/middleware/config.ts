@@ -88,7 +88,7 @@ export const Route = createFileRoute("/api/public/middleware/config")({
           );
         }
 
-        const [credsRes, reqFieldsRes, resFieldsRes] = await Promise.all([
+        const [credsRes, reqFieldsRes, resFieldsRes, globalRes, globalSecretRes] = await Promise.all([
           supabaseAdmin
             .from("sap_api_credentials")
             .select("*")
@@ -104,21 +104,41 @@ export const Route = createFileRoute("/api/public/middleware/config")({
             .select("*")
             .eq("config_id", cfg.id)
             .order("sort_order"),
+          supabaseAdmin
+            .from("sap_global_settings")
+            .select("sap_base_url, sap_username")
+            .eq("id", "default")
+            .maybeSingle(),
+          supabaseAdmin
+            .from("sap_global_secrets")
+            .select("sap_password")
+            .eq("id", "default")
+            .maybeSingle(),
         ]);
 
         const creds = credsRes.data;
+        const { resolveSapUrl } = await import("@/lib/sap/url");
+        let resolvedUrl: string | null = null;
+        try {
+          resolvedUrl = resolveSapUrl(cfg.endpoint_url, globalRes.data?.sap_base_url ?? null);
+        } catch (e) {
+          return Response.json(
+            { ok: false, error: (e as Error).message },
+            { status: 422, headers: CORS },
+          );
+        }
         const resolved = {
           id: cfg.id,
           name: cfg.name,
           module: cfg.module,
-          endpoint_url: cfg.endpoint_url ?? null,
+          endpoint_url: resolvedUrl,
           http_method: cfg.http_method,
           auth_type: cfg.auth_type,
           is_active: cfg.is_active,
           updated_at: cfg.updated_at,
           credentials: {
-            username: creds?.username ?? null,
-            password: creds?.password_encrypted ?? null,
+            username: creds?.username ?? globalRes.data?.sap_username ?? null,
+            password: creds?.password_encrypted ?? globalSecretRes.data?.sap_password ?? null,
             extra_headers: creds?.extra_headers ?? {},
           },
           requestFields: reqFieldsRes.data ?? [],

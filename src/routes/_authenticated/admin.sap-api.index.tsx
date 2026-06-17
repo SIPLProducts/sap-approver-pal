@@ -9,11 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plug, Plus, Pencil, Trash2, Activity, Loader2, CheckCircle2, AlertCircle, Save, Server } from "lucide-react";
+import { Plug, Plus, Pencil, Trash2, Activity, Loader2, CheckCircle2, AlertCircle, Save, Server, Database } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listSapConfigs, upsertSapConfig, deleteSapConfig, testSapConnection } from "@/lib/admin/sap-api.functions";
-import { getSapGlobalSettings, upsertSapGlobalSettings, testGlobalMiddleware } from "@/lib/admin/sap-global.functions";
+import { getSapGlobalSettings, upsertSapGlobalSettings, testGlobalMiddleware, upsertSapConnection, testSapConnectionGlobal } from "@/lib/admin/sap-global.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/sap-api/")({
   component: SapApiListPage,
@@ -29,9 +29,11 @@ function SapApiListPage() {
       <Tabs defaultValue="apis">
         <TabsList>
           <TabsTrigger value="apis"><Plug className="h-4 w-4 mr-1" /> APIs</TabsTrigger>
+          <TabsTrigger value="sap-conn"><Database className="h-4 w-4 mr-1" /> SAP Connection</TabsTrigger>
           <TabsTrigger value="middleware"><Server className="h-4 w-4 mr-1" /> Middleware Configuration</TabsTrigger>
         </TabsList>
         <TabsContent value="apis" className="mt-4"><ApisTab /></TabsContent>
+        <TabsContent value="sap-conn" className="mt-4"><SapConnectionTab /></TabsContent>
         <TabsContent value="middleware" className="mt-4"><MiddlewareTab /></TabsContent>
       </Tabs>
     </div>
@@ -118,7 +120,11 @@ function ApisTab() {
                   </Select>
                 </div>
               </div>
-              <div><Label>Endpoint URL</Label><Input value={form.endpoint_url} onChange={(e) => setForm({ ...form, endpoint_url: e.target.value })} placeholder="https://sap-gw.example.com/api/..." /></div>
+              <div>
+                <Label>Endpoint Path or URL</Label>
+                <Input value={form.endpoint_url} onChange={(e) => setForm({ ...form, endpoint_url: e.target.value })} placeholder="/sd_approval_mng/zvk11_app/vk11_app?sap-client=300" />
+                <p className="text-[11px] text-muted-foreground mt-1">Use a relative path (starting with <code>/</code>) to inherit the SAP Base URL from <strong>SAP Connection</strong>. A full <code>http(s)://…</code> URL is also accepted.</p>
+              </div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={createNew}>Create</Button></DialogFooter>
           </DialogContent>
@@ -290,6 +296,119 @@ function MiddlewareTab() {
       <div className="flex justify-end">
         <Button onClick={save} disabled={busy}>
           {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Save middleware settings
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function SapConnectionTab() {
+  const qc = useQueryClient();
+  const getFn = useServerFn(getSapGlobalSettings);
+  const saveFn = useServerFn(upsertSapConnection);
+  const testFn = useServerFn(testSapConnectionGlobal);
+  const { data, isLoading } = useQuery({ queryKey: ["sap-global-settings"], queryFn: () => getFn() });
+
+  const [form, setForm] = useState({
+    sap_environment: "",
+    sap_base_url: "",
+    sap_username: "",
+    sap_password: "",
+  });
+  const [passwordSet, setPasswordSet] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    if (data?.settings) {
+      const s = data.settings as any;
+      setForm({
+        sap_environment: s.sap_environment ?? "",
+        sap_base_url: s.sap_base_url ?? "",
+        sap_username: s.sap_username ?? "",
+        sap_password: "",
+      });
+      setPasswordSet(!!data.sap_password_set);
+    }
+  }, [data]);
+
+  async function save() {
+    if (form.sap_base_url && !/^https?:\/\//i.test(form.sap_base_url.trim())) {
+      return toast.error("SAP Base URL must start with http:// or https://");
+    }
+    setBusy(true);
+    try {
+      await saveFn({ data: {
+        sap_environment: form.sap_environment || null,
+        sap_base_url: form.sap_base_url || null,
+        sap_username: form.sap_username || null,
+        sap_password: form.sap_password || null,
+      } });
+      toast.success("SAP connection saved");
+      setForm((f) => ({ ...f, sap_password: "" }));
+      setPasswordSet((s) => s || !!form.sap_password);
+      qc.invalidateQueries({ queryKey: ["sap-global-settings"] });
+    } catch (e: any) { toast.error(e.message); }
+    finally { setBusy(false); }
+  }
+
+  async function runTest() {
+    setTesting(true);
+    try {
+      const r = await testFn();
+      r.ok ? toast.success(`OK — ${r.message} (${r.latency_ms}ms)`) : toast.error(`${r.message} (${r.latency_ms}ms)`);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setTesting(false); }
+  }
+
+  if (isLoading) return <Card className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></Card>;
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold flex items-center gap-2"><Database className="h-4 w-4" /> SAP Connection</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Base URL and shared technical-user credentials used by every SAP API integration.
+            Endpoint definitions can store a relative path (e.g. <code>/sd_approval_mng/...</code>) and
+            will inherit this Base URL automatically — switching DEV → Quality is then a one-field change.
+          </p>
+        </div>
+        <Button variant="outline" onClick={runTest} disabled={testing || !form.sap_base_url}>
+          {testing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Activity className="h-4 w-4 mr-1" />} Test connection
+        </Button>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <Label>Environment</Label>
+          <Input value={form.sap_environment} onChange={(e) => setForm({ ...form, sap_environment: e.target.value })} placeholder="DEV / QUALITY / PROD" />
+        </div>
+        <div>
+          <Label>SAP Base URL</Label>
+          <Input value={form.sap_base_url} onChange={(e) => setForm({ ...form, sap_base_url: e.target.value })} placeholder="http://10.150.150.155:8005" />
+        </div>
+        <div>
+          <Label>SAP Username</Label>
+          <Input value={form.sap_username} onChange={(e) => setForm({ ...form, sap_username: e.target.value })} placeholder="Technical user" />
+        </div>
+        <div>
+          <Label>
+            SAP Password
+            {passwordSet && <Badge variant="secondary" className="ml-2 text-[10px]">set</Badge>}
+          </Label>
+          <Input
+            type="password"
+            value={form.sap_password}
+            onChange={(e) => setForm({ ...form, sap_password: e.target.value })}
+            placeholder={passwordSet ? "•••••••• (leave blank to keep)" : "Enter password"}
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={save} disabled={busy}>
+          {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Save SAP connection
         </Button>
       </div>
     </Card>
