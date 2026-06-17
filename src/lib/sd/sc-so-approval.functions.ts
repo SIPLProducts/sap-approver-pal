@@ -1,14 +1,15 @@
 /**
  * Service Certificate & SO Approvals — live SAP fetch.
- * Mirrors sales-order-approval.functions.ts but uses the combined
- * Service Certificate / Sales Order approval endpoint and adds
- * `service` / `Sales` toggles to the payload.
+ * Switches between two SAP API configs based on approval_type:
+ *   - service → "Sevice_Certificate_Fetch"
+ *   - sales   → "Service_SO_Approval_Fetch"
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 export type ScSoRow = {
+  select: string | null;
   company_code: string | null;
   sales_org: string | null;
   customer: string | null;
@@ -18,16 +19,34 @@ export type ScSoRow = {
   contract_item: string | number | null;
   contract_ref_no: string | null;
   contract_ref_date: string | null;
-  creation_date: string | null;
-  contract_start: string | null;
-  contract_end: string | null;
-  down_pay_req: string | number | null;
+  con_creation_date: string | null;
+  contract_start_date: string | null;
+  contract_end_date: string | null;
+  down_pay_req_amount: string | number | null;
+  adv_doc_zeile: string | number | null;
+  adv_doc_ebelp: string | number | null;
   adv_amount: string | number | null;
-  net_value: string | number | null;
+  profit_center: string | null;
+  clearing_document: string | null;
+  customer_group: string | null;
+  customer_price_group: string | null;
+  service_valid_from: string | null;
+  service_valid_to: string | null;
+  service_start_date: string | null;
+  registration_date: string | null;
+  cus_agr_from: string | null;
+  cus_agr_to: string | null;
+  active_inactive: string | null;
+  no_of_beds_to_be_inv: string | number | null;
+  fixed_rate: string | number | null;
+  per_bed_rate: string | number | null;
+  excess_qty_rate: string | number | null;
+  upper_slab_qty: string | number | null;
+  code_land_qty: string | number | null;
+  total_balance: string | number | null;
+  ph_reason_code: string | null;
   reason: string | null;
 };
-
-const CONFIG_NAME = "Service_SO_Approval_Fetch";
 
 function pick(o: any, k: string) {
   if (!o || typeof o !== "object") return null;
@@ -36,7 +55,9 @@ function pick(o: any, k: string) {
 }
 
 function mapRow(raw: any): ScSoRow {
+  const adv = pick(raw, "ADV_DOC_NUM");
   return {
+    select: pick(raw, "SELECT"),
     company_code: pick(raw, "COMPANY_CODE"),
     sales_org: pick(raw, "SALES_ORG"),
     customer: pick(raw, "CUSTOMER"),
@@ -46,12 +67,32 @@ function mapRow(raw: any): ScSoRow {
     contract_item: pick(raw, "CONTRACT_ITEM"),
     contract_ref_no: pick(raw, "CONTRACT_REF_NO"),
     contract_ref_date: pick(raw, "CONTRACT_REF_DATE"),
-    creation_date: pick(raw, "CREATION_DATE") ?? pick(raw, "CRE_DATE"),
-    contract_start: pick(raw, "CONTRACT_START") ?? pick(raw, "CUS_AGR_FROM"),
-    contract_end: pick(raw, "CONTRACT_END") ?? pick(raw, "CUS_AGR_TO"),
-    down_pay_req: pick(raw, "DOWN_PAY_REQ"),
+    con_creation_date: pick(raw, "CON_CREATION_DATE"),
+    contract_start_date: pick(raw, "CONTRACT_START_DATE"),
+    contract_end_date: pick(raw, "CONTRACT_END_DATE"),
+    down_pay_req_amount: pick(raw, "DOWN_PAY_REQ_AMOUNT"),
+    adv_doc_zeile: adv && typeof adv === "object" ? pick(adv, "ZEILE") : null,
+    adv_doc_ebelp: adv && typeof adv === "object" ? pick(adv, "EBELP") : null,
     adv_amount: pick(raw, "ADV_AMOUNT"),
-    net_value: pick(raw, "NET_VALUE") ?? pick(raw, "FIXED_RATE"),
+    profit_center: pick(raw, "PROFIT_CENTER"),
+    clearing_document: pick(raw, "CLEARING_DOCUMENT"),
+    customer_group: pick(raw, "CUSTOMER_GROUP"),
+    customer_price_group: pick(raw, "CUSTOMER_PRICE_GROUP"),
+    service_valid_from: pick(raw, "SERVICE_VALID_FROM"),
+    service_valid_to: pick(raw, "SERVICE_VALID_TO"),
+    service_start_date: pick(raw, "SERVICE_START_DATE"),
+    registration_date: pick(raw, "REGISTRATION_DATE"),
+    cus_agr_from: pick(raw, "CUS_AGR_FROM"),
+    cus_agr_to: pick(raw, "CUS_AGR_TO"),
+    active_inactive: pick(raw, "ACTIVE_INACTIVE"),
+    no_of_beds_to_be_inv: pick(raw, "NO_OF_BEDS_TO_BE_INV"),
+    fixed_rate: pick(raw, "FIXED_RATE"),
+    per_bed_rate: pick(raw, "PER_BED_RATE"),
+    excess_qty_rate: pick(raw, "EXCESS_QTY_RATE"),
+    upper_slab_qty: pick(raw, "UPPER_SLAB_QTY"),
+    code_land_qty: pick(raw, "CODE_LAND_QTY"),
+    total_balance: pick(raw, "TOTAL_BALANCE"),
+    ph_reason_code: pick(raw, "PH_REASON_CODE"),
     reason: pick(raw, "REASON"),
   };
 }
@@ -70,6 +111,9 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const CONFIG_NAME =
+      data.approval_type === "service" ? "Sevice_Certificate_Fetch" : "Service_SO_Approval_Fetch";
 
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
@@ -116,7 +160,8 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      target = `${middlewareUrl.replace(/\/$/, "")}/service_so_approval/Fetch`;
+      const slug = data.approval_type === "service" ? "service_certificate" : "service_so_approval";
+      target = `${middlewareUrl.replace(/\/$/, "")}/${slug}/Fetch`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
