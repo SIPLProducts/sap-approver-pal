@@ -362,6 +362,26 @@ async function invokeSap(cfg, inputs) {
 
   const contentType = res.headers.get("content-type") ?? "";
   const text = await res.text().catch(() => "");
+
+  // Detect SAP login / error HTML page — SAP returns 200 OK with HTML when
+  // the request is unauthenticated or the user is locked. Surface this
+  // clearly instead of letting the UI render "0 rows".
+  const looksLikeHtml =
+    contentType.includes("text/html") || /^\s*<(!doctype|html|head|body)/i.test(text);
+  if (looksLikeHtml) {
+    return {
+      ok: false,
+      status: res.status,
+      latency_ms,
+      data: {
+        __sap_html_error: true,
+        message:
+          "SAP returned an HTML page instead of JSON — most likely an authentication failure (check SAP Connection username/password) or wrong sap-client.",
+        __raw_preview: String(text).slice(0, 500),
+      },
+    };
+  }
+
   const raw = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
     ? safeParseSapJson(text)
     : text;
