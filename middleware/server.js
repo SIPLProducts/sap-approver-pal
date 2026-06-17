@@ -455,17 +455,18 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
     console.log(`[/sap/invoke] config name=${cfg.name} id=${cfg.id} url=${cfg.endpoint_url} method=${cfg.http_method}`);
     console.log(`[/sap/invoke] inputs from app =`, JSON.stringify(inputs));
     const result = await invokeSap(cfg, inputs);
-    const preview = typeof result.data === "string"
-      ? result.data.slice(0, 800)
-      : JSON.stringify(result.data).slice(0, 800);
-    console.log(`[/sap/invoke] sap status=${result.status} latency=${result.latency_ms}ms body=`, preview);
+    const fullBody = typeof result.data === "string"
+      ? result.data
+      : JSON.stringify(result.data);
+    console.log(`[/sap/invoke] sap status=${result.status} latency=${result.latency_ms}ms body=`, fullBody);
     await writeLog({
       configId,
       status: result.ok ? "ok" : "error",
       latency_ms: result.latency_ms,
-      message: `invoke: ${result.status}`,
+      message: `invoke: ${result.status} ${fullBody.slice(0, 4000)}`,
     });
     return res.status(result.ok ? 200 : 502).json(result);
+
   } catch (e) {
     console.error("[invoke] failed", e.message);
     await writeLog({
@@ -500,16 +501,17 @@ function namedInvokeRoute(path, configName) {
       console.log(`[${path}] config name=${cfg.name} id=${cfg.id} url=${cfg.endpoint_url} method=${cfg.http_method}`);
       console.log(`[${path}] inputs from app =`, JSON.stringify(inputs));
       const result = await invokeSap(cfg, inputs);
-      const preview = typeof result.data === "string"
-        ? result.data.slice(0, 500)
-        : JSON.stringify(result.data).slice(0, 500);
-      console.log(`[${path}] sap status=${result.status} latency=${result.latency_ms}ms body=`, preview);
+      const fullBody = typeof result.data === "string"
+        ? result.data
+        : JSON.stringify(result.data);
+      console.log(`[${path}] sap status=${result.status} latency=${result.latency_ms}ms body=`, fullBody);
       await writeLog({
         configId: cfg.id,
         status: result.ok ? "ok" : "error",
         latency_ms: result.latency_ms,
-        message: `${path}: ${result.status} ${preview.slice(0, 200)}`,
+        message: `${path}: ${result.status} ${fullBody.slice(0, 4000)}`,
       });
+
       if (!result.ok) {
         return res.status(502).json({
           ok: false,
