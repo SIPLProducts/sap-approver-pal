@@ -645,19 +645,24 @@ function ResultDialog({
             </div>
             <div className="max-h-[55vh] overflow-auto space-y-2 pr-1">
               {messages.map((m, i) => {
-                const ref = m.SALES_DOCUMENT_NO ?? m.CONTRACT ?? "";
+                const contract = (m.CONTRACT ?? m.SALES_DOCUMENT_NO ?? "").toString().trim();
+                const customer = (m.CUSTOMER ?? "").toString().trim();
+                const type = (m.TYPE ?? "").toString().trim();
+                const msg = m?.MSG || m?.MESSAGE || "—";
                 return (
-                  <div key={i} className="flex items-start justify-between gap-3 rounded-md border bg-card p-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium leading-snug">
-                        {m?.MSG || m?.MESSAGE || "—"}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-1 font-mono">
-                        Customer: {m?.CUSTOMER?.trim() ? m.CUSTOMER : "—"}
-                        {ref ? <> · SO/Contract: {ref}</> : null}
-                      </div>
+                  <div key={i} className="rounded-md border bg-card p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="text-sm font-medium leading-snug min-w-0">{msg}</div>
+                      <div className="shrink-0">{badge(severities[i])}</div>
                     </div>
-                    <div className="shrink-0">{badge(severities[i])}</div>
+                    <div className="mt-2 grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 text-[11px] font-mono">
+                      <div className="text-muted-foreground">TYPE</div>
+                      <div>{type || "—"}</div>
+                      <div className="text-muted-foreground">CUSTOMER</div>
+                      <div>{customer || "—"}</div>
+                      <div className="text-muted-foreground">CONTRACT</div>
+                      <div>{contract || "—"}</div>
+                    </div>
                   </div>
                 );
               })}
