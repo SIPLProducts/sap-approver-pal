@@ -1,6 +1,6 @@
 /**
  * SD Sales Order Approvals — live SAP fetch via Sales_Approval_Fetch API
- * and submit via Sales_Approve_Reject API. Mirrors contract-approval.functions.ts.
+ * and submit via Sales_Order_Approve_Reject API. Mirrors contract-approval.functions.ts.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -30,7 +30,7 @@ export type SalesOrderRow = {
 };
 
 const CONFIG_NAME = "Sales_Approval_Fetch";
-const DECISION_CONFIG_NAME = "Sales_Approve_Reject";
+const DECISION_CONFIG_NAME = "Sales_Order_Approve_Reject";
 
 function pick(o: any, k: string) {
   if (!o || typeof o !== "object") return null;
@@ -370,7 +370,7 @@ export const submitSalesOrderDecision = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      target = `${middlewareUrl.replace(/\/$/, "")}/sales_order_approval/Sales_Approve_Reject`;
+      target = `${middlewareUrl.replace(/\/$/, "")}/sales_order_approval/Sales_Order_Approve_Reject`;
       method = "POST";
       const secret =
         (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
