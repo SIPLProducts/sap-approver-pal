@@ -1,28 +1,51 @@
-## Problem
+## Service Certificate & SO Approvals — live SAP fetch
 
-The SAP sample payload you pasted is not valid JSON — it contains empty values:
+Replace the current mock-data version of `src/routes/_authenticated/sd.sc-so.tsx` with a live SAP-powered screen, modeled exactly on the working `sd.sales-order.tsx` pattern.
 
+### Selection screen
+
+- **Plant** (mandatory, `*`) — text input
+- **User ID** — text input
+- **Customer From** — text input
+- **Customer To** — text input (falls back to Customer From if empty)
+- **Status** radio group: Pending / Accepted / Rejected
+- **Approval Type** radio group: Service Certificate Approvals / Sales Order Approvals (single select; default Service Certificate)
+- **Execute** button (disabled until Plant filled) + **Reset**
+
+### API call
+
+On Execute (and on status change when Plant is set), call a new server function `fetchScSoApprovals` that POSTs this exact payload to SAP via the existing proxy/direct plumbing:
+
+```json
+{
+  "PLANT": "3801",
+  "CUSTOMER_FROM": "1060016",
+  "CUSTOMER_TO": "1060493",
+  "USER_ID": "NEOBMWCONS1",
+  "R_PEND": "",
+  "R_ACCP": "X",
+  "R_REJ": "",
+  "service": "X",
+  "Sales": ""
+}
 ```
-"ADV_DOC_NUM": { "ZEILE": , "EBELP": }
-```
 
-A standard `JSON.parse` rejects this with `Unexpected token ','`, which is exactly the error toast on the Response tab. SAP often emits this shape (empty = null), so the import dialog should clean it up before parsing instead of failing.
+- `R_PEND/R_ACCP/R_REJ` flip based on the Status radio (one is `"X"`, others `""`).
+- `service`/`Sales` flip based on the Approval Type radio.
+- Customer From/To and User ID pass through as entered; empty strings allowed.
 
-## Fix
+### Output
 
-Edit `src/lib/admin/payload-detect.ts` → `parsePayloadText`:
+Render returned rows in a table below (columns mirror SAP response: Company Code, Sales Org, Customer, Customer Name, Year, Contract No, Item, Ref No, Ref Date, Creation Date, Contract Start/End, Down Pay Req, Adv. Amount, Net Value, plus Reason for pending). Shows record count, fetched-at timestamp, and toasts API errors with the SAP response text. No Accept/Reject buttons in this first cut — fetch only, matching the requested scope.
 
-1. Try `JSON.parse(text)` first (fast path for valid payloads).
-2. On failure, run a small sanitizer and retry:
-   - Replace empty values after a colon with `null`: `"key": ,` → `"key": null,` and `"key": }` → `"key": null}` (also handles `]`).
-   - Strip trailing commas before `}` or `]` (`, }` → `}`).
-   - Optionally strip `// ...` and `/* ... */` comments.
-3. If the retry also fails, return the original parser error so users still see a real diagnostic.
-4. Keep the 1 MB size cap and existing return shape unchanged — no UI changes needed; `PayloadImportDialog` already shows the resulting detected fields.
+### Technical details
 
-After this, pasting your SAP payload detects ~33 fields including `DATA[].ADV_DOC_NUM.ZEILE` and `DATA[].ADV_DOC_NUM.EBELP` as `null`, and Import payload populates the Response mapping table.
+- New file `src/lib/sd/sc-so-approval.functions.ts` — copy `fetchSalesOrderApprovals` from `sales-order-approval.functions.ts`, add `approval_type: z.enum(["service","sales"])` to the input, extend `inputs` with `service`/`Sales` flags, use SAP config name `Service_SO_Approval_Fetch` (admin can wire the endpoint in Admin → SAP API).
+- Rewrite `src/routes/_authenticated/sd.sc-so.tsx` as a self-contained page (drop the `SdApprovalShell` import) using the same `useMutation`/`useServerFn` pattern as `sd.sales-order.tsx`.
+- Status stays in local state only — no URL writes (avoids the 404 navigation issue already fixed on sales-order).
 
-## Out of scope
+### Out of scope
 
-- No changes to the Service Certificate or Sales Order Approvals screens themselves — this is purely the SAP API Settings → Import payload detector.
-- No backend or schema changes.
+- Accept/Reject submit flow (can be added in a follow-up once SAP decision endpoint name is known).
+- Admin SAP API config row — created by the user in Admin → SAP API with name `Service_SO_Approval_Fetch`.
+- No changes to the existing Sales Order Approvals screen.
