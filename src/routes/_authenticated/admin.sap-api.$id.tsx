@@ -152,7 +152,11 @@ function SapApiEditPage() {
                 </Select>
               </div>
               <div className="sm:col-span-2"><Label>Description</Label><Textarea value={cfg.description ?? ""} onChange={(e) => setCfg({ ...cfg, description: e.target.value })} /></div>
-              <div className="sm:col-span-2"><Label>Endpoint URL</Label><Input value={cfg.endpoint_url} onChange={(e) => setCfg({ ...cfg, endpoint_url: e.target.value })} /></div>
+              <div className="sm:col-span-2">
+                <Label>Endpoint Path or URL</Label>
+                <Input value={cfg.endpoint_url} onChange={(e) => setCfg({ ...cfg, endpoint_url: e.target.value })} placeholder="/sd_approval_mng/zvk11_app/vk11_app?sap-client=300" />
+                <p className="text-[11px] text-muted-foreground mt-1">Use a relative path (starting with <code>/</code>) to inherit the SAP Base URL from <strong>SAP API Settings → SAP Connection</strong>. A full <code>http(s)://…</code> URL is also accepted.</p>
+              </div>
               <div><Label>HTTP method</Label>
                 <Select value={cfg.http_method} onValueChange={(v) => setCfg({ ...cfg, http_method: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
