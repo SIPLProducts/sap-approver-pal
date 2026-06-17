@@ -165,6 +165,7 @@ async function loadConfig(key) {
   // Apply credential fallbacks. Treat empty strings as "not set" so a
   // saved-but-blank per-config credential row falls through to the global
   // SAP Connection env defaults.
+  cfg.credentials = cfg.credentials || { extra_headers: {} };
   const isBlank = (v) => v == null || (typeof v === "string" && v.trim() === "");
   if (isBlank(cfg.credentials.username)) cfg.credentials.username = FALLBACK_BP_USERNAME || null;
   if (isBlank(cfg.credentials.password)) cfg.credentials.password = FALLBACK_BP_PASSWORD || null;
