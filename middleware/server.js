@@ -308,6 +308,23 @@ async function fetchWithTimeout(url, init) {
   }
 }
 
+// SAP sometimes returns malformed JSON with empty values like
+// `"ADV_DOC_NUM": { "ZEILE": , "EBELP": }`. Try strict parse first, then
+// sanitize the empty-value pattern and retry. If both fail, surface the raw
+// text so the app can see what SAP actually sent (instead of silently null).
+function safeParseSapJson(text) {
+  if (text == null || text === "") return null;
+  try { return JSON.parse(text); } catch {}
+  const sanitized = text
+    .replace(/:\s*,/g, ": null,")
+    .replace(/:\s*\}/g, ": null}")
+    .replace(/:\s*\]/g, ": null]");
+  try { return JSON.parse(sanitized); } catch (e) {
+    return { __parse_error: e.message, __raw_preview: String(text).slice(0, 1000) };
+  }
+}
+
+
 async function invokeSap(cfg, inputs) {
   const payload = buildRequestPayload(cfg.requestFields, inputs);
   const url = new URL(cfg.endpoint_url);
