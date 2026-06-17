@@ -581,6 +581,10 @@ namedRawInvokeRoute("/contract_approval/Contract_Approve_Reject", "Contract_Appr
 namedInvokeRoute("/sales_order_approval/Fetch",                   "Sales_Approval_Fetch");
 namedRawInvokeRoute("/sales_order_approval/Sales_Approve_Reject", "Sales_Approve_Reject");
 
+// SD — Service Certificate & SO Approvals (raw passthrough; sends inputs verbatim)
+namedRawInvokeRoute("/service_certificate/Fetch", "Sevice_Certificate_Fetch");
+
+
 
 
 // Error handler

@@ -190,19 +190,8 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
     let res: Response;
     try {
       res = await fetch(target, { method, headers, body: bodyOut });
-      if (proxied && res.status === 404) {
-        const peek = await res.clone().text().catch(() => "");
-        if (/Cannot\s+POST/i.test(peek)) {
-          const fallback = `${middlewareUrl!.replace(/\/$/, "")}/sap/invoke`;
-          res = await fetch(fallback, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ configId: cfg.id, inputs }),
-          });
-          target = fallback;
-        }
-      }
     } catch (e) {
+
       const errMsg = (e as Error).message || "fetch failed";
       const latency_ms = Date.now() - t0;
       await supabaseAdmin.from("sap_api_sync_log").insert({
