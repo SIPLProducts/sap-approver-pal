@@ -350,13 +350,15 @@ async function invokeSap(cfg, inputs) {
   const latency_ms = Date.now() - t0;
 
   const contentType = res.headers.get("content-type") ?? "";
-  const raw = contentType.includes("application/json")
-    ? await res.json().catch(() => null)
-    : await res.text().catch(() => "");
+  const text = await res.text().catch(() => "");
+  const raw = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
+    ? safeParseSapJson(text)
+    : text;
 
   const data = mapResponse(cfg.responseFields, raw);
   return { ok: res.ok, status: res.status, latency_ms, data };
 }
+
 
 async function probeSap(cfg) {
   const headers = {
