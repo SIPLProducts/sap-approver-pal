@@ -159,8 +159,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      const slug = data.approval_type === "service" ? "service_certificate" : "service_so_approval";
-      target = `${middlewareUrl.replace(/\/$/, "")}/${slug}/Fetch`;
+      target = `${middlewareUrl.replace(/\/$/, "")}/service_certificate/Fetch`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
