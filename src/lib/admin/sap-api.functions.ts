@@ -23,7 +23,10 @@ const ConfigSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(500).optional().nullable(),
   module: z.enum(["MM", "SD", "COMMON"]).default("COMMON"),
-  endpoint_url: z.string().url().max(500),
+  endpoint_url: z.string().min(1).max(500).refine(
+    (v) => /^https?:\/\//i.test(v) || v.startsWith("/"),
+    "Endpoint must be a full http(s):// URL or a path starting with /",
+  ),
   http_method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]).default("GET"),
   auth_type: z.enum(["basic", "oauth", "none", "proxy"]).default("basic"),
   middleware_url: z.string().max(500).optional().nullable(),
