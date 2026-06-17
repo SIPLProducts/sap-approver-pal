@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { PlantSelect } from "@/components/sap/plant-select";
 import {
   fetchSalesOrderApprovals,
   submitSalesOrderDecision,
@@ -306,14 +307,7 @@ function SalesOrderPage() {
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
-            <Input
-              value={plant}
-              onChange={(e) => setPlant(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="e.g. 3801"
-              className="h-9 font-mono"
-              required
-            />
+            <PlantSelect value={plant} onChange={setPlant} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">User ID</Label>
