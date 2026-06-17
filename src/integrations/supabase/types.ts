@@ -777,16 +777,19 @@ export type Database = {
         Row: {
           id: string
           proxy_secret: string | null
+          sap_password: string | null
           updated_at: string
         }
         Insert: {
           id?: string
           proxy_secret?: string | null
+          sap_password?: string | null
           updated_at?: string
         }
         Update: {
           id?: string
           proxy_secret?: string | null
+          sap_password?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -798,6 +801,9 @@ export type Database = {
           id: string
           middleware_port: number
           middleware_url: string | null
+          sap_base_url: string | null
+          sap_environment: string | null
+          sap_username: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -807,6 +813,9 @@ export type Database = {
           id?: string
           middleware_port?: number
           middleware_url?: string | null
+          sap_base_url?: string | null
+          sap_environment?: string | null
+          sap_username?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -816,6 +825,9 @@ export type Database = {
           id?: string
           middleware_port?: number
           middleware_url?: string | null
+          sap_base_url?: string | null
+          sap_environment?: string | null
+          sap_username?: string | null
           updated_at?: string
           updated_by?: string | null
         }

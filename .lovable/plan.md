@@ -1,37 +1,79 @@
 ## Goal
 
-When the user clicks Approve or Reject on the **Sales Order Approvals** screen, the SAP response dialog (swal-style) must clearly display the four fields from each SAP `MESSAGE[]` entry: **TYPE**, **MSG**, **CUSTOMER**, **CONTRACT**.
+Stop hardcoding full SAP URLs (e.g. `http://10.150.150.154:8103/sd_approval_mng/...`) on each API config. Move the host (Base URL) and a shared SAP username/password to a new **SAP Connection** tab in `Admin → SAP API Settings`, so switching from DEV to Quality is a single config change.
 
-The dialog already opens and renders cards — this change makes the four fields explicit and labelled so multi-message responses (like the sample with two contracts) are readable at a glance.
+## Where it's hardcoded today
 
-## Change
+- `sap_api_configs.endpoint_url` stores the **full URL** (host + path + query). Set per-API in `admin.sap-api.index.tsx` / `admin.sap-api.$id.tsx`.
+- Middleware (`middleware/server.js`) and server functions (`src/lib/sap/sap-client.server.ts`, all `src/lib/sd/*.functions.ts`) read `endpoint_url` as-is.
+- `sap_global_settings` already exists but only stores middleware connection info — no SAP base URL / credentials.
 
-**File:** `src/routes/_authenticated/sd.sales-order.tsx` (only the `ResultDialog` card body, ~lines 647–663)
+## Changes
 
-Update each message card to render a small labelled grid showing:
+### 1. DB migration — extend `sap_global_settings` + `sap_global_secrets`
 
-- **TYPE** — the raw SAP code (`@01@`, `S`, `E`, …) plus the existing colored severity pill (Success / Error / Warning / Info derived via `mapSeverity`)
-- **CUSTOMER** — `m.CUSTOMER` (trimmed; leading zeros preserved as SAP returns)
-- **CONTRACT** — `m.CONTRACT` (falls back to `m.SALES_DOCUMENT_NO` if CONTRACT is missing, so older responses still render)
-- **MSG** — `m.MSG` (falls back to `m.MESSAGE`) shown on its own line as the primary text
+Add columns:
+- `sap_global_settings.sap_base_url text` (e.g. `http://10.150.150.155:8005`)
+- `sap_global_settings.sap_environment text` (free label: `DEV` / `QUALITY` / `PROD`)
+- `sap_global_settings.sap_username text`
+- `sap_global_secrets.sap_password text`
 
-Header banner (Approved / Rejected / Completed with errors / warnings) and the summary count stay as-is. No business-logic, server-function, or backend changes.
+No data deletion. Existing rows keep working.
 
-### Card layout (per message)
+### 2. Endpoint URL resolution becomes path-aware
 
-```text
-┌──────────────────────────────────────────────────────────┐
-│  Sales Order Released Successfully-1000500123    [Success]│
-│                                                           │
-│  TYPE     @01@                                            │
-│  CUSTOMER 0001060033                                      │
-│  CONTRACT 1000500123                                      │
-└──────────────────────────────────────────────────────────┘
+A config's `endpoint_url` may now be:
+- a relative path like `/sd_approval_mng/zvk11_app/vk11_app?sap-client=300`, **or**
+- a full `http(s)://...` URL (legacy, still honored).
+
+Resolution helper (new, in `src/lib/sap/url.ts` and mirrored in `middleware/server.js`):
+```
+resolveSapUrl(endpoint_url, baseUrl) =>
+  endpoint_url starts with http → return as-is
+  else → join(baseUrl, endpoint_url)
 ```
 
-With the sample two-message payload, two such cards stack vertically inside the existing scrollable list.
+Wire it in:
+- `src/lib/sap/sap-client.server.ts` (direct mode invoker)
+- `middleware/server.js` (`loadConfig` resolves to absolute URL after fetching cfg + global base)
+- `src/routes/api/public/middleware/config.ts` (return resolved URL + sap creds so the middleware sees one absolute URL)
+
+### 3. Credential fallback
+
+Per-API `sap_api_credentials` row, if present, still wins. Otherwise fall back to the new global `sap_username` / `sap_password`. Same precedence in middleware (`loadConfig` already has a fallback hook).
+
+### 4. Admin UI — new "SAP Connection" tab
+
+In `src/routes/_authenticated/admin.sap-api.index.tsx`, after the existing **APIs** and **Middleware Configuration** tabs, add a third tab **SAP Connection** with:
+- Environment label (text)
+- SAP Base URL (text, validated as `http(s)://host[:port]`)
+- SAP Username (text)
+- SAP Password (password input, masked, "set" badge when already saved)
+- Save button + Test button (HEAD against `${base}/` with basic auth, surfaces status code)
+
+Backed by new `src/lib/admin/sap-global.functions.ts` fields (`sap_base_url`, `sap_username`, `sap_password`). Reuses existing admin-only RLS.
+
+### 5. Per-API endpoint UI hint
+
+In `admin.sap-api.$id.tsx` and the "new endpoint" dialog, change the Endpoint URL label to **Endpoint Path or URL** and add helper text:  *"Use a relative path like `/sd_approval_mng/...` to inherit the SAP Base URL from SAP Connection settings."* No data migration — operators can shorten URLs at their own pace.
+
+### 6. No business-logic changes elsewhere
+
+SD approval flows (`sales-order`, `contract`, `price`, `sc-so`) just keep calling the same server fns; URL resolution happens inside the SAP client / middleware layer.
 
 ## Out of scope
 
-- Contract Approvals and Price Approvals screens — already match the target design; not touching them.
-- Middleware / server function / response parsing — extraction logic already handles the sample payload correctly.
+- Per-tenant base URLs (single global env for now).
+- Auto-migrating existing full URLs into base+path.
+- OAuth credentials in the global tab (basic only — matches current usage).
+
+## Files touched
+
+- `supabase/migrations/<new>.sql` — add columns
+- `src/lib/sap/url.ts` *(new)* — `resolveSapUrl` helper
+- `src/lib/sap/sap-client.server.ts` — use helper + global base + cred fallback
+- `src/routes/api/public/middleware/config.ts` — return resolved URL + global creds
+- `middleware/server.js` — accept resolved URL from app; keep env fallback for self-hosted mock
+- `src/lib/admin/sap-global.functions.ts` — read/write new fields, store password in `sap_global_secrets`
+- `src/routes/_authenticated/admin.sap-api.index.tsx` — add **SAP Connection** tab
+- `src/routes/_authenticated/admin.sap-api.$id.tsx` — relabel Endpoint URL, helper text
