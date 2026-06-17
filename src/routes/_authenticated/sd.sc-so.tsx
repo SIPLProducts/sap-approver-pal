@@ -120,7 +120,18 @@ function ScSoPage() {
       status: Status;
       approval_type: ApprovalType;
     }) => fetchFn({ data: vars }),
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
+      const d = res?.debug;
+      console.groupCollapsed(
+        `[SAP] Sevice_Certificate_Fetch · ${d?.response_status ?? "?"} (${d?.latency_ms ?? "?"}ms)`,
+      );
+      console.log("URL:", d?.target);
+      console.log("Method:", d?.method, "proxied:", d?.proxied);
+      console.log("Request payload:", d?.request_payload ?? res?.payload);
+      console.log("Response status:", d?.response_status);
+      console.log("Response body preview:", d?.response_body_preview);
+      console.log("Mapped rows:", res?.rows);
+      console.groupEnd();
       setRows(res.rows);
       setSelected(new Set());
       setReasons(new Map());
@@ -128,7 +139,10 @@ function ScSoPage() {
       if (res.error) toast.error(res.error);
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
+    onError: (e: Error) => {
+      console.error("[SAP] Sevice_Certificate_Fetch failed:", e);
+      toast.error(e.message ?? "Failed to fetch from SAP");
+    },
   });
 
   function fetchFor(s: Status, t: ApprovalType) {

@@ -112,8 +112,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const CONFIG_NAME =
-      data.approval_type === "service" ? "Sevice_Certificate_Fetch" : "Service_SO_Approval_Fetch";
+    const CONFIG_NAME = "Sevice_Certificate_Fetch";
 
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
@@ -160,8 +159,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      const slug = data.approval_type === "service" ? "service_certificate" : "service_so_approval";
-      target = `${middlewareUrl.replace(/\/$/, "")}/${slug}/Fetch`;
+      target = `${middlewareUrl.replace(/\/$/, "")}/service_certificate/Fetch`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
@@ -184,6 +182,9 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
     for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
       headers[k] = v;
     }
+
+    console.log("[scso-fetch] target=", target, "method=", method, "proxied=", proxied);
+    console.log("[scso-fetch] payload=", JSON.stringify(inputs));
 
     const t0 = Date.now();
     let res: Response;
@@ -210,18 +211,32 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
         latency_ms,
         message: `scso-fetch network: ${errMsg}`,
       });
+      console.log("[scso-fetch] network-error=", errMsg, "latency_ms=", latency_ms);
       return {
         rows: [] as ScSoRow[],
         fetched_at: new Date().toISOString(),
         count: 0,
         error: `Could not reach SAP. ${errMsg}.`,
         payload: inputs,
+        debug: { target, method, proxied, request_payload: inputs, response_status: 0, response_body_preview: errMsg, latency_ms },
       };
     }
 
     const text = await res.text().catch(() => "");
     const message = `${res.status} ${res.statusText}`;
     const latency_ms = Date.now() - t0;
+
+    console.log("[scso-fetch] status=", res.status, "latency_ms=", latency_ms, "body=", text.slice(0, 1000));
+
+    const debug = {
+      target,
+      method,
+      proxied,
+      request_payload: inputs,
+      response_status: res.status,
+      response_body_preview: text.slice(0, 2000),
+      latency_ms,
+    };
 
     if (!res.ok) {
       await supabaseAdmin.from("sap_api_sync_log").insert({
@@ -236,6 +251,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
         count: 0,
         error: `SAP returned ${message}: ${text.slice(0, 200)}`,
         payload: inputs,
+        debug,
       };
     }
 
@@ -249,6 +265,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
         count: 0,
         error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
         payload: inputs,
+        debug,
       };
     }
 
@@ -277,5 +294,6 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
       count: rows.length,
       error: null as string | null,
       payload: inputs,
+      debug,
     };
   });
