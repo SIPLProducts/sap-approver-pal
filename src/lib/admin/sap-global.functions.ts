@@ -165,7 +165,7 @@ export const upsertSapConnection = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const testSapConnection = createServerFn({ method: "POST" })
+export const testSapConnectionGlobal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
