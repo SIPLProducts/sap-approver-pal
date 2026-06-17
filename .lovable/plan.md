@@ -1,31 +1,75 @@
-## What's happening
+## Problem
 
-Two separate problems are visible in the log you pasted:
+`Get_Plant` (GET) works but `Price_Approval_Fetch` (POST) returns SAP 401 with an HTML login page. Both endpoints use the same SAP server and the global SAP Connection credentials (SARVI_INFO1) — so the credentials themselves are valid. The difference is per-config credential overrides.
 
-### 1. SAP returns an HTML page (not JSON) for `Get_Plant`
-The middleware successfully calls `http://10.150.150.155:8005/sd_approval_mng/f4_help/help?sap-client=300`, but SAP responds with a full HTML page (the trailing `…2026 SAP SE, All rights reserved…</body></html>` in the log). That's SAP's standard **login / error page**, which it returns when the request is **unauthenticated** (no `Authorization: Basic …` header) or the user is locked. The app then shows "No plants returned by Get_Plant".
+## Root cause
 
-Why no auth header is being sent: in the `Get_Plant` API row, `auth_type` is almost certainly `none` (or credentials aren't attached to that row). The middleware only sends Basic auth when `cfg.auth_type === "basic"`. The `SAP_BP_USERNAME/PASSWORD` fallbacks from `.env` are copied into `cfg.credentials` but `auth_type` is left as-is, so the header is never built.
+In `src/routes/api/public/middleware/config.ts` (lines 140–141) the resolver merges per-config credentials with the global SAP Connection like this:
 
-### 2. `writeLog` fails with `String must contain at most 2000 character(s)`
-The `/api/public/middleware/log` route validates `message` ≤ 2000 chars. The middleware truncates to 4000 (`fullBody.slice(0, 4000)`), so when SAP returns a long HTML page the log call rejects. This is why you see `[log] failed […too_big…]`.
+```ts
+username: creds?.username ?? globalRes.data?.sap_username ?? null,
+password: creds?.password_encrypted ?? globalSecretRes.data?.sap_password ?? null,
+```
+
+`??` only falls back on `null` / `undefined`. The Credentials tab (`admin.sap-api.$id.tsx` line 101) always sends `username: creds.username` — an **empty string** when the user never typed a username on that tab. The first time anyone opened the Credentials tab on `Price_Approval_Fetch` and clicked Save, a `sap_api_credentials` row was written with `username = ""` (and possibly `password_encrypted = ""`). From then on `creds?.username ?? global` returns `""`, the middleware sends `Authorization: Basic OnBhc3N3b3Jk` (empty user), and SAP responds with its HTML login page → 401.
+
+That's exactly why `Get_Plant` still works (no per-config creds row, falls through to global) while `Price_Approval_Fetch` doesn't.
+
+The same `??`-vs-empty-string bug exists in `middleware/server.js` `loadConfig()` when applying the `FALLBACK_BP_*` env defaults.
 
 ## Fix
 
-### `middleware/server.js`
-1. **Auto-upgrade auth_type to `basic`** in `loadConfig` whenever credentials end up populated (from row or fallback) but `auth_type` is `none`/empty. This makes the Basic header get sent for `Get_Plant` and any other row without explicit auth.
-2. **Truncate every `writeLog` message to 1900 chars** (safety margin under the 2000 limit) in:
-   - `/sap/invoke`
-   - `namedInvokeRoute` (4000 → 1900)
-   - `namedRawInvokeRoute` (already short, but apply the same clamp for safety)
-   - error paths (already `.slice(0, 500)`, leave as-is)
-3. **Detect HTML responses from SAP** in `invokeSap`: when `content-type` is `text/html` or the body starts with `<`, return a structured error `{ __sap_html_error: true, __raw_preview: text.slice(0,500) }` and mark `ok=false`. This makes the UI surface "SAP returned an HTML login page — check credentials" instead of silently rendering 0 rows.
+Treat empty strings (and whitespace-only strings) as "not set" everywhere per-config credentials are merged with the global SAP Connection.
 
-### No app-side changes required
-The Zod schema on `/api/public/middleware/log` stays at 2000; the middleware is the side that must respect it.
+### 1. `src/routes/api/public/middleware/config.ts`
 
-## Acceptance check
-- Plant dropdown on Contract Approvals loads plant codes after Save SAP connection (with valid `22015661 / May@2026`).
-- Middleware log shows `Authorization: ***redacted***` going out for `/sap/invoke` of `Get_Plant`.
-- No more `[log] failed […too_big…]` regardless of how big SAP's response is.
-- If SAP still returns HTML, the UI shows a clear "SAP returned non-JSON (HTML login page)" message instead of "0 records".
+Replace the credentials block with a helper that returns the first non-empty value:
+
+```ts
+const pick = (...vals: (string | null | undefined)[]) =>
+  vals.find((v) => typeof v === "string" && v.trim() !== "") ?? null;
+
+credentials: {
+  username: pick(creds?.username, globalRes.data?.sap_username),
+  password: pick(creds?.password_encrypted, globalSecretRes.data?.sap_password),
+  extra_headers: creds?.extra_headers ?? {},
+},
+```
+
+### 2. `middleware/server.js` — `loadConfig`
+
+Apply the same non-empty fallback when filling in `FALLBACK_BP_*`:
+
+```js
+const isBlank = (v) => v == null || (typeof v === "string" && v.trim() === "");
+if (isBlank(cfg.credentials.username)) cfg.credentials.username = FALLBACK_BP_USERNAME || null;
+if (isBlank(cfg.credentials.password)) cfg.credentials.password = FALLBACK_BP_PASSWORD || null;
+```
+
+And tighten the existing auto-upgrade-to-basic check to use `isBlank` instead of truthiness so an empty-string `auth_type` is treated the same as `none`.
+
+### 3. (Optional polish) Credentials Save UX
+
+In `src/routes/_authenticated/admin.sap-api.$id.tsx` (line 101), only send `username` when the field is non-empty, so saving a blank tab does not overwrite the global default:
+
+```ts
+await saveCredsFn({
+  data: {
+    config_id: id,
+    username: creds.username.trim() || undefined,
+    password: creds.password || undefined,
+    extra_headers: headers,
+  },
+});
+```
+
+This prevents the same trap from being re-created for any future API config.
+
+## Verification
+
+1. Open `Price_Approval_Fetch` → Credentials tab → leave username blank → Save (or have the user run it as-is; the resolver change alone fixes existing rows).
+2. Click **Execute** on Price Approvals with Plant `3801`.
+3. Middleware log should now show `Authorization: Basic <SARVI_INFO1:...>` being sent and SAP returning JSON (not the `__sap_html_error` payload).
+4. `Get_Plant` continues to work unchanged.
+
+No database migration required — the fix is purely in the resolver and middleware fallback logic.

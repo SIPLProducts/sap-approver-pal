@@ -127,6 +127,8 @@ export const Route = createFileRoute("/api/public/middleware/config")({
             { status: 422, headers: CORS },
           );
         }
+        const pick = (...vals: (string | null | undefined)[]) =>
+          vals.find((v) => typeof v === "string" && v.trim() !== "") ?? null;
         const resolved = {
           id: cfg.id,
           name: cfg.name,
@@ -137,8 +139,8 @@ export const Route = createFileRoute("/api/public/middleware/config")({
           is_active: cfg.is_active,
           updated_at: cfg.updated_at,
           credentials: {
-            username: creds?.username ?? globalRes.data?.sap_username ?? null,
-            password: creds?.password_encrypted ?? globalSecretRes.data?.sap_password ?? null,
+            username: pick(creds?.username, globalRes.data?.sap_username),
+            password: pick(creds?.password_encrypted, globalSecretRes.data?.sap_password),
             extra_headers: creds?.extra_headers ?? {},
           },
           requestFields: reqFieldsRes.data ?? [],
