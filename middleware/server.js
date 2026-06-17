@@ -474,7 +474,7 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
       configId,
       status: result.ok ? "ok" : "error",
       latency_ms: result.latency_ms,
-      message: `invoke: ${result.status} ${fullBody.slice(0, 4000)}`,
+      message: `invoke: ${result.status} ${fullBody.slice(0, 1900)}`,
     });
     return res.status(result.ok ? 200 : 502).json(result);
 
@@ -520,7 +520,7 @@ function namedInvokeRoute(path, configName) {
         configId: cfg.id,
         status: result.ok ? "ok" : "error",
         latency_ms: result.latency_ms,
-        message: `${path}: ${result.status} ${fullBody.slice(0, 4000)}`,
+        message: `${path}: ${result.status} ${fullBody.slice(0, 1900)}`,
       });
 
       if (!result.ok) {
