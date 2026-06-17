@@ -220,7 +220,7 @@ function SalesOrderPage() {
       if (dbg) {
         const st = dbg.response_status ?? "ERR";
         // eslint-disable-next-line no-console
-        console.groupCollapsed(`[SAP] Sales_Approve_Reject · ${vars.action} · ${st} (${dbg.latency_ms}ms)`);
+        console.groupCollapsed(`[SAP] Sales_Order_Approve_Reject · ${vars.action} · ${st} (${dbg.latency_ms}ms)`);
         // eslint-disable-next-line no-console
         console.log("URL:", dbg.target);
         // eslint-disable-next-line no-console
@@ -253,7 +253,7 @@ function SalesOrderPage() {
     },
     onError: (e: Error) => {
       // eslint-disable-next-line no-console
-      console.error("[SAP] Sales_Approve_Reject failed:", e?.message ?? e);
+      console.error("[SAP] Sales_Order_Approve_Reject failed:", e?.message ?? e);
       toast.error(e.message ?? "SAP submission failed");
     },
   });
