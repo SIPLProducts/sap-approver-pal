@@ -168,6 +168,17 @@ async function loadConfig(key) {
   if (!cfg.credentials.password) cfg.credentials.password = FALLBACK_BP_PASSWORD || null;
   cfg.credentials.extra_headers = cfg.credentials.extra_headers || {};
 
+  // Auto-upgrade to Basic auth when credentials are present but auth_type
+  // was left as 'none' / empty on the API row. SAP returns an HTML login
+  // page on unauthenticated requests, which silently looks like "0 rows".
+  if (
+    (!cfg.auth_type || cfg.auth_type === "none") &&
+    cfg.credentials.username &&
+    cfg.credentials.password
+  ) {
+    cfg.auth_type = "basic";
+  }
+
   if (!cfg.endpoint_url) {
     throw new Error(`Config ${key} has no endpoint_url and no fallback env URL is set`);
   }
