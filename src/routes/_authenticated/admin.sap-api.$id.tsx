@@ -98,7 +98,7 @@ function SapApiEditPage() {
     try { headers = JSON.parse(creds.extra_headers || "{}"); }
     catch { setBusy(false); return toast.error("Extra headers must be valid JSON"); }
     try {
-      await saveCredsFn({ data: { config_id: id, username: creds.username, password: creds.password || undefined, extra_headers: headers } });
+      await saveCredsFn({ data: { config_id: id, username: creds.username.trim() || undefined, password: creds.password || undefined, extra_headers: headers } });
       toast.success("Credentials saved");
       setCreds({ ...creds, password: "", passwordSet: !!creds.password || creds.passwordSet });
     } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
