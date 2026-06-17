@@ -53,7 +53,6 @@ function mapRow(raw: any): ScSoRow {
     adv_amount: pick(raw, "ADV_AMOUNT"),
     net_value: pick(raw, "NET_VALUE") ?? pick(raw, "FIXED_RATE"),
     reason: pick(raw, "REASON"),
-    raw: raw && typeof raw === "object" ? raw : {},
   };
 }
 
