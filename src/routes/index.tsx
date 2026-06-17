@@ -9,23 +9,13 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    const { redirect } = await import("@tanstack/react-router");
+    const { data } = await supabase.auth.getSession();
+    if (data.session) throw redirect({ to: "/inbox" });
+    throw redirect({ to: "/login" });
+  },
   component: LandingPage,
-  head: () => ({
-    meta: [
-      { title: "Re Sustainability – SAP MM & SD Approvals" },
-      {
-        name: "description",
-        content:
-          "Enterprise-grade SAP approvals for Re Sustainability. Approve POs, PRs, NFAs, sales orders and gate passes on mobile, tablet and desktop with real-time alerts.",
-      },
-      { property: "og:title", content: "Re Sustainability – SAP Approvals" },
-      {
-        property: "og:description",
-        content:
-          "Role-based SAP MM & SD approvals with real-time notifications across mobile, tablet and desktop.",
-      },
-    ],
-  }),
 });
 
 function LandingPage() {
