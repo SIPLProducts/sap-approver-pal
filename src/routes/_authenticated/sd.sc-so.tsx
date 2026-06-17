@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { fetchScSoApprovals, type ScSoRow } from "@/lib/sd/sc-so-approval.functions";
 
@@ -43,6 +44,50 @@ function fmtDate(v: string | null) {
   return s;
 }
 
+function rowKey(r: ScSoRow, i: number) {
+  return [r.company_code, r.contract_no, r.contract_item, r.customer, i]
+    .map((x) => x ?? "")
+    .join("|");
+}
+
+const COLS: Array<{ key: string; label: string; align?: "right"; date?: boolean; num?: boolean; mono?: boolean }> = [
+  { key: "company_code", label: "Co. Code", mono: true },
+  { key: "sales_org", label: "Sales Org", mono: true },
+  { key: "customer", label: "Customer", mono: true },
+  { key: "customer_name", label: "Customer Name" },
+  { key: "year", label: "Year" },
+  { key: "contract_no", label: "Contract No", mono: true },
+  { key: "contract_item", label: "Item", mono: true },
+  { key: "contract_ref_no", label: "Contract Ref No", mono: true },
+  { key: "contract_ref_date", label: "Ref Date", date: true },
+  { key: "con_creation_date", label: "Creation Date", date: true },
+  { key: "contract_start_date", label: "Contract Start", date: true },
+  { key: "contract_end_date", label: "Contract End", date: true },
+  { key: "down_pay_req_amount", label: "Down Pay Req", align: "right", num: true },
+  { key: "adv_doc_zeile", label: "Adv Zeile", mono: true },
+  { key: "adv_doc_ebelp", label: "Adv Ebelp", mono: true },
+  { key: "adv_amount", label: "Adv Amount", align: "right", num: true },
+  { key: "profit_center", label: "Profit Center", mono: true },
+  { key: "clearing_document", label: "Clearing Doc", mono: true },
+  { key: "customer_group", label: "Cust Group" },
+  { key: "customer_price_group", label: "Price Group" },
+  { key: "service_valid_from", label: "Service Valid From", date: true },
+  { key: "service_valid_to", label: "Service Valid To", date: true },
+  { key: "service_start_date", label: "Service Start", date: true },
+  { key: "registration_date", label: "Reg. Date", date: true },
+  { key: "cus_agr_from", label: "Cus Agr From", date: true },
+  { key: "cus_agr_to", label: "Cus Agr To", date: true },
+  { key: "active_inactive", label: "Active", mono: true },
+  { key: "no_of_beds_to_be_inv", label: "Beds Inv", align: "right" },
+  { key: "fixed_rate", label: "Fixed Rate", align: "right", num: true },
+  { key: "per_bed_rate", label: "Per Bed Rate", align: "right", num: true },
+  { key: "excess_qty_rate", label: "Excess Qty Rate", align: "right", num: true },
+  { key: "upper_slab_qty", label: "Upper Slab Qty", align: "right", num: true },
+  { key: "code_land_qty", label: "Code Land Qty", align: "right", num: true },
+  { key: "total_balance", label: "Total Balance", align: "right", num: true },
+  { key: "ph_reason_code", label: "PH Reason Code", mono: true },
+];
+
 function ScSoPage() {
   const { status: urlStatus } = Route.useSearch();
   const fetchFn = useServerFn(fetchScSoApprovals);
@@ -54,7 +99,17 @@ function ScSoPage() {
   const [status, setStatus] = useState<Status>(urlStatus);
   const [approvalType, setApprovalType] = useState<ApprovalType>("service");
   const [rows, setRows] = useState<ScSoRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [reasons, setReasons] = useState<Map<string, string>>(new Map());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+
+  function setReasonFor(k: string, value: string) {
+    setReasons((prev) => {
+      const next = new Map(prev);
+      next.set(k, value);
+      return next;
+    });
+  }
 
   const mutation = useMutation({
     mutationFn: (vars: {
@@ -67,6 +122,8 @@ function ScSoPage() {
     }) => fetchFn({ data: vars }),
     onSuccess: (res) => {
       setRows(res.rows);
+      setSelected(new Set());
+      setReasons(new Map());
       setLastFetchedAt(res.fetched_at);
       if (res.error) toast.error(res.error);
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
@@ -95,6 +152,8 @@ function ScSoPage() {
   function onStatusChange(s: Status) {
     setStatus(s);
     setRows([]);
+    setSelected(new Set());
+    setReasons(new Map());
     setLastFetchedAt(null);
     if (plant.trim()) fetchFor(s, approvalType);
   }
@@ -102,6 +161,8 @@ function ScSoPage() {
   function onApprovalTypeChange(t: ApprovalType) {
     setApprovalType(t);
     setRows([]);
+    setSelected(new Set());
+    setReasons(new Map());
     setLastFetchedAt(null);
     if (plant.trim()) fetchFor(status, t);
   }
@@ -114,10 +175,35 @@ function ScSoPage() {
     setStatus("pending");
     setApprovalType("service");
     setRows([]);
+    setSelected(new Set());
+    setReasons(new Map());
     setLastFetchedAt(null);
   }
 
   const canExecute = !!plant.trim() && !mutation.isPending;
+  const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
+  const showSelect = status === "pending";
+  const allChecked = indexed.length > 0 && indexed.every(({ k }) => selected.has(k));
+
+  function toggleAll() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allChecked) indexed.forEach(({ k }) => next.delete(k));
+      else indexed.forEach(({ k }) => next.add(k));
+      return next;
+    });
+  }
+  function toggleOne(k: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
+
+  const baseCols = COLS.length + 2; // # + data cols + reason
+  const colSpan = showSelect ? baseCols + 1 : baseCols;
 
   return (
     <div className="space-y-5">
@@ -249,6 +335,7 @@ function ScSoPage() {
             </div>
             <div className="text-xs text-muted-foreground">
               {rows.length} record{rows.length === 1 ? "" : "s"}
+              {showSelect && selected.size > 0 ? ` · ${selected.size} selected` : ""}
               {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
             </div>
           </div>
@@ -257,53 +344,93 @@ function ScSoPage() {
           <table className="w-full text-xs">
             <thead className="bg-muted/50 border-b sticky top-0 z-10">
               <tr>
+                {showSelect && (
+                  <th className="px-3 py-2 w-10">
+                    <Checkbox
+                      checked={allChecked}
+                      onCheckedChange={toggleAll}
+                      disabled={rows.length === 0}
+                      aria-label="Select all"
+                    />
+                  </th>
+                )}
                 <th className="text-left font-semibold px-3 py-2 w-10">#</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Co. Code</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Org</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Name</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Year</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Item</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract Ref No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Ref Date</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Creation Date</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract Start</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract End</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Down Pay Req</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Adv. Amount</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Net Value</th>
+                {COLS.map((c) => (
+                  <th
+                    key={c.key}
+                    className={`${c.align === "right" ? "text-right" : "text-left"} font-semibold px-3 py-2 whitespace-nowrap`}
+                  >
+                    {c.label}
+                  </th>
+                ))}
                 <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Reason</th>
               </tr>
             </thead>
             <tbody>
               {mutation.isPending ? (
-                <tr><td colSpan={17} className="py-12 text-center text-muted-foreground">Loading from SAP…</td></tr>
-              ) : rows.length === 0 ? (
-                <tr><td colSpan={17} className="py-12 text-center text-muted-foreground">
-                  {plant.trim() ? "No records returned." : "Enter Plant and click Execute."}
+                <tr><td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading from SAP…
                 </td></tr>
-              ) : rows.map((r, i) => (
-                <tr key={i} className="border-b last:border-0 hover:bg-accent/40">
-                  <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
-                  <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
-                  <td className="px-3 py-2 whitespace-nowrap font-medium">{r.customer_name ?? "—"}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{r.year ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_item ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_ref_no ?? "—"}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.contract_ref_date)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.creation_date)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.contract_start)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.contract_end)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.down_pay_req)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.adv_amount)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.net_value)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{r.reason ?? "—"}</td>
-                </tr>
-              ))}
+              ) : indexed.length === 0 ? (
+                <tr><td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
+                  {lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute."}
+                </td></tr>
+              ) : indexed.map(({ r, k }, i) => {
+                const isSel = selected.has(k);
+                return (
+                  <tr
+                    key={k}
+                    className={`border-b last:border-0 hover:bg-accent/40 ${showSelect && isSel ? "bg-accent/30" : ""}`}
+                  >
+                    {showSelect && (
+                      <td className="px-3 py-2">
+                        <Checkbox
+                          checked={isSel}
+                          onCheckedChange={() => toggleOne(k)}
+                          aria-label="Select row"
+                        />
+                      </td>
+                    )}
+                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                    {COLS.map((c) => {
+                      const v = (r as any)[c.key] as string | number | null;
+                      const display = c.date
+                        ? fmtDate(v as string | null)
+                        : c.num
+                          ? fmtNum(v)
+                          : v == null || v === ""
+                            ? "—"
+                            : String(v);
+                      return (
+                        <td
+                          key={c.key}
+                          className={`px-3 py-2 whitespace-nowrap ${c.align === "right" ? "text-right tabular-nums" : ""} ${c.mono ? "font-mono" : ""}`}
+                        >
+                          {display}
+                        </td>
+                      );
+                    })}
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {showSelect ? (
+                        <Input
+                          value={reasons.get(k) ?? ""}
+                          onChange={(e) => setReasonFor(k, e.target.value)}
+                          placeholder="Required if selected"
+                          maxLength={50}
+                          aria-invalid={isSel && !(reasons.get(k) ?? "").trim()}
+                          className={`h-8 w-44 font-mono text-xs ${
+                            isSel && !(reasons.get(k) ?? "").trim()
+                              ? "border-destructive focus-visible:ring-destructive"
+                              : ""
+                          }`}
+                        />
+                      ) : (
+                        r.reason ?? "—"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
