@@ -452,7 +452,13 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
 
   try {
     const cfg = await loadConfig(configId);
+    console.log(`[/sap/invoke] config name=${cfg.name} id=${cfg.id} url=${cfg.endpoint_url} method=${cfg.http_method}`);
+    console.log(`[/sap/invoke] inputs from app =`, JSON.stringify(inputs));
     const result = await invokeSap(cfg, inputs);
+    const preview = typeof result.data === "string"
+      ? result.data.slice(0, 800)
+      : JSON.stringify(result.data).slice(0, 800);
+    console.log(`[/sap/invoke] sap status=${result.status} latency=${result.latency_ms}ms body=`, preview);
     await writeLog({
       configId,
       status: result.ok ? "ok" : "error",

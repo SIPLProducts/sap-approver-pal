@@ -1,34 +1,43 @@
-# Plant Dropdown from SAP `Get_Plant`
+## Goal
 
-Replace every free-text **Plant** input across the SD approval screens with a single searchable dropdown component that fetches its options from the SAP API config named **`Get_Plant`** (defined in Admin → SAP API Settings).
+Plant field on every SD approval screen (Price, Contract, Service Cert, Sales Order, SC-SO) must be a searchable dropdown populated from the `Get_Plant` SAP config, and we need to find out why the current call returns nothing.
 
-## Scope (screens touched)
-- `src/components/sd/sd-approval-shell.tsx` (used by Contract / Price / Sales Order screens)
-- `src/routes/_authenticated/sd.sc-so.tsx` (SC-SO Approval screen — has its own Plant input)
+## What's already in place
 
-No other UI, business logic, table columns, or SAP request fields change. The value submitted to existing SAP calls stays the same string (e.g. `"3801"`) — only the input control changes.
+- `PlantSelect` (searchable Popover + Command) is wired into `SdApprovalShell` — which Price / Contract / Sales Order all use — and into `sd.sc-so.tsx`. So Plant is already a dropdown on all four screens.
+- `Get_Plant` config exists in DB: `GET http://10.150.150.154:8103/sd_approval_mng/f4_help/help?sap-client=300`, basic auth, no required request fields. Middleware request log shows `POST /sap/invoke` with the right configId arrives.
 
-## New component
-`src/components/sap/plant-select.tsx` — a Combobox built on existing shadcn `Popover` + `Command` (already in the project). Props: `value`, `onChange`, `placeholder?`, `disabled?`, `className?`.
+## Why the dropdown shows nothing
 
-Behavior:
-- On mount, calls `runSapApi({ configId, inputs: {} })` once via TanStack Query (`queryKey: ["sap-plants"]`, `staleTime: 5 min`).
-- Renders typeahead search over the returned list. Each option shows the plant code; selecting one calls `onChange(code)`.
-- States: loading spinner, error message with retry, "no plants" empty state.
-- Falls back gracefully: if the `Get_Plant` config is missing or the call fails, the dropdown becomes a plain text input so screens stay usable.
+The middleware log stops after `[request] body= …` — `/sap/invoke` (generic route) never logs the SAP call URL, status, or body. Only named alias routes (e.g. `/service_certificate/Fetch`) log the SAP side. So we cannot tell whether SAP returned `[]`, `{DATA:[...]}`, `{PLANT_LIST:[...]}`, HTML, or an error. `extractPlants` only knows three shapes (top-level array, `DATA`, `data.DATA`) — if SAP wraps the rows under any other key, the client silently sees zero plants.
 
-## Resolving the `Get_Plant` config id
-Add a tiny server fn `getPlantConfigId` in `src/lib/sap/sap.functions.ts`:
-- Looks up `sap_api_configs` by `name = 'Get_Plant'` (admin RLS via `requireSupabaseAuth` + admin client read of just the id is fine since the config id is not sensitive).
-- Returns `{ configId, plantField }` where `plantField` defaults to `"VKORG"` (matches your sample payload) and can later be made configurable.
+## Plan
 
-The `PlantSelect` component calls this once, caches the id, then calls `runSapApi`. Response parsing: accepts either a top-level array `[{ VKORG: "0001" }, …]` or `{ DATA: [...] }` (mirroring the SC-SO middleware shape), then extracts the `plantField` from each row, dedupes, and sorts.
+### 1. Add full request/response logging to `/sap/invoke` (middleware/server.js)
 
-## Wire-up in screens
-- **`sd-approval-shell.tsx`** — replace the `<Input value={plant} … />` at line 97 with `<PlantSelect value={plant} onChange={setPlant} />`. Filtering logic (line 67) unchanged.
-- **`sd.sc-so.tsx`** — replace the Plant `<Input>` at line 247 with `<PlantSelect value={plant} onChange={setPlant} />`. All downstream usage (`plant.trim()`, request payload `PLANT: p`) unchanged.
+In the existing `/sap/invoke` handler, after `loadConfig(configId)` log the resolved config (name, id, url, method) and inputs — same shape as the named routes already log. After `invokeSap` log `sap status=… latency=… body=<preview 800 chars>`. This is the only way to see what SAP actually returns for Get_Plant.
 
-## Notes / assumptions
-- Your sample response uses the key **`VKORG`** (which is technically SAP Sales Org, not Plant — `WERKS` is Plant). I'm taking the response at face value and using `VKORG` as the plant code shown + submitted. If `Get_Plant` should actually return `WERKS`, the `plantField` default is a one-line change.
-- The `Get_Plant` config must already exist in Admin → SAP API Settings and be `is_active = true`. If not, the dropdown falls back to a text input and shows a small "Configure Get_Plant in SAP API Settings" hint.
-- No changes to middleware, SAP credentials, or any approval logic.
+### 2. Make `extractPlants` resilient (src/components/sap/plant-select.tsx)
+
+Generalize row discovery so any object shape works:
+- accept top-level array, `DATA`, `data`, `data.DATA`, `ITEMS`, `RESULTS`, or — as a fallback — the first array-valued property on the response.
+- per row, pull the first non-empty value among: configured `plantField`, `VKORG`, `WERKS`, `PLANT`, `Plant`, `Werks`, `Vkorg`, `plant`, `werks`.
+
+### 3. Surface failures to the user
+
+In `PlantSelect`:
+- when `plantsQuery.isError`, show the error message (not just "Failed to load plants"), so config / network errors are visible in-app.
+- when `plants.length === 0` after a successful fetch, show "No plants returned by Get_Plant — check SAP API Settings".
+
+### 4. Verification
+
+After restarting the middleware, click the dropdown on the Service Certificate screen. The middleware log will now print the SAP URL, status, and a body preview for `/sap/invoke`. Two outcomes:
+- SAP returns rows → dropdown populates (the broader `extractPlants` handles whatever wrapper SAP uses).
+- SAP returns `[]` / non-200 / HTML → the new in-UI error message plus middleware log pinpoints whether to fix the endpoint URL, auth, or sap-client param in `sap_api_configs.Get_Plant`.
+
+No changes are needed to the SD screens themselves — they already render `PlantSelect` via the shared shell.
+
+## Technical notes
+
+- Files touched: `middleware/server.js` (logging block in `/sap/invoke`), `src/components/sap/plant-select.tsx` (extractor + error UI). No DB or schema changes.
+- The middleware must be restarted on the ngrok host after the edit; the app side hot-reloads on its own.
