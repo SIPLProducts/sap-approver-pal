@@ -112,8 +112,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const CONFIG_NAME =
-      data.approval_type === "service" ? "Sevice_Certificate_Fetch" : "Service_SO_Approval_Fetch";
+    const CONFIG_NAME = "Sevice_Certificate_Fetch";
 
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
