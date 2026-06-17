@@ -1,64 +1,34 @@
-## Root cause
+# Plant Dropdown from SAP `Get_Plant`
 
-SAP returns HTTP 200 with a JSON body that contains empty values like
-`"ADV_DOC_NUM": { "ZEILE": , "EBELP": }`. That is not valid JSON, so
-`await res.json()` throws and the middleware's `.catch(() => null)` swallows
-it, leaving `data = null`. Postman shows the raw text, which is why it
-"works" there.
+Replace every free-text **Plant** input across the SD approval screens with a single searchable dropdown component that fetches its options from the SAP API config named **`Get_Plant`** (defined in Admin → SAP API Settings).
 
-## Fix — `middleware/server.js`
+## Scope (screens touched)
+- `src/components/sd/sd-approval-shell.tsx` (used by Contract / Price / Sales Order screens)
+- `src/routes/_authenticated/sd.sc-so.tsx` (SC-SO Approval screen — has its own Plant input)
 
-Make `invokeSapRaw` (and `invokeSap`) parse the body as text first, then:
+No other UI, business logic, table columns, or SAP request fields change. The value submitted to existing SAP calls stays the same string (e.g. `"3801"`) — only the input control changes.
 
-1. Try `JSON.parse(text)`.
-2. If that throws, sanitize the SAP-specific malformed pattern and retry:
-   - replace empty object/array values: `: ,` → `: null,` and `: }` → `: null}` and `: ]` → `: null]`
-   - then `JSON.parse` again.
-3. If parse still fails, return `{ raw: text, parse_error: err.message }` as
-   `data` so the app sees what SAP actually sent instead of `null`.
+## New component
+`src/components/sap/plant-select.tsx` — a Combobox built on existing shadcn `Popover` + `Command` (already in the project). Props: `value`, `onChange`, `placeholder?`, `disabled?`, `className?`.
 
-Concretely, factor a small helper:
+Behavior:
+- On mount, calls `runSapApi({ configId, inputs: {} })` once via TanStack Query (`queryKey: ["sap-plants"]`, `staleTime: 5 min`).
+- Renders typeahead search over the returned list. Each option shows the plant code; selecting one calls `onChange(code)`.
+- States: loading spinner, error message with retry, "no plants" empty state.
+- Falls back gracefully: if the `Get_Plant` config is missing or the call fails, the dropdown becomes a plain text input so screens stay usable.
 
-```js
-function safeParseSapJson(text) {
-  if (!text) return null;
-  try { return JSON.parse(text); } catch {}
-  const sanitized = text
-    .replace(/:\s*,/g, ": null,")
-    .replace(/:\s*\}/g, ": null}")
-    .replace(/:\s*\]/g, ": null]");
-  try { return JSON.parse(sanitized); } catch (e) {
-    return { __parse_error: e.message, __raw_preview: text.slice(0, 500) };
-  }
-}
-```
+## Resolving the `Get_Plant` config id
+Add a tiny server fn `getPlantConfigId` in `src/lib/sap/sap.functions.ts`:
+- Looks up `sap_api_configs` by `name = 'Get_Plant'` (admin RLS via `requireSupabaseAuth` + admin client read of just the id is fine since the config id is not sensitive).
+- Returns `{ configId, plantField }` where `plantField` defaults to `"VKORG"` (matches your sample payload) and can later be made configurable.
 
-Use it in both `invokeSap` and `invokeSapRaw` instead of `res.json()`. Also
-log a short preview of the raw text in `[raw-invoke]` so future malformed
-payloads are visible immediately.
+The `PlantSelect` component calls this once, caches the id, then calls `runSapApi`. Response parsing: accepts either a top-level array `[{ VKORG: "0001" }, …]` or `{ DATA: [...] }` (mirroring the SC-SO middleware shape), then extracts the `plantField` from each row, dedupes, and sorts.
 
-User must redeploy / restart the middleware after this change.
+## Wire-up in screens
+- **`sd-approval-shell.tsx`** — replace the `<Input value={plant} … />` at line 97 with `<PlantSelect value={plant} onChange={setPlant} />`. Filtering logic (line 67) unchanged.
+- **`sd.sc-so.tsx`** — replace the Plant `<Input>` at line 247 with `<PlantSelect value={plant} onChange={setPlant} />`. All downstream usage (`plant.trim()`, request payload `PLANT: p`) unchanged.
 
-## Fix — `src/lib/sd/sc-so-approval.functions.ts`
-
-No real logic change needed. The server fn already handles `sapJson?.DATA`.
-After the middleware fix, `data` will be the real object with `DATA: [...]`
-and rows will populate.
-
-Optional: when `data?.__parse_error` is present, surface it as the `error`
-field on the response so the UI shows "SAP returned unparseable JSON: …"
-instead of silently "0 records".
-
-## Out of scope
-
-- No UI / table / column changes.
-- No SAP API config or request-field changes.
-- The SAP backend bug (emitting `: ,`) is not something we can fix here;
-  we just stop dropping the response because of it.
-
-## Verification
-
-1. Restart middleware.
-2. Click **Execute** on the screen.
-3. `[raw-invoke]` log now shows the real SAP body preview.
-4. Table populates with rows from SAP.
+## Notes / assumptions
+- Your sample response uses the key **`VKORG`** (which is technically SAP Sales Org, not Plant — `WERKS` is Plant). I'm taking the response at face value and using `VKORG` as the plant code shown + submitted. If `Get_Plant` should actually return `WERKS`, the `plantField` default is a one-line change.
+- The `Get_Plant` config must already exist in Admin → SAP API Settings and be `is_active = true`. If not, the dropdown falls back to a text input and shows a small "Configure Get_Plant in SAP API Settings" hint.
+- No changes to middleware, SAP credentials, or any approval logic.

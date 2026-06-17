@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, Filter, RotateCcw } from "lucide-react";
+import { PlantSelect } from "@/components/sap/plant-select";
 import type { Database } from "@/integrations/supabase/types";
 
 type DocType = Database["public"]["Enums"]["document_type"];
@@ -94,7 +95,7 @@ export function SdApprovalShell({
         <div className="grid gap-3 md:grid-cols-[200px_240px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Plant</Label>
-            <Input value={plant} onChange={(e) => setPlant(e.target.value)} placeholder="e.g. 3801" className="h-9 font-mono" />
+            <PlantSelect value={plant} onChange={setPlant} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Customer / Doc No</Label>
