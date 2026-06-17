@@ -127,8 +127,18 @@ export const Route = createFileRoute("/api/public/middleware/config")({
             { status: 422, headers: CORS },
           );
         }
-        const pick = (...vals: (string | null | undefined)[]) =>
-          vals.find((v) => typeof v === "string" && v.trim() !== "") ?? null;
+        const nonEmpty = (v: string | null | undefined) =>
+          typeof v === "string" && v.trim() !== "" ? v : null;
+        const perCfgUser = nonEmpty(creds?.username);
+        const perCfgPass = nonEmpty(creds?.password_encrypted);
+        const globalUser = nonEmpty(globalRes.data?.sap_username);
+        const globalPass = nonEmpty(globalSecretRes.data?.sap_password);
+        // Pair semantics: only use the per-config pair when a username was
+        // actually entered for this config. A standalone per-config password
+        // must NOT be paired with the global username (that produces 401).
+        const useOverride = perCfgUser !== null;
+        const username = useOverride ? perCfgUser : globalUser;
+        const password = useOverride ? perCfgPass : globalPass;
         const resolved = {
           id: cfg.id,
           name: cfg.name,
@@ -139,13 +149,14 @@ export const Route = createFileRoute("/api/public/middleware/config")({
           is_active: cfg.is_active,
           updated_at: cfg.updated_at,
           credentials: {
-            username: pick(creds?.username, globalRes.data?.sap_username),
-            password: pick(creds?.password_encrypted, globalSecretRes.data?.sap_password),
+            username,
+            password,
             extra_headers: creds?.extra_headers ?? {},
           },
           requestFields: reqFieldsRes.data ?? [],
           responseFields: resFieldsRes.data ?? [],
         };
+
 
         return Response.json({ ok: true, config: resolved }, { headers: CORS });
       },
