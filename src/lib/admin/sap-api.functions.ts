@@ -216,8 +216,9 @@ export const testSapConnection = createServerFn({ method: "POST" })
       if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
       body = JSON.stringify({ configId: data.id });
     } else {
-      const user = creds?.username ?? global?.sap_username ?? null;
-      const pass = creds?.password_encrypted ?? globalSecret?.sap_password ?? null;
+      // Basic Auth always uses the global SAP Connection credentials.
+      const user = global?.sap_username ?? null;
+      const pass = globalSecret?.sap_password ?? null;
       if (cfg.auth_type === "basic" && user && pass) {
         headers.Authorization = "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
       }

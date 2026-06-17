@@ -127,18 +127,13 @@ export const Route = createFileRoute("/api/public/middleware/config")({
             { status: 422, headers: CORS },
           );
         }
+        // SAP Basic Auth credentials ALWAYS come from the global SAP Connection
+        // (sap_global_settings + sap_global_secrets). Per-API credential rows
+        // are ignored for username/password — only extra_headers are kept.
         const nonEmpty = (v: string | null | undefined) =>
           typeof v === "string" && v.trim() !== "" ? v : null;
-        const perCfgUser = nonEmpty(creds?.username);
-        const perCfgPass = nonEmpty(creds?.password_encrypted);
-        const globalUser = nonEmpty(globalRes.data?.sap_username);
-        const globalPass = nonEmpty(globalSecretRes.data?.sap_password);
-        // Pair semantics: only use the per-config pair when a username was
-        // actually entered for this config. A standalone per-config password
-        // must NOT be paired with the global username (that produces 401).
-        const useOverride = perCfgUser !== null;
-        const username = useOverride ? perCfgUser : globalUser;
-        const password = useOverride ? perCfgPass : globalPass;
+        const username = nonEmpty(globalRes.data?.sap_username);
+        const password = nonEmpty(globalSecretRes.data?.sap_password);
         const resolved = {
           id: cfg.id,
           name: cfg.name,
