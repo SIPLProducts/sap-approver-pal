@@ -162,19 +162,22 @@ async function loadConfig(key) {
     cfg.endpoint_url =
       cfg.module === "MM" ? FALLBACK_DMS_URL : FALLBACK_BP_URL;
   }
-  // Apply credential fallbacks.
+  // Apply credential fallbacks. Treat empty strings as "not set" so a
+  // saved-but-blank per-config credential row falls through to the global
+  // SAP Connection env defaults.
   cfg.credentials = cfg.credentials || { extra_headers: {} };
-  if (!cfg.credentials.username) cfg.credentials.username = FALLBACK_BP_USERNAME || null;
-  if (!cfg.credentials.password) cfg.credentials.password = FALLBACK_BP_PASSWORD || null;
+  const isBlank = (v) => v == null || (typeof v === "string" && v.trim() === "");
+  if (isBlank(cfg.credentials.username)) cfg.credentials.username = FALLBACK_BP_USERNAME || null;
+  if (isBlank(cfg.credentials.password)) cfg.credentials.password = FALLBACK_BP_PASSWORD || null;
   cfg.credentials.extra_headers = cfg.credentials.extra_headers || {};
 
   // Auto-upgrade to Basic auth when credentials are present but auth_type
   // was left as 'none' / empty on the API row. SAP returns an HTML login
   // page on unauthenticated requests, which silently looks like "0 rows".
   if (
-    (!cfg.auth_type || cfg.auth_type === "none") &&
-    cfg.credentials.username &&
-    cfg.credentials.password
+    (isBlank(cfg.auth_type) || cfg.auth_type === "none") &&
+    !isBlank(cfg.credentials.username) &&
+    !isBlank(cfg.credentials.password)
   ) {
     cfg.auth_type = "basic";
   }
