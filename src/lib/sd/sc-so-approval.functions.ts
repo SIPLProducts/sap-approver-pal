@@ -25,7 +25,6 @@ export type ScSoRow = {
   adv_amount: string | number | null;
   net_value: string | number | null;
   reason: string | null;
-  raw: Record<string, unknown>;
 };
 
 const CONFIG_NAME = "Service_SO_Approval_Fetch";
