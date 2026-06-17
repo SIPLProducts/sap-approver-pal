@@ -134,14 +134,18 @@ export function PlantSelect({
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching plants…
               </div>
             ) : plantsQuery.isError ? (
-              <div className="px-3 py-4 text-xs text-destructive">
-                Failed to load plants.
-                <button
-                  className="ml-2 underline"
-                  onClick={() => plantsQuery.refetch()}
-                >
+              <div className="px-3 py-4 text-xs text-destructive space-y-1">
+                <div className="font-medium">Failed to load plants.</div>
+                <div className="text-[11px] opacity-80 break-words">
+                  {(plantsQuery.error as Error)?.message ?? "Unknown error"}
+                </div>
+                <button className="underline" onClick={() => plantsQuery.refetch()}>
                   Retry
                 </button>
+              </div>
+            ) : plants.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground">
+                No plants returned by Get_Plant. Check SAP API Settings.
               </div>
             ) : (
               <>
