@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plug, Plus, Pencil, Trash2, Activity, Loader2, CheckCircle2, AlertCircle, Save, Server } from "lucide-react";
+import { Plug, Plus, Pencil, Trash2, Activity, Loader2, CheckCircle2, AlertCircle, Save, Server, Database } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { listSapConfigs, upsertSapConfig, deleteSapConfig, testSapConnection } from "@/lib/admin/sap-api.functions";
+import { getSapGlobalSettings, upsertSapGlobalSettings, testGlobalMiddleware, upsertSapConnection, testSapConnectionGlobal } from "@/lib/admin/sap-global.functions";
 import { listSapConfigs, upsertSapConfig, deleteSapConfig, testSapConnection } from "@/lib/admin/sap-api.functions";
 import { getSapGlobalSettings, upsertSapGlobalSettings, testGlobalMiddleware } from "@/lib/admin/sap-global.functions";
 
