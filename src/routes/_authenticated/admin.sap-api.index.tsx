@@ -29,9 +29,11 @@ function SapApiListPage() {
       <Tabs defaultValue="apis">
         <TabsList>
           <TabsTrigger value="apis"><Plug className="h-4 w-4 mr-1" /> APIs</TabsTrigger>
+          <TabsTrigger value="sap-conn"><Database className="h-4 w-4 mr-1" /> SAP Connection</TabsTrigger>
           <TabsTrigger value="middleware"><Server className="h-4 w-4 mr-1" /> Middleware Configuration</TabsTrigger>
         </TabsList>
         <TabsContent value="apis" className="mt-4"><ApisTab /></TabsContent>
+        <TabsContent value="sap-conn" className="mt-4"><SapConnectionTab /></TabsContent>
         <TabsContent value="middleware" className="mt-4"><MiddlewareTab /></TabsContent>
       </Tabs>
     </div>
