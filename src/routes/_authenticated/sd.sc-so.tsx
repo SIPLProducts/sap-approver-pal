@@ -5,8 +5,15 @@ import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2 } from "lucide-react";
+import { Filter, RotateCcw, Loader2, Check, X, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,7 +21,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { fetchScSoApprovals, type ScSoRow } from "@/lib/sd/sc-so-approval.functions";
+import {
+  fetchScSoApprovals,
+  submitScSoDecision,
+  type ScSoRow,
+} from "@/lib/sd/sc-so-approval.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
 
 type Status = "pending" | "accepted" | "rejected";
@@ -28,6 +39,26 @@ export const Route = createFileRoute("/_authenticated/sd/sc-so")({
   validateSearch: zodValidator(searchSchema),
   component: ScSoPage,
 });
+
+type SapMsg = {
+  TYPE?: string;
+  CUSTOMER?: string;
+  CONTRACT?: string;
+  SALES_DOCUMENT_NO?: string;
+  MSG?: string;
+  MESSAGE?: string;
+};
+
+type Severity = "success" | "warning" | "error" | "info";
+
+function mapSeverity(raw: string | undefined): Severity {
+  const t = String(raw ?? "").toUpperCase().trim();
+  if (["@01@", "@5B@", "S"].includes(t)) return "success";
+  if (["@02@", "@09@", "W"].includes(t)) return "warning";
+  if (["@03@", "@5C@", "@AY@", "E", "A"].includes(t)) return "error";
+  if (["@04@", "@08@", "I"].includes(t)) return "info";
+  return "info";
+}
 
 function fmtNum(v: string | number | null) {
   if (v == null || v === "") return "—";
@@ -92,6 +123,7 @@ const COLS: Array<{ key: string; label: string; align?: "right"; date?: boolean;
 function ScSoPage() {
   const { status: urlStatus } = Route.useSearch();
   const fetchFn = useServerFn(fetchScSoApprovals);
+  const decisionFn = useServerFn(submitScSoDecision);
 
   const [plant, setPlant] = useState("");
   const [userId, setUserId] = useState("");
@@ -103,6 +135,13 @@ function ScSoPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<Map<string, string>>(new Map());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+
+  const [resultOpen, setResultOpen] = useState(false);
+  const [resultData, setResultData] = useState<{
+    action: "accepted" | "rejected";
+    messages: SapMsg[];
+    total: number;
+  }>({ action: "accepted", messages: [], total: 0 });
 
   function setReasonFor(k: string, value: string) {
     setReasons((prev) => {
@@ -217,6 +256,99 @@ function ScSoPage() {
     });
   }
 
+  const decisionMutation = useMutation({
+    mutationFn: (vars: {
+      action: "accepted" | "rejected";
+      user_id: string;
+      approval_type: ApprovalType;
+      rows: ScSoRow[];
+    }) => decisionFn({ data: vars }),
+    onSuccess: (res, vars) => {
+      const dbg = (res as any)?.debug;
+      if (dbg) {
+        const st = dbg.response_status ?? "ERR";
+        console.groupCollapsed(`[SAP] Service_Certificate_Approve_Reject · ${vars.action} · ${st} (${dbg.latency_ms}ms)`);
+        console.log("URL:", dbg.target);
+        console.log("Method:", dbg.method, "proxied:", dbg.proxied);
+        console.log("Request headers:", dbg.request_headers);
+        console.log("Request payload:", dbg.request_payload);
+        console.log("Response status:", dbg.response_status);
+        console.log("Response body:", dbg.response_body_preview);
+        console.groupEnd();
+      }
+      const sap: any = (res as any)?.sap_response ?? {};
+      let inner: any = sap?.data ?? sap;
+      if (typeof inner === "string") {
+        try { inner = JSON.parse(inner); } catch { /* ignore */ }
+      }
+      let rawMsgs: any =
+        inner?.MESSAGE ?? inner?.message ?? inner?.Messages ?? inner?.MSG ??
+        sap?.MESSAGE ?? sap?.message ?? sap?.Messages ?? null;
+      if (!rawMsgs) {
+        const preview = (res as any)?.debug?.response_body_preview;
+        if (typeof preview === "string" && preview.trim()) {
+          try {
+            const p = JSON.parse(preview);
+            const pInner = p?.data ?? p;
+            rawMsgs =
+              pInner?.MESSAGE ?? pInner?.message ?? pInner?.Messages ?? pInner?.MSG ??
+              p?.MESSAGE ?? null;
+          } catch { /* ignore */ }
+        }
+      }
+      const msgs: SapMsg[] = Array.isArray(rawMsgs) ? rawMsgs : rawMsgs ? [rawMsgs] : [];
+
+      const isOk = (res as any)?.ok !== false;
+      const preview: string = (res as any)?.debug?.response_body_preview ?? "";
+
+      if (!isOk && msgs.length === 0 && !preview.trim()) {
+        toast.error((res as any).error ?? "SAP submission failed");
+        return;
+      }
+
+      const finalMsgs: SapMsg[] =
+        msgs.length > 0
+          ? msgs
+          : [{ TYPE: "I", MSG: preview.trim() || (res as any)?.error || "No response body from SAP" } as SapMsg];
+
+      setResultData({ action: vars.action, messages: finalMsgs, total: vars.rows.length });
+      setResultOpen(true);
+      setSelected(new Set());
+      setReasons(new Map());
+      fetchFor("pending", approvalType);
+    },
+    onError: (e: Error) => {
+      console.error("[SAP] Service_Certificate_Approve_Reject failed:", e?.message ?? e);
+      toast.error(e.message ?? "SAP submission failed");
+    },
+  });
+
+  const missingReason = useMemo(() => {
+    if (status !== "pending") return false;
+    for (const { k } of indexed) {
+      if (selected.has(k) && !(reasons.get(k) ?? "").trim()) return true;
+    }
+    return false;
+  }, [status, indexed, selected, reasons]);
+
+  function decide(action: "accepted" | "rejected") {
+    if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
+    const selectedRows = indexed
+      .filter(({ k }) => selected.has(k))
+      .map(({ r, k }) => ({ ...r, reason: (reasons.get(k) ?? "").trim() }));
+    if (selectedRows.some((r) => !r.reason)) {
+      toast.error("Reason is required for all selected rows");
+      return;
+    }
+    decisionMutation.mutate({
+      action,
+      user_id: userId.trim(),
+      approval_type: approvalType,
+      rows: selectedRows,
+    });
+  }
+
+  const canAct = showSelect && selected.size > 0 && !missingReason;
   const baseCols = COLS.length + 2; // # + data cols + reason
   const colSpan = showSelect ? baseCols + 1 : baseCols;
 
@@ -347,6 +479,37 @@ function ScSoPage() {
               {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
             </div>
           </div>
+          {showSelect && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => decide("accepted")}
+                disabled={!canAct || decisionMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                title={selected.size === 0 ? "Select at least one row" : undefined}
+              >
+                {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5 mr-1" />
+                )}
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => decide("rejected")}
+                disabled={!canAct || decisionMutation.isPending}
+              >
+                {decisionMutation.isPending && decisionMutation.variables?.action === "rejected" ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <X className="h-3.5 w-3.5 mr-1" />
+                )}
+                Reject
+              </Button>
+            </div>
+          )}
         </div>
         <div className="overflow-auto max-h-[60vh]">
           <table className="w-full text-xs">
@@ -443,6 +606,113 @@ function ScSoPage() {
           </table>
         </div>
       </Card>
+
+      <ResultDialog
+        open={resultOpen}
+        onOpenChange={setResultOpen}
+        action={resultData.action}
+        messages={resultData.messages}
+        total={resultData.total}
+      />
     </div>
+  );
+}
+
+function ResultDialog({
+  open,
+  onOpenChange,
+  action,
+  messages,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  action: "accepted" | "rejected";
+  messages: SapMsg[];
+  total: number;
+}) {
+  const severities = messages.map((m) => mapSeverity(m?.TYPE));
+  const hasError = severities.some((s) => s === "error");
+  const hasWarn = severities.some((s) => s === "warning");
+  const tone: "success" | "error" | "warning" = hasError ? "error" : hasWarn ? "warning" : "success";
+
+  const banner = {
+    success: {
+      bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900",
+      icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />,
+      title: action === "accepted" ? "Approved successfully" : "Rejected successfully",
+    },
+    error: {
+      bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900",
+      icon: <XCircle className="h-5 w-5 text-red-600" />,
+      title: "Completed with errors",
+    },
+    warning: {
+      bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900",
+      icon: <AlertTriangle className="h-5 w-5 text-amber-600" />,
+      title: "Completed with warnings",
+    },
+  }[tone];
+
+  function badge(sev: Severity) {
+    if (sev === "success")
+      return <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">Success</span>;
+    if (sev === "error")
+      return <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">Error</span>;
+    if (sev === "warning")
+      return <span className="inline-flex items-center rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-white">Warning</span>;
+    return <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-foreground">Info</span>;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>SAP Response</DialogTitle>
+        </DialogHeader>
+
+        <div className={`flex items-start gap-3 rounded-lg border p-3 ${banner.bg}`}>
+          {banner.icon}
+          <div className="min-w-0">
+            <div className="font-semibold text-sm">{banner.title}</div>
+          </div>
+        </div>
+
+        {messages.length > 0 && (
+          <>
+            <div className="text-xs font-semibold text-muted-foreground mt-2">
+              SAP Response Details
+            </div>
+            <div className="max-h-[55vh] overflow-auto space-y-2 pr-1">
+              {messages.map((m, i) => {
+                const contract = (m.CONTRACT ?? m.SALES_DOCUMENT_NO ?? "").toString().trim();
+                const customer = (m.CUSTOMER ?? "").toString().trim();
+                const type = (m.TYPE ?? "").toString().trim();
+                const msg = m?.MSG || m?.MESSAGE || "—";
+                return (
+                  <div key={i} className="rounded-md border bg-card p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="text-sm font-medium leading-snug min-w-0">{msg}</div>
+                      <div className="shrink-0">{badge(severities[i])}</div>
+                    </div>
+                    <div className="mt-2 grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 text-[11px] font-mono">
+                      <div className="text-muted-foreground">TYPE</div>
+                      <div>{type || "—"}</div>
+                      <div className="text-muted-foreground">CUSTOMER</div>
+                      <div>{customer || "—"}</div>
+                      <div className="text-muted-foreground">CONTRACT</div>
+                      <div>{contract || "—"}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
