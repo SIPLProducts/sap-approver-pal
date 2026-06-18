@@ -684,8 +684,6 @@ function ResultDialog({
             </div>
             <div className="max-h-[55vh] overflow-auto space-y-2 pr-1">
               {messages.map((m, i) => {
-                const contract = (m.CONTRACT ?? m.SALES_DOCUMENT_NO ?? "").toString().trim();
-                const customer = (m.CUSTOMER ?? "").toString().trim();
                 const type = (m.TYPE ?? "").toString().trim();
                 const msg = m?.MSG || m?.MESSAGE || "—";
                 return (
@@ -697,10 +695,6 @@ function ResultDialog({
                     <div className="mt-2 grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 text-[11px] font-mono">
                       <div className="text-muted-foreground">TYPE</div>
                       <div>{type || "—"}</div>
-                      <div className="text-muted-foreground">CUSTOMER</div>
-                      <div>{customer || "—"}</div>
-                      <div className="text-muted-foreground">CONTRACT</div>
-                      <div>{contract || "—"}</div>
                     </div>
                   </div>
                 );
