@@ -487,9 +487,6 @@ function ResultDialog({
           {banner.icon}
           <div className="min-w-0">
             <div className="font-semibold text-sm">{banner.title}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {successCount} of {total} condition record{total === 1 ? "" : "s"} saved in SAP
-            </div>
           </div>
         </div>
 

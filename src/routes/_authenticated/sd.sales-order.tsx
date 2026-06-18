@@ -632,9 +632,6 @@ function ResultDialog({
           {banner.icon}
           <div className="min-w-0">
             <div className="font-semibold text-sm">{banner.title}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {successCount} of {total} sales order{total === 1 ? "" : "s"} released in SAP
-            </div>
           </div>
         </div>
 
