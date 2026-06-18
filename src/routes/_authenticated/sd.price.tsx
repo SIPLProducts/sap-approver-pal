@@ -235,18 +235,6 @@ function PricePage() {
           </div>
         </div>
 
-        <div className="mt-4 -mx-4 px-4 pt-3 border-t">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <Label className="text-xs text-muted-foreground">Action</Label>
-            <Tabs value={status} onValueChange={(v) => setStatus(v as Status)}>
-              <TabsList>
-                <TabsTrigger value="pending">Pending ({counts.pending})</TabsTrigger>
-                <TabsTrigger value="accepted">Accepted ({counts.accepted})</TabsTrigger>
-                <TabsTrigger value="rejected">Rejected ({counts.rejected})</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
       </Card>
 
       <Card className="p-0 overflow-hidden">
