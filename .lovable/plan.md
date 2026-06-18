@@ -1,69 +1,55 @@
-## Goal
+# Fix: DATA array dropped on Service Certificate Approve/Reject
 
-Wire Accept / Reject buttons on the **Service Certificate & SO Approvals** screen (`/sd/sc-so`) to call the SAP API config **`Service_Certificate_Approve_Reject`**, then show the same SAP-response dialog used by the Sales Order Approvals screen.
+## Root cause
 
-## Backend — `src/lib/sd/sc-so-approval.functions.ts`
+The app POSTs the approve/reject payload (with nested `DATA[]` containing `ADV_DOC_NUM`) to the middleware path:
 
-Add a new server function `submitScSoDecision` (mirrors `submitSalesOrderDecision`):
-
-- Auth: `requireSupabaseAuth`.
-- Input: `{ action: "accepted" | "rejected", user_id?: string, approval_type: "service" | "sales", rows: ScSoRow[] }`.
-- Reads config row `name = "Service_Certificate_Approve_Reject"` from `sap_api_configs` (plus credentials, global settings, global secret). Errors if missing or `is_active = false`.
-- Resolves `USER_ID` from (in order): explicit `user_id` → `profiles.sap_user_id` for the caller → SAP API request-field default → fallback `"NEOBMWCONS"`.
-- Builds payload exactly in the SAP-expected shape:
-
-```json
-{
-  "APPROV": "X" | "",
-  "REJ":    "X" | "",
-  "USER_ID": "...",
-  "DATA": [
-    {
-      "SELECT": "X",
-      "COMPANY_CODE": "...", "SALES_ORG": "...", "CUSTOMER": "...", "CUSTOMER_NAME": "...",
-      "YEAR": <number-or-string>, "CONTRACT_NO": "...", "CONTRACT_ITEM": <num>,
-      "CONTRACT_REF_NO": "...", "CONTRACT_REF_DATE": "...",
-      "CON_CREATION_DATE": "...", "CONTRACT_START_DATE": "...", "CONTRACT_END_DATE": "...",
-      "DOWN_PAY_REQ_AMOUNT": <num>,
-      "ADV_DOC_NUM": { "ZEILE": <num|"">, "EBELP": <num|""> },
-      "ADV_AMOUNT": <num>, "PROFIT_CENTER": "", "CLEARING_DOCUMENT": "",
-      "CUSTOMER_GROUP": "...", "CUSTOMER_PRICE_GROUP": "...",
-      "SERVICE_VALID_FROM": "...", "SERVICE_VALID_TO": "...",
-      "SERVICE_START_DATE": "...", "REGISTRATION_DATE": "...",
-      "CUS_AGR_FROM": "...", "CUS_AGR_TO": "...",
-      "ACTIVE_INACTIVE": "...", "NO_OF_BEDS_TO_BE_INV": <num>,
-      "FIXED_RATE": <num>, "PER_BED_RATE": <num>, "EXCESS_QTY_RATE": <num>,
-      "UPPER_SLAB_QTY": <num>, "CODE_LAND_QTY": <num>, "TOTAL_BALANCE": <num>,
-      "PH_REASON_CODE": "...", "REASON": "<user reason>"
-    }
-  ]
-}
+```
+/service_certificate/Service_Certificate_Approve_Reject
 ```
 
-Numeric fields are emitted as numbers when the source value is numeric, empty string otherwise (matches the sample where `ZEILE`/`EBELP` are left blank). `CUSTOMER` is left-padded to 10 digits when fully numeric (same helper as Sales Order).
+But `middleware/server.js` only registers a **fetch** route for service certificate:
 
-- Proxy / direct dispatch and headers follow the same pattern as `submitSalesOrderDecision`:
-  - Proxy URL: `${middlewareUrl}/service_certificate/Service_Certificate_Approve_Reject` with `{ inputs: sapPayload }`; fallback to `/sap/invoke` on a "Cannot POST/PUT" 404 from the proxy.
-  - Direct: POST `cfg.endpoint_url` with `sapPayload`; Basic auth when configured.
-- Logs every attempt into `sap_api_sync_log` (`ok` / `error`).
-- Returns `{ ok, action, count, error, sap_response, debug }` in the same shape as the Sales Order decision fn so the existing dialog parser can reuse it. No DB schema changes.
+```js
+namedRawInvokeRoute("/service_certificate/Fetch", "Sevice_Certificate_Fetch");
+```
 
-The `approval_type` field is accepted for future routing but currently sends to the same `Service_Certificate_Approve_Reject` config (user only mentioned this one API). If a separate Sales-Order variant is needed later it can be added without UI changes.
+There is **no** route for `/service_certificate/Service_Certificate_Approve_Reject`. So the request 404s, and the app's fallback in `submitScSoDecision` retries against `/sap/invoke`.
 
-## Frontend — `src/routes/_authenticated/sd.sc-so.tsx`
+`/sap/invoke` runs `invokeSap()` → `buildRequestPayload(cfg.requestFields, inputs)`, which only emits the fields explicitly configured in `sap_api_request_fields` for that config (APPROV, REJ, USER_ID). The nested `DATA` array is **not** a configured request field, so it is stripped before being sent to SAP. That's exactly what SAP is reporting: APPROV/REJ/USER_ID arrive, DATA does not.
 
-Mirror the Sales Order screen's submit + dialog flow:
+It is **not** an issue with the nested `ADV_DOC_NUM` object — the JSON itself is valid; the field mapper is the one dropping it.
 
-1. Import `Dialog*`, `Check`, `X`, `CheckCircle2`, `XCircle`, `AlertTriangle` and the new `submitScSoDecision` server fn; add `useServerFn` for it.
-2. Add `decisionMutation` (React Query) calling `submitScSoDecision({ data: { action, user_id, approval_type, rows } })`. On success: open the result dialog, clear selection/reasons, and refetch with `status="pending"`. On error: toast.
-3. Add Accept / Reject buttons in the output header (visible only when `status === "pending"`), disabled unless ≥1 row is selected, all selected rows have a non-empty reason, and the mutation isn't pending. Same green Accept / destructive Reject styling as Sales Order.
-4. Selected rows are mapped from `ScSoRow` (already in state) and passed in with `reason` taken from the `reasons` map.
-5. Add the same `ResultDialog` component (copy verbatim from `sd.sales-order.tsx`) showing the banner ("Approved successfully" / "Rejected successfully" / "Completed with errors/warnings") and per-message details. Severity mapping handles `TYPE: "S" | "E" | "W" | "I"` so the sample `{"MESSAGE":[{"TYPE":"S","MSG":"Mail Sent Successfully"}]}` renders as a success banner with the message listed.
-6. Reason input is already in the row; reuse the existing `missingReason` check (already present in the Sales Order screen, port the same `useMemo`).
+The other approve/reject endpoints (Price, Contract, Sales Order) work because each has its own `namedRawInvokeRoute(...)` that bypasses field mapping and forwards the body verbatim.
 
-No other screens are touched.
+## Change
+
+`middleware/server.js` — add one line next to the existing service certificate fetch route:
+
+```js
+namedRawInvokeRoute(
+  "/service_certificate/Service_Certificate_Approve_Reject",
+  "Service_Certificate_Approve_Reject",
+);
+```
+
+This routes through `invokeSapRaw()`, which sends `inputs` (the full `{ APPROV, REJ, USER_ID, DATA: [...] }` object including the nested `ADV_DOC_NUM`) to SAP verbatim using the config's HTTP method (PUT) and endpoint URL.
+
+## Deploy / restart
+
+Middleware runs as a separate Node service (Windows service or container). After this code change the operator must restart the middleware process so the new route is registered. No app-side, DB, or SAP config change is required.
+
+## Verification
+
+1. From the SC & SO Approvals screen, select a row, enter a reason, click Accept.
+2. Middleware log should now show:
+   ```
+   [request] POST /service_certificate/Service_Certificate_Approve_Reject
+   [raw-invoke] PUT http://10.150.150.154:8103/.../service?sap-client=300 payload= {"APPROV":"X",..."DATA":[{...}]}
+   ```
+3. SAP should respond with `{ "MESSAGE": [{ "TYPE": "S", "MSG": "Mail Sent Successfully" }] }` and the result dialog renders the success banner.
 
 ## Out of scope
 
-- No changes to Price / Contract / Sales Order screens.
-- No DB migrations — the SAP API config row `Service_Certificate_Approve_Reject` must already exist (the user confirmed it's configured in Admin → SAP API).
+- No changes to `submitScSoDecision`, the UI, or the SAP API config rows.
+- The existing `/sap/invoke` fallback in the app stays as-is (harmless once the named route exists).
