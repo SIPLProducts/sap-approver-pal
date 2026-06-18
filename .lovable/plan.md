@@ -1,13 +1,14 @@
-Remove the count sub-line under "Approved successfully" / "Rejected successfully" in the SAP Response modal on 3 SD screens.
+## Remove Action tabs from Price Approval screen
 
-Changes:
-1. `src/routes/_authenticated/sd.price.tsx` — Remove lines 490-492:
-   `{successCount} of {total} condition record{total === 1 ? "" : "s"} saved in SAP`
+Scope: `src/routes/_authenticated/sd.price.tsx` only. Contract and Sales Order screens are untouched.
 
-2. `src/routes/_authenticated/sd.contract.tsx` — Remove lines 602-604:
-   `{successCount} of {total} contract{total === 1 ? "" : "s"} released in SAP`
+### Changes
 
-3. `src/routes/_authenticated/sd.sales-order.tsx` — Remove lines 634-636:
-   `{successCount} of {total} sales order{total === 1 ? "" : "s"} released in SAP`
+1. **Remove the Pending / Accepted / Rejected tab strip** (the `<Tabs>` block at the bottom of the Selection Screen card, lines ~264–275, plus its surrounding border-top wrapper).
+2. **Show all fetched records** in the output table — drop the per-bucket filter. `visible` becomes the full `indexed` list.
+3. **Keep Accept / Reject buttons** active whenever rows are selected (remove the `status === "pending"` gate). Once a row is decided, it's marked locally and stays in the table; users can re-decide if needed.
+4. **Output header**: change `Output — {status}` to just `Output`. Per-row status (decided pending/accepted/rejected) remains tracked internally for the Accept/Reject submission flow but is no longer used to filter the view.
+5. Remove the now-unused `status` URL search param, `setStatus`, `counts`, and the `Tabs/TabsList/TabsTrigger` imports.
+6. Remove `validateSearch` and the `searchSchema` since the `status` query param is no longer needed.
 
-The "Approved successfully" / "Rejected successfully" title in the green banner stays exactly as-is. Only the smaller sub-line below it (showing counts) is removed.
+No backend, server-function, or other-screen changes.
