@@ -1,24 +1,13 @@
-## Plan
+Remove the count sub-line under "Approved successfully" / "Rejected successfully" in the SAP Response modal on 3 SD screens.
 
-1. **Make SAP Connection the single source of truth**
-   - Update `/api/public/middleware/config` so every resolved API config always uses:
-     - `sap_global_settings.sap_base_url` for relative endpoint paths
-     - `sap_global_settings.sap_username` + `sap_global_secrets.sap_password` for Basic Auth
-   - Stop reading `sap_api_credentials.username` and `sap_api_credentials.password_encrypted` for SAP Basic Auth.
-   - Keep only `extra_headers` from per-API credentials, because those may still be API-specific.
+Changes:
+1. `src/routes/_authenticated/sd.price.tsx` — Remove lines 490-492:
+   `{successCount} of {total} condition record{total === 1 ? "" : "s"} saved in SAP`
 
-2. **Fix the admin “Test connection” path too**
-   - Update `testSapConnection` so direct tests also use the global SAP Connection username/password, not the per-API credential row.
-   - This prevents “Test connection works one way but Execute fails another way.”
+2. `src/routes/_authenticated/sd.contract.tsx` — Remove lines 602-604:
+   `{successCount} of {total} contract{total === 1 ? "" : "s"} released in SAP`
 
-3. **Prevent future confusion in the UI**
-   - Update the API credentials tab text/behavior so username/password are no longer presented as per-API Basic Auth credentials.
-   - Keep the extra headers editor if needed.
+3. `src/routes/_authenticated/sd.sales-order.tsx` — Remove lines 634-636:
+   `{successCount} of {total} sales order{total === 1 ? "" : "s"} released in SAP`
 
-4. **Middleware behavior**
-   - Keep the Node middleware mostly unchanged: it will receive already-resolved `endpoint_url`, `auth_type`, and global credentials from the app config endpoint.
-   - Its `.env` SAP username/password remain fallback/mock-only and should not be required for live mode.
-
-5. **Validation**
-   - After implementation, verify the resolved config endpoint returns the global SAP Connection credentials for `Get_Plant`, `Price_Approval_Fetch`, and `Price_Approve_Reject`.
-   - Then the middleware execute button should send Basic Auth using the global SAP Connection pair for every API.
+The "Approved successfully" / "Rejected successfully" title in the green banner stays exactly as-is. Only the smaller sub-line below it (showing counts) is removed.
