@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { z } from "zod";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -20,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlantSelect } from "@/components/sap/plant-select";
 import {
@@ -30,14 +27,7 @@ import {
   type PriceRow,
 } from "@/lib/sd/price-approval.functions";
 
-type Status = "pending" | "accepted" | "rejected";
-
-const searchSchema = z.object({
-  status: fallback(z.enum(["pending", "accepted", "rejected"]), "pending").default("pending"),
-});
-
 export const Route = createFileRoute("/_authenticated/sd/price")({
-  validateSearch: zodValidator(searchSchema),
   component: PricePage,
 });
 
