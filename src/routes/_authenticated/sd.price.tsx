@@ -255,7 +255,7 @@ function PricePage() {
               onClick={() => decide("accepted")}
               disabled={!canAct || decisionMutation.isPending}
               className="bg-green-600 hover:bg-green-700 text-white"
-              title={status !== "pending" ? "Switch to Pending tab and select rows" : selected.size === 0 ? "Select at least one row" : undefined}
+              title={selected.size === 0 ? "Select at least one row" : undefined}
             >
               {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
