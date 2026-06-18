@@ -176,13 +176,13 @@ function PricePage() {
   });
 
   function decide(action: "accepted" | "rejected") {
-    if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
+    if (selected.size === 0 || decisionMutation.isPending) return;
     const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
     decisionMutation.mutate({ action, rows: selectedRows, user_id: userId.trim() });
   }
 
 
-  const canAct = status === "pending" && selected.size > 0;
+  const canAct = selected.size > 0;
 
   return (
     <div className="space-y-5">
