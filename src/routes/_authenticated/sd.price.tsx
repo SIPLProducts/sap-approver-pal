@@ -55,9 +55,6 @@ function fmtDate(v: string | null) {
 }
 
 function PricePage() {
-  const { status } = Route.useSearch();
-  const navigate = useNavigate({ from: "/_authenticated/sd/price" });
-
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
   const decisionFn = useServerFn(submitPriceDecision);
@@ -105,10 +102,6 @@ function PricePage() {
   });
 
 
-  function setStatus(s: Status) {
-    navigate({ search: (prev: any) => ({ ...prev, status: s }) });
-  }
-
   function execute() {
     const p = plant.trim();
     if (!p) {
@@ -125,24 +118,15 @@ function PricePage() {
     setDecided({});
     setSelected(new Set());
     setLastFetchedAt(null);
-    setStatus("pending");
   }
 
-  // Group rows by current bucket
+  // Show all fetched rows (no tab filtering)
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
-  const visible = useMemo(
-    () => indexed.filter(({ k }) => (decided[k] ?? "pending") === status),
-    [indexed, decided, status],
-  );
-
-  const counts = useMemo(() => {
-    const c = { pending: 0, accepted: 0, rejected: 0 } as Record<Status, number>;
-    for (const { k } of indexed) c[decided[k] ?? "pending"]++;
-    return c;
-  }, [indexed, decided]);
+  const visible = indexed;
 
   const allChecked = visible.length > 0 && visible.every(({ k }) => selected.has(k));
   const someChecked = visible.some(({ k }) => selected.has(k)) && !allChecked;
+
 
   function toggleAll() {
     setSelected((prev) => {
