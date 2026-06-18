@@ -241,7 +241,7 @@ function PricePage() {
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Output — {status}
+              Output
             </div>
             <div className="text-xs text-muted-foreground">
               {visible.length} record{visible.length === 1 ? "" : "s"}
