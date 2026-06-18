@@ -313,7 +313,7 @@ function PricePage() {
                   <td colSpan={14} className="py-12 text-center text-muted-foreground">
                     {rows.length === 0
                       ? "Enter a Plant and click Execute to load price approvals from SAP."
-                      : `No ${status} records.`}
+                      : "No records."}
                   </td>
                 </tr>
               ) : (
