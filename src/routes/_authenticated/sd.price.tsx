@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { z } from "zod";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -20,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlantSelect } from "@/components/sap/plant-select";
 import {
@@ -30,14 +27,7 @@ import {
   type PriceRow,
 } from "@/lib/sd/price-approval.functions";
 
-type Status = "pending" | "accepted" | "rejected";
-
-const searchSchema = z.object({
-  status: fallback(z.enum(["pending", "accepted", "rejected"]), "pending").default("pending"),
-});
-
 export const Route = createFileRoute("/_authenticated/sd/price")({
-  validateSearch: zodValidator(searchSchema),
   component: PricePage,
 });
 
@@ -65,9 +55,6 @@ function fmtDate(v: string | null) {
 }
 
 function PricePage() {
-  const { status } = Route.useSearch();
-  const navigate = useNavigate({ from: "/_authenticated/sd/price" });
-
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
   const decisionFn = useServerFn(submitPriceDecision);
@@ -115,10 +102,6 @@ function PricePage() {
   });
 
 
-  function setStatus(s: Status) {
-    navigate({ search: (prev: any) => ({ ...prev, status: s }) });
-  }
-
   function execute() {
     const p = plant.trim();
     if (!p) {
@@ -135,24 +118,15 @@ function PricePage() {
     setDecided({});
     setSelected(new Set());
     setLastFetchedAt(null);
-    setStatus("pending");
   }
 
-  // Group rows by current bucket
+  // Show all fetched rows (no tab filtering)
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
-  const visible = useMemo(
-    () => indexed.filter(({ k }) => (decided[k] ?? "pending") === status),
-    [indexed, decided, status],
-  );
-
-  const counts = useMemo(() => {
-    const c = { pending: 0, accepted: 0, rejected: 0 } as Record<Status, number>;
-    for (const { k } of indexed) c[decided[k] ?? "pending"]++;
-    return c;
-  }, [indexed, decided]);
+  const visible = indexed;
 
   const allChecked = visible.length > 0 && visible.every(({ k }) => selected.has(k));
   const someChecked = visible.some(({ k }) => selected.has(k)) && !allChecked;
+
 
   function toggleAll() {
     setSelected((prev) => {
@@ -202,13 +176,13 @@ function PricePage() {
   });
 
   function decide(action: "accepted" | "rejected") {
-    if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
+    if (selected.size === 0 || decisionMutation.isPending) return;
     const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
     decisionMutation.mutate({ action, rows: selectedRows, user_id: userId.trim() });
   }
 
 
-  const canAct = status === "pending" && selected.size > 0;
+  const canAct = selected.size > 0;
 
   return (
     <div className="space-y-5">
@@ -261,25 +235,13 @@ function PricePage() {
           </div>
         </div>
 
-        <div className="mt-4 -mx-4 px-4 pt-3 border-t">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <Label className="text-xs text-muted-foreground">Action</Label>
-            <Tabs value={status} onValueChange={(v) => setStatus(v as Status)}>
-              <TabsList>
-                <TabsTrigger value="pending">Pending ({counts.pending})</TabsTrigger>
-                <TabsTrigger value="accepted">Accepted ({counts.accepted})</TabsTrigger>
-                <TabsTrigger value="rejected">Rejected ({counts.rejected})</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
       </Card>
 
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Output — {status}
+              Output
             </div>
             <div className="text-xs text-muted-foreground">
               {visible.length} record{visible.length === 1 ? "" : "s"}
@@ -293,7 +255,7 @@ function PricePage() {
               onClick={() => decide("accepted")}
               disabled={!canAct || decisionMutation.isPending}
               className="bg-green-600 hover:bg-green-700 text-white"
-              title={status !== "pending" ? "Switch to Pending tab and select rows" : selected.size === 0 ? "Select at least one row" : undefined}
+              title={selected.size === 0 ? "Select at least one row" : undefined}
             >
               {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -351,7 +313,7 @@ function PricePage() {
                   <td colSpan={14} className="py-12 text-center text-muted-foreground">
                     {rows.length === 0
                       ? "Enter a Plant and click Execute to load price approvals from SAP."
-                      : `No ${status} records.`}
+                      : "No records."}
                   </td>
                 </tr>
               ) : (
