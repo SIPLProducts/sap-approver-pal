@@ -140,7 +140,7 @@ function CeoDashboard() {
       .slice(0, 6);
   }, [pending]);
 
-  const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--info))", "hsl(var(--gold))", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--destructive))"];
+  const PIE_COLORS = ["var(--primary)", "var(--info)", "var(--gold)", "var(--success)", "var(--warning)", "var(--destructive)"];
 
   const quickFilters: { label: string; to: any; params?: any; icon: any; desc: string }[] = [
     { label: "MM Inbox", to: "/inbox/$module", params: { module: "mm" }, icon: Package, desc: "Materials approvals" },
@@ -268,29 +268,29 @@ function CeoDashboard() {
               <AreaChart data={trend} margin={{ left: -10, right: 8, top: 8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gApp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--success)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--success)" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gRej" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--destructive))" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--destructive)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--destructive)" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gRai" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--info))" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="hsl(var(--info))" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--info)" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="var(--info)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={28} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={28} />
                 <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                  contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: "var(--foreground)", fontWeight: 600 }}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="raised" name="Raised" stroke="hsl(var(--info))" fill="url(#gRai)" strokeWidth={1.5} />
-                <Area type="monotone" dataKey="approved" name="Approved" stroke="hsl(var(--success))" fill="url(#gApp)" strokeWidth={2} />
-                <Area type="monotone" dataKey="rejected" name="Rejected" stroke="hsl(var(--destructive))" fill="url(#gRej)" strokeWidth={1.5} />
+                <Area type="monotone" dataKey="raised" name="Raised" stroke="var(--info)" fill="url(#gRai)" strokeWidth={1.5} />
+                <Area type="monotone" dataKey="approved" name="Approved" stroke="var(--success)" fill="url(#gApp)" strokeWidth={2} />
+                <Area type="monotone" dataKey="rejected" name="Rejected" stroke="var(--destructive)" fill="url(#gRej)" strokeWidth={1.5} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -303,9 +303,9 @@ function CeoDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={modSplit} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
-                  {modSplit.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} stroke="hsl(var(--background))" strokeWidth={2} />)}
+                  {modSplit.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} stroke="var(--background)" strokeWidth={2} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
+                <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -331,15 +331,15 @@ function CeoDashboard() {
           <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byType} margin={{ left: -10, right: 8, top: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={48}
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={48}
                   tickFormatter={(v) => v >= 1e7 ? `${(v / 1e7).toFixed(0)}Cr` : v >= 1e5 ? `${(v / 1e5).toFixed(0)}L` : `${v}`} />
                 <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
                   formatter={(v: any) => fmtCr(Number(v))}
                 />
-                <Bar dataKey="value" name="Value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="value" name="Value" fill="var(--primary)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
