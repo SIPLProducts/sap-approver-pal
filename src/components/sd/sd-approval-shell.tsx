@@ -76,17 +76,20 @@ export function SdApprovalShell({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+    <div className="space-y-6">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">SD Approvals · {tCode}</p>
+          <h1 className="mt-1.5 font-display text-2xl sm:text-3xl font-semibold tracking-tight truncate">{title}</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Badge variant="outline" className="font-mono text-xs">{tCode}</Badge>
           <Badge variant="secondary" className="text-xs">{levels}</Badge>
         </div>
-      </div>
+      </header>
+
+
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
