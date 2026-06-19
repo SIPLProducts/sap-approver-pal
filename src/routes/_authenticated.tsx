@@ -126,8 +126,15 @@ function AuthenticatedLayout() {
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Workspaces</div>
-          <Link to="/inbox/mm" onClick={() => setOpen(false)}
+          <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Executive</div>
+          <Link to="/dashboard" onClick={() => setOpen(false)}
+            className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/dashboard") ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
+            {pathname.startsWith("/dashboard") && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+            <LayoutDashboard className="h-4 w-4 shrink-0" /> <span className="truncate">CEO Dashboard</span>
+          </Link>
+
+          <div className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Workspaces</div>
+          <Link to="/inbox/$module" params={{ module: "mm" }} onClick={() => setOpen(false)}
             className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/inbox/mm") ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
             {pathname.startsWith("/inbox/mm") && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
             <Package className="h-4 w-4 shrink-0" /> <span className="truncate">MM Approvals</span>
