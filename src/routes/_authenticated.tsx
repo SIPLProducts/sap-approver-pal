@@ -113,88 +113,103 @@ function AuthenticatedLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-dvh bg-background flex">
       {/* Sidebar */}
       <aside className={`fixed lg:static z-40 inset-y-0 left-0 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
-          <div className="rounded-md bg-white px-2 py-1.5 shadow-card flex items-center">
+        <div className="px-4 py-4 flex items-center gap-3 border-b border-sidebar-border">
+          <div className="rounded-lg bg-white px-2 py-1.5 shadow-card flex items-center">
             <BrandLogo className="h-7" />
           </div>
           <div className="min-w-0">
-            <div className="font-display font-semibold leading-tight text-sm">Re Sustainability</div>
-            <div className="text-[11px] text-sidebar-foreground/60">SAP Approvals Suite</div>
+            <div className="font-display font-semibold leading-tight text-[13px] tracking-tight">Re Sustainability</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/55">Executive Approvals</div>
           </div>
         </div>
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Workspaces</div>
           <Link to="/inbox/mm" onClick={() => setOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/inbox/mm") ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
-            <Package className="h-4 w-4" /> MM Approvals
+            className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/inbox/mm") ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
+            {pathname.startsWith("/inbox/mm") && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+            <Package className="h-4 w-4 shrink-0" /> <span className="truncate">MM Approvals</span>
           </Link>
 
           {/* SD Approvals expandable group */}
           <button
             type="button"
             onClick={() => setSdExpanded((v) => !v)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "text-sidebar-foreground" : "text-sidebar-foreground/80"} hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}
+            className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}
           >
-            <Truck className="h-4 w-4" />
-            <span className="flex-1 text-left">SD Approvals</span>
-            <ChevronDown className={`h-4 w-4 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />
+            {sdOpen && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+            <Truck className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-left truncate">SD Approvals</span>
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />
           </button>
           {sdExpanded && (
-            <div className="ml-3 pl-3 border-l border-sidebar-border space-y-1">
+            <div className="ml-5 pl-3 border-l border-sidebar-border/70 space-y-0.5 mt-0.5 mb-1">
               {sdChildren.map((it) => {
                 const active = pathname.startsWith(it.to);
                 const Icon = it.icon;
                 return (
                   <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-colors ${active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
-                    <Icon className="h-3.5 w-3.5" /> {it.label}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] transition-colors ${active ? "bg-sidebar-primary/15 text-sidebar-primary-foreground/95 font-medium" : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
+                    <Icon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{it.label}</span>
                   </Link>
                 );
               })}
             </div>
           )}
 
+          <div className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Manage</div>
           {nav_items.slice(1).map((it) => {
             const active = pathname.startsWith(it.to);
             const Icon = it.icon;
             return (
               <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
-                <Icon className="h-4 w-4" /> {it.label}
+                className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
+                {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+                <Icon className="h-4 w-4 shrink-0" /> <span className="truncate">{it.label}</span>
               </Link>
             );
           })}
         </nav>
         <div className="p-3 border-t border-sidebar-border space-y-2">
-          <div className="px-2 text-xs text-sidebar-foreground/60 truncate">{profile?.full_name || user.email}</div>
-          <div className="px-2 flex flex-wrap gap-1">
-            {(roles ?? []).slice(0, 4).map((r) => <Badge key={r} variant="secondary" className="text-[10px]">{r}</Badge>)}
-            {!roles?.length && <span className="text-[10px] text-sidebar-foreground/60">No roles assigned</span>}
+          <div className="flex items-center gap-3 px-2 py-1.5 rounded-md bg-sidebar-accent/40">
+            <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-primary text-primary-foreground grid place-items-center text-xs font-semibold">
+              {(profile?.full_name || user.email || "?").charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-medium truncate text-sidebar-foreground">{profile?.full_name || user.email}</div>
+              <div className="text-[10px] text-sidebar-foreground/55 truncate">{(roles ?? []).join(" · ") || "No roles"}</div>
+            </div>
           </div>
-          <Button onClick={logout} variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent">
+          <Button onClick={logout} variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/75 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent">
             <LogOut className="h-4 w-4 mr-2" /> Sign out
           </Button>
         </div>
       </aside>
 
-      {open && <div className="lg:hidden fixed inset-0 bg-black/40 z-30" onClick={() => setOpen(false)} />}
+      {open && <div className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-30" onClick={() => setOpen(false)} />}
 
-      <div className="flex-1 min-w-0">
-        <header className="h-14 border-b bg-card flex items-center gap-3 px-4 lg:px-6 sticky top-0 z-20">
-          <button className="lg:hidden text-muted-foreground" onClick={() => setOpen(true)} aria-label="Open menu">☰</button>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 lg:px-6 sticky top-0 z-20">
+          <button className="lg:hidden text-muted-foreground p-2 -ml-2 rounded-md hover:bg-accent" onClick={() => setOpen(true)} aria-label="Open menu">
+            <span className="text-lg leading-none">☰</span>
+          </button>
           <div className="lg:hidden flex items-center"><BrandLogo className="h-7" /></div>
+          <div className="hidden lg:flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+            Live · SAP synced
+          </div>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={pullSap}>
-            <RefreshCcw className="h-4 w-4 mr-2" /> <span className="hidden sm:inline">Sync SAP</span>
+          <Button variant="outline" size="sm" onClick={pullSap} className="h-9">
+            <RefreshCcw className="h-3.5 w-3.5 mr-2" /> <span className="hidden sm:inline">Sync SAP</span>
           </Button>
-          <Link to="/notifications" className="relative p-2 rounded-md hover:bg-accent">
-            <Bell className="h-5 w-5" />
-            {unread > 0 && <span className="absolute top-0 right-0 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] grid place-items-center">{unread}</span>}
+          <Link to="/notifications" className="relative h-9 w-9 grid place-items-center rounded-md hover:bg-accent" aria-label="Notifications">
+            <Bell className="h-4 w-4" />
+            {unread > 0 && <span className="absolute top-1 right-1 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums">{unread}</span>}
           </Link>
         </header>
-        <main className="p-4 lg:p-6"><Outlet /></main>
+        <main className="flex-1 p-4 lg:p-8 max-w-[1600px] w-full mx-auto"><Outlet /></main>
       </div>
     </div>
   );
