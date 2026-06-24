@@ -129,11 +129,10 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
     //   - global connection_mode === 'via_proxy' AND a middleware URL is set.
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
-      !!(globalSettings?.middleware_url || cfg.middleware_url);
+      !!(globalSettings?.middleware_url);
     const useProxy = cfg.auth_type === "proxy" || globalProxy;
     const middlewareUrl =
-      (cfg.middleware_url && cfg.middleware_url.trim()) ||
-      (globalSettings?.middleware_url?.trim() ?? null);
+      globalSettings?.middleware_url?.trim() || null;
 
     let target: string;
     let method: string = cfg.http_method ?? "GET";
@@ -372,11 +371,10 @@ export const submitPriceDecision = createServerFn({ method: "POST" })
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
-      !!(globalSettings?.middleware_url || cfg.middleware_url);
+      !!(globalSettings?.middleware_url);
     const useProxy = cfg.auth_type === "proxy" || globalProxy;
     const middlewareUrl =
-      (cfg.middleware_url && cfg.middleware_url.trim()) ||
-      (globalSettings?.middleware_url?.trim() ?? null);
+      globalSettings?.middleware_url?.trim() || null;
 
     let target: string;
     let method: string = cfg.http_method ?? "PUT";
