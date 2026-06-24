@@ -1,85 +1,60 @@
-# Fix: Middleware URL behaving inconsistently across ngrok URLs
+## Root cause
 
-## Root cause (verified — nothing is hardcoded)
+The Sales Order approve/reject payload built by the app is correct (DATA contains the row). The problem is in the middleware route mapping — SAP receives an empty / collapsed body because the request takes the wrong code path.
 
-I searched the entire codebase for `ngrok`, `donation-pantyhose`, `worsening-doodle`, and `middleware_url`. There is **no hardcoded middleware URL anywhere in the app** — every SAP call reads the URL from the database at runtime.
+### What happens today
 
-The real cause is a **per-API override sitting in the database** that silently wins over the global Middleware Configuration you edit on the SAP API Settings screen.
-
-Every approval flow (Price, Contract, Sales Order, Service Certificate) resolves the middleware URL with this rule:
-
+App posts to:
 ```
-effectiveUrl = sap_api_configs.middleware_url  // per-API override
-            ?? sap_global_settings.middleware_url  // global setting
+POST {middleware}/sales_order_approval/Sales_Order_Approve_Reject
+body: { "inputs": { USER_ID, APPROV, REJ, DATA: [...] } }
 ```
 
-Checking the data right now:
+Middleware (`middleware/server.js` line 646) only registers:
+```
+/sales_order_approval/Sales_Approve_Reject   →   config "Sales_Approve_Reject"
+```
 
-- `sap_global_settings.middleware_url` = `https://donation-pantyhose-starter.ngrok-free.dev`
-- `sap_api_configs` row **`Price_Approval_Fetch`** has its own `middleware_url` = `https://donation-pantyhose-starter.ngrok-free.dev` (stale)
-- All other API rows have `middleware_url = NULL` (correctly falling back to global)
+So `/Sales_Order_Approve_Reject` (with `Order_`) returns **404 "Cannot POST …"**. The app's fallback in `submitSalesOrderDecision` then re-posts to `/sap/invoke`, which runs `invokeSap` → `buildRequestPayload(cfg.requestFields, inputs)`. That builder maps **only** the scalar request fields configured for the API (USER_ID / APPROV / REJ) and silently drops `DATA` (because `DATA` is an array, not a configured scalar `request_field`). SAP therefore receives an empty `DATA` ⇒ "0 rows".
 
-So when you change the global URL to a fresh ngrok (e.g. `worsening-doodle-floral.ngrok-free.app`):
-
-- Contract / Sales Order / Service Certificate approvals → use the new global URL → work.
-- Price approval (Fetch) → still hits the stale `donation-pantyhose-starter.ngrok-free.dev` from the per-API override → "works for a while then stops" / 404.
-
-There is also a subtle issue: the working URL you mentioned ends in `.ngrok-free.app`, but the stored one ends in `.ngrok-free.dev`. Different TLD = different (dead) tunnel.
+Contract approve/reject works because its app path and middleware path match exactly (`/contract_approval/Contract_Approve_Reject` ↔ config `Contract_Approve_Reject`, raw passthrough preserves `DATA`).
 
 ## Fix
 
-Two parts — one data cleanup, one code change so this can't recur.
+Single-line middleware change so the SO write endpoint is also a raw passthrough and the route + config name match what the app already sends.
 
-### 1. Data cleanup (one SQL migration)
+### `middleware/server.js` (line 646)
 
-Null out every per-API `middleware_url` so all APIs fall back to the single global setting:
-
-```sql
-UPDATE public.sap_api_configs SET middleware_url = NULL;
+Change:
+```js
+namedRawInvokeRoute("/sales_order_approval/Sales_Approve_Reject", "Sales_Approve_Reject");
+```
+to:
+```js
+namedRawInvokeRoute("/sales_order_approval/Sales_Order_Approve_Reject", "Sales_Order_Approve_Reject");
 ```
 
-After this, only the value in **SAP API Settings → Middleware Configuration** controls where SAP calls go, exactly as you expect.
+This makes the middleware:
+- expose the path the app calls (`…/Sales_Order_Approve_Reject`)
+- load the SAP API config the user already has (`Sales_Order_Approve_Reject`)
+- use **raw passthrough** (`invokeSapRaw`), which forwards `inputs` verbatim to SAP — preserving the full `DATA` array
 
-### 2. Code change — stop using the per-API override
+### Required user action
 
-In all five server modules, change the resolution to use the **global setting only** and ignore `cfg.middleware_url`:
+Restart the local middleware (`node server.js` / Windows service) after the change so the new route is registered. No DB / SAP config change is needed.
 
-- `src/lib/sd/price-approval.functions.ts` (2 spots)
-- `src/lib/sd/contract-approval.functions.ts` (2 spots)
-- `src/lib/sd/sales-order-approval.functions.ts` (2 spots)
-- `src/lib/sd/sc-so-approval.functions.ts` (2 spots)
-- `src/lib/admin/sap-api.functions.ts` (test-connection path already uses global only — leave as is)
+### How to verify
 
-Replace:
+1. Restart middleware; in its console, on approval click you should see:
+   ```
+   [raw-invoke] PUT <sap-url> payload= {"USER_ID":"…","APPROV":"X","REJ":"","DATA":[{…}]}
+   ```
+   instead of a 404 + `/sap/invoke` log.
+2. SAP response should report 1 row processed (not 0).
+3. Re-run with reject to confirm both branches.
 
-```ts
-const middlewareUrl =
-  (cfg.middleware_url && cfg.middleware_url.trim()) ||
-  (globalSettings?.middleware_url?.trim() ?? null);
-```
+### Out of scope
 
-with:
-
-```ts
-const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
-```
-
-Also drop `middleware_url` from the `sap_api_configs` select in those same files (cosmetic, keeps the query tight).
-
-### 3. Admin UI — hide the per-API middleware URL field
-
-`src/routes/_authenticated/admin.sap-api.$id.tsx` currently exposes a per-API "Middleware URL" input that re-introduces the same drift. Remove that field from the form so the only place to set it is **SAP API Settings → Middleware Configuration**. The DB column stays (for backward compatibility) but is no longer writable from the UI and no longer read by the runtime.
-
-## Result
-
-- No hardcoded URLs anywhere (already true, confirmed).
-- A single source of truth: `sap_global_settings.middleware_url`.
-- Changing the global URL takes effect immediately for every approval flow.
-- Any valid ngrok URL (`.ngrok-free.app`, paid custom domain, self-hosted) will work consistently.
-
-## Technical notes
-
-- Migration is a single `UPDATE` — safe, idempotent, no schema change.
-- Code change is mechanical (~10 edits across 4 files).
-- No change to `sap_global_settings` schema or to the Middleware Configuration screen you're already using.
-- After deploy, re-test by saving a fresh ngrok URL in Middleware Configuration and running a Price approval (the one that was failing).
+- No changes to `src/lib/sd/sales-order-approval.functions.ts` — the payload it builds is already correct.
+- No DB migration.
+- Other approval flows (Price, Contract, SC/SO, Service Certificate) are unaffected.
