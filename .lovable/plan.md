@@ -1,89 +1,85 @@
-## Executive Redesign — CFO/CEO grade across mobile, tablet, laptop
+# Fix: Middleware URL behaving inconsistently across ngrok URLs
 
-Goal: lift the entire experience to a world-class enterprise-finance aesthetic — restrained, precise, dense, fast to scan — without changing any business logic, API calls, or data shapes.
+## Root cause (verified — nothing is hardcoded)
 
-### 1. Brand-derived design system (`src/styles.css`)
+I searched the entire codebase for `ngrok`, `donation-pantyhose`, `worsening-doodle`, and `middleware_url`. There is **no hardcoded middleware URL anywhere in the app** — every SAP call reads the URL from the database at runtime.
 
-Anchor on the RESL logo: signature red on a deep graphite-slate field, with warm ivory surfaces and a single quiet gold accent for status / emphasis.
+The real cause is a **per-API override sitting in the database** that silently wins over the global Middleware Configuration you edit on the SAP API Settings screen.
 
-- Light surfaces: ivory `#FAF8F4`, paper `#F2EFE8`, ink `#0E1116`.
-- Deep field (sidebar, hero, exec headers): graphite `#0E1116` → slate `#1A1F2A`.
-- Primary brand red kept (RESL mark), tightened to oklch(0.55 0.21 27); add `--brand-deep` for hover/pressed.
-- Accent gold `#C9A24A` for KPI highlights, approval streaks, badge edges (used sparingly — never as fill on large surfaces).
-- Status tokens retained but tuned for AA contrast on both ivory and graphite.
-- New tokens: `--surface-elevated`, `--surface-sunken`, `--rule` (1px hairline), `--shadow-exec` (soft, low, long), `--gradient-exec-hero`, `--ring-focus`.
-- Radii tightened to 8 / 12 / 16; chips 999px.
+Every approval flow (Price, Contract, Sales Order, Service Certificate) resolves the middleware URL with this rule:
 
-### 2. Typography (Urbanist + Epilogue)
+```
+effectiveUrl = sap_api_configs.middleware_url  // per-API override
+            ?? sap_global_settings.middleware_url  // global setting
+```
 
-- Install `@fontsource-variable/urbanist` and `@fontsource-variable/epilogue`; load in `src/start.ts` / `__root.tsx` per stack rules.
-- `--font-display: "Urbanist Variable"` for H1/H2/section titles and KPI numbers (tabular nums, -0.02em tracking).
-- `--font-sans: "Epilogue Variable"` for body, tables, forms.
-- Numeric: `font-variant-numeric: tabular-nums` on all amounts, IDs, dates.
+Checking the data right now:
 
-### 3. Login / landing (`src/routes/login.tsx`)
+- `sap_global_settings.middleware_url` = `https://donation-pantyhose-starter.ngrok-free.dev`
+- `sap_api_configs` row **`Price_Approval_Fetch`** has its own `middleware_url` = `https://donation-pantyhose-starter.ngrok-free.dev` (stale)
+- All other API rows have `middleware_url = NULL` (correctly falling back to global)
 
-Split-screen on ≥md, single-column on mobile.
+So when you change the global URL to a fresh ngrok (e.g. `worsening-doodle-floral.ngrok-free.app`):
 
-- Left (60%): deep graphite canvas with subtle dotted grid + soft radial brand-red glow bottom-left; large Urbanist wordmark "Approvals, decided." with one-line subline ("Executive approvals for sales orders, contracts, pricing and service certificates."); three small KPI chips at bottom (Pending today / Avg. decision time / Approved this month — static visual proof).
-- Right (40%): ivory card, RESL mark top, "Sign in" H2, email + password, "Continue with Google" secondary, footer micro-legal. Tight 12px field spacing, 44px tap targets.
-- Mobile: deep band as compact hero (35vh) with mark + title, form below on ivory.
+- Contract / Sales Order / Service Certificate approvals → use the new global URL → work.
+- Price approval (Fetch) → still hits the stale `donation-pantyhose-starter.ngrok-free.dev` from the per-API override → "works for a while then stops" / 404.
 
-### 4. App shell & navigation
+There is also a subtle issue: the working URL you mentioned ends in `.ngrok-free.app`, but the stored one ends in `.ngrok-free.dev`. Different TLD = different (dead) tunnel.
 
-- Sidebar: graphite, Urbanist labels in 13px uppercase tracked, brand-red rail indicator on active route, gold dot for unread approval count.
-- Top bar: breadcrumb (Epilogue 13px), global search (`⌘K`), notifications, user menu — hairline divider, no shadow.
-- Mobile: collapses to bottom tab bar (Inbox, History, Notifications, Profile) + hamburger for modules; tablet keeps rail sidebar collapsed to icons.
+## Fix
 
-### 5. Inbox / approvals home (`src/routes/_authenticated/inbox.index.tsx` + `inbox.$module.tsx`)
+Two parts — one data cleanup, one code change so this can't recur.
 
-Dense dashboard density per preference.
+### 1. Data cleanup (one SQL migration)
 
-- Executive header strip: 4 KPI tiles (Pending, Overdue, Approved 7d, Rejected 7d) — large Urbanist numbers, delta vs last week, sparkline, gold underline on the lead KPI.
-- Module rail: Sales Order / Contract / Price / Service Cert + SO — pill tabs with live counts.
-- Data table (desktop/tablet): zebra-free, hairline rows, sticky header, columns = ID • Customer • Amount (right-aligned tabular) • Aging • Requested by • SLA bar • Actions. Row hover reveals quick-approve / quick-reject icon buttons; multi-select with sticky bulk-action bar.
-- Filters: collapsible left drawer (Date, Amount band, Plant, Sales Org, Status) — persists in URL.
-- Mobile: each row becomes a tight card — ID + amount on first line, customer + aging on second, swipe-right approve / swipe-left reject, tap opens detail.
+Null out every per-API `middleware_url` so all APIs fall back to the single global setting:
 
-### 6. Approval detail screens (Sales Order, Contract, Price, SC & SO)
+```sql
+UPDATE public.sap_api_configs SET middleware_url = NULL;
+```
 
-Three-pane on laptop, two-pane on tablet, stacked sheets on mobile. No logic changes — only layout/typography.
+After this, only the value in **SAP API Settings → Middleware Configuration** controls where SAP calls go, exactly as you expect.
 
-- Header card: customer name (Urbanist 24), doc reference + plant + sales org chips, big amount right-aligned, status pill, "Approve / Reject" primary action cluster pinned top-right (also pinned bottom on mobile).
-- Left pane: meta grid (dates, terms, references) in 2-column dense key/value rows, hairline separators, no boxes.
-- Center pane: line-items table — sticky header, tabular numerics, subtle group totals, expand-row for tax/discount breakdown.
-- Right pane (collapsible): approval trail (timeline), prior approvers, attachments, comments.
-- Reject modal keeps existing reason flow; restyle only.
-- Existing SAP response SweetAlert is preserved as-is (already simplified to TYPE + message per prior change).
+### 2. Code change — stop using the per-API override
 
-### 7. Responsiveness rules applied everywhere
+In all five server modules, change the resolution to use the **global setting only** and ignore `cfg.middleware_url`:
 
-- Header rows: `grid-cols-[minmax(0,1fr)_auto]` on mobile, promote to flex at `sm:`; `min-w-0` on text containers, `shrink-0` on icons, `truncate` on titles.
-- All page heights use `h-dvh` not `h-screen`.
-- Tap targets ≥44px; icon-only buttons get `aria-label`.
-- Tables: horizontal scroll inside a card on tablet/mobile, with frozen first column for ID.
-- Preview viewport switched to desktop for QA, then tablet, then mobile.
+- `src/lib/sd/price-approval.functions.ts` (2 spots)
+- `src/lib/sd/contract-approval.functions.ts` (2 spots)
+- `src/lib/sd/sales-order-approval.functions.ts` (2 spots)
+- `src/lib/sd/sc-so-approval.functions.ts` (2 spots)
+- `src/lib/admin/sap-api.functions.ts` (test-connection path already uses global only — leave as is)
 
-### 8. Out of scope (explicitly unchanged)
+Replace:
 
-- All `createServerFn` handlers, SAP API routes, middleware passthrough, payload shapes.
-- The approve/reject SweetAlert content and the recently-simplified SAP response modal.
-- Auth flow, RLS, user-roles, route tree generation.
+```ts
+const middlewareUrl =
+  (cfg.middleware_url && cfg.middleware_url.trim()) ||
+  (globalSettings?.middleware_url?.trim() ?? null);
+```
 
-### Files to edit / add
+with:
 
-- `src/styles.css` — tokens, gradients, shadows, fonts.
-- `src/start.ts` or `src/routes/__root.tsx` — font imports.
-- `src/components/brand-logo.tsx` — sizing variants + optional wordmark.
-- `src/components/ui/*` — light variant tweaks via class (no API changes) for `button`, `card`, `badge`, `table`, `input`.
-- New: `src/components/exec/kpi-tile.tsx`, `sla-bar.tsx`, `page-header.tsx`, `data-toolbar.tsx`, `executive-shell.tsx` (optional wrapper around existing `_authenticated.tsx`).
-- `src/routes/login.tsx` — split hero layout.
-- `src/routes/_authenticated.tsx` — sidebar + topbar + mobile tab bar.
-- `src/routes/_authenticated/inbox.index.tsx`, `inbox.$module.tsx` — KPI strip + dense table/card list.
-- `src/routes/_authenticated/sd.sales-order.tsx`, `sd.contract.tsx`, `sd.price.tsx`, `sd.sc-so.tsx` — three-pane detail layout.
+```ts
+const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
+```
 
-### Verification
+Also drop `middleware_url` from the `sap_api_configs` select in those same files (cosmetic, keeps the query tight).
 
-1. Build passes; route tree unchanged.
-2. Visual QA via Playwright at 1440, 1024, 768, 390 widths — screenshot login, inbox, one approval detail.
-3. Confirm Approve / Reject still hits the same endpoints with the same payloads (no functional drift).
+### 3. Admin UI — hide the per-API middleware URL field
+
+`src/routes/_authenticated/admin.sap-api.$id.tsx` currently exposes a per-API "Middleware URL" input that re-introduces the same drift. Remove that field from the form so the only place to set it is **SAP API Settings → Middleware Configuration**. The DB column stays (for backward compatibility) but is no longer writable from the UI and no longer read by the runtime.
+
+## Result
+
+- No hardcoded URLs anywhere (already true, confirmed).
+- A single source of truth: `sap_global_settings.middleware_url`.
+- Changing the global URL takes effect immediately for every approval flow.
+- Any valid ngrok URL (`.ngrok-free.app`, paid custom domain, self-hosted) will work consistently.
+
+## Technical notes
+
+- Migration is a single `UPDATE` — safe, idempotent, no schema change.
+- Code change is mechanical (~10 edits across 4 files).
+- No change to `sap_global_settings` schema or to the Middleware Configuration screen you're already using.
+- After deploy, re-test by saving a fresh ngrok URL in Middleware Configuration and running a Price approval (the one that was failing).
