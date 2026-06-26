@@ -585,7 +585,7 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
               </TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex items-center gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => onEditRole?.(r)}>
+                  <Button size="icon" variant="ghost" onClick={() => handleEdit(r)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)}>
