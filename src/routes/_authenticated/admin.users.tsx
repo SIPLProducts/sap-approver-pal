@@ -718,11 +718,28 @@ function CreateUserDialog({
   onCreated: () => void;
 }) {
   const createFn = useServerFn(createUserViaSap);
+  const listRolesFn = useServerFn(listRolesForPlants);
   const [form, setForm] = useState(emptyForm);
   const [plants, setPlants] = useState<string[]>([]);
-  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const sortedPlants = useMemo(() => [...plants].sort(), [plants]);
+  const rolesQuery = useQuery({
+    queryKey: ["sap-roles-for-plants", sortedPlants],
+    queryFn: () => listRolesFn({ data: { plants: sortedPlants } }),
+    enabled: sortedPlants.length > 0,
+    staleTime: 60_000,
+  });
+  const roleOptions = rolesQuery.data?.roles ?? [];
+
+  // Drop selected roles that are no longer available for the chosen plants.
+  useMemo(() => {
+    if (!rolesQuery.data) return;
+    setRoles((prev) => prev.filter((r) => roleOptions.includes(r)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolesQuery.data]);
 
   function reset() {
     setForm(emptyForm());
