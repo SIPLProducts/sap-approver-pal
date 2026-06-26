@@ -1,31 +1,14 @@
 ## Plan
 
-**Goal:** Stop SAP rejecting role creation with `ROLE and ACTIVITY are mandatory`.
+**Goal:** Remove the built-in roles list ("dummy" roles like Admin, F1, F2, M1, etc.) from the Role Permissions screen so only real custom roles created via SAP are selectable.
 
-**What I found:** The active role-create config fields are named `CREATE.ROLE`, `CREATE.ROLE_DES`, `CREATE.ACTIVITY[].ACTIVITY`, and `CREATE.ACTIVITY[].RELEASE_CODE`. The middleware only reads exact top-level input keys, so it currently builds a broken SAP body with literal dotted keys instead of the nested JSON SAP expects.
+**Changes to `src/routes/_authenticated/admin.users.tsx` → `PermissionsTab`:**
 
-**Implementation:**
-1. Update `createCustomRoleViaSap` to call the middleware with input keys that exactly match the configured field names:
-   - `CREATE.ROLE`
-   - `CREATE.ROLE_DES`
-   - `CREATE.ACTIVITY[].ACTIVITY`
-   - `CREATE.ACTIVITY[].RELEASE_CODE`
-2. Update the active role-create API config in the backend so its request field is a single top-level `CREATE` field when needed, allowing the middleware to send this exact payload to SAP:
+1. Drop the `builtin:` branch entirely from the role selector:
+   - Remove the "Built-in roles" group label and the `ALL_ROLES.map(...)` `<SelectItem>` block.
+   - Keep only the custom roles listed (no "Custom roles" header needed since it's the only group).
+2. Default `target` to the first available custom role instead of `"builtin:Admin"`. Show an empty state in the matrix when no custom roles exist ("Create a custom role first").
+3. Simplify the permission query and `toggle()` to always use `custom_role_id` (remove the `built_in_role` branches in this component only).
+4. Leave `ALL_ROLES` / `ROLE_LABELS` imports untouched if still used elsewhere in the file (they are — assignment dropdowns on the Users tab). Only remove unused references inside `PermissionsTab`.
 
-```json
-{
-  "CREATE": {
-    "ROLE": "APPROVER",
-    "ROLE_DES": "Sales Approver",
-    "ACTIVITY": [
-      { "ACTIVITY": "APPROVE", "RELEASE_CODE": "01" },
-      { "ACTIVITY": "REJECT", "RELEASE_CODE": "02" }
-    ]
-  }
-}
-```
-
-3. Keep the current SAP error handling so the app shows failure when SAP returns `status: ERROR` instead of showing success.
-4. Add/keep audit logging of the exact request and response so we can verify the next SAP call.
-
-**Validation:** Create a role once, then confirm the audit log shows the nested `CREATE` payload and SAP no longer returns mandatory-field error.
+**Out of scope:** No changes to the database, the `role_permissions` table, the Users tab, or built-in role assignment elsewhere. Existing built-in role permission rows in the DB remain but are no longer editable from this screen.

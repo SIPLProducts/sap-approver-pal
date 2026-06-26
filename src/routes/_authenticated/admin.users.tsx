@@ -633,18 +633,24 @@ function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) 
  * ============================================================ */
 function PermissionsTab() {
   const qc = useQueryClient();
-  const [target, setTarget] = useState<string>("builtin:Admin");
+  const [target, setTarget] = useState<string>("");
 
   const { data: customRoles = [] } = useQuery({
     queryKey: ["admin-custom-roles-simple"],
     queryFn: async () => (await supabase.from("custom_roles").select("id, name").order("name")).data ?? [],
   });
+
+  useEffect(() => {
+    if (!target && customRoles.length > 0) {
+      setTarget(`custom:${customRoles[0].id}`);
+    }
+  }, [customRoles, target]);
+
   const { data: perms = [] } = useQuery({
     queryKey: ["role-permissions", target],
+    enabled: target.startsWith("custom:"),
     queryFn: async () => {
-      const q = supabase.from("role_permissions").select("*");
-      if (target.startsWith("builtin:")) q.eq("built_in_role", target.slice(8) as AppRole);
-      else q.eq("custom_role_id", target.slice(7));
+      const q = supabase.from("role_permissions").select("*").eq("custom_role_id", target.slice(7));
       return (await q).data ?? [];
     },
   });
@@ -652,11 +658,10 @@ function PermissionsTab() {
   const allowedSet = useMemo(() => new Set(perms.filter((p) => p.allowed).map((p) => `${p.screen_key}:${p.action}`)), [perms]);
 
   async function toggle(screen: string, action: string) {
+    if (!target.startsWith("custom:")) return;
     const key = `${screen}:${action}`;
     const allowed = !allowedSet.has(key);
-    const row: any = { screen_key: screen, action, allowed };
-    if (target.startsWith("builtin:")) row.built_in_role = target.slice(8);
-    else row.custom_role_id = target.slice(7);
+    const row: any = { screen_key: screen, action, allowed, custom_role_id: target.slice(7) };
 
     const existing = perms.find((p) => p.screen_key === screen && p.action === action);
     if (existing) {
@@ -672,20 +677,23 @@ function PermissionsTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="font-medium">Role permission matrix</p>
-          <p className="text-sm text-muted-foreground">Toggles persist immediately. Select a role to load its current allowed permissions.</p>
+          <p className="text-sm text-muted-foreground">Toggles persist immediately. Select a custom role to load its current allowed permissions.</p>
         </div>
-        <Select value={target} onValueChange={setTarget}>
-          <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
+        <Select value={target} onValueChange={setTarget} disabled={customRoles.length === 0}>
+          <SelectTrigger className="w-72">
+            <SelectValue placeholder={customRoles.length === 0 ? "No custom roles yet" : "Select a role"} />
+          </SelectTrigger>
           <SelectContent className="max-h-80">
-            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Built-in roles</div>
-            {ALL_ROLES.map((r) => <SelectItem key={r} value={`builtin:${r}`}>{ROLE_LABELS[r]}</SelectItem>)}
-            {customRoles.length > 0 && <div className="px-2 py-1 text-xs font-semibold text-muted-foreground mt-2">Custom roles</div>}
             {customRoles.map((r) => <SelectItem key={r.id} value={`custom:${r.id}`}>{r.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
 
-      {SCREEN_GROUPS.map((g) => (
+      {customRoles.length === 0 ? (
+        <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
+          No custom roles yet. Create a custom role first to manage its permissions.
+        </div>
+      ) : SCREEN_GROUPS.map((g) => (
         <div key={g.module}>
           <h3 className="font-semibold mb-2 text-sm tracking-wide uppercase text-muted-foreground">{g.module}</h3>
           <div className="rounded-md border overflow-x-auto">
@@ -713,6 +721,7 @@ function PermissionsTab() {
     </Card>
   );
 }
+
 
 /* ============================================================
  * APPROVAL MATRIX TAB
