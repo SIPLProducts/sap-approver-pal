@@ -18,7 +18,10 @@ import { ROLE_LABELS, type AppRole } from "@/lib/approvals/constants";
 import { SCREEN_GROUPS, PERMISSION_ACTIONS } from "@/lib/admin/screen-keys";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { X, UserPlus, Search, Trash2, Plus, ShieldCheck, Building2 } from "lucide-react";
+import {
+  X, UserPlus, Search, Trash2, Plus, ShieldCheck, Building2,
+  UsersRound, UserCog, RefreshCw, Pencil, UserX,
+} from "lucide-react";
 import { inviteUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
@@ -26,6 +29,11 @@ export const Route = createFileRoute("/_authenticated/admin/users")({
 });
 
 const ALL_ROLES = Object.keys(ROLE_LABELS) as AppRole[];
+const ADMIN_ROLES: AppRole[] = ["Admin"];
+const HEAD_ROLE_KEYS: AppRole[] = [
+  "PlantHead", "SCMHead", "StoreHOD", "ProjectHead", "FinanceHead", "HOD",
+  "M1", "S4", "T6",
+];
 
 function UserManagementPage() {
   const [tab, setTab] = useState("users");
@@ -38,21 +46,30 @@ function UserManagementPage() {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
-          <p className="text-sm text-muted-foreground">Manage users, roles, permissions, and per-tenant approval matrix.</p>
+      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="hidden sm:flex h-10 w-10 rounded-lg bg-primary/10 text-primary items-center justify-center mt-0.5">
+            <UserCog className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">User &amp; Role Management</h1>
+            <p className="text-sm text-muted-foreground">
+              Create user accounts, assign roles (from Role Management), and manage access
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          <Select value={tenantScope} onValueChange={setTenantScope}>
-            <SelectTrigger className="w-56"><SelectValue placeholder="Tenant scope" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Tenants</SelectItem>
-              {tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name} ({t.code})</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+        {tab !== "users" && (
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Select value={tenantScope} onValueChange={setTenantScope}>
+              <SelectTrigger className="w-56"><SelectValue placeholder="Tenant scope" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tenants</SelectItem>
+                {tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name} ({t.code})</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </header>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
@@ -73,13 +90,42 @@ function UserManagementPage() {
 }
 
 /* ============================================================
+ * KPI TILE
+ * ============================================================ */
+function KpiTile({
+  icon: Icon, value, label, tone,
+}: {
+  icon: typeof UsersRound;
+  value: number;
+  label: string;
+  tone: "primary" | "destructive" | "accent" | "muted";
+}) {
+  const toneCls =
+    tone === "primary" ? "bg-primary/10 text-primary"
+    : tone === "destructive" ? "bg-destructive/10 text-destructive"
+    : tone === "accent" ? "bg-accent text-accent-foreground"
+    : "bg-muted text-muted-foreground";
+  return (
+    <Card className="p-4 flex items-center gap-3">
+      <div className={`h-11 w-11 rounded-lg flex items-center justify-center ${toneCls}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-2xl font-bold leading-tight">{value}</div>
+        <div className="text-sm text-muted-foreground">{label}</div>
+      </div>
+    </Card>
+  );
+}
+
+/* ============================================================
  * USERS TAB
  * ============================================================ */
 function UsersTab({ tenants }: { tenants: any[] }) {
   const qc = useQueryClient();
   const { user: me } = useAuth();
   const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState<string>("all");
+  const [plantFilter, setPlantFilter] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const inviteFn = useServerFn(inviteUser);
   const deleteFn = useServerFn(deleteUser);
@@ -105,14 +151,26 @@ function UsersTab({ tenants }: { tenants: any[] }) {
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return profiles.filter((p) => {
-      if (s && !`${p.full_name ?? ""} ${p.email ?? ""}`.toLowerCase().includes(s)) return false;
-      if (filterRole !== "all") {
-        const userRoles = roles.filter((r) => r.user_id === p.id).map((r) => r.role);
-        if (!userRoles.includes(filterRole as AppRole)) return false;
+      if (s && !`${p.full_name ?? ""} ${p.email ?? ""} ${p.sap_user_id ?? ""}`.toLowerCase().includes(s)) return false;
+      if (plantFilter !== "all") {
+        const userPlants = tenantLinks.filter((t: any) => t.user_id === p.id).map((t: any) => t.tenants?.code);
+        if (!userPlants.includes(plantFilter)) return false;
       }
       return true;
     });
-  }, [profiles, roles, search, filterRole]);
+  }, [profiles, tenantLinks, search, plantFilter]);
+
+  const kpis = useMemo(() => {
+    const total = profiles.length;
+    const adminIds = new Set(roles.filter((r) => ADMIN_ROLES.includes(r.role as AppRole)).map((r) => r.user_id));
+    const headIds = new Set(roles.filter((r) => HEAD_ROLE_KEYS.includes(r.role as AppRole)).map((r) => r.user_id));
+    const assignedIds = new Set([
+      ...roles.map((r) => r.user_id),
+      ...customLinks.map((r: any) => r.user_id),
+    ]);
+    const unassigned = profiles.filter((p) => !assignedIds.has(p.id)).length;
+    return { total, admins: adminIds.size, heads: headIds.size, unassigned };
+  }, [profiles, roles, customLinks]);
 
   const [form, setForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", tenant_id: "" });
 
@@ -131,11 +189,12 @@ function UsersTab({ tenants }: { tenants: any[] }) {
     } catch (e: any) { toast.error(e.message); }
   }
 
-  async function removeTenant(id: string) {
-    const { error } = await supabase.from("user_tenants").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Tenant unassigned");
+  function refreshAll() {
+    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-custom-roles"] });
     qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
+    toast.success("Refreshed");
   }
 
   async function handleDelete(userId: string) {
@@ -154,23 +213,30 @@ function UsersTab({ tenants }: { tenants: any[] }) {
     } catch (e: any) { toast.error(e.message); }
   }
 
+  function rolePillFor(userId: string) {
+    const built = roles.filter((r) => r.user_id === userId).map((r) => r.role as AppRole);
+    const custom = customLinks.filter((r: any) => r.user_id === userId);
+    if (built.length === 0 && custom.length === 0) return null;
+    const primary: AppRole | undefined = built.find((r) => ADMIN_ROLES.includes(r))
+      ?? built.find((r) => HEAD_ROLE_KEYS.includes(r))
+      ?? built[0];
+
+    if (primary && ADMIN_ROLES.includes(primary)) {
+      return { label: ROLE_LABELS[primary], cls: "bg-primary text-primary-foreground" };
+    }
+    if (primary) {
+      return { label: ROLE_LABELS[primary], cls: "bg-secondary text-secondary-foreground" };
+    }
+    return { label: custom[0]?.custom_roles?.name ?? "Custom", cls: "bg-accent text-accent-foreground" };
+  }
+
   return (
-    <Card className="p-4 space-y-4">
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search users by name or email" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
-        </div>
-        <Select value={filterRole} onValueChange={setFilterRole}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="All roles" /></SelectTrigger>
-          <SelectContent className="max-h-72">
-            <SelectItem value="all">All roles</SelectItem>
-            {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
-          </SelectContent>
-        </Select>
+    <div className="space-y-5">
+      {/* Action bar */}
+      <div className="flex items-center justify-end gap-2">
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
-            <Button><UserPlus className="h-4 w-4 mr-2" /> Invite user</Button>
+            <Button><UserPlus className="h-4 w-4 mr-2" /> Create User</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Invite a new user</DialogTitle></DialogHeader>
@@ -200,90 +266,138 @@ function UsersTab({ tenants }: { tenants: any[] }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <Button variant="outline" onClick={refreshAll}><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
       </div>
 
-      <div className="rounded-md border overflow-x-auto">
-        <Table>
-          <TableHeader><TableRow>
-            <TableHead>Name</TableHead><TableHead>Email</TableHead>
-            <TableHead>Roles</TableHead><TableHead>Custom Roles</TableHead>
-            <TableHead>Tenants</TableHead><TableHead>Joined</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow></TableHeader>
-          <TableBody>
-            {filtered.map((p) => {
-              const userRoles = roles.filter((r) => r.user_id === p.id);
-              const userCustom = customLinks.filter((r) => r.user_id === p.id);
-              const userTenants = tenantLinks.filter((r) => r.user_id === p.id);
-              const isSelf = p.id === me?.id;
-              return (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.full_name || "—"} {isSelf && <Badge variant="outline" className="ml-1">you</Badge>}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {userRoles.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                      {userRoles.map((r) => <Badge key={r.id} variant="secondary">{r.role}</Badge>)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {userCustom.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                      {userCustom.map((r: any) => <Badge key={r.id} variant="outline">{r.custom_roles?.name ?? "?"}</Badge>)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {userTenants.length === 0 ? <span className="text-xs text-muted-foreground">—</span> : (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7"><Building2 className="h-3 w-3 mr-1" /> {userTenants.length}</Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-2">
-                          {userTenants.map((t: any) => (
-                            <div key={t.id} className="flex items-center justify-between py-1 text-sm">
-                              <span>{t.tenants?.name}</span>
-                              <button onClick={() => removeTenant(t.id)} className="text-muted-foreground hover:text-destructive">
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button size="sm" variant="outline" disabled={isSelf}>Role</Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-64 max-h-80 overflow-y-auto p-2">
-                        {ALL_ROLES.map((r) => {
-                          const has = userRoles.some((ur) => ur.role === r);
-                          return (
-                            <button key={r} onClick={() => toggleRole(p.id, r, has)}
-                              className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center justify-between">
-                              <span>{ROLE_LABELS[r]}</span>
-                              {has && <Badge variant="secondary" className="text-[10px]">on</Badge>}
-                            </button>
-                          );
-                        })}
-                      </PopoverContent>
-                    </Popover>
-                    <Button size="sm" variant="ghost" disabled={isSelf} onClick={() => handleDelete(p.id)} className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+      {/* KPI row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiTile icon={UsersRound} value={kpis.total} label="Total Users" tone="primary" />
+        <KpiTile icon={ShieldCheck} value={kpis.admins} label="Administrators" tone="destructive" />
+        <KpiTile icon={Building2} value={kpis.heads} label="Role Heads" tone="accent" />
+        <KpiTile icon={UserX} value={kpis.unassigned} label="Unassigned" tone="muted" />
+      </div>
+
+      {/* Users panel */}
+      <Card className="p-4 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Users</h2>
+            <p className="text-sm text-muted-foreground">View and manage user roles</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <Select value={plantFilter} onValueChange={setPlantFilter}>
+              <SelectTrigger className="w-56"><SelectValue placeholder="All plants" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Plants</SelectItem>
+                {tenants.map((t) => (
+                  <SelectItem key={t.id} value={t.code}>{t.code} — {t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Employee ID</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Plants</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((p) => {
+                const userRoles = roles.filter((r) => r.user_id === p.id);
+                const userTenants = tenantLinks.filter((r: any) => r.user_id === p.id);
+                const isSelf = p.id === me?.id;
+                const pill = rolePillFor(p.id);
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">
+                      {p.full_name || "—"}{" "}
+                      {isSelf && <Badge variant="outline" className="ml-1">you</Badge>}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{p.sap_user_id || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1 max-w-[260px]">
+                        {userTenants.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                        {userTenants.map((t: any) => (
+                          <span
+                            key={t.id}
+                            className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-foreground/80"
+                          >
+                            {t.tenants?.code ?? "?"}
+                          </span>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {pill ? (
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${pill.cls}`}>
+                          {pill.label}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button size="sm" variant="outline" disabled={isSelf}>
+                              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 max-h-80 overflow-y-auto p-2">
+                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Toggle roles</div>
+                            {ALL_ROLES.map((r) => {
+                              const has = userRoles.some((ur) => ur.role === r);
+                              return (
+                                <button key={r} onClick={() => toggleRole(p.id, r, has)}
+                                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center justify-between">
+                                  <span>{ROLE_LABELS[r]}</span>
+                                  {has && <Badge variant="secondary" className="text-[10px]">on</Badge>}
+                                </button>
+                              );
+                            })}
+                          </PopoverContent>
+                        </Popover>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={isSelf}
+                          onClick={() => handleDelete(p.id)}
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          aria-label="Delete user"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    No users match the filters.
                   </TableCell>
                 </TableRow>
-              );
-            })}
-            {filtered.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No users match the filters.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </Card>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+    </div>
   );
 }
 
