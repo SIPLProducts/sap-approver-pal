@@ -57,6 +57,7 @@ function UserManagementPage() {
   }>({ name: "", description: "", tenant_id: "", screen_keys: [], is_active: true });
   const [creatingRole, setCreatingRole] = useState(false);
   const createRoleSap = useServerFn(createCustomRoleViaSap);
+  const editRoleSap = useServerFn(editCustomRoleViaSap);
   const qc = useQueryClient();
 
   const allScreens = useMemo(
@@ -75,27 +76,42 @@ function UserManagementPage() {
     qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
   }
 
-  async function submitCreateRole() {
+  async function submitSaveRole() {
     if (!roleForm.name.trim()) return toast.error("Role name is required");
     if (roleForm.screen_keys.length === 0) return toast.error("Select at least one screen");
     const tenant_id = roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : "");
     setCreatingRole(true);
     try {
-      const res: any = await createRoleSap({
-        data: {
-          name: roleForm.name,
-          description: roleForm.description,
-          tenant_id,
-          screen_keys: roleForm.screen_keys,
-        },
-      });
-      toast.success(res?.message || "Custom role created");
+      let res: any;
+      if (roleForm.id) {
+        res = await editRoleSap({
+          data: {
+            role_id: roleForm.id,
+            name: roleForm.name,
+            description: roleForm.description,
+            tenant_id,
+            screen_keys: roleForm.screen_keys,
+            is_active: roleForm.is_active,
+          },
+        });
+        toast.success(res?.message || "Custom role updated");
+      } else {
+        res = await createRoleSap({
+          data: {
+            name: roleForm.name,
+            description: roleForm.description,
+            tenant_id,
+            screen_keys: roleForm.screen_keys,
+          },
+        });
+        toast.success(res?.message || "Custom role created");
+      }
       if (res?.db_error) toast.warning(`Saved in SAP but local insert failed: ${res.db_error}`);
       setRoleCreateOpen(false);
       setRoleForm({ name: "", description: "", tenant_id: "", screen_keys: [], is_active: true });
       qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
     } catch (e: any) {
-      toast.error(e?.message || "Failed to create role");
+      toast.error(e?.message || "Failed to save role");
     } finally {
       setCreatingRole(false);
     }
@@ -140,7 +156,7 @@ function UserManagementPage() {
                 <Button><Plus className="h-4 w-4 mr-2" /> Add Role</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Add New Role</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{roleForm.id ? "Edit Role" : "Add New Role"}</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div>
                     <Label>Role Name <span className="text-destructive">*</span></Label>
@@ -218,9 +234,13 @@ function UserManagementPage() {
                     </div>
                   </div>
                 </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <Switch checked={roleForm.is_active} onCheckedChange={(v) => setRoleForm({ ...roleForm, is_active: v })} />
+                  <Label>Active</Label>
+                </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setRoleCreateOpen(false)} disabled={creatingRole}>Cancel</Button>
-                  <Button onClick={submitCreateRole} disabled={creatingRole}>
+                  <Button onClick={submitSaveRole} disabled={creatingRole}>
                     <Save className="h-4 w-4 mr-2" />
                     {creatingRole ? "Saving..." : "Save"}
                   </Button>
@@ -252,7 +272,7 @@ function UserManagementPage() {
         </TabsList>
 
         <TabsContent value="users"><UsersTab /></TabsContent>
-        <TabsContent value="custom_roles"><CustomRolesTab tenantScope={tenantScope} /></TabsContent>
+        <TabsContent value="custom_roles"><CustomRolesTab tenantScope={tenantScope} onEditRole={(r) => { setRoleForm({ id: r.id, name: r.name, description: r.description ?? "", tenant_id: r.tenant_id ?? "", screen_keys: r.screen_keys ?? [], is_active: r.is_active ?? true }); setRoleCreateOpen(true); }} /></TabsContent>
         <TabsContent value="permissions"><PermissionsTab /></TabsContent>
         <TabsContent value="matrix"><ApprovalMatrixTab tenantScope={tenantScope} tenants={tenants} /></TabsContent>
       </Tabs>
