@@ -862,15 +862,23 @@ function CreateUserDialog({
         email: editUser.email ?? "",
         contact_number: editUser.contact ?? "",
         status: editUser.status === "ACTIVE" || editUser.status === "Active" ? "Active" as CreationStatus : "Inactive" as CreationStatus,
-        password: "",
-        confirm_password: "",
+        password: PASSWORD_SENTINEL,
+        confirm_password: PASSWORD_SENTINEL,
       });
-      setPlants(editUser.plants ?? []);
-      setRoles((editUser.roles ?? []).map((r: string) => {
-        // Try to pair each role with the first plant; if multiple plants, duplicate
-        const plant = (editUser.plants ?? [])[0] ?? "";
-        return plant ? `${plant}::${r}` : "";
-      }).filter(Boolean));
+      const editPlants: string[] = editUser.plants ?? [];
+      setPlants(editPlants);
+      const assignments: Array<{ werks: string; role: string }> = Array.isArray(editUser.role_assignments) ? editUser.role_assignments : [];
+      let composite: string[] = [];
+      if (assignments.length > 0) {
+        composite = assignments
+          .map((a) => (a.werks && a.role ? `${a.werks}::${String(a.role).toUpperCase()}` : ""))
+          .filter(Boolean);
+      } else {
+        const rs: string[] = editUser.roles ?? [];
+        // Fallback: pair every role with every plant
+        for (const p of editPlants) for (const r of rs) composite.push(`${p}::${String(r).toUpperCase()}`);
+      }
+      setRoles(Array.from(new Set(composite)));
     } else {
       setForm(emptyForm());
       setPlants([]);
