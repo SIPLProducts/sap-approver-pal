@@ -171,6 +171,24 @@ export function PlantMultiSelect({
                 <>
                   <CommandEmpty>No plant found.</CommandEmpty>
                   <CommandGroup>
+                    <CommandItem
+                      value="__select_all__"
+                      onSelect={() => {
+                        if (value.length === plants.length) onChange([]);
+                        else onChange(plants);
+                      }}
+                      className="font-medium border-b rounded-none"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-3.5 w-3.5",
+                          value.length === plants.length ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      {value.length === plants.length
+                        ? `Clear all (${plants.length})`
+                        : `Select all (${plants.length})`}
+                    </CommandItem>
                     {plants.map((p) => {
                       const isSel = selected.has(p);
                       return (
