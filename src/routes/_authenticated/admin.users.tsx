@@ -38,11 +38,38 @@ const HEAD_ROLE_KEYS: AppRole[] = [
 function UserManagementPage() {
   const [tab, setTab] = useState("users");
   const [tenantScope, setTenantScope] = useState<string>("all");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", tenant_id: "" });
+  const qc = useQueryClient();
+  const inviteFn = useServerFn(inviteUser);
 
   const { data: tenants = [] } = useQuery({
     queryKey: ["tenants"],
     queryFn: async () => (await supabase.from("tenants").select("*").order("name")).data ?? [],
   });
+
+  async function submitInvite() {
+    if (!inviteForm.email || !inviteForm.full_name) return toast.error("Email and full name are required");
+    try {
+      await inviteFn({ data: {
+        email: inviteForm.email, full_name: inviteForm.full_name,
+        role: (inviteForm.role || undefined) as AppRole | undefined,
+        tenant_id: inviteForm.tenant_id || undefined,
+      } });
+      toast.success("Invitation sent");
+      setInviteOpen(false);
+      setInviteForm({ email: "", full_name: "", role: "", tenant_id: "" });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  function refreshAll() {
+    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-custom-roles"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
+    toast.success("Refreshed");
+  }
 
   return (
     <div className="space-y-5">
@@ -58,7 +85,43 @@ function UserManagementPage() {
             </p>
           </div>
         </div>
-        {tab !== "users" && (
+        {tab === "users" ? (
+          <div className="flex items-center gap-2 sm:flex-shrink-0">
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <Button><UserPlus className="h-4 w-4 mr-2" /> Create User</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Invite a new user</DialogTitle></DialogHeader>
+                <div className="space-y-3">
+                  <div><Label>Full name</Label><Input value={inviteForm.full_name} onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })} /></div>
+                  <div><Label>Email</Label><Input type="email" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} /></div>
+                  <div>
+                    <Label>Initial role (optional)</Label>
+                    <Select value={inviteForm.role} onValueChange={(v) => setInviteForm({ ...inviteForm, role: v as AppRole })}>
+                      <SelectTrigger><SelectValue placeholder="No role" /></SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Tenant (optional)</Label>
+                    <Select value={inviteForm.tenant_id} onValueChange={(v) => setInviteForm({ ...inviteForm, tenant_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Global" /></SelectTrigger>
+                      <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+                  <Button onClick={submitInvite}>Send invite</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Button variant="outline" onClick={refreshAll}><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
+          </div>
+        ) : (
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-muted-foreground" />
             <Select value={tenantScope} onValueChange={setTenantScope}>
@@ -126,8 +189,6 @@ function UsersTab({ tenants }: { tenants: any[] }) {
   const { user: me } = useAuth();
   const [search, setSearch] = useState("");
   const [plantFilter, setPlantFilter] = useState<string>("all");
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const inviteFn = useServerFn(inviteUser);
   const deleteFn = useServerFn(deleteUser);
   const roleFn = useServerFn(setBuiltInRole);
 
@@ -172,30 +233,8 @@ function UsersTab({ tenants }: { tenants: any[] }) {
     return { total, admins: adminIds.size, heads: headIds.size, unassigned };
   }, [profiles, roles, customLinks]);
 
-  const [form, setForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", tenant_id: "" });
 
-  async function submitInvite() {
-    if (!form.email || !form.full_name) return toast.error("Email and full name are required");
-    try {
-      await inviteFn({ data: {
-        email: form.email, full_name: form.full_name,
-        role: (form.role || undefined) as AppRole | undefined,
-        tenant_id: form.tenant_id || undefined,
-      } });
-      toast.success("Invitation sent");
-      setInviteOpen(false);
-      setForm({ email: "", full_name: "", role: "", tenant_id: "" });
-      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
-    } catch (e: any) { toast.error(e.message); }
-  }
 
-  function refreshAll() {
-    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-custom-roles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
-    toast.success("Refreshed");
-  }
 
   async function handleDelete(userId: string) {
     if (!confirm("Delete this user permanently?")) return;
@@ -232,43 +271,6 @@ function UsersTab({ tenants }: { tenants: any[] }) {
 
   return (
     <div className="space-y-5">
-      {/* Action bar */}
-      <div className="flex items-center justify-end gap-2">
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogTrigger asChild>
-            <Button><UserPlus className="h-4 w-4 mr-2" /> Create User</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Invite a new user</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>Full name</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
-              <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              <div>
-                <Label>Initial role (optional)</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as AppRole })}>
-                  <SelectTrigger><SelectValue placeholder="No role" /></SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Tenant (optional)</Label>
-                <Select value={form.tenant_id} onValueChange={(v) => setForm({ ...form, tenant_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Global" /></SelectTrigger>
-                  <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-              <Button onClick={submitInvite}>Send invite</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        <Button variant="outline" onClick={refreshAll}><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
-      </div>
-
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiTile icon={UsersRound} value={kpis.total} label="Total Users" tone="primary" />
