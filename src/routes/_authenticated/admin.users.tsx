@@ -40,6 +40,8 @@ function UserManagementPage() {
   const [tenantScope, setTenantScope] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", tenant_id: "" });
+  const [roleCreateOpen, setRoleCreateOpen] = useState(false);
+  const [roleForm, setRoleForm] = useState({ name: "", description: "", tenant_id: "" });
   const qc = useQueryClient();
   const inviteFn = useServerFn(inviteUser);
 
@@ -63,11 +65,29 @@ function UserManagementPage() {
     } catch (e: any) { toast.error(e.message); }
   }
 
+  async function submitCreateRole() {
+    if (!roleForm.name) return toast.error("Name required");
+    const { error } = await supabase.from("custom_roles").insert({
+      name: roleForm.name,
+      description: roleForm.description || null,
+      tenant_id: roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : null),
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Custom role created");
+    setRoleCreateOpen(false);
+    setRoleForm({ name: "", description: "", tenant_id: "" });
+    qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
+  }
+
   function refreshAll() {
-    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-custom-roles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
+    if (tab === "custom_roles") {
+      qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
+    } else {
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
+      qc.invalidateQueries({ queryKey: ["admin-user-custom-roles"] });
+      qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
+    }
     toast.success("Refreshed");
   }
 
