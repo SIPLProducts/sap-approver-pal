@@ -105,10 +105,8 @@ function UserManagementPage() {
     if (tab === "custom_roles") {
       qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
     } else {
-      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-sap-users"] });
       qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
-      qc.invalidateQueries({ queryKey: ["admin-user-custom-roles"] });
-      qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
     }
     toast.success("Refreshed");
   }
