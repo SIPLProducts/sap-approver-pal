@@ -999,7 +999,7 @@ function CreateUserDialog({
               }
             />
             {plants.length > 0 && !rolesQuery.isFetching && !rolesQuery.isError && roleOptions.length === 0 && (
-              <p className="text-[11px] text-destructive mt-1">No custom roles for selected plants.</p>
+              <p className="text-[11px] text-destructive mt-1">No custom roles configured.</p>
             )}
           </Field>
 
