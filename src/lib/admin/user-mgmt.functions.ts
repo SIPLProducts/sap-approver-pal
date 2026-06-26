@@ -35,6 +35,21 @@ async function findSapConfigId(aliases: string[]): Promise<string | null> {
   return match?.id ?? null;
 }
 
+function pickField(obj: any, key: string): any {
+  if (obj == null || typeof obj !== "object") return undefined;
+  if (obj[key] !== undefined) return obj[key];
+  const lower = key.toLowerCase();
+  if (obj[lower] !== undefined) return obj[lower];
+  const upper = key.toUpperCase();
+  if (obj[upper] !== undefined) return obj[upper];
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase() === lower) return obj[k];
+  }
+  return undefined;
+}
+
+
+
 
 export const createUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
