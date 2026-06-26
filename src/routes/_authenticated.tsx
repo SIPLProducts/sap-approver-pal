@@ -113,9 +113,9 @@ function AuthenticatedLayout() {
   ];
 
   return (
-    <div className="min-h-dvh bg-background flex">
+    <div className="h-screen overflow-hidden bg-background flex">
       {/* Sidebar */}
-      <aside className={`fixed lg:static z-40 inset-y-0 left-0 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+      <aside className={`fixed lg:sticky lg:top-0 lg:h-screen z-40 inset-y-0 left-0 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="px-4 py-4 flex items-center gap-3 border-b border-sidebar-border">
           <div className="rounded-lg bg-white px-2 py-1.5 shadow-card flex items-center">
             <BrandLogo className="h-7" />
@@ -190,7 +190,7 @@ function AuthenticatedLayout() {
 
       {open && <div className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-30" onClick={() => setOpen(false)} />}
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
         <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 lg:px-6 sticky top-0 z-20">
           <button className="lg:hidden text-muted-foreground p-2 -ml-2 rounded-md hover:bg-accent" onClick={() => setOpen(true)} aria-label="Open menu">
             <span className="text-lg leading-none">☰</span>
@@ -209,7 +209,7 @@ function AuthenticatedLayout() {
             {unread > 0 && <span className="absolute top-1 right-1 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums">{unread}</span>}
           </Link>
         </header>
-        <main className="flex-1 p-4 lg:p-8 max-w-[1600px] w-full mx-auto"><Outlet /></main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8"><div className="max-w-[1600px] w-full mx-auto"><Outlet /></div></main>
       </div>
     </div>
   );
