@@ -209,7 +209,7 @@ function AuthenticatedLayout() {
             {unread > 0 && <span className="absolute top-1 right-1 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums">{unread}</span>}
           </Link>
         </header>
-        <main className="flex-1 p-4 lg:p-8 max-w-[1600px] w-full mx-auto"><Outlet /></main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8"><div className="max-w-[1600px] w-full mx-auto"><Outlet /></div></main>
       </div>
     </div>
   );
