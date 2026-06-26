@@ -192,7 +192,7 @@ function UserManagementPage() {
           <TabsTrigger value="matrix">Approval Matrix</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users"><UsersTab tenants={tenants} /></TabsContent>
+        <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="custom_roles"><CustomRolesTab tenantScope={tenantScope} /></TabsContent>
         <TabsContent value="permissions"><PermissionsTab /></TabsContent>
         <TabsContent value="matrix"><ApprovalMatrixTab tenantScope={tenantScope} tenants={tenants} /></TabsContent>
