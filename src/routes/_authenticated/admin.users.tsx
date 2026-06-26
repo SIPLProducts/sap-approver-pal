@@ -69,8 +69,7 @@ function UserManagementPage() {
 
   function onUserCreated() {
     setInviteOpen(false);
-    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
+    qc.invalidateQueries({ queryKey: ["admin-sap-users"] });
     qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
   }
 
