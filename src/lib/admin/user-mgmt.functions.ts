@@ -28,7 +28,7 @@ export const inviteUser = createServerFn({ method: "POST" })
     email: z.string().email().max(200),
     full_name: z.string().min(1).max(200),
     role: z.enum(APP_ROLES).optional(),
-    tenant_id: z.string().uuid().optional(),
+    plants: z.array(z.string().min(1).max(20)).max(50).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -40,12 +40,29 @@ export const inviteUser = createServerFn({ method: "POST" })
     const newId = created.user?.id;
     if (!newId) throw new Error("Invite returned no user id");
     if (data.role) await supabaseAdmin.from("user_roles").insert({ user_id: newId, role: data.role });
-    if (data.tenant_id) await supabaseAdmin.from("user_tenants").insert({ user_id: newId, tenant_id: data.tenant_id, is_default: true });
+
+    let matched: { id: string; code: string }[] = [];
+    let skipped: string[] = [];
+    if (data.plants && data.plants.length > 0) {
+      const codes = Array.from(new Set(data.plants.map((c) => c.trim()).filter(Boolean)));
+      const { data: tRows } = await supabaseAdmin
+        .from("tenants").select("id, code").in("code", codes);
+      matched = (tRows ?? []) as { id: string; code: string }[];
+      const found = new Set(matched.map((t) => t.code));
+      skipped = codes.filter((c) => !found.has(c));
+      if (matched.length > 0) {
+        const rows = matched.map((t, i) => ({
+          user_id: newId, tenant_id: t.id, is_default: i === 0,
+        }));
+        await supabaseAdmin.from("user_tenants").insert(rows);
+      }
+    }
+
     await supabaseAdmin.from("admin_audit_log").insert({
       actor_id: context.userId, action: "user.invite", target_table: "auth.users", target_id: newId,
-      payload: { email: data.email, role: data.role, tenant_id: data.tenant_id },
+      payload: { email: data.email, role: data.role, plants: data.plants ?? [], skipped_plants: skipped },
     });
-    return { user_id: newId };
+    return { user_id: newId, plants_added: matched.length, plants_skipped: skipped };
   });
 
 export const deleteUser = createServerFn({ method: "POST" })
