@@ -907,11 +907,16 @@ function CreateUserDialog({
     if (!form.email.trim()) return toast.error("Email is required");
     if (!/^\d{10}$/.test(form.contact_number.trim())) return toast.error("Contact number must be 10 digits");
     if (roles.length === 0) return toast.error("Please select at least one role");
-    if (form.password.length < 8) return toast.error("Password must be at least 8 characters");
-    if (form.password !== form.confirm_password) return toast.error("Passwords do not match");
+    const passwordUnchanged = editUser && form.password === PASSWORD_SENTINEL && form.confirm_password === PASSWORD_SENTINEL;
+    if (!passwordUnchanged) {
+      if (form.password.length < 8) return toast.error("Password must be at least 8 characters");
+      if (form.password !== form.confirm_password) return toast.error("Passwords do not match");
+    }
 
     setSubmitting(true);
     try {
+      const sendPwd = passwordUnchanged ? "" : form.password;
+      const sendConfirm = passwordUnchanged ? "" : form.confirm_password;
       const base = {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
@@ -919,8 +924,8 @@ function CreateUserDialog({
         email: form.email.trim(),
         contact_number: form.contact_number.trim(),
         status: form.status === "Active" ? "Active" : "Inactive",
-        password: form.password,
-        confirm_password: form.confirm_password,
+        password: sendPwd,
+        confirm_password: sendConfirm,
         plants,
         roles: roles
           .map((v) => {
