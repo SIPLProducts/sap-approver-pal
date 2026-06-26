@@ -24,7 +24,7 @@ import {
   UsersRound, UserCog, RefreshCw, Pencil, UserX, X,
   Eye, EyeOff, Save, Check, ChevronDown,
 } from "lucide-react";
-import { createUserViaSap, deleteUser, setBuiltInRole, listRolesForPlants, createCustomRoleViaSap } from "@/lib/admin/user-mgmt.functions";
+import { createUserViaSap, deleteUser, setBuiltInRole, createCustomRoleViaSap } from "@/lib/admin/user-mgmt.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -823,30 +823,52 @@ function CreateUserDialog({
   onCreated: () => void;
 }) {
   const createFn = useServerFn(createUserViaSap);
-  const listRolesFn = useServerFn(listRolesForPlants);
   const [form, setForm] = useState(emptyForm);
   const [plants, setPlants] = useState<string[]>([]);
+  // Selected roles use composite values: "<plantCode>::<roleName>"
   const [roles, setRoles] = useState<string[]>([]);
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const sortedPlants = useMemo(() => [...plants].sort(), [plants]);
   const rolesQuery = useQuery({
-    queryKey: ["sap-roles-for-plants", sortedPlants],
-    queryFn: () => listRolesFn({ data: { plants: sortedPlants } }),
+    queryKey: ["custom-roles-for-plants", sortedPlants],
+    queryFn: async () => {
+      if (sortedPlants.length === 0) return [] as { value: string; label: string }[];
+      const { data: tRows, error: tErr } = await supabase
+        .from("tenants")
+        .select("id, code")
+        .in("code", sortedPlants);
+      if (tErr) throw new Error(tErr.message);
+      const tenantIds = (tRows ?? []).map((t) => t.id);
+      const codeById = new Map((tRows ?? []).map((t) => [t.id, t.code]));
+      if (tenantIds.length === 0) return [];
+      const { data: rRows, error: rErr } = await supabase
+        .from("custom_roles")
+        .select("id, name, tenant_id, is_active")
+        .eq("is_active", true)
+        .in("tenant_id", tenantIds)
+        .order("name");
+      if (rErr) throw new Error(rErr.message);
+      return (rRows ?? []).map((r) => {
+        const plant = codeById.get(r.tenant_id as string) ?? "";
+        return { value: `${plant}::${r.name}`, label: `${plant} - ${r.name}` };
+      });
+    },
     enabled: sortedPlants.length > 0,
     staleTime: 60_000,
   });
-  const roleOptions = rolesQuery.data?.roles ?? [];
+  const roleOptions = rolesQuery.data ?? [];
 
   // Drop selected roles that are no longer available for the chosen plants.
   useEffect(() => {
     if (!rolesQuery.data) return;
-    setRoles((prev) => prev.filter((r) => roleOptions.includes(r)));
+    const valid = new Set(roleOptions.map((o) => o.value));
+    setRoles((prev) => prev.filter((r) => valid.has(r)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rolesQuery.data]);
 
-  // Surface SAP role-fetch errors so failures aren't silent.
+  // Surface role-fetch errors so failures aren't silent.
   const lastErrRef = useRef<string | null>(null);
   useEffect(() => {
     if (rolesQuery.isError) {
@@ -895,7 +917,7 @@ function CreateUserDialog({
         password: form.password,
         confirm_password: form.confirm_password,
         plants,
-        roles,
+        roles: Array.from(new Set(roles.map((v) => v.split("::")[1]).filter(Boolean))),
       } });
       toast.success(res?.message ?? "User created successfully");
       reset();
@@ -984,7 +1006,7 @@ function CreateUserDialog({
               }
             />
             {plants.length > 0 && !rolesQuery.isFetching && !rolesQuery.isError && roleOptions.length === 0 && (
-              <p className="text-[11px] text-destructive mt-1">SAP returned no roles for the selected plants.</p>
+              <p className="text-[11px] text-destructive mt-1">No custom roles for selected plants.</p>
             )}
           </Field>
 
@@ -1066,26 +1088,27 @@ function RoleMultiSelect({
 }: {
   value: string[];
   onChange: (v: string[]) => void;
-  options: string[];
+  options: { value: string; label: string }[];
   loading?: boolean;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => new Set(value), [value]);
+  const labelByValue = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of options) m.set(o.value, o.label);
+    return m;
+  }, [options]);
 
   function toggle(r: string) {
     if (selected.has(r)) onChange(value.filter((x) => x !== r));
     else onChange([...value, r]);
   }
 
-  function labelFor(r: string) {
-    return (ROLE_LABELS as Record<string, string>)[r] ?? r;
-  }
-
   const label = value.length === 0
     ? placeholder
     : value.length <= 2
-      ? value.map(labelFor).join(", ")
+      ? value.map((v) => labelByValue.get(v) ?? v).join(", ")
       : `${value.length} roles selected`;
 
   const allSelected = options.length > 0 && value.length === options.length;
@@ -1123,7 +1146,7 @@ function RoleMultiSelect({
                   value="__select_all_roles__"
                   onSelect={() => {
                     if (allSelected) onChange([]);
-                    else onChange([...options]);
+                    else onChange(options.map((o) => o.value));
                   }}
                   className="font-medium border-b rounded-none"
                 >
@@ -1136,12 +1159,12 @@ function RoleMultiSelect({
                     ? `Clear all (${options.length})`
                     : `Select all (${options.length})`}
                 </CommandItem>
-                {options.map((r) => {
-                  const isSel = selected.has(r);
+                {options.map((o) => {
+                  const isSel = selected.has(o.value);
                   return (
-                    <CommandItem key={r} value={labelFor(r)} onSelect={() => toggle(r)}>
+                    <CommandItem key={o.value} value={o.label} onSelect={() => toggle(o.value)}>
                       <Checkbox checked={isSel} tabIndex={-1} className="pointer-events-none mr-2" />
-                      {labelFor(r)}
+                      {o.label}
                     </CommandItem>
                   );
                 })}
