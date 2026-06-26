@@ -29,7 +29,12 @@ interface Props {
   className?: string;
 }
 
-function extractPlants(resp: unknown, field: string): string[] {
+export interface PlantOption {
+  code: string;
+  text: string;
+}
+
+export function extractPlantOptions(resp: unknown, field: string): PlantOption[] {
   const r: any = resp;
   let rows: any[] = [];
   if (Array.isArray(r)) rows = r;
@@ -37,23 +42,37 @@ function extractPlants(resp: unknown, field: string): string[] {
     const candidates = [r.DATA, r.data?.DATA, r.data, r.ITEMS, r.items, r.RESULTS, r.results, r.PLANT_LIST];
     rows = candidates.find((c) => Array.isArray(c)) ?? [];
     if (!rows.length) {
-      // fallback: first array-valued property
       for (const v of Object.values(r)) {
         if (Array.isArray(v)) { rows = v; break; }
       }
     }
   }
-  const keys = [field, "VKORG", "WERKS", "PLANT", "Plant", "Werks", "Vkorg", "plant", "werks", "vkorg"];
-  const out = new Set<string>();
+  const codeKeys = [field, "VKORG", "WERKS", "PLANT", "Plant", "Werks", "Vkorg", "plant", "werks", "vkorg"];
+  const textKeys = ["VTEXT", "Vtext", "vtext", "DESCRIPTION", "Description", "description", "TEXT", "Text", "text"];
+  const map = new Map<string, string>();
   for (const row of rows) {
     if (row == null) continue;
-    if (typeof row === "string" || typeof row === "number") { out.add(String(row)); continue; }
-    for (const k of keys) {
-      const v = row?.[k];
-      if (v != null && String(v).trim()) { out.add(String(v).trim()); break; }
+    if (typeof row === "string" || typeof row === "number") {
+      const c = String(row).trim();
+      if (c && !map.has(c)) map.set(c, "");
+      continue;
     }
+    let code = "";
+    for (const k of codeKeys) {
+      const v = row?.[k];
+      if (v != null && String(v).trim()) { code = String(v).trim(); break; }
+    }
+    if (!code) continue;
+    let text = "";
+    for (const k of textKeys) {
+      const v = row?.[k];
+      if (v != null && String(v).trim()) { text = String(v).trim(); break; }
+    }
+    if (!map.has(code) || (text && !map.get(code))) map.set(code, text);
   }
-  return Array.from(out).sort();
+  return Array.from(map.entries())
+    .map(([code, text]) => ({ code, text }))
+    .sort((a, b) => a.code.localeCompare(b.code));
 }
 
 export function PlantSelect({
@@ -82,11 +101,20 @@ export function PlantSelect({
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const resp: any = await runApi({ data: { configId: configId!, inputs: {} } });
-      return extractPlants(resp?.data ?? resp, plantField);
+      return extractPlantOptions(resp?.data ?? resp, plantField);
     },
   });
 
   const plants = useMemo(() => plantsQuery.data ?? [], [plantsQuery.data]);
+  const selectedOption = useMemo(
+    () => plants.find((p) => p.code === value),
+    [plants, value],
+  );
+  const triggerLabel = value
+    ? selectedOption && selectedOption.text
+      ? `${selectedOption.code} - ${selectedOption.text}`
+      : value
+    : "";
 
   // Fallback to plain input when config is missing or fetch failed
   if (!cfgQuery.isLoading && !configId) {
@@ -110,7 +138,7 @@ export function PlantSelect({
           aria-expanded={open}
           disabled={disabled || cfgQuery.isLoading}
           className={cn(
-            "h-9 w-full justify-between font-mono",
+            "h-9 w-full justify-between",
             !value && "text-muted-foreground font-sans",
             className,
           )}
@@ -120,12 +148,12 @@ export function PlantSelect({
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
             </span>
           ) : (
-            value || placeholder
+            <span className="truncate text-left">{triggerLabel || placeholder}</span>
           )}
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[240px] p-0" align="start">
+      <PopoverContent className="w-[320px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search plant…" className="h-9" />
           <CommandList>
@@ -153,21 +181,23 @@ export function PlantSelect({
                 <CommandGroup>
                   {plants.map((p) => (
                     <CommandItem
-                      key={p}
-                      value={p}
-                      onSelect={(curr) => {
-                        onChange(curr === value ? "" : curr);
+                      key={p.code}
+                      value={`${p.code} ${p.text}`}
+                      onSelect={() => {
+                        onChange(p.code === value ? "" : p.code);
                         setOpen(false);
                       }}
-                      className="font-mono"
                     >
                       <Check
                         className={cn(
                           "mr-2 h-3.5 w-3.5",
-                          value === p ? "opacity-100" : "opacity-0",
+                          value === p.code ? "opacity-100" : "opacity-0",
                         )}
                       />
-                      {p}
+                      <span className="font-mono">{p.code}</span>
+                      {p.text && (
+                        <span className="ml-2 text-muted-foreground truncate">— {p.text}</span>
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>

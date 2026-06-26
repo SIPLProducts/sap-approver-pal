@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getPlantConfig } from "@/lib/sap/plant.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
+import { extractPlantOptions } from "@/components/sap/plant-select";
 
 interface Props {
   value: string[];
@@ -28,32 +29,6 @@ interface Props {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
-}
-
-function extractPlants(resp: unknown, field: string): string[] {
-  const r: any = resp;
-  let rows: any[] = [];
-  if (Array.isArray(r)) rows = r;
-  else if (r && typeof r === "object") {
-    const candidates = [r.DATA, r.data?.DATA, r.data, r.ITEMS, r.items, r.RESULTS, r.results, r.PLANT_LIST];
-    rows = candidates.find((c) => Array.isArray(c)) ?? [];
-    if (!rows.length) {
-      for (const v of Object.values(r)) {
-        if (Array.isArray(v)) { rows = v; break; }
-      }
-    }
-  }
-  const keys = [field, "VKORG", "WERKS", "PLANT", "Plant", "Werks", "Vkorg", "plant", "werks", "vkorg"];
-  const out = new Set<string>();
-  for (const row of rows) {
-    if (row == null) continue;
-    if (typeof row === "string" || typeof row === "number") { out.add(String(row)); continue; }
-    for (const k of keys) {
-      const v = row?.[k];
-      if (v != null && String(v).trim()) { out.add(String(v).trim()); break; }
-    }
-  }
-  return Array.from(out).sort();
 }
 
 export function PlantMultiSelect({
@@ -82,7 +57,7 @@ export function PlantMultiSelect({
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const resp: any = await runApi({ data: { configId: configId!, inputs: {} } });
-      return extractPlants(resp?.data ?? resp, plantField);
+      return extractPlantOptions(resp?.data ?? resp, plantField);
     },
   });
 
@@ -143,7 +118,7 @@ export function PlantMultiSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[280px] p-0 max-h-[340px] overflow-hidden"
+          className="w-[320px] p-0 max-h-[340px] overflow-hidden"
           align="start"
           onWheel={(e) => e.stopPropagation()}
         >
@@ -176,7 +151,7 @@ export function PlantMultiSelect({
                       value="__select_all__"
                       onSelect={() => {
                         if (value.length === plants.length) onChange([]);
-                        else onChange(plants);
+                        else onChange(plants.map((p) => p.code));
                       }}
                       className="font-medium border-b rounded-none"
                     >
@@ -190,20 +165,22 @@ export function PlantMultiSelect({
                         : `Select all (${plants.length})`}
                     </CommandItem>
                     {plants.map((p) => {
-                      const isSel = selected.has(p);
+                      const isSel = selected.has(p.code);
                       return (
                         <CommandItem
-                          key={p}
-                          value={p}
-                          onSelect={() => toggle(p)}
-                          className="font-mono"
+                          key={p.code}
+                          value={`${p.code} ${p.text}`}
+                          onSelect={() => toggle(p.code)}
                         >
                           <Checkbox
                             checked={isSel}
                             tabIndex={-1}
                             className="pointer-events-none mr-2"
                           />
-                          {p}
+                          <span className="font-mono">{p.code}</span>
+                          {p.text && (
+                            <span className="ml-2 text-muted-foreground truncate">— {p.text}</span>
+                          )}
                         </CommandItem>
                       );
                     })}
