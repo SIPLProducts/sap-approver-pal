@@ -24,7 +24,7 @@ import {
   UsersRound, UserCog, RefreshCw, Pencil, UserX, X,
   Eye, EyeOff, Save, Check, ChevronDown,
 } from "lucide-react";
-import { createUserViaSap, deleteUser, setBuiltInRole, createCustomRoleViaSap, listUsersViaSap } from "@/lib/admin/user-mgmt.functions";
+import { createUserViaSap, deleteUser, setBuiltInRole, createCustomRoleViaSap, listUsersViaSap, editUserViaSap, editCustomRoleViaSap } from "@/lib/admin/user-mgmt.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -48,13 +48,16 @@ function UserManagementPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [roleCreateOpen, setRoleCreateOpen] = useState(false);
   const [roleForm, setRoleForm] = useState<{
+    id?: string;
     name: string;
     description: string;
     tenant_id: string;
     screen_keys: string[];
-  }>({ name: "", description: "", tenant_id: "", screen_keys: [] });
+    is_active: boolean;
+  }>({ name: "", description: "", tenant_id: "", screen_keys: [], is_active: true });
   const [creatingRole, setCreatingRole] = useState(false);
   const createRoleSap = useServerFn(createCustomRoleViaSap);
+  const editRoleSap = useServerFn(editCustomRoleViaSap);
   const qc = useQueryClient();
 
   const allScreens = useMemo(
@@ -73,27 +76,42 @@ function UserManagementPage() {
     qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
   }
 
-  async function submitCreateRole() {
+  async function submitSaveRole() {
     if (!roleForm.name.trim()) return toast.error("Role name is required");
     if (roleForm.screen_keys.length === 0) return toast.error("Select at least one screen");
     const tenant_id = roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : "");
     setCreatingRole(true);
     try {
-      const res: any = await createRoleSap({
-        data: {
-          name: roleForm.name,
-          description: roleForm.description,
-          tenant_id,
-          screen_keys: roleForm.screen_keys,
-        },
-      });
-      toast.success(res?.message || "Custom role created");
+      let res: any;
+      if (roleForm.id) {
+        res = await editRoleSap({
+          data: {
+            role_id: roleForm.id,
+            name: roleForm.name,
+            description: roleForm.description,
+            tenant_id,
+            screen_keys: roleForm.screen_keys,
+            is_active: roleForm.is_active,
+          },
+        });
+        toast.success(res?.message || "Custom role updated");
+      } else {
+        res = await createRoleSap({
+          data: {
+            name: roleForm.name,
+            description: roleForm.description,
+            tenant_id,
+            screen_keys: roleForm.screen_keys,
+          },
+        });
+        toast.success(res?.message || "Custom role created");
+      }
       if (res?.db_error) toast.warning(`Saved in SAP but local insert failed: ${res.db_error}`);
       setRoleCreateOpen(false);
-      setRoleForm({ name: "", description: "", tenant_id: "", screen_keys: [] });
+      setRoleForm({ name: "", description: "", tenant_id: "", screen_keys: [], is_active: true });
       qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
     } catch (e: any) {
-      toast.error(e?.message || "Failed to create role");
+      toast.error(e?.message || "Failed to save role");
     } finally {
       setCreatingRole(false);
     }
@@ -138,7 +156,7 @@ function UserManagementPage() {
                 <Button><Plus className="h-4 w-4 mr-2" /> Add Role</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Add New Role</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{roleForm.id ? "Edit Role" : "Add New Role"}</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div>
                     <Label>Role Name <span className="text-destructive">*</span></Label>
@@ -216,9 +234,13 @@ function UserManagementPage() {
                     </div>
                   </div>
                 </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <Switch checked={roleForm.is_active} onCheckedChange={(v) => setRoleForm({ ...roleForm, is_active: v })} />
+                  <Label>Active</Label>
+                </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setRoleCreateOpen(false)} disabled={creatingRole}>Cancel</Button>
-                  <Button onClick={submitCreateRole} disabled={creatingRole}>
+                  <Button onClick={submitSaveRole} disabled={creatingRole}>
                     <Save className="h-4 w-4 mr-2" />
                     {creatingRole ? "Saving..." : "Save"}
                   </Button>
@@ -250,7 +272,7 @@ function UserManagementPage() {
         </TabsList>
 
         <TabsContent value="users"><UsersTab /></TabsContent>
-        <TabsContent value="custom_roles"><CustomRolesTab tenantScope={tenantScope} /></TabsContent>
+        <TabsContent value="custom_roles"><CustomRolesTab tenantScope={tenantScope} onEditRole={(r) => { setRoleForm({ id: r.id, name: r.name, description: r.description ?? "", tenant_id: r.tenant_id ?? "", screen_keys: r.screen_keys ?? [], is_active: r.is_active ?? true }); setRoleCreateOpen(true); }} /></TabsContent>
         <TabsContent value="permissions"><PermissionsTab /></TabsContent>
         <TabsContent value="matrix"><ApprovalMatrixTab tenantScope={tenantScope} tenants={tenants} /></TabsContent>
       </Tabs>
@@ -294,6 +316,8 @@ function UsersTab() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [plantFilter, setPlantFilter] = useState<string>("all");
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
   const deleteFn = useServerFn(deleteUser);
   const roleFn = useServerFn(setBuiltInRole);
   const listFn = useServerFn(listUsersViaSap);
@@ -459,26 +483,9 @@ function UsersTab() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64 max-h-80 overflow-y-auto p-2">
-                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Toggle roles</div>
-                            {ALL_ROLES.map((r) => {
-                              const has = userLocalRoles.some((ur) => ur.role === r);
-                              return (
-                                <button key={r} onClick={() => toggleRole(u.user, r, has)}
-                                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center justify-between">
-                                  <span>{ROLE_LABELS[r]}</span>
-                                  {has && <Badge variant="secondary" className="text-[10px]">on</Badge>}
-                                </button>
-                              );
-                            })}
-                          </PopoverContent>
-                        </Popover>
+                        <Button size="sm" variant="outline" onClick={() => { setEditingUser(u); setEditUserOpen(true); }}>
+                          <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -504,6 +511,17 @@ function UsersTab() {
           </Table>
         </div>
       </Card>
+      <CreateUserDialog
+        open={editUserOpen}
+        onOpenChange={(v) => { setEditUserOpen(v); if (!v) setEditingUser(null); }}
+        onCreated={() => {
+          setEditUserOpen(false);
+          setEditingUser(null);
+          qc.invalidateQueries({ queryKey: ["admin-sap-users"] });
+          qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
+        }}
+        editUser={editingUser ?? undefined}
+      />
     </div>
   );
 }
@@ -512,11 +530,8 @@ function UsersTab() {
 /* ============================================================
  * CUSTOM ROLES TAB
  * ============================================================ */
-function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) {
+function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope: string; onEditRole?: (role: any) => void }) {
   const qc = useQueryClient();
-  const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState<{ id: string; name: string; description: string; is_active: boolean } | null>(null);
-
   const { data: customRoles = [] } = useQuery({
     queryKey: ["admin-custom-roles"],
     queryFn: async () => (await supabase.from("custom_roles").select("*, user_custom_roles(count)").order("name")).data ?? [],
@@ -528,19 +543,10 @@ function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) 
     qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
   }
 
-  async function saveEdit() {
-    if (!editForm) return;
-    if (!editForm.name) return toast.error("Name required");
-    const { error } = await supabase.from("custom_roles").update({
-      name: editForm.name,
-      description: editForm.description || null,
-      is_active: editForm.is_active,
-    }).eq("id", editForm.id);
-    if (error) return toast.error(error.message);
-    toast.success("Role updated");
-    setEditOpen(false);
-    setEditForm(null);
-    qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
+  async function handleEdit(r: any) {
+    const { data } = await supabase.from("role_permissions").select("screen_key").eq("custom_role_id", r.id);
+    const screen_keys = (data ?? []).map((p: any) => p.screen_key);
+    onEditRole?.({ ...r, screen_keys });
   }
 
   async function deleteRole(id: string, userCount: number) {
@@ -579,7 +585,7 @@ function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) 
               </TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex items-center gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => { setEditForm({ id: r.id, name: r.name, description: r.description ?? "", is_active: !!r.is_active }); setEditOpen(true); }}>
+                  <Button size="icon" variant="ghost" onClick={() => onEditRole?.(r)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)}>
@@ -597,25 +603,6 @@ function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) 
         </TableBody>
       </Table>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit role</DialogTitle></DialogHeader>
-          {editForm && (
-            <div className="space-y-3">
-              <div><Label>Name</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
-              <div><Label>Description</Label><Input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} /></div>
-              <div className="flex items-center gap-2">
-                <Switch checked={editForm.is_active} onCheckedChange={(v) => setEditForm({ ...editForm, is_active: v })} />
-                <Label>Active</Label>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={saveEdit}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
@@ -808,13 +795,15 @@ const emptyForm = () => ({
 });
 
 function CreateUserDialog({
-  open, onOpenChange, onCreated,
+  open, onOpenChange, onCreated, editUser,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
+  editUser?: any;
 }) {
   const createFn = useServerFn(createUserViaSap);
+  const editFn = useServerFn(editUserViaSap);
   const [form, setForm] = useState(emptyForm);
   const [plants, setPlants] = useState<string[]>([]);
   // Selected roles use composite values: "<plantCode>::<roleName>"
@@ -864,9 +853,30 @@ function CreateUserDialog({
     }
   }, [rolesQuery.isError, rolesQuery.error, rolesQuery.isFetching]);
 
-
-
-
+  useEffect(() => {
+    if (editUser) {
+      setForm({
+        sap_user_id: editUser.user ?? "",
+        first_name: editUser.first_name ?? "",
+        last_name: editUser.last_name ?? "",
+        email: editUser.email ?? "",
+        contact_number: editUser.contact ?? "",
+        status: editUser.status === "ACTIVE" || editUser.status === "Active" ? "Active" as CreationStatus : "Inactive" as CreationStatus,
+        password: "",
+        confirm_password: "",
+      });
+      setPlants(editUser.plants ?? []);
+      setRoles((editUser.roles ?? []).map((r: string) => {
+        // Try to pair each role with the first plant; if multiple plants, duplicate
+        const plant = (editUser.plants ?? [])[0] ?? "";
+        return plant ? `${plant}::${r}` : "";
+      }).filter(Boolean));
+    } else {
+      setForm(emptyForm());
+      setPlants([]);
+      setRoles([]);
+    }
+  }, [editUser]);
 
   function reset() {
     setForm(emptyForm());
@@ -892,7 +902,7 @@ function CreateUserDialog({
 
     setSubmitting(true);
     try {
-      const res = await createFn({ data: {
+      const base = {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
@@ -908,13 +918,18 @@ function CreateUserDialog({
             return plant && role ? { plant, role } : null;
           })
           .filter((x): x is { plant: string; role: string } => !!x),
-
-      } });
-      toast.success(res?.message ?? "User created successfully");
+      };
+      if (editUser) {
+        const res = await editFn({ data: base });
+        toast.success(res?.message ?? "User updated successfully");
+      } else {
+        const res = await createFn({ data: base });
+        toast.success(res?.message ?? "User created successfully");
+      }
       reset();
       onCreated();
     } catch (e: any) {
-      toast.error(e.message ?? "Failed to create user");
+      toast.error(e.message ?? (editUser ? "Failed to update user" : "Failed to create user"));
     } finally {
       setSubmitting(false);
     }
@@ -925,7 +940,7 @@ function CreateUserDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-md p-0 gap-0 max-h-[90vh] flex flex-col">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle className="text-base font-semibold">Add New User</DialogTitle>
+          <DialogTitle className="text-base font-semibold">{editUser ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
@@ -945,6 +960,8 @@ function CreateUserDialog({
               value={form.sap_user_id}
               onChange={(e) => setForm({ ...form, sap_user_id: e.target.value })}
               placeholder="Enter User ID (e.g., USR001)"
+              disabled={!!editUser}
+              className={editUser ? "bg-muted" : ""}
             />
           </Field>
 

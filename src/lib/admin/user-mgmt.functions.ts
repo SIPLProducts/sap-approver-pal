@@ -704,3 +704,180 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
 
 
 
+
+export const editUserViaSap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    sap_user_id: z.string().trim().min(1).max(60),
+    first_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().min(1).max(100),
+    email: z.string().trim().email().max(200),
+    contact_number: z.string().trim().regex(/^\d{10}$/),
+    password: z.string().min(8).max(200),
+    confirm_password: z.string().min(8).max(200),
+    status: z.enum(["Active", "Inactive"]).default("Active"),
+    plants: z.array(z.string().min(1).max(20)).min(1).max(50),
+    roles: z.array(z.object({
+      plant: z.string().trim().min(1).max(20),
+      role: z.string().trim().min(1).max(60),
+    })).min(1).max(200),
+  }).refine((v) => v.password === v.confirm_password, {
+    message: "Passwords do not match",
+    path: ["confirm_password"],
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
+
+    const cfgId = await findSapConfigId(["Edit_User", "EDITUSER", "Edit User"]);
+    if (!cfgId) {
+      throw new Error("SAP Edit User API is not configured. Add an active config named Edit_User (or 'Edit User') in SAP API Settings.");
+    }
+
+    const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
+    const inner = {
+      USER: data.sap_user_id.toUpperCase(),
+      FIRST_NAME: data.first_name.toUpperCase(),
+      LAST_NAME: data.last_name.toUpperCase(),
+      EMAIL: data.email,
+      CONTACT: data.contact_number,
+      PASSWORD: data.password,
+      ZCONFPSWD: data.confirm_password,
+      STATUS: data.status === "Active" ? "ACTIVE" : "INACTIVE",
+      PLANTS: uniquePlants.map((p) => ({ WERKS: p })),
+      ROLES: data.roles.map(({ plant, role }) => ({
+        WERKS: plant.trim(),
+        ROLE: String(role).trim().toUpperCase(),
+      })),
+    };
+    const payload = { EDIT: inner };
+
+    const result = await invokeViaMiddleware(cfgId, payload);
+    const sapBody: any = result.data ?? {};
+    const rawStatus = pickField(sapBody, "STATUS");
+    const statusStr = String(rawStatus ?? "").toUpperCase();
+    const sapMessage = pickField(sapBody, "MESSAGE");
+    const sapNumber = pickField(sapBody, "NUMBER");
+    const isExplicitError = statusStr === "ERROR" || statusStr === "FAIL" || statusStr === "FAILURE" || statusStr === "FALSE" || statusStr === "E";
+    const isExplicitSuccess = statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "S" || statusStr === "OK";
+    const success = result.ok && !isExplicitError && (isExplicitSuccess || statusStr === "");
+
+    await supabaseAdmin.from("admin_audit_log").insert({
+      actor_id: context.userId,
+      action: "user.sap_edit",
+      target_table: "sap_users",
+      target_id: null,
+      payload: {
+        request: { EDIT: { ...inner, PASSWORD: "***", ZCONFPSWD: "***" } },
+        response: sapBody,
+        middleware_status: result.status,
+        middleware_error: result.error ?? null,
+        success,
+      },
+    });
+
+    if (!success) {
+      const msg = sapMessage || result.error || `SAP rejected the request (status ${result.status})`;
+      throw new Error(String(msg));
+    }
+
+    return {
+      ok: true,
+      message: String(sapMessage ?? `User ${inner.USER} updated successfully`),
+      number: sapNumber ?? null,
+    };
+  });
+
+export const editCustomRoleViaSap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    role_id: z.string().trim().min(1).max(60),
+    name: z.string().trim().min(1).max(60),
+    description: z.string().trim().max(240).optional().or(z.literal("")),
+    tenant_id: z.string().trim().optional().or(z.literal("")),
+    screen_keys: z.array(z.string().trim().min(1).max(80)).min(1).max(50),
+    is_active: z.boolean().default(true),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
+
+    const cfgId = await findSapConfigId(["Edit_Role", "EDITROLE", "Edit Role"]);
+    if (!cfgId) {
+      throw new Error("SAP Edit Role API is not configured. Add an active config named Edit_Role (or 'Edit Role') in SAP API Settings.");
+    }
+
+    const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
+    const inner = {
+      ROLE: data.name.toUpperCase(),
+      ROLE_DES: data.description || "",
+      ACTIVITY: uniqueScreens.map((k) => ({
+        ACTIVITY: k.toUpperCase(),
+        RELEASE_CODE: k,
+      })),
+    };
+    const payload = { EDIT: inner };
+
+    const result = await invokeViaMiddleware(cfgId, payload);
+    const sapBody: any = result.data ?? {};
+    const rawStatus = pickField(sapBody, "STATUS");
+    const statusStr = String(rawStatus ?? "").toUpperCase();
+    const sapMessage = pickField(sapBody, "MESSAGE");
+    const sapNumber = pickField(sapBody, "NUMBER");
+    const isExplicitError = statusStr === "ERROR" || statusStr === "FAIL" || statusStr === "FAILURE" || statusStr === "FALSE" || statusStr === "E";
+    const isExplicitSuccess = statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "S" || statusStr === "OK";
+    const success = result.ok && !isExplicitError && (isExplicitSuccess || statusStr === "");
+
+    let dbError: string | null = null;
+    if (success) {
+      const { error: updErr } = await supabaseAdmin.from("custom_roles").update({
+        name: data.name,
+        description: data.description || null,
+        tenant_id: data.tenant_id || null,
+        is_active: data.is_active,
+      }).eq("id", data.role_id);
+      if (updErr) {
+        dbError = updErr.message;
+      } else {
+        await supabaseAdmin.from("role_permissions").delete().eq("custom_role_id", data.role_id);
+        const permRows = uniqueScreens.map((k) => ({
+          custom_role_id: data.role_id,
+          screen_key: k,
+          action: "view",
+          allowed: true,
+        }));
+        const { error: permErr } = await supabaseAdmin.from("role_permissions").insert(permRows);
+        if (permErr) dbError = permErr.message;
+      }
+    }
+
+    await supabaseAdmin.from("admin_audit_log").insert({
+      actor_id: context.userId,
+      action: "user.sap_role_edit",
+      target_table: "custom_roles",
+      target_id: data.role_id,
+      payload: {
+        request: payload.EDIT,
+        screen_keys: uniqueScreens,
+        response: sapBody,
+        middleware_status: result.status,
+        middleware_error: result.error ?? null,
+        success,
+        db_error: dbError,
+      },
+    });
+
+    if (!success) {
+      const msg = sapMessage || result.error || `SAP rejected the request (status ${result.status})`;
+      throw new Error(String(msg));
+    }
+
+    return {
+      ok: true,
+      message: String(sapMessage ?? `Role ${payload.EDIT.ROLE} updated successfully`),
+      number: sapNumber ?? null,
+      db_error: dbError,
+    };
+  });
