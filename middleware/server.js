@@ -213,10 +213,25 @@ function evalExpr(expr, inputs) {
   return out;
 }
 
+function getNested(obj, path) {
+  if (!obj || typeof obj !== "object") return undefined;
+  if (Object.prototype.hasOwnProperty.call(obj, path)) return obj[path];
+  const parts = path.split(".");
+  let cur = obj;
+  for (const k of parts) {
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = cur[k];
+  }
+  return cur;
+}
+
 function resolveRequestField(field, inputs) {
   switch (field.source) {
     case "static": return field.default_value ?? null;
-    case "column": return inputs[field.field_name] ?? field.default_value ?? null;
+    case "column": {
+      const v = getNested(inputs, field.field_name);
+      return v ?? field.default_value ?? null;
+    }
     case "secret": return field.default_value ? process.env[field.default_value] ?? null : null;
     case "expr":   return evalExpr(field.default_value ?? "", inputs);
     default:       return null;
@@ -271,9 +286,9 @@ function buildRequestPayload(fields, inputs) {
     }
   }
 
-  // Arrays: read inputs[arrayRoot] (array of objects), project to known leaves.
+  // Arrays: prefer nested inputs.<arrayRoot path>, fallback to flat key.
   for (const [arrayRoot, group] of arrayGroups) {
-    const raw = inputs[arrayRoot];
+    const raw = getNested(inputs, arrayRoot);
     if (!Array.isArray(raw) || raw.length === 0) {
       if (group.required) missing.push(arrayRoot);
       if (raw === undefined) continue;
@@ -415,6 +430,21 @@ async function invokeSap(cfg, inputs) {
     headers["Content-Type"] = headers["Content-Type"] ?? "application/json";
     body = JSON.stringify(payload);
   }
+
+  try {
+    const redacted = JSON.parse(JSON.stringify(payload));
+    const stack = [redacted];
+    while (stack.length) {
+      const node = stack.pop();
+      if (node && typeof node === "object") {
+        for (const k of Object.keys(node)) {
+          if (/password|pswd|secret/i.test(k)) node[k] = "***";
+          else if (node[k] && typeof node[k] === "object") stack.push(node[k]);
+        }
+      }
+    }
+    console.log(`[/sap/invoke] outbound ${cfg.http_method} ${url.toString()} payload=`, JSON.stringify(redacted));
+  } catch {}
 
   const t0 = Date.now();
   const res = await fetchWithTimeout(url.toString(), { method: cfg.http_method, headers, body });
