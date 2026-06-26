@@ -23,6 +23,7 @@ import {
   UsersRound, UserCog, RefreshCw, Pencil, UserX,
 } from "lucide-react";
 import { inviteUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
+import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: UserManagementPage,
