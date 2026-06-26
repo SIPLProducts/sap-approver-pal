@@ -23,7 +23,7 @@ import {
   UsersRound, UserCog, RefreshCw, Pencil, UserX, X,
   Eye, EyeOff, Save, Check, ChevronDown,
 } from "lucide-react";
-import { createUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
+import { createUserViaSap, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -717,7 +717,7 @@ function CreateUserDialog({
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
 }) {
-  const createFn = useServerFn(createUser);
+  const createFn = useServerFn(createUserViaSap);
   const [form, setForm] = useState(emptyForm);
   const [plants, setPlants] = useState<string[]>([]);
   const [roles, setRoles] = useState<AppRole[]>([]);
@@ -748,19 +748,19 @@ function CreateUserDialog({
 
     setSubmitting(true);
     try {
-      await createFn({ data: {
+      const res = await createFn({ data: {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
         contact_number: form.contact_number.trim(),
-        status: form.status,
-        mode: "password",
+        status: form.status === "Active" ? "Active" : "Inactive",
         password: form.password,
+        confirm_password: form.confirm_password,
         plants,
         roles,
       } });
-      toast.success("User created");
+      toast.success(res?.message ?? "User created successfully");
       reset();
       onCreated();
     } catch (e: any) {
@@ -769,6 +769,7 @@ function CreateUserDialog({
       setSubmitting(false);
     }
   }
+
 
   return (
     <Dialog open={open} onOpenChange={close}>

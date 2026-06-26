@@ -7,6 +7,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+
+
 const APP_ROLES = [
   "F1","F2","F3","F4","F5","F6","M1","M2","M3","M4","M5","MD",
   "S2","S3","S4","T1","T4","T5","T6","IC","ZZ","SR","C1",
@@ -185,3 +187,81 @@ export const setBuiltInRole = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+export const createUserViaSap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    sap_user_id: z.string().trim().min(1).max(60),
+    first_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().min(1).max(100),
+    email: z.string().trim().email().max(200),
+    contact_number: z.string().trim().regex(/^\d{10}$/),
+    password: z.string().min(8).max(200),
+    confirm_password: z.string().min(8).max(200),
+    status: z.enum(["Active", "Inactive"]).default("Active"),
+    plants: z.array(z.string().min(1).max(20)).min(1).max(50),
+    roles: z.array(z.enum(APP_ROLES)).min(1).max(50),
+  }).refine((v) => v.password === v.confirm_password, {
+    message: "Passwords do not match",
+    path: ["confirm_password"],
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs").select("id").eq("name", "USER_CREATE").maybeSingle();
+    if (!cfg?.id) {
+      throw new Error("SAP Create User API is not configured. Add a config named USER_CREATE in SAP API Settings.");
+    }
+
+    const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
+    const uniqueRoles = Array.from(new Set(data.roles));
+    const payload = {
+      CREATE: {
+        USER: data.sap_user_id.toUpperCase(),
+        FIRST_NAME: data.first_name.toUpperCase(),
+        LAST_NAME: data.last_name.toUpperCase(),
+        EMAIL: data.email,
+        CONTACT: data.contact_number,
+        PASSWORD: data.password,
+        ZCONFPSWD: data.confirm_password,
+        STATUS: data.status === "Active" ? "ACTIVE" : "INACTIVE",
+        PLANTS: uniquePlants.map((p) => ({ WERKS: p })),
+        ROLES: uniquePlants.flatMap((p) =>
+          uniqueRoles.map((r) => ({ WERKS: p, ROLE: String(r).toUpperCase() })),
+        ),
+      },
+    };
+
+    const result = await invokeViaMiddleware(cfg.id, payload);
+    const sapBody: any = result.data ?? {};
+    const success = result.ok && String(sapBody?.STATUS ?? "").toUpperCase() === "TRUE";
+
+    await supabaseAdmin.from("admin_audit_log").insert({
+      actor_id: context.userId,
+      action: "user.sap_create",
+      target_table: "sap_users",
+      target_id: null,
+      payload: {
+        request: { ...payload.CREATE, PASSWORD: "***", ZCONFPSWD: "***" },
+        response: sapBody,
+        middleware_status: result.status,
+        middleware_error: result.error ?? null,
+        success,
+      },
+    });
+
+    if (!success) {
+      const msg = sapBody?.MESSAGE || result.error || `SAP rejected the request (status ${result.status})`;
+      throw new Error(String(msg));
+    }
+
+    return {
+      ok: true,
+      message: String(sapBody?.MESSAGE ?? `User ${payload.CREATE.USER} created successfully`),
+      number: sapBody?.NUMBER ?? null,
+    };
+  });
+
