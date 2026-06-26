@@ -1,48 +1,67 @@
-## What the 401 actually means
+# Create User via SAP Middleware API
 
-`middleware/server.js` returns **401 Unauthorized** in exactly one place — the `requireSharedSecret` guard (line 61–67):
+Replace the existing Supabase-only `createUser` flow with a SAP-only call that goes through the configured Node.js middleware (`/sap/invoke`). On success, show the SAP `MESSAGE` and refresh the User Management table.
 
-```js
-if (!got || got !== SHARED_SECRET) {
-  return res.status(401).json({ ok: false, error: "Invalid or missing x-shared-secret" });
+## 1. Register the SAP "Create User" API in SAP API Settings
+
+The middleware looks up the request by `configId` from `sap_api_configs`. We will not hardcode the endpoint URL in code — the admin already manages SAP endpoints in **Admin → SAP API Settings**.
+
+- Convention: a config named exactly **`USER_CREATE`** (module = `COMMON`, `http_method = POST`, `auth_type = basic` or `proxy`) holds the SAP endpoint URL (e.g. `…/sd_approval_mng/user/create?sap-client=300`) and credentials.
+- The new server function resolves this config by name at call time. If the row is missing it returns a clear error: *"SAP Create User API is not configured. Add a config named USER_CREATE in SAP API Settings."*
+
+(The URL pasted in chat — `…/login/login?sap-client=300` — is a login endpoint, not Create User. The admin can save the correct Create User URL once in SAP API Settings without any further code change.)
+
+## 2. New server function: `createUserViaSap`
+
+File: `src/lib/admin/user-mgmt.functions.ts`
+
+- `createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])`
+- Input (Zod): same shape the dialog already collects — `sap_user_id`, `first_name`, `last_name`, `email`, `contact_number`, `password`, `confirm_password`, `status` (`Active`/`Inactive`), `plants: string[]`, `roles: AppRole[]`.
+- Authorize: `assertAdmin(context.userId)` (existing helper).
+- Resolve `configId`: `supabaseAdmin.from('sap_api_configs').select('id').eq('name','USER_CREATE').maybeSingle()`.
+- Build payload exactly per the spec:
+
+```text
+{
+  "CREATE": {
+    "USER": <sap_user_id upper>,
+    "FIRST_NAME": <first_name upper>,
+    "LAST_NAME":  <last_name upper>,
+    "EMAIL": <email>,
+    "CONTACT": <contact_number>,
+    "PASSWORD": <password>,
+    "ZCONFPSWD": <confirm_password>,
+    "STATUS": status === 'Active' ? 'ACTIVE' : 'INACTIVE',
+    "PLANTS": plants.map(p => ({ WERKS: p })),
+    "ROLES":  plants.flatMap(p => roles.map(r => ({ WERKS: p, ROLE: String(r).toUpperCase() })))
+  }
 }
 ```
 
-When **SAP itself** rejects with 401 (bad username/password/sap-client), the middleware wraps it as **502 Bad Gateway** (named routes line 549–557, generic `/sap/invoke` line 502). It would also return the SAP HTML login page as a 502 with `__sap_html_error: true` in the body.
+Roles mapping: per user's answer, apply every selected role to every selected plant (cartesian product). App role keys are sent as-is, uppercased.
 
-So the 401 you're seeing right now is **not** SAP auth failing — it's the **app ↔ middleware shared-secret mismatch**. The request never reaches SAP.
+- Call `invokeViaMiddleware(configId, payload)`.
+- Treat success when the response body has `STATUS === "TRUE"` (or middleware `ok && data.STATUS === 'TRUE'`). Return `{ ok: true, message: data.MESSAGE, number: data.NUMBER }`.
+- Failure: throw `new Error(data?.MESSAGE || result.error || 'SAP rejected the request')` so the dialog can surface it.
+- Audit log: insert `admin_audit_log` row with `action: 'user.sap_create'`, payload includes the sanitized request (no password) and SAP response.
 
-## Likely causes (in order)
+## 3. Dialog wiring
 
-1. **Proxy Secret in the app DB is empty or different from `MIDDLEWARE_SHARED_SECRET`** on the middleware host. `invokeViaMiddleware` only attaches the `x-shared-secret` header when `sap_global_secrets.proxy_secret` is set (sap-client.server.ts line 145). If it's blank, the middleware sees no header and returns 401.
-2. **Trailing whitespace / newline** in either value (common when pasted into ngrok-running shell vs. the app form).
-3. **Two different middleware instances** — the app is pointed at a middleware started with a different `MIDDLEWARE_SHARED_SECRET` env than the one you saved as Proxy Secret.
+File: `src/routes/_authenticated/admin.users.tsx` (`CreateUserDialog`)
 
-## Verification steps (no code change yet)
+- Replace `useServerFn(createUser)` with `useServerFn(createUserViaSap)`.
+- Keep all existing client-side validation (plant ≥ 1, role ≥ 1, password ≥ 8, 10-digit contact, matching passwords).
+- Submit handler: pass form values + `plants` + `roles` straight through; no Supabase auth/profile writes happen anymore.
+- On success: `toast.success(result.message ?? 'User created successfully')`, `reset()`, `onCreated()` (already invalidates `admin-profiles`, `admin-user-roles`, `admin-user-tenants` — table refreshes).
+- On error: `toast.error(e.message)` (existing behavior).
 
-Run these and share results — they pinpoint which of the three it is:
+## 4. Keep / remove existing code
 
-1. On the middleware host, print the loaded secret length (don't print the value):
-   ```
-   node -e "import('dotenv/config').then(()=>console.log('len=', (process.env.MIDDLEWARE_SHARED_SECRET||process.env.SHARED_SECRET||'').length))"
-   ```
-2. From any shell, call the middleware directly with a known-bad and known-good secret:
-   ```
-   curl -i -X POST https://worsening-doodle-floral.ngrok-free.dev/sap/invoke \
-     -H "content-type: application/json" -H "x-shared-secret: WRONG" \
-     -d '{"configId":"00000000-0000-0000-0000-000000000000"}'
-   ```
-   - Expect: `401 {"ok":false,"error":"Invalid or missing x-shared-secret"}` — confirms guard works.
-   Then retry with the **exact** Proxy Secret you saved in the app. If that also returns 401, the value in the app DB doesn't match the middleware env.
-3. In the app, open SAP API Settings → Middleware Configuration → re-enter the Proxy Secret (don't just look at it; the field is masked). Save.
+- `createUser` (Supabase-backed) is no longer used by the dialog. Leave the export in place for now but unused, or delete it — recommend **delete** plus the `inviteUser` alias to avoid future confusion. The `deleteUser` / `setBuiltInRole` server functions stay untouched.
+- No DB migration is needed; the new function only reads `sap_api_configs` and writes to `admin_audit_log`.
 
-## Then — and only then — if the failure mode changes
+## Technical notes
 
-- If you start seeing **502 Bad Gateway** with `__sap_html_error: true` in the response body → that's the real SAP-side authentication failure. The fix is the SAP Connection username/password/sap-client in the app, not the middleware.
-- If you see **502 Bad Gateway** with a JSON body and `status: 401` from SAP → SAP rejected the Basic auth header. Confirm the username has API access, password isn't expired/locked, and the `sap-client` value is sent (either in `extra_headers` as `sap-client: <nnn>` or as a query param the request fields produce).
-
-## What would change in code (only if needed after diagnosis)
-
-- Surface the middleware's own 401 distinctly in the app UI (currently `invokeViaMiddleware` just passes `body.ok` and the raw status). A small change in `src/lib/sap/sap-client.server.ts` (~line 148–156) could detect HTTP 401 from the middleware and return `error: "Proxy Secret mismatch — middleware rejected the shared secret"` so this exact confusion doesn't recur.
-
-No file edits are proposed yet — I need the curl/`len=` results above before touching code.
+- The Users table data source (`profiles`, `user_roles`, `user_tenants`) is unchanged. After Replace, the table will only reflect users that SAP returns from its own list endpoint — surfacing those is **not** in scope here (separate request).
+- `invokeViaMiddleware` already handles the proxy-secret 401 case; SAP-side auth/validation errors arrive with `STATUS = "FALSE"` (or HTTP non-200 wrapped as 502) and surface via `data.MESSAGE`.
+- No client/browser code reads SAP credentials — everything runs in the server function.
