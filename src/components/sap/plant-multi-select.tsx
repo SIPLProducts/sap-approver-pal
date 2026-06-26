@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
+import { ChevronsUpDown, Loader2, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -179,11 +180,10 @@ export function PlantMultiSelect({
                       }}
                       className="font-medium border-b rounded-none"
                     >
-                      <Check
-                        className={cn(
-                          "mr-2 h-3.5 w-3.5",
-                          value.length === plants.length ? "opacity-100" : "opacity-0",
-                        )}
+                      <Checkbox
+                        checked={value.length === plants.length}
+                        tabIndex={-1}
+                        className="pointer-events-none mr-2"
                       />
                       {value.length === plants.length
                         ? `Clear all (${plants.length})`
@@ -198,11 +198,10 @@ export function PlantMultiSelect({
                           onSelect={() => toggle(p)}
                           className="font-mono"
                         >
-                          <Check
-                            className={cn(
-                              "mr-2 h-3.5 w-3.5",
-                              isSel ? "opacity-100" : "opacity-0",
-                            )}
+                          <Checkbox
+                            checked={isSel}
+                            tabIndex={-1}
+                            className="pointer-events-none mr-2"
                           />
                           {p}
                         </CommandItem>
