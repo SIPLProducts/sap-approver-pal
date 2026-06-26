@@ -57,12 +57,13 @@ function UserManagementPage() {
       await inviteFn({ data: {
         email: inviteForm.email, full_name: inviteForm.full_name,
         role: (inviteForm.role || undefined) as AppRole | undefined,
-        tenant_id: inviteForm.tenant_id || undefined,
+        plants: inviteForm.plants.length > 0 ? inviteForm.plants : undefined,
       } });
       toast.success("Invitation sent");
       setInviteOpen(false);
-      setInviteForm({ email: "", full_name: "", role: "", tenant_id: "" });
+      setInviteForm({ email: "", full_name: "", role: "", plants: [] });
       qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
     } catch (e: any) { toast.error(e.message); }
   }
 
