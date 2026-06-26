@@ -850,7 +850,19 @@ function CreateUserDialog({
           </Field>
 
           <Field label="Role" required>
-            <RoleMultiSelect value={roles} onChange={setRoles} />
+            <RoleMultiSelect
+              value={roles}
+              onChange={setRoles}
+              options={roleOptions}
+              loading={rolesQuery.isFetching}
+              placeholder={
+                plants.length === 0
+                  ? "— Select plants first —"
+                  : rolesQuery.isFetching
+                    ? "Loading roles…"
+                    : "— Select Roles —"
+              }
+            />
           </Field>
 
           <Field label="Password" required>
