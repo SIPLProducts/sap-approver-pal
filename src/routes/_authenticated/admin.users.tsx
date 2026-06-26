@@ -140,51 +140,80 @@ function UserManagementPage() {
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2" /> Add Role</Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Create custom role</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <div><Label>Name</Label><Input value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })} /></div>
-                  <div><Label>Description</Label><Input value={roleForm.description} onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })} /></div>
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Add New Role</DialogTitle></DialogHeader>
+                <div className="space-y-4">
                   <div>
-                    <Label>Tenant scope</Label>
-                    <Select value={roleForm.tenant_id} onValueChange={(v) => setRoleForm({ ...roleForm, tenant_id: v })}>
-                      <SelectTrigger><SelectValue placeholder={tenantScope !== "all" ? "Current tenant" : "Global"} /></SelectTrigger>
-                      <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <Label>Role Name <span className="text-destructive">*</span></Label>
+                    <Input
+                      placeholder="Enter role name"
+                      value={roleForm.name}
+                      onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
+                    />
                   </div>
+                  <div>
+                    <Label>Role Description</Label>
+                    <Textarea
+                      placeholder="Enter role description"
+                      rows={3}
+                      value={roleForm.description}
+                      onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
+                    />
+                  </div>
+                  {tenants.length > 0 && (
+                    <div>
+                      <Label>Tenant scope</Label>
+                      <Select value={roleForm.tenant_id} onValueChange={(v) => setRoleForm({ ...roleForm, tenant_id: v })}>
+                        <SelectTrigger><SelectValue placeholder={tenantScope !== "all" ? "Current tenant" : "Global"} /></SelectTrigger>
+                        <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="space-y-2">
-                    <Label>Activities (Screen Permissions)</Label>
-                    <div className="border rounded-md p-2 space-y-2 max-h-64 overflow-auto">
-                      {PERMISSION_ACTIONS.map((a) => {
-                        const upper = a.toUpperCase();
-                        const idx = roleForm.activities.findIndex((x) => x.ACTIVITY === upper);
-                        const checked = idx >= 0;
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-base font-semibold">Screen Permissions</h3>
+                        <p className="text-xs text-muted-foreground">Select which screens this role can access</p>
+                      </div>
+                      <div className="text-xs text-muted-foreground whitespace-nowrap">
+                        {roleForm.screen_keys.length} of {allScreens.length} assigned
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" size="sm"
+                        onClick={() => setRoleForm({ ...roleForm, screen_keys: allScreens.map((s) => s.key) })}>
+                        Select All
+                      </Button>
+                      <Button type="button" variant="outline" size="sm"
+                        onClick={() => setRoleForm({ ...roleForm, screen_keys: [] })}>
+                        Deselect All
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {allScreens.map((s) => {
+                        const selected = roleForm.screen_keys.includes(s.key);
                         return (
-                          <div key={a} className="flex items-center gap-2">
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(v) => {
-                                if (v) {
-                                  setRoleForm({ ...roleForm, activities: [...roleForm.activities, { ACTIVITY: upper, RELEASE_CODE: "" }] });
-                                } else {
-                                  setRoleForm({ ...roleForm, activities: roleForm.activities.filter((x) => x.ACTIVITY !== upper) });
-                                }
-                              }}
-                            />
-                            <span className="text-sm capitalize w-24">{a}</span>
-                            <Input
-                              className="h-8 flex-1"
-                              placeholder="Release code (e.g. 01)"
-                              maxLength={10}
-                              disabled={!checked}
-                              value={checked ? roleForm.activities[idx].RELEASE_CODE : ""}
-                              onChange={(e) => {
-                                const next = roleForm.activities.slice();
-                                if (idx >= 0) next[idx] = { ...next[idx], RELEASE_CODE: e.target.value };
-                                setRoleForm({ ...roleForm, activities: next });
-                              }}
-                            />
-                          </div>
+                          <button
+                            type="button"
+                            key={s.key}
+                            onClick={() => {
+                              setRoleForm({
+                                ...roleForm,
+                                screen_keys: selected
+                                  ? roleForm.screen_keys.filter((k) => k !== s.key)
+                                  : [...roleForm.screen_keys, s.key],
+                              });
+                            }}
+                            className={cn(
+                              "flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm text-left transition-colors",
+                              selected
+                                ? "border-primary/60 bg-primary/5 text-foreground"
+                                : "border-dashed border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                            )}
+                          >
+                            <span className="truncate">{s.label}</span>
+                            {selected && <X className="h-4 w-4 shrink-0 opacity-70" />}
+                          </button>
                         );
                       })}
                     </div>
@@ -192,7 +221,10 @@ function UserManagementPage() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setRoleCreateOpen(false)} disabled={creatingRole}>Cancel</Button>
-                  <Button onClick={submitCreateRole} disabled={creatingRole}>{creatingRole ? "Creating..." : "Create"}</Button>
+                  <Button onClick={submitCreateRole} disabled={creatingRole}>
+                    <Save className="h-4 w-4 mr-2" />
+                    {creatingRole ? "Saving..." : "Save"}
+                  </Button>
                 </DialogFooter>
 
               </DialogContent>
