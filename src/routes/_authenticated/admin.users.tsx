@@ -910,7 +910,13 @@ function CreateUserDialog({
         password: form.password,
         confirm_password: form.confirm_password,
         plants,
-        roles: Array.from(new Set(roles.map((v) => v.split("::")[1]).filter(Boolean))),
+        roles: roles
+          .map((v) => {
+            const [plant, role] = v.split("::");
+            return plant && role ? { plant, role } : null;
+          })
+          .filter((x): x is { plant: string; role: string } => !!x),
+
       } });
       toast.success(res?.message ?? "User created successfully");
       reset();
