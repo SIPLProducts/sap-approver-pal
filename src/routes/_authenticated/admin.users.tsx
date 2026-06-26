@@ -46,7 +46,12 @@ function UserManagementPage() {
   const [tenantScope, setTenantScope] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [roleCreateOpen, setRoleCreateOpen] = useState(false);
-  const [roleForm, setRoleForm] = useState({ name: "", description: "", tenant_id: "" });
+  const [roleForm, setRoleForm] = useState<{
+    name: string;
+    description: string;
+    tenant_id: string;
+    activities: { ACTIVITY: string; RELEASE_CODE: string }[];
+  }>({ name: "", description: "", tenant_id: "", activities: [] });
   const [creatingRole, setCreatingRole] = useState(false);
   const createRoleSap = useServerFn(createCustomRoleViaSap);
   const qc = useQueryClient();
