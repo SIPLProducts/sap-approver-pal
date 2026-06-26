@@ -189,8 +189,6 @@ function UsersTab({ tenants }: { tenants: any[] }) {
   const { user: me } = useAuth();
   const [search, setSearch] = useState("");
   const [plantFilter, setPlantFilter] = useState<string>("all");
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const inviteFn = useServerFn(inviteUser);
   const deleteFn = useServerFn(deleteUser);
   const roleFn = useServerFn(setBuiltInRole);
 
