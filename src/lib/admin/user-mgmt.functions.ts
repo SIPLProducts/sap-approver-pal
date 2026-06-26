@@ -713,17 +713,20 @@ export const editUserViaSap = createServerFn({ method: "POST" })
     last_name: z.string().trim().min(1).max(100),
     email: z.string().trim().email().max(200),
     contact_number: z.string().trim().regex(/^\d{10}$/),
-    password: z.string().min(8).max(200),
-    confirm_password: z.string().min(8).max(200),
+    password: z.string().max(200).optional().default(""),
+    confirm_password: z.string().max(200).optional().default(""),
     status: z.enum(["Active", "Inactive"]).default("Active"),
     plants: z.array(z.string().min(1).max(20)).min(1).max(50),
     roles: z.array(z.object({
       plant: z.string().trim().min(1).max(20),
       role: z.string().trim().min(1).max(60),
     })).min(1).max(200),
-  }).refine((v) => v.password === v.confirm_password, {
+  }).refine((v) => !v.password || v.password === v.confirm_password, {
     message: "Passwords do not match",
     path: ["confirm_password"],
+  }).refine((v) => !v.password || v.password.length >= 8, {
+    message: "Password must be at least 8 characters",
+    path: ["password"],
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
