@@ -316,6 +316,8 @@ function UsersTab() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [plantFilter, setPlantFilter] = useState<string>("all");
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
   const deleteFn = useServerFn(deleteUser);
   const roleFn = useServerFn(setBuiltInRole);
   const listFn = useServerFn(listUsersViaSap);
@@ -481,26 +483,9 @@ function UsersTab() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64 max-h-80 overflow-y-auto p-2">
-                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Toggle roles</div>
-                            {ALL_ROLES.map((r) => {
-                              const has = userLocalRoles.some((ur) => ur.role === r);
-                              return (
-                                <button key={r} onClick={() => toggleRole(u.user, r, has)}
-                                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center justify-between">
-                                  <span>{ROLE_LABELS[r]}</span>
-                                  {has && <Badge variant="secondary" className="text-[10px]">on</Badge>}
-                                </button>
-                              );
-                            })}
-                          </PopoverContent>
-                        </Popover>
+                        <Button size="sm" variant="outline" onClick={() => { setEditingUser(u); setEditUserOpen(true); }}>
+                          <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -526,6 +511,17 @@ function UsersTab() {
           </Table>
         </div>
       </Card>
+      <CreateUserDialog
+        open={editUserOpen}
+        onOpenChange={(v) => { setEditUserOpen(v); if (!v) setEditingUser(null); }}
+        onCreated={() => {
+          setEditUserOpen(false);
+          setEditingUser(null);
+          qc.invalidateQueries({ queryKey: ["admin-sap-users"] });
+          qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
+        }}
+        editUser={editingUser ?? undefined}
+      />
     </div>
   );
 }
