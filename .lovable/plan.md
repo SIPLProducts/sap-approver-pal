@@ -1,43 +1,34 @@
-# Redesign Add Role Dialog
+# Fix "ROLE_CREATE not configured" lookup mismatch
 
-Replace the Activities (Screen Permissions) editor in the Add Role popup with a clean chip-grid screen picker that matches the attached mockup, and rewire the SAP payload + local persistence accordingly.
+## Problem
+`createCustomRoleViaSap` looks up `sap_api_configs.name = 'ROLE_CREATE'`, but the row in the DB is named **"Create role"**. Same friendly-name mismatch exists for `USER_CREATE` (row is "Create User") and likely `ROLE_LIST`.
 
-## 1. `src/routes/_authenticated/admin.users.tsx` — dialog UI
+## Fix — single file: `src/lib/admin/user-mgmt.functions.ts`
 
-- Replace `activities` in `roleForm` state with `screen_keys: string[]` (default `[]`).
-- Flatten `SCREEN_GROUPS` from `src/lib/admin/screen-keys.ts` into one list of `{ key, label, module }`.
-- New dialog body order:
-  1. **Role Name** (required, existing input, red asterisk).
-  2. **Role Description** (textarea, 3 rows, placeholder "Enter role description").
-  3. **Screen Permissions** section header with right-aligned counter `"{selected} of {total} assigned"`, helper text "Select which screens this role can access", and **Select All** / **Deselect All** outline buttons.
-  4. Two-column responsive grid (`grid-cols-1 sm:grid-cols-2 gap-2`) of selectable chips. Each chip = bordered row with screen label + `X` icon button on the right. Selected = solid border + foreground text; unselected = muted/dashed border, click to toggle on. Clicking `X` removes selection.
-- Footer: existing Cancel + Create buttons relabel Create as **Save** with a save icon to match the mockup.
-- Validation: name required; at least one screen selected → toast.
-- Pass `screen_keys` through to the server fn; reset to `[]` on success.
-- Keep tenant Select where it currently is (above Screen Permissions) — unchanged.
+Add a small helper that resolves a SAP config by trying multiple aliases case-insensitively:
 
-## 2. `src/lib/admin/user-mgmt.functions.ts` — `createCustomRoleViaSap`
+```ts
+async function findSapConfigId(aliases: string[]): Promise<string | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const wanted = new Set(aliases.map(norm));
+  const { data } = await supabaseAdmin
+    .from("sap_api_configs")
+    .select("id, name, is_active");
+  const match = (data ?? []).find(r => r.is_active && wanted.has(norm(r.name)));
+  return match?.id ?? null;
+}
+```
 
-- Replace `activities` validator with `screen_keys: z.array(z.string().min(1).max(80)).min(1).max(50)`.
-- Build SAP payload as one ACTIVITY entry per screen:
-  ```
-  ACTIVITY: screen_keys.map(k => ({ ACTIVITY: k.toUpperCase(), RELEASE_CODE: k }))
-  ```
-- Success check unchanged (accepts SUCCESS / TRUE / empty).
-- On success:
-  1. Insert into `custom_roles { name, description, tenant_id }` and capture `id`.
-  2. If insert succeeds, insert into `role_permissions` one row per screen:
-     `{ role_id, screen_key, action: "view", allowed: true }` (using existing columns). Collect db_error if either step fails.
-- Audit log payload extended with `screen_keys`.
+Replace the three existing `.eq("name", "...").maybeSingle()` lookups with:
 
-## 3. Out of scope
+- `createCustomRoleViaSap` → `findSapConfigId(["ROLE_CREATE", "Create Role", "CreateRole"])`
+- `createUserViaSap` → `findSapConfigId(["USER_CREATE", "Create User", "CreateUser"])`
+- `listRolesForPlants` → `findSapConfigId(["ROLE_LIST", "Get Roles", "Role List", "GetRoles"])`
 
-- No schema changes (`role_permissions` already has role_id/screen_key/action/allowed).
-- No edits to `screen-keys.ts`, no module-grouping headers in the chip grid (flat list per user's request to use existing SCREEN_GROUPS as the source).
-- Role Permissions tab continues to work as today; new rows just pre-seed the `view` action.
+Error messages updated to list accepted aliases so admins know what to name new configs.
 
-## Technical notes
-
-- Chip component built inline with Tailwind + lucide `X` icon — no new shadcn primitive needed.
-- "Select All" sets `screen_keys` to all keys; "Deselect All" sets `[]`.
-- Counter total = flattened screen count from SCREEN_GROUPS.
+## Out of scope
+- No DB renames.
+- No schema or UI changes.
+- Lookup normalization strips spaces/underscores/hyphens and is case-insensitive — `Create role`, `CREATE_ROLE`, `create-role` all match.

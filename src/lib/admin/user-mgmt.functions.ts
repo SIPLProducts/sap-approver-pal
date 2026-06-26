@@ -24,6 +24,18 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Admin only");
 }
 
+async function findSapConfigId(aliases: string[]): Promise<string | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const wanted = new Set(aliases.map(norm));
+  const { data } = await supabaseAdmin
+    .from("sap_api_configs")
+    .select("id, name, is_active");
+  const match = (data ?? []).find((r) => r.is_active && wanted.has(norm(r.name)));
+  return match?.id ?? null;
+}
+
+
 export const createUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
@@ -210,11 +222,11 @@ export const createUserViaSap = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
 
-    const { data: cfg } = await supabaseAdmin
-      .from("sap_api_configs").select("id").eq("name", "USER_CREATE").maybeSingle();
-    if (!cfg?.id) {
-      throw new Error("SAP Create User API is not configured. Add a config named USER_CREATE in SAP API Settings.");
+    const cfgId = await findSapConfigId(["USER_CREATE", "Create User", "CreateUser"]);
+    if (!cfgId) {
+      throw new Error("SAP Create User API is not configured. Add an active config named USER_CREATE (or 'Create User') in SAP API Settings.");
     }
+
 
     const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
     const uniqueRoles = Array.from(new Set(data.roles));
@@ -235,7 +247,7 @@ export const createUserViaSap = createServerFn({ method: "POST" })
       },
     };
 
-    const result = await invokeViaMiddleware(cfg.id, payload);
+    const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
     const success = result.ok && String(sapBody?.STATUS ?? "").toUpperCase() === "TRUE";
 
@@ -275,11 +287,11 @@ export const listRolesForPlants = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
 
-    const { data: cfg } = await supabaseAdmin
-      .from("sap_api_configs").select("id").eq("name", "ROLE_LIST").maybeSingle();
-    if (!cfg?.id) {
-      throw new Error("SAP Role List API is not configured. Add a config named ROLE_LIST in SAP API Settings.");
+    const cfgId = await findSapConfigId(["ROLE_LIST", "Get Roles", "Role List", "GetRoles", "List Roles"]);
+    if (!cfgId) {
+      throw new Error("SAP Role List API is not configured. Add an active config named ROLE_LIST (or 'Get Roles') in SAP API Settings.");
     }
+
 
     const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
     const payload = {
@@ -288,7 +300,7 @@ export const listRolesForPlants = createServerFn({ method: "POST" })
       },
     };
 
-    const result = await invokeViaMiddleware(cfg.id, payload);
+    const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
     if (!result.ok) {
       const msg = sapBody?.MESSAGE || result.error || `SAP request failed (status ${result.status})`;
@@ -378,11 +390,11 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
 
-    const { data: cfg } = await supabaseAdmin
-      .from("sap_api_configs").select("id").eq("name", "ROLE_CREATE").maybeSingle();
-    if (!cfg?.id) {
-      throw new Error("SAP Create Role API is not configured. Add a config named ROLE_CREATE in SAP API Settings.");
+    const cfgId = await findSapConfigId(["ROLE_CREATE", "Create Role", "CreateRole"]);
+    if (!cfgId) {
+      throw new Error("SAP Create Role API is not configured. Add an active config named ROLE_CREATE (or 'Create Role') in SAP API Settings.");
     }
+
 
     const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
     const payload = {
@@ -396,7 +408,7 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
       },
     };
 
-    const result = await invokeViaMiddleware(cfg.id, payload);
+    const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
     const statusStr = String(sapBody?.STATUS ?? "").toUpperCase();
     const success = result.ok && (statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "");
