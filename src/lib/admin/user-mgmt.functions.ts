@@ -739,14 +739,12 @@ export const editUserViaSap = createServerFn({ method: "POST" })
     }
 
     const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
-    const inner = {
+    const inner: Record<string, unknown> = {
       USER: data.sap_user_id.toUpperCase(),
       FIRST_NAME: data.first_name.toUpperCase(),
       LAST_NAME: data.last_name.toUpperCase(),
       EMAIL: data.email,
       CONTACT: data.contact_number,
-      PASSWORD: data.password,
-      ZCONFPSWD: data.confirm_password,
       STATUS: data.status === "Active" ? "ACTIVE" : "INACTIVE",
       PLANTS: uniquePlants.map((p) => ({ WERKS: p })),
       ROLES: data.roles.map(({ plant, role }) => ({
@@ -754,6 +752,10 @@ export const editUserViaSap = createServerFn({ method: "POST" })
         ROLE: String(role).trim().toUpperCase(),
       })),
     };
+    if (data.password) {
+      inner.PASSWORD = data.password;
+      inner.ZCONFPSWD = data.confirm_password || data.password;
+    }
     const payload = { EDIT: inner };
 
     const result = await invokeViaMiddleware(cfgId, payload);
