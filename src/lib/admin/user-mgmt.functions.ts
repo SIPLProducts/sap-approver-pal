@@ -294,7 +294,7 @@ export const createUserViaSap = createServerFn({ method: "POST" })
 
     return {
       ok: true,
-      message: String(sapMessage ?? `User ${payload.CREATE.USER} created successfully`),
+      message: String(sapMessage ?? `User ${payload["CREATE.USER"]} created successfully`),
       number: sapNumber ?? null,
     };
 
