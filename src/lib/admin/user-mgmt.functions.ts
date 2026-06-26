@@ -428,9 +428,9 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
         RELEASE_CODE: k,
       })),
     };
-    // Send fields BOTH flat and wrapped under CREATE so the middleware's
-    // field-mapping picks them up regardless of how the config is defined.
-    const payload = { ...inner, CREATE: inner };
+    // Middleware config has a single `CREATE` column field; it forwards
+    // inputs.CREATE verbatim, which produces the nested JSON SAP expects.
+    const payload = { CREATE: inner };
 
     const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
