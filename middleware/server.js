@@ -223,16 +223,73 @@ function resolveRequestField(field, inputs) {
   }
 }
 
+function setPath(obj, path, value) {
+  const parts = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i];
+    if (cur[k] == null || typeof cur[k] !== "object") cur[k] = {};
+    cur = cur[k];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+function splitArrayField(name) {
+  const idx = name.indexOf("[].");
+  if (idx === -1) return null;
+  return { arrayRoot: name.slice(0, idx), leaf: name.slice(idx + 3) };
+}
+
 function buildRequestPayload(fields, inputs) {
   const payload = {};
   const missing = [];
+  // Group array-leaf fields by their array root.
+  const arrayGroups = new Map(); // root -> { leaves:Set, required:boolean }
+  const scalarFields = [];
   for (const f of fields) {
+    const split = splitArrayField(f.field_name);
+    if (split) {
+      const g = arrayGroups.get(split.arrayRoot) ?? { leaves: new Set(), required: false };
+      g.leaves.add(split.leaf);
+      if (f.required) g.required = true;
+      arrayGroups.set(split.arrayRoot, g);
+    } else {
+      scalarFields.push(f);
+    }
+  }
+
+  // Scalars (flat or dotted)
+  for (const f of scalarFields) {
     const value = resolveRequestField(f, inputs);
     if (f.required && (value === null || value === undefined || value === "")) {
       missing.push(f.field_name);
     }
-    payload[f.field_name] = value;
+    if (f.field_name.includes(".")) {
+      setPath(payload, f.field_name, value);
+    } else {
+      payload[f.field_name] = value;
+    }
   }
+
+  // Arrays: read inputs[arrayRoot] (array of objects), project to known leaves.
+  for (const [arrayRoot, group] of arrayGroups) {
+    const raw = inputs[arrayRoot];
+    if (!Array.isArray(raw) || raw.length === 0) {
+      if (group.required) missing.push(arrayRoot);
+      if (raw === undefined) continue;
+    }
+    const list = Array.isArray(raw) ? raw : [];
+    const mapped = list.map((row) => {
+      const out = {};
+      if (row && typeof row === "object") {
+        for (const leaf of group.leaves) out[leaf] = row[leaf] ?? null;
+      }
+      return out;
+    });
+    if (arrayRoot.includes(".")) setPath(payload, arrayRoot, mapped);
+    else payload[arrayRoot] = mapped;
+  }
+
   if (missing.length) throw new Error(`Missing required field(s): ${missing.join(", ")}`);
   return payload;
 }
