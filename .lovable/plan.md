@@ -1,40 +1,47 @@
 ## Goal
-Change the Create User dialog Role dropdown to list **every Custom Role** (not filtered by the role's own tenant), shown once per selected Plant as `PlantCode - RoleName`.
+Match the exact Create User SAP payload. The shape is already correct — only the `ROLES` array needs fixing so it reflects the user's per-plant selections instead of a cartesian product.
 
-## Behavior
-- If no plants selected → "— Select plants first —" (unchanged).
-- If plants selected → options = cartesian product of (selected plant codes × all active custom roles), labeled `<PlantCode> - <RoleName>`.
-  Example: plants `[3801, 3802]` and custom roles `[ADMIN, USER]` →
-  - `3801 - ADMIN`
-  - `3801 - USER`
-  - `3802 - ADMIN`
-  - `3802 - USER`
-- Selecting/deselecting plants regenerates options; previously selected role values not in the new option set are dropped.
+## Current vs expected
 
-## Changes (only `CreateUserDialog` in `src/routes/_authenticated/admin.users.tsx`)
+The dialog stores selected roles as composite values `"<plant>::<role>"` (e.g. `3801::ADMIN`, `3801::APPROVER`, `3802::VIEWER`).
 
-1. **Custom-roles query** — replace the plant-filtered query with a plant-agnostic one:
-   ```ts
-   queryKey: ["custom-roles-all"]
-   queryFn: () => supabase.from("custom_roles").select("id, name").eq("is_active", true).order("name")
-   ```
-   Always enabled; cache with `staleTime: 60_000`.
+- **Current submit** in `CreateUserDialog` (`src/routes/_authenticated/admin.users.tsx`) strips off the plant, dedupes role names, then `createUserViaSap` re-expands every role across every selected plant.
+  Result: `3801::ADMIN`, `3802::VIEWER` → sends `ADMIN` and `VIEWER` to **both** 3801 and 3802.
+- **Expected** (per provided sample): each composite selection becomes one `ROLES` row with its own `WERKS` + `ROLE`. `PLANTS` stays as the list of distinct selected plants.
 
-2. **Compute roleOptions** in a `useMemo` from `sortedPlants` × `customRoles`:
-   ```ts
-   plants.flatMap(p => roles.map(r => ({ value: `${p}::${r.name}`, label: `${p} - ${r.name}` })))
-   ```
-   Empty array when no plants selected.
+All other fields (`USER`, `FIRST_NAME`, `LAST_NAME`, `EMAIL`, `CONTACT`, `PASSWORD`, `ZCONFPSWD`, `STATUS`, `PLANTS[].WERKS`) already match the sample. Response handling (`STATUS=TRUE`, `MESSAGE`, `NUMBER`) already matches.
 
-3. **Stale-selection cleanup** — keep the existing `useEffect` that drops selected role values no longer in `roleOptions`; just key it on `roleOptions` instead of `rolesQuery.data`.
+## Changes
 
-4. **Submit payload** — unchanged: dedupe role names from composite values before sending to `createUserViaSap`.
+### 1. `src/lib/admin/user-mgmt.functions.ts` — `createUserViaSap`
+- Change `roles` input from `string[]` (role names) to `Array<{ plant: string; role: string }>`, min 1, max 200.
+- Build `ROLES` directly from that array:
+  ```ts
+  ROLES: data.roles.map(({ plant, role }) => ({
+    WERKS: plant,
+    ROLE: String(role).toUpperCase(),
+  })),
+  ```
+- `PLANTS` unchanged (distinct selected plants → `[{ WERKS }]`).
+- Drop the cartesian `uniquePlants.flatMap(...)` logic.
+- Audit-log payload unchanged in shape (still redacts passwords).
 
-5. **Placeholder / empty-state text**:
-   - Loading custom roles → "Loading roles…"
-   - Plants selected, zero custom roles in system → "No custom roles configured."
+### 2. `src/routes/_authenticated/admin.users.tsx` — `CreateUserDialog.submit`
+Replace the current `roles` mapping:
+```ts
+roles: roles
+  .map((v) => {
+    const [plant, role] = v.split("::");
+    return plant && role ? { plant, role } : null;
+  })
+  .filter((x): x is { plant: string; role: string } => !!x),
+```
+No UI changes — the `RoleMultiSelect` already produces these composite values.
+
+### 3. Config lookup (unchanged)
+Server fn already resolves the active SAP API config by name (`USER_CREATE` / `Create User` / `CreateUser`) and posts the same `{ ...inner, CREATE: inner }` envelope through the middleware proxy. Response parsing already treats `STATUS=TRUE` as success and surfaces `MESSAGE`.
 
 ## Out of scope
-- `RoleMultiSelect` component shape (already accepts `{value,label}[]`).
-- SAP server functions, Custom Roles tab, Role Permissions tab.
-- DB schema.
+- SAP API Settings screen, middleware proxy code, Custom Roles tab.
+- Validation rules other than the `roles` shape.
+- Local DB writes (this flow is SAP-only; no `profiles`/`user_roles` insert is added).

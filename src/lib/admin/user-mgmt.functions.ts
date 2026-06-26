@@ -227,7 +227,10 @@ export const createUserViaSap = createServerFn({ method: "POST" })
     confirm_password: z.string().min(8).max(200),
     status: z.enum(["Active", "Inactive"]).default("Active"),
     plants: z.array(z.string().min(1).max(20)).min(1).max(50),
-    roles: z.array(z.string().trim().min(1).max(60)).min(1).max(50),
+    roles: z.array(z.object({
+      plant: z.string().trim().min(1).max(20),
+      role: z.string().trim().min(1).max(60),
+    })).min(1).max(200),
   }).refine((v) => v.password === v.confirm_password, {
     message: "Passwords do not match",
     path: ["confirm_password"],
@@ -244,7 +247,6 @@ export const createUserViaSap = createServerFn({ method: "POST" })
 
 
     const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
-    const uniqueRoles = Array.from(new Set(data.roles));
     const inner = {
       USER: data.sap_user_id.toUpperCase(),
       FIRST_NAME: data.first_name.toUpperCase(),
@@ -255,10 +257,12 @@ export const createUserViaSap = createServerFn({ method: "POST" })
       ZCONFPSWD: data.confirm_password,
       STATUS: data.status === "Active" ? "ACTIVE" : "INACTIVE",
       PLANTS: uniquePlants.map((p) => ({ WERKS: p })),
-      ROLES: uniquePlants.flatMap((p) =>
-        uniqueRoles.map((r) => ({ WERKS: p, ROLE: String(r).toUpperCase() })),
-      ),
+      ROLES: data.roles.map(({ plant, role }) => ({
+        WERKS: plant.trim(),
+        ROLE: String(role).trim().toUpperCase(),
+      })),
     };
+
     // Send fields BOTH flat and wrapped under CREATE so the middleware's
     // field-mapping picks them up regardless of how the config is defined.
     const payload = { ...inner, CREATE: inner };
