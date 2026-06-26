@@ -249,7 +249,13 @@ export const createUserViaSap = createServerFn({ method: "POST" })
 
     const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
-    const success = result.ok && String(sapBody?.STATUS ?? "").toUpperCase() === "TRUE";
+    const rawStatus = pickField(sapBody, "STATUS");
+    const statusStr = String(rawStatus ?? "").toUpperCase();
+    const sapMessage = pickField(sapBody, "MESSAGE");
+    const sapNumber = pickField(sapBody, "NUMBER");
+    const isExplicitError = statusStr === "ERROR" || statusStr === "FAIL" || statusStr === "FAILURE" || statusStr === "FALSE" || statusStr === "E";
+    const isExplicitSuccess = statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "S" || statusStr === "OK";
+    const success = result.ok && !isExplicitError && (isExplicitSuccess || statusStr === "");
 
     await supabaseAdmin.from("admin_audit_log").insert({
       actor_id: context.userId,
@@ -266,15 +272,16 @@ export const createUserViaSap = createServerFn({ method: "POST" })
     });
 
     if (!success) {
-      const msg = sapBody?.MESSAGE || result.error || `SAP rejected the request (status ${result.status})`;
+      const msg = sapMessage || result.error || `SAP rejected the request (status ${result.status})`;
       throw new Error(String(msg));
     }
 
     return {
       ok: true,
-      message: String(sapBody?.MESSAGE ?? `User ${payload.CREATE.USER} created successfully`),
-      number: sapBody?.NUMBER ?? null,
+      message: String(sapMessage ?? `User ${payload.CREATE.USER} created successfully`),
+      number: sapNumber ?? null,
     };
+
   });
 
 export const listRolesForPlants = createServerFn({ method: "POST" })
