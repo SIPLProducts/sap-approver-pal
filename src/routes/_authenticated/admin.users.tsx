@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { inviteUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
+import { PlantSelect } from "@/components/sap/plant-select";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: UserManagementPage,
