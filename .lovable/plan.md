@@ -1,45 +1,51 @@
-## Redesign Custom Roles tab to match the reference layout
+# Integrate SAP Plant F4 in Create User
 
-Scope: `src/routes/_authenticated/admin.users.tsx` only. Colors and fonts unchanged.
+## Goal
 
-### 1. Page header (when `tab === "custom_roles"`)
-Mirror the Users-tab pattern so the action buttons sit at the top-right next to the "User & Role Management" title:
-- **Refresh** (outline, `RefreshCw` icon) — invalidates `admin-custom-roles`.
-- **Add Role** (primary, `Plus` icon) — opens the create-role dialog (lifted from `CustomRolesTab` to `UserManagementPage`).
+In the Create User dialog (Users tab), replace the current "Tenant (optional)" `Select` with a Plant picker driven by the SAP `Get_Plant` F4 API — exactly the source used by `PlantSelect` in `sd.price.tsx`. The selected plant(s) are persisted against the new user and shown in the existing "Plants" column of the Users table.
 
-### 2. CustomRolesTab body — switch from card grid to a single panel + table
-Layout matching the screenshot:
+## Scope
 
-```text
-┌─ Card ─────────────────────────────────────────┐
-│ All Roles                                      │
-│ N role(s) configured                           │
-│ ──────────────────────────────────────────────│
-│ Role Name | Description | Status      | Actions│
-│ Engineering | Eng & Design | [●] Active | ✎  🗑 │
-│ ...                                           │
-└────────────────────────────────────────────────┘
-```
+Frontend + a small server-function change. No SQL/schema changes — `user_tenants` already maps users to tenants and the Plants column already reads from it.
 
-Column details:
-- **Role Name** — bold text.
-- **Description** — muted text, falls back to "—".
-- **Status** — `Switch` bound to `is_active` (updates `custom_roles.is_active` via supabase) followed by an "Active" / "Inactive" badge.
-- **Actions** — edit (pencil) opens an edit dialog (name + description + active); delete (trash, destructive) reuses existing `deleteRole` guard.
+## Changes
 
-Remove the **Workflow Routing** column entirely (not rendered, no data fetched for it).
+### 1. `src/components/sap/plant-multi-select.tsx` (new)
 
-### 3. Dialogs
-- **Create role dialog** — moved to `UserManagementPage`, same fields as today (name, description, tenant scope).
-- **Edit role dialog** — new, local to `CustomRolesTab`: name, description, active toggle; saves via `supabase.from("custom_roles").update(...)`.
+A multi-select variant of `PlantSelect` that reuses the same `getPlantConfig` + `runSapApi` data flow:
+- Same Popover + Command UI as `PlantSelect`.
+- `value: string[]`, `onChange: (next: string[]) => void`.
+- Each `CommandItem` toggles membership; selected items get the `Check` icon.
+- Trigger shows comma-joined codes (truncated) or placeholder.
+- Same fallback behavior when `Get_Plant` config is missing — render a plain text input that accepts comma-separated codes.
 
-### 4. Out of scope
-- No changes to colors, fonts, or design tokens.
-- No schema changes, no server-function changes.
-- Permissions tab and Users tab untouched.
+This keeps `PlantSelect` (single-select) untouched for the Price Approval screen.
 
-### Acceptance
-- Custom Roles tab shows a single "All Roles" card with a table of roles, no Workflow Routing column.
-- Refresh and Add Role buttons render in the page header only on the Custom Roles tab.
-- Status toggle flips `is_active` and the badge updates.
-- Edit and delete actions work per row; existing "unassign users first" guard preserved.
+### 2. `src/routes/_authenticated/admin.users.tsx`
+
+In `UserManagementPage`:
+- Change `inviteForm.tenant_id: ""` to `inviteForm.plants: string[]` (initial `[]`).
+- Replace the "Tenant (optional)" `<Select>` block in the dialog with `<PlantMultiSelect value={inviteForm.plants} onChange={...} />` labelled "Plants".
+- In `submitInvite`, send `plants: inviteForm.plants` to the server fn instead of `tenant_id`.
+- Drop the `tenants` prop dependency for the dialog body (still used by `UsersTab` for the filter and by Custom Roles).
+
+### 3. `src/lib/admin/user-mgmt.functions.ts`
+
+Update `inviteUser` input + handler:
+- Replace `tenant_id` with `plants: z.array(z.string().min(1)).max(50).optional()`.
+- After invite, look up tenants by `code IN plants`, then bulk-insert into `user_tenants` (`is_default: true` on the first one).
+- Unknown codes: skip silently and include the skipped list in the audit-log payload (no UI error — the codes come from SAP, mismatches mean the tenant row is missing).
+- Audit-log payload includes `plants` instead of `tenant_id`.
+
+## Technical notes
+
+- The Users table's "Plants" column already reads `user_tenants` joined with `tenants(code, name)`. No render change needed — it lights up automatically once rows are inserted.
+- `Get_Plant` returns codes (`VKORG`); `tenants.code` stores the same code, so the join is direct.
+- `PlantMultiSelect` uses the same query keys (`sap-plant-config`, `sap-plants`) as `PlantSelect`, so cache is shared — no duplicate SAP calls.
+- The "Tenant scope" dropdown on Custom Roles and the "All Plants" filter in the Users tab continue to use the `tenants` table query as today.
+
+## Out of scope
+
+- No edit-user plant assignment (current screen has no edit-tenants UI; this plan only matches the request for the create flow).
+- No schema changes; `user_tenants` already exists with the right shape.
+- No styling/theme changes.

@@ -23,6 +23,7 @@ import {
   UsersRound, UserCog, RefreshCw, Pencil, UserX,
 } from "lucide-react";
 import { inviteUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
+import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: UserManagementPage,
@@ -39,7 +40,7 @@ function UserManagementPage() {
   const [tab, setTab] = useState("users");
   const [tenantScope, setTenantScope] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", tenant_id: "" });
+  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", plants: [] as string[] });
   const [roleCreateOpen, setRoleCreateOpen] = useState(false);
   const [roleForm, setRoleForm] = useState({ name: "", description: "", tenant_id: "" });
   const qc = useQueryClient();
@@ -56,12 +57,13 @@ function UserManagementPage() {
       await inviteFn({ data: {
         email: inviteForm.email, full_name: inviteForm.full_name,
         role: (inviteForm.role || undefined) as AppRole | undefined,
-        tenant_id: inviteForm.tenant_id || undefined,
+        plants: inviteForm.plants.length > 0 ? inviteForm.plants : undefined,
       } });
       toast.success("Invitation sent");
       setInviteOpen(false);
-      setInviteForm({ email: "", full_name: "", role: "", tenant_id: "" });
+      setInviteForm({ email: "", full_name: "", role: "", plants: [] });
       qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
     } catch (e: any) { toast.error(e.message); }
   }
 
@@ -126,11 +128,11 @@ function UserManagementPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Tenant (optional)</Label>
-                    <Select value={inviteForm.tenant_id} onValueChange={(v) => setInviteForm({ ...inviteForm, tenant_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Global" /></SelectTrigger>
-                      <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <Label>Plants (optional)</Label>
+                    <PlantMultiSelect
+                      value={inviteForm.plants}
+                      onChange={(plants) => setInviteForm({ ...inviteForm, plants })}
+                    />
                   </div>
                 </div>
                 <DialogFooter>
