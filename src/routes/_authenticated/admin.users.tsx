@@ -233,7 +233,7 @@ function KpiTile({
 /* ============================================================
  * USERS TAB
  * ============================================================ */
-function UsersTab({ tenants }: { tenants: any[] }) {
+function UsersTab() {
   const qc = useQueryClient();
   const { user: me } = useAuth();
   const [search, setSearch] = useState("");
