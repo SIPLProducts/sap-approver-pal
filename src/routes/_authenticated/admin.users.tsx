@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ import {
   UsersRound, UserCog, RefreshCw, Pencil, UserX, X,
   Eye, EyeOff, Save, Check, ChevronDown,
 } from "lucide-react";
-import { createUserViaSap, deleteUser, setBuiltInRole, createCustomRoleViaSap } from "@/lib/admin/user-mgmt.functions";
+import { createUserViaSap, deleteUser, setBuiltInRole, createCustomRoleViaSap, listUsersViaSap } from "@/lib/admin/user-mgmt.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -69,8 +69,7 @@ function UserManagementPage() {
 
   function onUserCreated() {
     setInviteOpen(false);
-    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
+    qc.invalidateQueries({ queryKey: ["admin-sap-users"] });
     qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
   }
 
@@ -105,10 +104,8 @@ function UserManagementPage() {
     if (tab === "custom_roles") {
       qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
     } else {
-      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-sap-users"] });
       qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
-      qc.invalidateQueries({ queryKey: ["admin-user-custom-roles"] });
-      qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
     }
     toast.success("Refreshed");
   }
@@ -295,62 +292,49 @@ function KpiTile({
  * ============================================================ */
 function UsersTab() {
   const qc = useQueryClient();
-  const { user: me } = useAuth();
   const [search, setSearch] = useState("");
   const [plantFilter, setPlantFilter] = useState<string>("all");
   const deleteFn = useServerFn(deleteUser);
   const roleFn = useServerFn(setBuiltInRole);
+  const listFn = useServerFn(listUsersViaSap);
 
-  const { data: profiles = [] } = useQuery({
-    queryKey: ["admin-profiles"],
-    queryFn: async () => (await supabase.from("profiles").select("*").order("full_name")).data ?? [],
+  const usersQuery = useQuery({
+    queryKey: ["admin-sap-users"],
+    queryFn: () => listFn(),
+    staleTime: 60_000,
   });
-  const { data: roles = [] } = useQuery({
+  const users = usersQuery.data?.users ?? [];
+
+  const { data: localRoles = [] } = useQuery({
     queryKey: ["admin-user-roles"],
     queryFn: async () => (await supabase.from("user_roles").select("*")).data ?? [],
-  });
-  const { data: customLinks = [] } = useQuery({
-    queryKey: ["admin-user-custom-roles"],
-    queryFn: async () => (await supabase.from("user_custom_roles").select("*, custom_roles(name)")).data ?? [],
-  });
-  const { data: tenantLinks = [] } = useQuery({
-    queryKey: ["admin-user-tenants"],
-    queryFn: async () => (await supabase.from("user_tenants").select("*, tenants(name, code)")).data ?? [],
   });
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
-    return profiles.filter((p) => {
-      if (s && !`${p.full_name ?? ""} ${p.email ?? ""} ${p.sap_user_id ?? ""}`.toLowerCase().includes(s)) return false;
-      if (plantFilter !== "all") {
-        const userPlants = tenantLinks.filter((t: any) => t.user_id === p.id).map((t: any) => t.tenants?.code);
-        if (!userPlants.includes(plantFilter)) return false;
-      }
+    return users.filter((u) => {
+      if (s && !`${u.full_name} ${u.email} ${u.user}`.toLowerCase().includes(s)) return false;
+      if (plantFilter !== "all" && !u.plants.includes(plantFilter)) return false;
       return true;
     });
-  }, [profiles, tenantLinks, search, plantFilter]);
+  }, [users, search, plantFilter]);
 
   const kpis = useMemo(() => {
-    const total = profiles.length;
-    const adminIds = new Set(roles.filter((r) => ADMIN_ROLES.includes(r.role as AppRole)).map((r) => r.user_id));
-    const headIds = new Set(roles.filter((r) => HEAD_ROLE_KEYS.includes(r.role as AppRole)).map((r) => r.user_id));
-    const assignedIds = new Set([
-      ...roles.map((r) => r.user_id),
-      ...customLinks.map((r: any) => r.user_id),
-    ]);
-    const unassigned = profiles.filter((p) => !assignedIds.has(p.id)).length;
-    return { total, admins: adminIds.size, heads: headIds.size, unassigned };
-  }, [profiles, roles, customLinks]);
-
-
-
+    const total = users.length;
+    const admins = users.filter((u) => u.roles.includes("ADMIN")).length;
+    const heads = users.filter((u) =>
+      u.roles.some((r) => HEAD_ROLE_KEYS.map((h) => h.toUpperCase()).includes(r)),
+    ).length;
+    const unassigned = users.filter((u) => u.roles.length === 0).length;
+    return { total, admins, heads, unassigned };
+  }, [users]);
 
   async function handleDelete(userId: string) {
-    if (!confirm("Delete this user permanently?")) return;
+    if (!confirm(`Delete user ${userId} permanently?`)) return;
     try {
       await deleteFn({ data: { user_id: userId } });
       toast.success("User deleted");
-      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-sap-users"] });
     } catch (e: any) { toast.error(e.message); }
   }
 
@@ -361,26 +345,18 @@ function UsersTab() {
     } catch (e: any) { toast.error(e.message); }
   }
 
-  function rolePillFor(userId: string) {
-    const built = roles.filter((r) => r.user_id === userId).map((r) => r.role as AppRole);
-    const custom = customLinks.filter((r: any) => r.user_id === userId);
-    if (built.length === 0 && custom.length === 0) return null;
-    const primary: AppRole | undefined = built.find((r) => ADMIN_ROLES.includes(r))
-      ?? built.find((r) => HEAD_ROLE_KEYS.includes(r))
-      ?? built[0];
-
-    if (primary && ADMIN_ROLES.includes(primary)) {
-      return { label: ROLE_LABELS[primary], cls: "bg-primary text-primary-foreground" };
-    }
-    if (primary) {
-      return { label: ROLE_LABELS[primary], cls: "bg-secondary text-secondary-foreground" };
-    }
-    return { label: custom[0]?.custom_roles?.name ?? "Custom", cls: "bg-accent text-accent-foreground" };
+  function rolePillFor(u: typeof users[number]) {
+    if (u.roles.length === 0) return null;
+    const primary = u.roles[0];
+    const isAdmin = primary === "ADMIN";
+    const cls = isAdmin
+      ? "bg-primary text-primary-foreground"
+      : "bg-secondary text-secondary-foreground";
+    return { label: primary, cls, extra: u.roles.length - 1 };
   }
 
   return (
     <div className="space-y-5">
-      {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiTile icon={UsersRound} value={kpis.total} label="Total Users" tone="primary" />
         <KpiTile icon={ShieldCheck} value={kpis.admins} label="Administrators" tone="destructive" />
@@ -388,12 +364,11 @@ function UsersTab() {
         <KpiTile icon={UserX} value={kpis.unassigned} label="Unassigned" tone="muted" />
       </div>
 
-      {/* Users panel */}
       <Card className="p-4 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Users</h2>
-            <p className="text-sm text-muted-foreground">View and manage user roles</p>
+            <p className="text-sm text-muted-foreground">Source: SAP Create_User_Display_Table</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             <div className="flex items-center gap-1">
@@ -430,36 +405,53 @@ function UsersTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((p) => {
-                const userRoles = roles.filter((r) => r.user_id === p.id);
-                const userTenants = tenantLinks.filter((r: any) => r.user_id === p.id);
-                const isSelf = p.id === me?.id;
-                const pill = rolePillFor(p.id);
+              {usersQuery.isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    Loading users from SAP…
+                  </TableCell>
+                </TableRow>
+              ) : usersQuery.isError ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-6">
+                    <div className="text-sm text-destructive space-y-2">
+                      <div className="font-medium">Failed to load users.</div>
+                      <div className="text-xs opacity-80 break-words">
+                        {(usersQuery.error as Error)?.message ?? "Unknown error"}
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => usersQuery.refetch()}>
+                        Retry
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filtered.map((u) => {
+                const userLocalRoles = localRoles.filter((r) => r.user_id === u.user);
+                const pill = rolePillFor(u);
                 return (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">
-                      {p.full_name || "—"}{" "}
-                      {isSelf && <Badge variant="outline" className="ml-1">you</Badge>}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{p.sap_user_id || "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>
+                  <TableRow key={u.user}>
+                    <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground font-mono">{u.user}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{u.email || "—"}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1 max-w-[260px]">
-                        {userTenants.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                        {userTenants.map((t: any) => (
-                          <span
-                            key={t.id}
-                            className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-foreground/80"
-                          >
-                            {t.tenants?.code ?? "?"}
+                        {u.plants.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                        {u.plants.map((p) => (
+                          <span key={p} className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-foreground/80">
+                            {p}
                           </span>
                         ))}
                       </div>
                     </TableCell>
                     <TableCell>
                       {pill ? (
-                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${pill.cls}`}>
-                          {pill.label}
+                        <span className="inline-flex items-center gap-1">
+                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${pill.cls}`}>
+                            {pill.label}
+                          </span>
+                          {pill.extra > 0 && (
+                            <span className="text-xs text-muted-foreground">+{pill.extra}</span>
+                          )}
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -469,16 +461,16 @@ function UsersTab() {
                       <div className="flex items-center justify-end gap-1">
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button size="sm" variant="outline" disabled={isSelf}>
+                            <Button size="sm" variant="outline">
                               <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-64 max-h-80 overflow-y-auto p-2">
                             <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Toggle roles</div>
                             {ALL_ROLES.map((r) => {
-                              const has = userRoles.some((ur) => ur.role === r);
+                              const has = userLocalRoles.some((ur) => ur.role === r);
                               return (
-                                <button key={r} onClick={() => toggleRole(p.id, r, has)}
+                                <button key={r} onClick={() => toggleRole(u.user, r, has)}
                                   className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center justify-between">
                                   <span>{ROLE_LABELS[r]}</span>
                                   {has && <Badge variant="secondary" className="text-[10px]">on</Badge>}
@@ -490,8 +482,7 @@ function UsersTab() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          disabled={isSelf}
-                          onClick={() => handleDelete(p.id)}
+                          onClick={() => handleDelete(u.user)}
                           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                           aria-label="Delete user"
                         >
@@ -502,7 +493,7 @@ function UsersTab() {
                   </TableRow>
                 );
               })}
-              {filtered.length === 0 && (
+              {!usersQuery.isLoading && !usersQuery.isError && filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No users match the filters.
@@ -516,6 +507,7 @@ function UsersTab() {
     </div>
   );
 }
+
 
 /* ============================================================
  * CUSTOM ROLES TAB

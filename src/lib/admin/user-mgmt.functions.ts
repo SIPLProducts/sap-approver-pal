@@ -178,7 +178,7 @@ export const inviteUser = createServerFn({ method: "POST" })
 
 export const deleteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().uuid() }).parse(d))
+  .inputValidator((d) => z.object({ user_id: z.string().trim().min(1).max(60) }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     if (data.user_id === context.userId) throw new Error("Cannot delete your own account");
@@ -194,7 +194,7 @@ export const deleteUser = createServerFn({ method: "POST" })
 export const setBuiltInRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
-    user_id: z.string().uuid(),
+    user_id: z.string().trim().min(1).max(60),
     role: z.enum(APP_ROLES),
     action: z.enum(["add", "remove"]),
   }).parse(d))
@@ -496,6 +496,149 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     };
 
   });
+
+function firstArray(node: any, keys: string[]): any[] {
+  if (!node) return [];
+  if (Array.isArray(node)) return node;
+  if (typeof node !== "object") return [];
+  for (const k of keys) {
+    const v = pickField(node, k);
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === "object") {
+      const inner = firstArray(v, keys);
+      if (inner.length) return inner;
+    }
+  }
+  // first array child anywhere
+  for (const v of Object.values(node)) {
+    if (Array.isArray(v)) return v;
+  }
+  for (const v of Object.values(node)) {
+    if (v && typeof v === "object") {
+      const inner = firstArray(v, keys);
+      if (inner.length) return inner;
+    }
+  }
+  return [];
+}
+
+function collectStrings(node: any, codeKeys: string[]): string[] {
+  if (node == null) return [];
+  if (typeof node === "string" || typeof node === "number") {
+    const s = String(node).trim();
+    return s ? [s] : [];
+  }
+  if (Array.isArray(node)) {
+    const out: string[] = [];
+    for (const v of node) out.push(...collectStrings(v, codeKeys));
+    return out;
+  }
+  if (typeof node === "object") {
+    for (const k of codeKeys) {
+      const v = (node as any)[k] ?? pickField(node, k);
+      if (typeof v === "string" || typeof v === "number") {
+        const s = String(v).trim();
+        if (s) return [s];
+      }
+    }
+  }
+  return [];
+}
+
+export const listUsersViaSap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
+
+    const cfgId = await findSapConfigId([
+      "USER_DISPLAY_TABLE", "Create_User_Display_Table", "CreateUserDisplayTable",
+      "User Display Table", "USER_LIST", "Display User Table",
+    ]);
+    if (!cfgId) {
+      throw new Error("SAP Create_User_Display_Table API is not configured. Add an active config named Create_User_Display_Table in SAP API Settings.");
+    }
+
+    const result = await invokeViaMiddleware(cfgId, {});
+    const sapBody: any = result.data ?? {};
+    const rawStatus = pickField(sapBody, "STATUS");
+    const statusStr = String(rawStatus ?? "").toUpperCase();
+    const isErr = statusStr === "ERROR" || statusStr === "FAIL" || statusStr === "FAILURE" || statusStr === "FALSE" || statusStr === "E";
+    if (!result.ok || isErr) {
+      const msg = pickField(sapBody, "MESSAGE") || result.error || `SAP request failed (status ${result.status})`;
+      throw new Error(String(msg));
+    }
+
+    const rows = firstArray(sapBody, [
+      "DATA", "ITEMS", "RESULTS", "USERS", "USER_LIST", "TABLE", "DISPLAY", "T_USER", "ET_USER",
+    ]);
+
+    type Row = {
+      user: string;
+      first_name: string;
+      last_name: string;
+      full_name: string;
+      email: string;
+      contact: string;
+      status: string;
+      plants: string[];
+      roles: string[];
+      raw: any;
+    };
+
+    const users: Row[] = [];
+    for (const r of rows) {
+      if (r == null || typeof r !== "object") continue;
+      const user = String(pickField(r, "USER") ?? pickField(r, "EMPNO") ?? pickField(r, "SAP_USER_ID") ?? pickField(r, "USERNAME") ?? "").trim();
+      if (!user) continue;
+      const first = String(pickField(r, "FIRST_NAME") ?? pickField(r, "FNAME") ?? "").trim();
+      const last = String(pickField(r, "LAST_NAME") ?? pickField(r, "LNAME") ?? "").trim();
+      const full = String(pickField(r, "FULL_NAME") ?? pickField(r, "NAME") ?? `${first} ${last}`.trim()).trim();
+      const email = String(pickField(r, "EMAIL") ?? pickField(r, "SMTP_ADDR") ?? "").trim();
+      const contact = String(pickField(r, "CONTACT") ?? pickField(r, "MOBILE") ?? pickField(r, "TEL_NUMBER") ?? "").trim();
+      const status = String(pickField(r, "STATUS") ?? "").trim().toUpperCase();
+
+      const plantsNode = pickField(r, "PLANTS") ?? pickField(r, "PLANT") ?? pickField(r, "WERKS");
+      let plants: string[] = [];
+      if (Array.isArray(plantsNode)) {
+        const acc = new Set<string>();
+        for (const p of plantsNode) {
+          for (const s of collectStrings(p, ["WERKS", "PLANT", "VKORG"])) acc.add(s);
+        }
+        plants = Array.from(acc);
+      } else if (plantsNode != null) {
+        plants = collectStrings(plantsNode, ["WERKS", "PLANT", "VKORG"]);
+      }
+
+      const rolesNode = pickField(r, "ROLES") ?? pickField(r, "ROLE");
+      let roles: string[] = [];
+      if (Array.isArray(rolesNode)) {
+        const acc = new Set<string>();
+        for (const ro of rolesNode) {
+          for (const s of collectStrings(ro, ["ROLE", "AGR_NAME", "ROLE_NAME"])) acc.add(s.toUpperCase());
+        }
+        roles = Array.from(acc);
+      } else if (rolesNode != null) {
+        roles = collectStrings(rolesNode, ["ROLE", "AGR_NAME", "ROLE_NAME"]).map((s) => s.toUpperCase());
+      }
+
+      users.push({ user, first_name: first, last_name: last, full_name: full, email, contact, status, plants, roles, raw: r });
+    }
+
+    try {
+      await supabaseAdmin.from("admin_audit_log").insert({
+        actor_id: context.userId,
+        action: "user.sap_user_list",
+        target_table: "sap_users",
+        target_id: null,
+        payload: { rows: users.length, middleware_status: result.status },
+      });
+    } catch {/* ignore */}
+
+    return { users };
+  });
+
 
 
 
