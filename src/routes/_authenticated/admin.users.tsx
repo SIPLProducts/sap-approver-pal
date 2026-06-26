@@ -48,11 +48,13 @@ function UserManagementPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [roleCreateOpen, setRoleCreateOpen] = useState(false);
   const [roleForm, setRoleForm] = useState<{
+    id?: string;
     name: string;
     description: string;
     tenant_id: string;
     screen_keys: string[];
-  }>({ name: "", description: "", tenant_id: "", screen_keys: [] });
+    is_active: boolean;
+  }>({ name: "", description: "", tenant_id: "", screen_keys: [], is_active: true });
   const [creatingRole, setCreatingRole] = useState(false);
   const createRoleSap = useServerFn(createCustomRoleViaSap);
   const qc = useQueryClient();
