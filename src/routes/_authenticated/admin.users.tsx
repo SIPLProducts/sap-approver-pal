@@ -19,7 +19,7 @@ import { SCREEN_GROUPS, PERMISSION_ACTIONS } from "@/lib/admin/screen-keys";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
-  X, UserPlus, Search, Trash2, Plus, ShieldCheck, Building2,
+  UserPlus, Search, Trash2, Plus, ShieldCheck, Building2,
   UsersRound, UserCog, RefreshCw, Pencil, UserX,
 } from "lucide-react";
 import { inviteUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
