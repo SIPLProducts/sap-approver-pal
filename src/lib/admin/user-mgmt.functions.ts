@@ -245,22 +245,23 @@ export const createUserViaSap = createServerFn({ method: "POST" })
 
     const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
     const uniqueRoles = Array.from(new Set(data.roles));
-    const payload = {
-      CREATE: {
-        USER: data.sap_user_id.toUpperCase(),
-        FIRST_NAME: data.first_name.toUpperCase(),
-        LAST_NAME: data.last_name.toUpperCase(),
-        EMAIL: data.email,
-        CONTACT: data.contact_number,
-        PASSWORD: data.password,
-        ZCONFPSWD: data.confirm_password,
-        STATUS: data.status === "Active" ? "ACTIVE" : "INACTIVE",
-        PLANTS: uniquePlants.map((p) => ({ WERKS: p })),
-        ROLES: uniquePlants.flatMap((p) =>
-          uniqueRoles.map((r) => ({ WERKS: p, ROLE: String(r).toUpperCase() })),
-        ),
-      },
+    const inner = {
+      USER: data.sap_user_id.toUpperCase(),
+      FIRST_NAME: data.first_name.toUpperCase(),
+      LAST_NAME: data.last_name.toUpperCase(),
+      EMAIL: data.email,
+      CONTACT: data.contact_number,
+      PASSWORD: data.password,
+      ZCONFPSWD: data.confirm_password,
+      STATUS: data.status === "Active" ? "ACTIVE" : "INACTIVE",
+      PLANTS: uniquePlants.map((p) => ({ WERKS: p })),
+      ROLES: uniquePlants.flatMap((p) =>
+        uniqueRoles.map((r) => ({ WERKS: p, ROLE: String(r).toUpperCase() })),
+      ),
     };
+    // Send fields BOTH flat and wrapped under CREATE so the middleware's
+    // field-mapping picks them up regardless of how the config is defined.
+    const payload = { ...inner, CREATE: inner };
 
     const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
