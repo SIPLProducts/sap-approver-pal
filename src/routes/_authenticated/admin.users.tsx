@@ -545,7 +545,7 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
 
   async function handleEdit(r: any) {
     const { data } = await supabase.from("role_permissions").select("screen_key").eq("custom_role_id", r.id);
-    const screen_keys = (data ?? []).map((p: any) => p.screen_key);
+    const screen_keys = Array.from(new Set((data ?? []).map((p: any) => p.screen_key).filter(Boolean)));
     onEditRole?.({ ...r, screen_keys });
   }
 
