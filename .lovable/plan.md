@@ -1,56 +1,31 @@
-# Why SAP still says "ROLE and ACTIVITY are mandatory"
+## Plan
 
-The middleware does NOT forward our payload verbatim. In `middleware/server.js → invokeSap` it builds the SAP request from `cfg.requestFields` (per-config field mapping), reading values out of `inputs` by `field_name` (or via `${input.X}` expressions). It then sends `{ field_name: value, ... }` to SAP.
+**Goal:** Stop SAP rejecting role creation with `ROLE and ACTIVITY are mandatory`.
 
-Today the app calls the middleware with:
+**What I found:** The active role-create config fields are named `CREATE.ROLE`, `CREATE.ROLE_DES`, `CREATE.ACTIVITY[].ACTIVITY`, and `CREATE.ACTIVITY[].RELEASE_CODE`. The middleware only reads exact top-level input keys, so it currently builds a broken SAP body with literal dotted keys instead of the nested JSON SAP expects.
 
-```
-inputs = { CREATE: { ROLE, ROLE_DES, ACTIVITY: [...] } }
-```
+**Implementation:**
+1. Update `createCustomRoleViaSap` to call the middleware with input keys that exactly match the configured field names:
+   - `CREATE.ROLE`
+   - `CREATE.ROLE_DES`
+   - `CREATE.ACTIVITY[].ACTIVITY`
+   - `CREATE.ACTIVITY[].RELEASE_CODE`
+2. Update the active role-create API config in the backend so its request field is a single top-level `CREATE` field when needed, allowing the middleware to send this exact payload to SAP:
 
-So `inputs.ROLE`, `inputs.ROLE_DES`, and `inputs.ACTIVITY` are all undefined. If the SAP API Settings → `ROLE_CREATE` config has request fields named `ROLE` / `ROLE_DES` / `ACTIVITY` (column source) — which it almost certainly does, given the SAP error — they all resolve to empty and SAP rejects with `"ROLE and ACTIVITY are mandatory"`.
-
-`createUserViaSap` likely "works" only because its `USER_CREATE` config either has a single column field named `CREATE`, or different field names that happen to read from the wrapper. We shouldn't depend on that.
-
-# Fix (frontend/server-fn only, no middleware or DB changes)
-
-In `src/lib/admin/user-mgmt.functions.ts → createCustomRoleViaSap`, send the inputs in BOTH shapes so the middleware's field mapping picks them up no matter how `ROLE_CREATE.requestFields` is configured:
-
-```ts
-const inner = {
-  ROLE: data.name.toUpperCase(),
-  ROLE_DES: data.description || "",
-  ACTIVITY: uniqueScreens.map((k) => ({
-    ACTIVITY: k.toUpperCase(),
-    RELEASE_CODE: k,
-  })),
-};
-const payload = {
-  // Flat top-level — used when config fields are named ROLE / ROLE_DES / ACTIVITY
-  ROLE: inner.ROLE,
-  ROLE_DES: inner.ROLE_DES,
-  ACTIVITY: inner.ACTIVITY,
-  // Wrapped — used when config has a single column field named CREATE
-  CREATE: inner,
-};
+```json
+{
+  "CREATE": {
+    "ROLE": "APPROVER",
+    "ROLE_DES": "Sales Approver",
+    "ACTIVITY": [
+      { "ACTIVITY": "APPROVE", "RELEASE_CODE": "01" },
+      { "ACTIVITY": "REJECT", "RELEASE_CODE": "02" }
+    ]
+  }
+}
 ```
 
-Apply the same dual-shape pattern to `createUserViaSap` so it doesn't silently rely on the wrapper either:
+3. Keep the current SAP error handling so the app shows failure when SAP returns `status: ERROR` instead of showing success.
+4. Add/keep audit logging of the exact request and response so we can verify the next SAP call.
 
-```ts
-const inner = { USER: ..., FIRST_NAME: ..., /* ... */ ROLES: [...] };
-const payload = { ...inner, CREATE: inner };
-```
-
-The existing case-insensitive status / message / number response handling (`pickField`, `isExplicitError`, `isExplicitSuccess`) stays as-is and continues to surface real SAP errors instead of false-success toasts.
-
-# Out of scope
-
-- No changes to `middleware/server.js`, no changes to `sap_api_configs` rows, no schema/UI changes.
-- No changes to `listRolesForPlants` (separate `ROLE_LIST` config, already works).
-
-# Verification
-
-1. Open Admin → Users & Roles → Add New Role, fill RESL_ADMIN with screens, Save.
-2. Expect a real success toast and a new row in `custom_roles` + `role_permissions`.
-3. If SAP still rejects, the audit row in `admin_audit_log` (`action = user.sap_role_create`) will show the full request/response — share that and we'll adjust the field names to match the actual `ROLE_CREATE` config.
+**Validation:** Create a role once, then confirm the audit log shows the nested `CREATE` payload and SAP no longer returns mandatory-field error.
