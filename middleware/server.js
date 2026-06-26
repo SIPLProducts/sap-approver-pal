@@ -431,6 +431,21 @@ async function invokeSap(cfg, inputs) {
     body = JSON.stringify(payload);
   }
 
+  try {
+    const redacted = JSON.parse(JSON.stringify(payload));
+    const stack = [redacted];
+    while (stack.length) {
+      const node = stack.pop();
+      if (node && typeof node === "object") {
+        for (const k of Object.keys(node)) {
+          if (/password|pswd|secret/i.test(k)) node[k] = "***";
+          else if (node[k] && typeof node[k] === "object") stack.push(node[k]);
+        }
+      }
+    }
+    console.log(`[/sap/invoke] outbound ${cfg.http_method} ${url.toString()} payload=`, JSON.stringify(redacted));
+  } catch {}
+
   const t0 = Date.now();
   const res = await fetchWithTimeout(url.toString(), { method: cfg.http_method, headers, body });
   const latency_ms = Date.now() - t0;
