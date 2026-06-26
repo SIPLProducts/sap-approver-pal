@@ -587,44 +587,100 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       raw: any;
     };
 
-    const users: Row[] = [];
+    const normStatus = (s: string) => {
+      const u = s.trim().toUpperCase();
+      if (!u) return "";
+      if (u === "A" || u === "ACTIVE" || u === "TRUE" || u === "1") return "ACTIVE";
+      if (u === "I" || u === "INACTIVE" || u === "FALSE" || u === "0") return "INACTIVE";
+      return u;
+    };
+
+    const byUser = new Map<string, Row & { _plants: Set<string>; _roles: Set<string> }>();
+
     for (const r of rows) {
       if (r == null || typeof r !== "object") continue;
-      const user = String(pickField(r, "USER") ?? pickField(r, "EMPNO") ?? pickField(r, "SAP_USER_ID") ?? pickField(r, "USERNAME") ?? "").trim();
+      const user = String(
+        pickField(r, "ZUSER") ?? pickField(r, "USER") ?? pickField(r, "EMPNO") ??
+        pickField(r, "SAP_USER_ID") ?? pickField(r, "USERNAME") ?? ""
+      ).trim();
       if (!user) continue;
-      const first = String(pickField(r, "FIRST_NAME") ?? pickField(r, "FNAME") ?? "").trim();
-      const last = String(pickField(r, "LAST_NAME") ?? pickField(r, "LNAME") ?? "").trim();
-      const full = String(pickField(r, "FULL_NAME") ?? pickField(r, "NAME") ?? `${first} ${last}`.trim()).trim();
-      const email = String(pickField(r, "EMAIL") ?? pickField(r, "SMTP_ADDR") ?? "").trim();
-      const contact = String(pickField(r, "CONTACT") ?? pickField(r, "MOBILE") ?? pickField(r, "TEL_NUMBER") ?? "").trim();
-      const status = String(pickField(r, "STATUS") ?? "").trim().toUpperCase();
+      const key = user.toUpperCase();
 
+      const first = String(pickField(r, "ZFIRST_NAME") ?? pickField(r, "FIRST_NAME") ?? pickField(r, "FNAME") ?? "").trim();
+      const last = String(pickField(r, "ZLAST_NAME") ?? pickField(r, "LAST_NAME") ?? pickField(r, "LNAME") ?? "").trim();
+      const full = String(pickField(r, "FULL_NAME") ?? pickField(r, "NAME") ?? `${first} ${last}`.trim()).trim();
+      const email = String(pickField(r, "ZEMAIL") ?? pickField(r, "EMAIL") ?? pickField(r, "SMTP_ADDR") ?? "").trim();
+      const contact = String(pickField(r, "ZCONTACT") ?? pickField(r, "CONTACT") ?? pickField(r, "MOBILE") ?? pickField(r, "TEL_NUMBER") ?? "").trim();
+      const status = normStatus(String(pickField(r, "ZSTATUS") ?? pickField(r, "STATUS") ?? ""));
+
+      // Single-row plant/role (Z-prefixed flat shape)
+      const singlePlant = String(pickField(r, "ZWERKS") ?? "").trim();
+      const singleRole = String(pickField(r, "ZROLE") ?? "").trim();
+
+      // Nested arrays (forward-compat for future shape)
       const plantsNode = pickField(r, "PLANTS") ?? pickField(r, "PLANT") ?? pickField(r, "WERKS");
-      let plants: string[] = [];
+      let nestedPlants: string[] = [];
       if (Array.isArray(plantsNode)) {
         const acc = new Set<string>();
-        for (const p of plantsNode) {
-          for (const s of collectStrings(p, ["WERKS", "PLANT", "VKORG"])) acc.add(s);
-        }
-        plants = Array.from(acc);
-      } else if (plantsNode != null) {
-        plants = collectStrings(plantsNode, ["WERKS", "PLANT", "VKORG"]);
+        for (const p of plantsNode) for (const s of collectStrings(p, ["WERKS", "PLANT", "VKORG"])) acc.add(s);
+        nestedPlants = Array.from(acc);
+      } else if (plantsNode != null && typeof plantsNode !== "string" && typeof plantsNode !== "number") {
+        nestedPlants = collectStrings(plantsNode, ["WERKS", "PLANT", "VKORG"]);
       }
 
       const rolesNode = pickField(r, "ROLES") ?? pickField(r, "ROLE");
-      let roles: string[] = [];
+      let nestedRoles: string[] = [];
       if (Array.isArray(rolesNode)) {
         const acc = new Set<string>();
-        for (const ro of rolesNode) {
-          for (const s of collectStrings(ro, ["ROLE", "AGR_NAME", "ROLE_NAME"])) acc.add(s.toUpperCase());
-        }
-        roles = Array.from(acc);
-      } else if (rolesNode != null) {
-        roles = collectStrings(rolesNode, ["ROLE", "AGR_NAME", "ROLE_NAME"]).map((s) => s.toUpperCase());
+        for (const ro of rolesNode) for (const s of collectStrings(ro, ["ROLE", "AGR_NAME", "ROLE_NAME"])) acc.add(s.toUpperCase());
+        nestedRoles = Array.from(acc);
+      } else if (rolesNode != null && typeof rolesNode !== "string" && typeof rolesNode !== "number") {
+        nestedRoles = collectStrings(rolesNode, ["ROLE", "AGR_NAME", "ROLE_NAME"]).map((s) => s.toUpperCase());
       }
 
-      users.push({ user, first_name: first, last_name: last, full_name: full, email, contact, status, plants, roles, raw: r });
+      let entry = byUser.get(key);
+      if (!entry) {
+        entry = {
+          user,
+          first_name: first,
+          last_name: last,
+          full_name: full,
+          email,
+          contact,
+          status,
+          plants: [],
+          roles: [],
+          raw: r,
+          _plants: new Set<string>(),
+          _roles: new Set<string>(),
+        };
+        byUser.set(key, entry);
+      } else {
+        if (!entry.first_name && first) entry.first_name = first;
+        if (!entry.last_name && last) entry.last_name = last;
+        if (!entry.full_name && full) entry.full_name = full;
+        if (!entry.email && email) entry.email = email;
+        if (!entry.contact && contact) entry.contact = contact;
+        if (!entry.status && status) entry.status = status;
+      }
+      if (singlePlant) entry._plants.add(singlePlant);
+      for (const p of nestedPlants) entry._plants.add(p);
+      if (singleRole) entry._roles.add(singleRole.toUpperCase());
+      for (const ro of nestedRoles) entry._roles.add(ro);
     }
+
+    const users: Row[] = Array.from(byUser.values()).map((e) => ({
+      user: e.user,
+      first_name: e.first_name,
+      last_name: e.last_name,
+      full_name: e.full_name || `${e.first_name} ${e.last_name}`.trim() || e.user,
+      email: e.email,
+      contact: e.contact,
+      status: e.status,
+      plants: Array.from(e._plants).sort(),
+      roles: Array.from(e._roles).sort(),
+      raw: e.raw,
+    }));
 
     try {
       await supabaseAdmin.from("admin_audit_log").insert({
@@ -632,11 +688,17 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
         action: "user.sap_user_list",
         target_table: "sap_users",
         target_id: null,
-        payload: { rows: users.length, middleware_status: result.status },
+        payload: {
+          rows: users.length,
+          raw_rows: rows.length,
+          sample_keys: rows[0] && typeof rows[0] === "object" ? Object.keys(rows[0]) : [],
+          middleware_status: result.status,
+        },
       });
     } catch {/* ignore */}
 
     return { users };
+
   });
 
 
