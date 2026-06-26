@@ -371,10 +371,7 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     name: z.string().trim().min(1).max(60),
     description: z.string().trim().max(240).optional().or(z.literal("")),
     tenant_id: z.string().trim().optional().or(z.literal("")),
-    activities: z.array(z.object({
-      ACTIVITY: z.string().trim().min(1).max(30),
-      RELEASE_CODE: z.string().trim().min(1).max(10),
-    })).min(1).max(50),
+    screen_keys: z.array(z.string().trim().min(1).max(80)).min(1).max(50),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -387,13 +384,14 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
       throw new Error("SAP Create Role API is not configured. Add a config named ROLE_CREATE in SAP API Settings.");
     }
 
+    const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
     const payload = {
       CREATE: {
         ROLE: data.name.toUpperCase(),
         ROLE_DES: data.description || "",
-        ACTIVITY: data.activities.map((a) => ({
-          ACTIVITY: a.ACTIVITY.toUpperCase(),
-          RELEASE_CODE: a.RELEASE_CODE,
+        ACTIVITY: uniqueScreens.map((k) => ({
+          ACTIVITY: k.toUpperCase(),
+          RELEASE_CODE: k,
         })),
       },
     };
@@ -404,22 +402,36 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     const success = result.ok && (statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "");
 
     let dbError: string | null = null;
+    let newRoleId: string | null = null;
     if (success) {
-      const { error: insErr } = await supabaseAdmin.from("custom_roles").insert({
+      const { data: inserted, error: insErr } = await supabaseAdmin.from("custom_roles").insert({
         name: data.name,
         description: data.description || null,
         tenant_id: data.tenant_id || null,
-      });
-      if (insErr) dbError = insErr.message;
+      }).select("id").maybeSingle();
+      if (insErr) {
+        dbError = insErr.message;
+      } else if (inserted?.id) {
+        newRoleId = inserted.id;
+        const permRows = uniqueScreens.map((k) => ({
+          custom_role_id: newRoleId!,
+          screen_key: k,
+          action: "view",
+          allowed: true,
+        }));
+        const { error: permErr } = await supabaseAdmin.from("role_permissions").insert(permRows);
+        if (permErr) dbError = permErr.message;
+      }
     }
 
     await supabaseAdmin.from("admin_audit_log").insert({
       actor_id: context.userId,
       action: "user.sap_role_create",
       target_table: "custom_roles",
-      target_id: null,
+      target_id: newRoleId,
       payload: {
         request: payload.CREATE,
+        screen_keys: uniqueScreens,
         response: sapBody,
         middleware_status: result.status,
         middleware_error: result.error ?? null,
