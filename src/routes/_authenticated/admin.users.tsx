@@ -878,7 +878,11 @@ function CreateUserDialog({
                     : "— Select Roles —"
               }
             />
+            {plants.length > 0 && !rolesQuery.isFetching && !rolesQuery.isError && roleOptions.length === 0 && (
+              <p className="text-[11px] text-destructive mt-1">SAP returned no roles for the selected plants.</p>
+            )}
           </Field>
+
 
           <Field label="Password" required>
             <div className="relative">
