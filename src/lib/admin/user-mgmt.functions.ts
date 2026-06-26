@@ -222,11 +222,11 @@ export const createUserViaSap = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
 
-    const { data: cfg } = await supabaseAdmin
-      .from("sap_api_configs").select("id").eq("name", "USER_CREATE").maybeSingle();
-    if (!cfg?.id) {
-      throw new Error("SAP Create User API is not configured. Add a config named USER_CREATE in SAP API Settings.");
+    const cfgId = await findSapConfigId(["USER_CREATE", "Create User", "CreateUser"]);
+    if (!cfgId) {
+      throw new Error("SAP Create User API is not configured. Add an active config named USER_CREATE (or 'Create User') in SAP API Settings.");
     }
+
 
     const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
     const uniqueRoles = Array.from(new Set(data.roles));
