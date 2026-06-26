@@ -194,7 +194,7 @@ export const deleteUser = createServerFn({ method: "POST" })
 export const setBuiltInRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
-    user_id: z.string().uuid(),
+    user_id: z.string().trim().min(1).max(60),
     role: z.enum(APP_ROLES),
     action: z.enum(["add", "remove"]),
   }).parse(d))
