@@ -41,31 +41,20 @@ function UserManagementPage() {
   const [tab, setTab] = useState("users");
   const [tenantScope, setTenantScope] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", plants: [] as string[] });
   const [roleCreateOpen, setRoleCreateOpen] = useState(false);
   const [roleForm, setRoleForm] = useState({ name: "", description: "", tenant_id: "" });
   const qc = useQueryClient();
-  const inviteFn = useServerFn(inviteUser);
 
   const { data: tenants = [] } = useQuery({
     queryKey: ["tenants"],
     queryFn: async () => (await supabase.from("tenants").select("*").order("name")).data ?? [],
   });
 
-  async function submitInvite() {
-    if (!inviteForm.email || !inviteForm.full_name) return toast.error("Email and full name are required");
-    try {
-      await inviteFn({ data: {
-        email: inviteForm.email, full_name: inviteForm.full_name,
-        role: (inviteForm.role || undefined) as AppRole | undefined,
-        plants: inviteForm.plants.length > 0 ? inviteForm.plants : undefined,
-      } });
-      toast.success("Invitation sent");
-      setInviteOpen(false);
-      setInviteForm({ email: "", full_name: "", role: "", plants: [] });
-      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
-      qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
-    } catch (e: any) { toast.error(e.message); }
+  function onUserCreated() {
+    setInviteOpen(false);
+    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
+    qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
   }
 
   async function submitCreateRole() {
