@@ -279,7 +279,7 @@ export const createUserViaSap = createServerFn({ method: "POST" })
       target_table: "sap_users",
       target_id: null,
       payload: {
-        request: { ...payload.CREATE, PASSWORD: "***", ZCONFPSWD: "***" },
+        request: { ...payload, "CREATE.PASSWORD": "***", "CREATE.ZCONFPSWD": "***" },
         response: sapBody,
         middleware_status: result.status,
         middleware_error: result.error ?? null,
