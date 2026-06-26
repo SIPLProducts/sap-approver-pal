@@ -420,16 +420,17 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
 
 
     const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
-    const payload = {
-      CREATE: {
-        ROLE: data.name.toUpperCase(),
-        ROLE_DES: data.description || "",
-        ACTIVITY: uniqueScreens.map((k) => ({
-          ACTIVITY: k.toUpperCase(),
-          RELEASE_CODE: k,
-        })),
-      },
+    const inner = {
+      ROLE: data.name.toUpperCase(),
+      ROLE_DES: data.description || "",
+      ACTIVITY: uniqueScreens.map((k) => ({
+        ACTIVITY: k.toUpperCase(),
+        RELEASE_CODE: k,
+      })),
     };
+    // Send fields BOTH flat and wrapped under CREATE so the middleware's
+    // field-mapping picks them up regardless of how the config is defined.
+    const payload = { ...inner, CREATE: inner };
 
     const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
