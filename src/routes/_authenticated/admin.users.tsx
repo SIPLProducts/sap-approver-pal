@@ -789,13 +789,15 @@ const emptyForm = () => ({
 });
 
 function CreateUserDialog({
-  open, onOpenChange, onCreated,
+  open, onOpenChange, onCreated, editUser,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
+  editUser?: any;
 }) {
   const createFn = useServerFn(createUserViaSap);
+  const editFn = useServerFn(editUserViaSap);
   const [form, setForm] = useState(emptyForm);
   const [plants, setPlants] = useState<string[]>([]);
   // Selected roles use composite values: "<plantCode>::<roleName>"
@@ -845,9 +847,30 @@ function CreateUserDialog({
     }
   }, [rolesQuery.isError, rolesQuery.error, rolesQuery.isFetching]);
 
-
-
-
+  useEffect(() => {
+    if (editUser) {
+      setForm({
+        sap_user_id: editUser.user ?? "",
+        first_name: editUser.first_name ?? "",
+        last_name: editUser.last_name ?? "",
+        email: editUser.email ?? "",
+        contact_number: editUser.contact ?? "",
+        status: editUser.status === "ACTIVE" || editUser.status === "Active" ? "Active" as CreationStatus : "Inactive" as CreationStatus,
+        password: "",
+        confirm_password: "",
+      });
+      setPlants(editUser.plants ?? []);
+      setRoles((editUser.roles ?? []).map((r: string) => {
+        // Try to pair each role with the first plant; if multiple plants, duplicate
+        const plant = (editUser.plants ?? [])[0] ?? "";
+        return plant ? `${plant}::${r}` : "";
+      }).filter(Boolean));
+    } else {
+      setForm(emptyForm());
+      setPlants([]);
+      setRoles([]);
+    }
+  }, [editUser]);
 
   function reset() {
     setForm(emptyForm());
@@ -873,7 +896,7 @@ function CreateUserDialog({
 
     setSubmitting(true);
     try {
-      const res = await createFn({ data: {
+      const base = {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
@@ -889,13 +912,18 @@ function CreateUserDialog({
             return plant && role ? { plant, role } : null;
           })
           .filter((x): x is { plant: string; role: string } => !!x),
-
-      } });
-      toast.success(res?.message ?? "User created successfully");
+      };
+      if (editUser) {
+        const res = await editFn({ data: base });
+        toast.success(res?.message ?? "User updated successfully");
+      } else {
+        const res = await createFn({ data: base });
+        toast.success(res?.message ?? "User created successfully");
+      }
       reset();
       onCreated();
     } catch (e: any) {
-      toast.error(e.message ?? "Failed to create user");
+      toast.error(e.message ?? (editUser ? "Failed to update user" : "Failed to create user"));
     } finally {
       setSubmitting(false);
     }
@@ -906,7 +934,7 @@ function CreateUserDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-md p-0 gap-0 max-h-[90vh] flex flex-col">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle className="text-base font-semibold">Add New User</DialogTitle>
+          <DialogTitle className="text-base font-semibold">{editUser ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
@@ -926,6 +954,8 @@ function CreateUserDialog({
               value={form.sap_user_id}
               onChange={(e) => setForm({ ...form, sap_user_id: e.target.value })}
               placeholder="Enter User ID (e.g., USR001)"
+              disabled={!!editUser}
+              className={editUser ? "bg-muted" : ""}
             />
           </Field>
 
