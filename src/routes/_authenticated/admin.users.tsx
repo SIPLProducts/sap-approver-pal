@@ -40,7 +40,7 @@ function UserManagementPage() {
   const [tab, setTab] = useState("users");
   const [tenantScope, setTenantScope] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", tenant_id: "" });
+  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", plants: [] as string[] });
   const [roleCreateOpen, setRoleCreateOpen] = useState(false);
   const [roleForm, setRoleForm] = useState({ name: "", description: "", tenant_id: "" });
   const qc = useQueryClient();
