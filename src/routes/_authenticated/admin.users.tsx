@@ -917,7 +917,7 @@ function CreateUserDialog({
         password: form.password,
         confirm_password: form.confirm_password,
         plants,
-        roles,
+        roles: Array.from(new Set(roles.map((v) => v.split("::")[1]).filter(Boolean))),
       } });
       toast.success(res?.message ?? "User created successfully");
       reset();
