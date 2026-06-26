@@ -287,11 +287,11 @@ export const listRolesForPlants = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
 
-    const { data: cfg } = await supabaseAdmin
-      .from("sap_api_configs").select("id").eq("name", "ROLE_LIST").maybeSingle();
-    if (!cfg?.id) {
-      throw new Error("SAP Role List API is not configured. Add a config named ROLE_LIST in SAP API Settings.");
+    const cfgId = await findSapConfigId(["ROLE_LIST", "Get Roles", "Role List", "GetRoles", "List Roles"]);
+    if (!cfgId) {
+      throw new Error("SAP Role List API is not configured. Add an active config named ROLE_LIST (or 'Get Roles') in SAP API Settings.");
     }
+
 
     const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
     const payload = {
