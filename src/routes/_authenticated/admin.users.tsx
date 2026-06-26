@@ -47,6 +47,8 @@ function UserManagementPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [roleCreateOpen, setRoleCreateOpen] = useState(false);
   const [roleForm, setRoleForm] = useState({ name: "", description: "", tenant_id: "" });
+  const [creatingRole, setCreatingRole] = useState(false);
+  const createRoleSap = useServerFn(createCustomRoleViaSap);
   const qc = useQueryClient();
 
   const { data: tenants = [] } = useQuery({
@@ -63,17 +65,28 @@ function UserManagementPage() {
 
   async function submitCreateRole() {
     if (!roleForm.name) return toast.error("Name required");
-    const { error } = await supabase.from("custom_roles").insert({
-      name: roleForm.name,
-      description: roleForm.description || null,
-      tenant_id: roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : null),
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Custom role created");
-    setRoleCreateOpen(false);
-    setRoleForm({ name: "", description: "", tenant_id: "" });
-    qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
+    const tenant_id = roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : "");
+    setCreatingRole(true);
+    try {
+      const res: any = await createRoleSap({
+        data: {
+          name: roleForm.name,
+          description: roleForm.description,
+          tenant_id,
+        },
+      });
+      toast.success(res?.message || "Custom role created");
+      if (res?.db_error) toast.warning(`Saved in SAP but local insert failed: ${res.db_error}`);
+      setRoleCreateOpen(false);
+      setRoleForm({ name: "", description: "", tenant_id: "" });
+      qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to create role");
+    } finally {
+      setCreatingRole(false);
+    }
   }
+
 
   function refreshAll() {
     if (tab === "custom_roles") {
