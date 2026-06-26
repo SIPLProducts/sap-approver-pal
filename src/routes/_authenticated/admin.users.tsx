@@ -453,29 +453,34 @@ function UsersTab({ tenants }: { tenants: any[] }) {
 /* ============================================================
  * CUSTOM ROLES TAB
  * ============================================================ */
-function CustomRolesTab({ tenantScope }: { tenantScope: string }) {
+function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", tenant_id: "" });
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<{ id: string; name: string; description: string; is_active: boolean } | null>(null);
 
   const { data: customRoles = [] } = useQuery({
     queryKey: ["admin-custom-roles"],
     queryFn: async () => (await supabase.from("custom_roles").select("*, user_custom_roles(count)").order("name")).data ?? [],
   });
-  const { data: tenants = [] } = useQuery({
-    queryKey: ["tenants"],
-    queryFn: async () => (await supabase.from("tenants").select("*").order("name")).data ?? [],
-  });
 
-  async function createRole() {
-    if (!form.name) return toast.error("Name required");
-    const { error } = await supabase.from("custom_roles").insert({
-      name: form.name, description: form.description || null,
-      tenant_id: form.tenant_id || (tenantScope !== "all" ? tenantScope : null),
-    });
+  async function toggleActive(id: string, next: boolean) {
+    const { error } = await supabase.from("custom_roles").update({ is_active: next }).eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success("Custom role created");
-    setOpen(false); setForm({ name: "", description: "", tenant_id: "" });
+    qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
+  }
+
+  async function saveEdit() {
+    if (!editForm) return;
+    if (!editForm.name) return toast.error("Name required");
+    const { error } = await supabase.from("custom_roles").update({
+      name: editForm.name,
+      description: editForm.description || null,
+      is_active: editForm.is_active,
+    }).eq("id", editForm.id);
+    if (error) return toast.error(error.message);
+    toast.success("Role updated");
+    setEditOpen(false);
+    setEditForm(null);
     qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
   }
 
@@ -488,50 +493,70 @@ function CustomRolesTab({ tenantScope }: { tenantScope: string }) {
   }
 
   return (
-    <Card className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Define custom roles that map to fine-grained screen permissions.</p>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New role</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Create custom role</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-              <div><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-              <div>
-                <Label>Tenant scope</Label>
-                <Select value={form.tenant_id} onValueChange={(v) => setForm({ ...form, tenant_id: v })}>
-                  <SelectTrigger><SelectValue placeholder={tenantScope !== "all" ? "Current tenant" : "Global"} /></SelectTrigger>
-                  <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={createRole}>Create</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+    <Card className="p-0 overflow-hidden">
+      <div className="p-4 border-b">
+        <h2 className="text-base font-semibold">All Roles</h2>
+        <p className="text-xs text-muted-foreground">{customRoles.length} role(s) configured</p>
       </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Role Name</TableHead>
+            <TableHead>Description</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {customRoles.map((r: any) => (
+            <TableRow key={r.id}>
+              <TableCell className="font-semibold">{r.name}</TableCell>
+              <TableCell className="text-muted-foreground">{r.description || "—"}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <Switch checked={!!r.is_active} onCheckedChange={(v) => toggleActive(r.id, v)} />
+                  <Badge variant={r.is_active ? "default" : "outline"}>{r.is_active ? "Active" : "Inactive"}</Badge>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="inline-flex items-center gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => { setEditForm({ id: r.id, name: r.name, description: r.description ?? "", is_active: !!r.is_active }); setEditOpen(true); }}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+          {customRoles.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center text-muted-foreground py-8">No custom roles yet.</TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {customRoles.map((r: any) => (
-          <Card key={r.id} className="p-4 space-y-2">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="font-semibold">{r.name}</div>
-                <div className="text-xs text-muted-foreground">{r.tenant_id ? "Tenant-scoped" : "Global"}</div>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit role</DialogTitle></DialogHeader>
+          {editForm && (
+            <div className="space-y-3">
+              <div><Label>Name</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+              <div><Label>Description</Label><Input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} /></div>
+              <div className="flex items-center gap-2">
+                <Switch checked={editForm.is_active} onCheckedChange={(v) => setEditForm({ ...editForm, is_active: v })} />
+                <Label>Active</Label>
               </div>
-              <Badge variant={r.is_active ? "secondary" : "outline"}>{r.is_active ? "Active" : "Inactive"}</Badge>
             </div>
-            {r.description && <p className="text-sm text-muted-foreground line-clamp-2">{r.description}</p>}
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-muted-foreground">{r.user_custom_roles?.[0]?.count ?? 0} users</span>
-              <Button size="sm" variant="ghost" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)} className="text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </Card>
-        ))}
-        {customRoles.length === 0 && <p className="text-sm text-muted-foreground col-span-full py-8 text-center">No custom roles yet.</p>}
-      </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={saveEdit}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
