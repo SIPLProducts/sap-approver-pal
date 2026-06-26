@@ -371,6 +371,10 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     name: z.string().trim().min(1).max(60),
     description: z.string().trim().max(240).optional().or(z.literal("")),
     tenant_id: z.string().trim().optional().or(z.literal("")),
+    activities: z.array(z.object({
+      ACTIVITY: z.string().trim().min(1).max(30),
+      RELEASE_CODE: z.string().trim().min(1).max(10),
+    })).min(1).max(50),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -383,29 +387,21 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
       throw new Error("SAP Create Role API is not configured. Add a config named ROLE_CREATE in SAP API Settings.");
     }
 
-    // Resolve plant codes (WERKS) from tenant_id, or all tenants when global.
-    let plantCodes: string[] = [];
-    if (data.tenant_id) {
-      const { data: t } = await supabaseAdmin
-        .from("tenants").select("code").eq("id", data.tenant_id).maybeSingle();
-      if (t?.code) plantCodes = [t.code];
-    } else {
-      const { data: tRows } = await supabaseAdmin.from("tenants").select("code");
-      plantCodes = (tRows ?? []).map((r: any) => r.code).filter(Boolean);
-    }
-
     const payload = {
       CREATE: {
         ROLE: data.name.toUpperCase(),
-        DESCRIPTION: data.description || "",
-        PLANTS: plantCodes.map((p) => ({ WERKS: p })),
+        ROLE_DES: data.description || "",
+        ACTIVITY: data.activities.map((a) => ({
+          ACTIVITY: a.ACTIVITY.toUpperCase(),
+          RELEASE_CODE: a.RELEASE_CODE,
+        })),
       },
     };
 
     const result = await invokeViaMiddleware(cfg.id, payload);
     const sapBody: any = result.data ?? {};
     const statusStr = String(sapBody?.STATUS ?? "").toUpperCase();
-    const success = result.ok && (statusStr === "TRUE" || statusStr === "");
+    const success = result.ok && (statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "");
 
     let dbError: string | null = null;
     if (success) {

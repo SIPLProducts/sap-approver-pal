@@ -46,7 +46,12 @@ function UserManagementPage() {
   const [tenantScope, setTenantScope] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [roleCreateOpen, setRoleCreateOpen] = useState(false);
-  const [roleForm, setRoleForm] = useState({ name: "", description: "", tenant_id: "" });
+  const [roleForm, setRoleForm] = useState<{
+    name: string;
+    description: string;
+    tenant_id: string;
+    activities: { ACTIVITY: string; RELEASE_CODE: string }[];
+  }>({ name: "", description: "", tenant_id: "", activities: [] });
   const [creatingRole, setCreatingRole] = useState(false);
   const createRoleSap = useServerFn(createCustomRoleViaSap);
   const qc = useQueryClient();
@@ -65,6 +70,10 @@ function UserManagementPage() {
 
   async function submitCreateRole() {
     if (!roleForm.name) return toast.error("Name required");
+    if (roleForm.activities.length === 0) return toast.error("Select at least one activity");
+    if (roleForm.activities.some((a) => !a.RELEASE_CODE.trim())) {
+      return toast.error("Enter a release code for every selected activity");
+    }
     const tenant_id = roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : "");
     setCreatingRole(true);
     try {
@@ -73,12 +82,13 @@ function UserManagementPage() {
           name: roleForm.name,
           description: roleForm.description,
           tenant_id,
+          activities: roleForm.activities,
         },
       });
       toast.success(res?.message || "Custom role created");
       if (res?.db_error) toast.warning(`Saved in SAP but local insert failed: ${res.db_error}`);
       setRoleCreateOpen(false);
-      setRoleForm({ name: "", description: "", tenant_id: "" });
+      setRoleForm({ name: "", description: "", tenant_id: "", activities: [] });
       qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
     } catch (e: any) {
       toast.error(e?.message || "Failed to create role");
@@ -138,6 +148,43 @@ function UserManagementPage() {
                       <SelectTrigger><SelectValue placeholder={tenantScope !== "all" ? "Current tenant" : "Global"} /></SelectTrigger>
                       <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Activities (Screen Permissions)</Label>
+                    <div className="border rounded-md p-2 space-y-2 max-h-64 overflow-auto">
+                      {PERMISSION_ACTIONS.map((a) => {
+                        const upper = a.toUpperCase();
+                        const idx = roleForm.activities.findIndex((x) => x.ACTIVITY === upper);
+                        const checked = idx >= 0;
+                        return (
+                          <div key={a} className="flex items-center gap-2">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                if (v) {
+                                  setRoleForm({ ...roleForm, activities: [...roleForm.activities, { ACTIVITY: upper, RELEASE_CODE: "" }] });
+                                } else {
+                                  setRoleForm({ ...roleForm, activities: roleForm.activities.filter((x) => x.ACTIVITY !== upper) });
+                                }
+                              }}
+                            />
+                            <span className="text-sm capitalize w-24">{a}</span>
+                            <Input
+                              className="h-8 flex-1"
+                              placeholder="Release code (e.g. 01)"
+                              maxLength={10}
+                              disabled={!checked}
+                              value={checked ? roleForm.activities[idx].RELEASE_CODE : ""}
+                              onChange={(e) => {
+                                const next = roleForm.activities.slice();
+                                if (idx >= 0) next[idx] = { ...next[idx], RELEASE_CODE: e.target.value };
+                                setRoleForm({ ...roleForm, activities: next });
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>

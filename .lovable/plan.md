@@ -1,51 +1,42 @@
-## Goal
-When the user clicks Create in the "Add Role" popup (Custom Roles tab), first call the SAP API config named `ROLE_CREATE` with `{ CREATE: { ROLE, DESCRIPTION, PLANTS:[{WERKS}] } }`. Only on SAP success, insert the row into `custom_roles`.
+## Why the API "isn't called"
+The handler already invokes SAP, but the success check is `STATUS === "TRUE"`. The real `ROLE_CREATE` response uses `STATUS: "SUCCESS"`, so every call is treated as a failure and the dialog shows the SAP error toast — making it look like nothing happened. The payload field names are also wrong (`DESCRIPTION` / `PLANTS` instead of `ROLE_DES` / `ACTIVITY`).
 
 ## Changes
 
-### 1. New server function `createCustomRoleViaSap`
-File: `src/lib/admin/user-mgmt.functions.ts`
-
-- Admin-only (`assertAdmin`), `requireSupabaseAuth` middleware.
-- Input (zod):
-  - `name: string` (1-60)
-  - `description?: string` (max 240)
-  - `tenant_id?: string` (uuid; "" treated as global)
-- Resolve plant code(s):
-  - If `tenant_id` provided → look up `tenants.code` for that id → `PLANTS: [{ WERKS: code }]`.
-  - If omitted (Global) → look up all `tenants.code` rows → `PLANTS: tenants.map(...)`. If none exist, send `PLANTS: []`.
-- Load `sap_api_configs` where `name = 'ROLE_CREATE'`; if missing, throw a clear "Add a config named ROLE_CREATE in SAP API Settings" error (matches the USER_CREATE pattern).
-- Build payload:
+### 1. `src/lib/admin/user-mgmt.functions.ts` — rewrite `createCustomRoleViaSap`
+- Input adds `activities: { ACTIVITY: string; RELEASE_CODE: string }[]` (min 1, each ACTIVITY 1–30, RELEASE_CODE 1–10). Keep `name`, `description`, `tenant_id` (tenant_id retained so the local `custom_roles` row keeps its scope; it is **not** sent to SAP).
+- Drop the `tenants → PLANTS` lookup.
+- New payload:
   ```ts
   { CREATE: {
       ROLE: name.toUpperCase(),
-      DESCRIPTION: description ?? "",
-      PLANTS: [{ WERKS: <code> }, ...],
+      ROLE_DES: description ?? "",
+      ACTIVITY: activities.map(a => ({
+        ACTIVITY: a.ACTIVITY.toUpperCase(),
+        RELEASE_CODE: a.RELEASE_CODE,
+      })),
   } }
   ```
-- `invokeViaMiddleware(cfg.id, payload)`; treat `sapBody.STATUS === "TRUE"` (or HTTP ok when STATUS absent) as success. On failure, throw `sapBody.MESSAGE || result.error`.
-- On success, insert into `custom_roles { name, description, tenant_id }` (tenant_id null when global). If the insert fails (e.g. duplicate), return `{ ok: true, sap: true, db_error: <msg> }` so UI can still toast SAP success but show the DB warning.
-- Audit-log `user.sap_role_create` with request (no secrets) + response snapshot + DB outcome.
-- Return `{ ok: true, message, number? }`.
+- Success check: `result.ok && (STATUS === "SUCCESS" || STATUS === "TRUE" || STATUS === "")`. Keep `USER_CREATE` behavior unchanged.
+- On success, insert into `custom_roles { name, description, tenant_id }` as today (db_error returned, not thrown).
+- Audit log unchanged in shape (request scrubbed of nothing sensitive).
 
-### 2. Wire submit handler to call SAP first
-File: `src/routes/_authenticated/admin.users.tsx`
+### 2. `src/routes/_authenticated/admin.users.tsx` — Add Role dialog UI
+- Extend `roleForm` state: `activities: { ACTIVITY: string; RELEASE_CODE: string }[]` (default `[]`).
+- Add an **Activities** section in the dialog (below Tenant scope):
+  - Multi-select of activity names sourced from `PERMISSION_ACTIONS` in `src/lib/admin/screen-keys.ts` (view, create, edit, delete, approve, export) — these are the "Screen Permissions" actions.
+  - When an activity is checked, render an inline `Input` next to it for `RELEASE_CODE` (free-text, 2-char hint). Suggest codes from the Release Strategies table via a small datalist populated from `approval_strategies` (use `id` substring or a per-row code — datalist is suggestions only, the field stays editable since `approval_strategies` has no dedicated release_code column).
+  - Validation in `submitCreateRole`: at least one activity and every selected activity must have a non-empty RELEASE_CODE → `toast.error` otherwise.
+- Pass `activities` through to `createRoleSap({ data: { name, description, tenant_id, activities } })`.
+- Reset `activities` to `[]` on success.
 
-- Import `createCustomRoleViaSap` from `@/lib/admin/user-mgmt.functions`.
-- Replace `submitCreateRole` body:
-  - Validate `name` (existing).
-  - Use `useServerFn(createCustomRoleViaSap)` and `await` with `{ data: { name, description, tenant_id } }` where `tenant_id` resolves to `roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : "")`.
-  - On thrown error → `toast.error(err.message)` and keep dialog open.
-  - On success → toast SAP message, close dialog, reset form, invalidate `admin-custom-roles`. If response includes `db_error`, also `toast.warning(db_error)`.
-- Add a small loading state (`creatingRole`) to disable the Create button while the call is in flight.
-
-### 3. No schema / migration changes
-`custom_roles` already exists. `sap_api_configs` row for `ROLE_CREATE` is configured manually in SAP API Settings (same model as `USER_CREATE` / `ROLE_LIST`).
+### 3. No schema/migration changes
+`custom_roles`, `approval_strategies`, `sap_api_configs` already exist. ACTIVITY is sent to SAP only — not persisted locally in this change.
 
 ## Out of scope
-- Editing custom roles via SAP (only create).
-- Per-screen permission mapping.
-- Multi-plant selector inside the Add Role dialog — the existing "Tenant scope" select drives the single WERKS; Global sends all known plant codes.
+- Persisting activity/release-code mapping into `role_permissions` (current Role Permissions tab keeps managing that).
+- Editing existing custom roles via SAP.
+- Adding a `release_code` column to `approval_strategies`.
 
 ## After applying
-Open Custom Roles → Add Role → fill name/description, optionally pick tenant → Create. The SAP `ROLE_CREATE` endpoint is called; on success the row appears in the custom_roles list. Any SAP rejection is shown as an inline toast and the dialog stays open.
+Custom Roles → Add Role → enter name, optional description, pick tenant scope, tick one or more activities and type a release code for each → Create. The SAP `ROLE_CREATE` endpoint is called with `{ CREATE: { ROLE, ROLE_DES, ACTIVITY:[…] } }`; `STATUS: "SUCCESS"` is treated as success, the role lands in `custom_roles`, and the dialog closes with a success toast. SAP rejections show the SAP `MESSAGE` and keep the dialog open.
