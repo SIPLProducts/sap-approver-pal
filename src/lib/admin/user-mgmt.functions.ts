@@ -247,7 +247,7 @@ export const createUserViaSap = createServerFn({ method: "POST" })
       },
     };
 
-    const result = await invokeViaMiddleware(cfg.id, payload);
+    const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
     const success = result.ok && String(sapBody?.STATUS ?? "").toUpperCase() === "TRUE";
 
