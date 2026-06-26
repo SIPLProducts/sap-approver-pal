@@ -408,7 +408,7 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
       },
     };
 
-    const result = await invokeViaMiddleware(cfg.id, payload);
+    const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
     const statusStr = String(sapBody?.STATUS ?? "").toUpperCase();
     const success = result.ok && (statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "");
