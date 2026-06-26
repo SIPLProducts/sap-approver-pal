@@ -458,40 +458,52 @@ export type Database = {
         Row: {
           business_unit: string | null
           company_code: string | null
+          contact_number: string | null
           created_at: string
           designation: string | null
           email: string
+          first_name: string | null
           full_name: string
           id: string
+          last_name: string | null
           phone: string | null
           plant: string | null
           sap_user_id: string | null
+          status: string
           updated_at: string
         }
         Insert: {
           business_unit?: string | null
           company_code?: string | null
+          contact_number?: string | null
           created_at?: string
           designation?: string | null
           email?: string
+          first_name?: string | null
           full_name?: string
           id: string
+          last_name?: string | null
           phone?: string | null
           plant?: string | null
           sap_user_id?: string | null
+          status?: string
           updated_at?: string
         }
         Update: {
           business_unit?: string | null
           company_code?: string | null
+          contact_number?: string | null
           created_at?: string
           designation?: string | null
           email?: string
+          first_name?: string | null
           full_name?: string
           id?: string
+          last_name?: string | null
           phone?: string | null
           plant?: string | null
           sap_user_id?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: []
