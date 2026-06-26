@@ -51,11 +51,16 @@ function UserManagementPage() {
     name: string;
     description: string;
     tenant_id: string;
-    activities: { ACTIVITY: string; RELEASE_CODE: string }[];
-  }>({ name: "", description: "", tenant_id: "", activities: [] });
+    screen_keys: string[];
+  }>({ name: "", description: "", tenant_id: "", screen_keys: [] });
   const [creatingRole, setCreatingRole] = useState(false);
   const createRoleSap = useServerFn(createCustomRoleViaSap);
   const qc = useQueryClient();
+
+  const allScreens = useMemo(
+    () => SCREEN_GROUPS.flatMap((g) => g.screens.map((s) => ({ ...s, module: g.module }))),
+    [],
+  );
 
   const { data: tenants = [] } = useQuery({
     queryKey: ["tenants"],
@@ -70,11 +75,8 @@ function UserManagementPage() {
   }
 
   async function submitCreateRole() {
-    if (!roleForm.name) return toast.error("Name required");
-    if (roleForm.activities.length === 0) return toast.error("Select at least one activity");
-    if (roleForm.activities.some((a) => !a.RELEASE_CODE.trim())) {
-      return toast.error("Enter a release code for every selected activity");
-    }
+    if (!roleForm.name.trim()) return toast.error("Role name is required");
+    if (roleForm.screen_keys.length === 0) return toast.error("Select at least one screen");
     const tenant_id = roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : "");
     setCreatingRole(true);
     try {
@@ -83,13 +85,13 @@ function UserManagementPage() {
           name: roleForm.name,
           description: roleForm.description,
           tenant_id,
-          activities: roleForm.activities,
+          screen_keys: roleForm.screen_keys,
         },
       });
       toast.success(res?.message || "Custom role created");
       if (res?.db_error) toast.warning(`Saved in SAP but local insert failed: ${res.db_error}`);
       setRoleCreateOpen(false);
-      setRoleForm({ name: "", description: "", tenant_id: "", activities: [] });
+      setRoleForm({ name: "", description: "", tenant_id: "", screen_keys: [] });
       qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
     } catch (e: any) {
       toast.error(e?.message || "Failed to create role");
