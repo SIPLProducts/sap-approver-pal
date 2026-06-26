@@ -1,51 +1,37 @@
-# Plan: Populate Create User roles from SAP per selected plants
-
 ## Goal
-In the **Create User** dialog (`admin.users.tsx`), remove the static `ALL_ROLES` dummy list from the Role picker. Instead, fetch roles from the SAP middleware based on the plants the admin has selected, merged as a **union** across plants. Before any plant is selected, the picker stays **enabled but empty**.
+Roles return successfully from SAP but the dropdown stays empty — the response parser isn't finding them, and any query error is being swallowed. Make the parser walk the full response, surface errors loudly, and fix a small React bug.
 
-## Steps
+## Changes
 
-### 1. Register SAP "Role List" endpoint
-Admin saves a new config in **Admin → SAP API Settings** named `ROLE_LIST` (module `COMMON`, `http_method: POST`, auth via proxy). The server function resolves it by name at call time. If it's missing, the call surfaces a clear configuration error.
+### 1. Broaden the SAP response parser
+File: `src/lib/admin/user-mgmt.functions.ts` (`listRolesForPlants` handler)
 
-### 2. New server function `listRolesForPlants`
-File: `src/lib/admin/user-mgmt.functions.ts`
+Today `visit()` only recurses into object keys matching `/ROLE/i`, so SAP shapes like `{ STATUS:"TRUE", DATA:[...] }`, `{ ET_OUTPUT:[...] }`, `{ T_OUTPUT:{ item:[...] } }`, or `{ OUTPUT:{ ROLES:{...} } }` come back empty.
 
-- Input: `{ plants: string[] }` (WERKS list, non-empty)
-- Payload sent to middleware (`ROLE_LIST` config):
-  ```json
-  { "ROLE_LIST": { "PLANTS": [{ "WERKS": "3801" }, { "WERKS": "3802" }] } }
-  ```
-- Calls `invokeViaMiddleware('ROLE_LIST', payload)` (same pattern as `createUserViaSap`).
-- Normalises the SAP response to a flat, **deduplicated union** of role codes, e.g. `["ADMIN","APPROVER","VIEWER"]`. Tolerates the common SAP shapes (`ROLES: [{ROLE}]`, `T_ROLES`, top-level array) and uppercases each role.
-- Returns `{ roles: string[] }`. On non-success or HTTP error, throws with the SAP `MESSAGE` so the dialog can toast it.
+Fix:
+- Recurse into **every** object value (drop the `/ROLE/i` filter), but still skip `PLANTS`, `WERKS`, `STATUS`, `MESSAGE`, `NUMBER` (and a small denylist of metadata keys) to avoid grabbing plant codes.
+- Extend the field detector to also pick up common SAP role-field aliases: `ROLE`, `AGR_NAME`, `ROLE_ID`, `ROLE_CODE`, `ROLE_NAME`, `Z_ROLE`, `ZROLE`.
+- When the visitor hits a plain object that has a `WERKS` + a single other string field, treat that other string as the role value (handles `[{WERKS:"3801", AGR_NAME:"ADMIN"}]` shapes regardless of field name).
+- Keep the dedupe + uppercase + sort.
 
-### 3. Wire the dialog
-File: `src/routes/_authenticated/admin.users.tsx`
+Also log the raw SAP body (truncated) to `admin_audit_log` on every call (action `user.sap_role_list`) so we have a record of what the parser saw — useful for future SAP shape tweaks. Existing `assertAdmin` is not needed here (any signed-in admin user opening the dialog should be able to list roles), but require admin to keep parity with `createUserViaSap`.
 
-- Replace static `ALL_ROLES` usage inside `RoleMultiSelect` with a prop-driven `options: string[]` (and accept a `loading` flag + `disabledHint`).
-- In `CreateUserDialog`:
-  - Add `useQuery({ queryKey: ['sap-roles', plants], queryFn: () => listRolesForPlantsFn({ data: { plants } }), enabled: plants.length > 0, staleTime: 60_000 })`.
-  - Pass `data?.roles ?? []` into `RoleMultiSelect`.
-  - When `plants` changes, drop any currently-selected role that is no longer in the new options (`setRoles(prev => prev.filter(r => options.includes(r)))`).
-  - When `plants.length === 0`: options is `[]`, picker stays enabled and shows the existing "— Select Roles —" placeholder (no extra hint, per the chosen behaviour).
-  - While loading: show a small "Loading roles…" inside the popover; "Select all" reflects the fetched count, not 13 hard-coded roles.
-- Keep submit validation: at least one role must be selected.
+### 2. Surface errors in the dialog
+File: `src/routes/_authenticated/admin.users.tsx` (`CreateUserDialog`)
 
-### 4. Keep `createUserViaSap` unchanged
-The submit still sends the chosen roles as the cartesian (plant × role) `ROLES` array — that logic already matches the prior decision.
+- When `rolesQuery.isError` toast the error message (once per error) so a SAP failure isn't silent.
+- Replace the `useMemo(..., [rolesQuery.data])` side-effect (line 738) with `useEffect` — `useMemo` is not meant for `setState`, and React 18 may skip it.
+- When `rolesQuery.data` arrives with `roles.length === 0`, show a small inline `text-destructive` hint under the Role field: "SAP returned no roles for the selected plants." (so the empty state is explicit instead of looking like a still-loading control).
 
-### 5. Cleanup
-- `ALL_ROLES` / `ROLE_LABELS` stay in the file for other tabs (assignment menu, pill labels) — only the create dialog stops using them as a source.
-- For unknown role codes returned by SAP (not in `ROLE_LABELS`), display the raw code as the label.
-
-## Technical notes
-- No DB schema changes.
-- No new edge functions — uses existing `invokeViaMiddleware`.
-- Response-shape normaliser is intentionally permissive; if SAP returns a single object, it's wrapped into an array before dedupe.
-- Query is keyed by the sorted plants array so reordering doesn't cause refetches.
+### 3. No DB / migration changes
+Parser broadening is enough; if SAP returns roles in any reasonable nested shape they'll now appear.
 
 ## Out of scope
-- Changing the user list / table.
-- Editing the SAP middleware code itself.
-- Per-plant role assignment UI (still union; cartesian on submit).
+- Changing the SAP `ROLE_LIST` request payload shape (still `{ ROLE_LIST: { PLANTS:[{WERKS}] } }`).
+- Touching `createUserViaSap` or the submit cartesian.
+- Per-plant role grouping (still union).
+
+## After applying
+Open Create User, pick a plant, and either:
+- roles populate (fix worked), or
+- an explicit toast / inline hint tells us exactly what SAP returned, which we can paste back to refine the parser further.
