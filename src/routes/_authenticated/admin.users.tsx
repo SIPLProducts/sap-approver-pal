@@ -233,30 +233,8 @@ function UsersTab({ tenants }: { tenants: any[] }) {
     return { total, admins: adminIds.size, heads: headIds.size, unassigned };
   }, [profiles, roles, customLinks]);
 
-  const [form, setForm] = useState({ email: "", full_name: "", role: "" as AppRole | "", tenant_id: "" });
 
-  async function submitInvite() {
-    if (!form.email || !form.full_name) return toast.error("Email and full name are required");
-    try {
-      await inviteFn({ data: {
-        email: form.email, full_name: form.full_name,
-        role: (form.role || undefined) as AppRole | undefined,
-        tenant_id: form.tenant_id || undefined,
-      } });
-      toast.success("Invitation sent");
-      setInviteOpen(false);
-      setForm({ email: "", full_name: "", role: "", tenant_id: "" });
-      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
-    } catch (e: any) { toast.error(e.message); }
-  }
 
-  function refreshAll() {
-    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-roles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-custom-roles"] });
-    qc.invalidateQueries({ queryKey: ["admin-user-tenants"] });
-    toast.success("Refreshed");
-  }
 
   async function handleDelete(userId: string) {
     if (!confirm("Delete this user permanently?")) return;
