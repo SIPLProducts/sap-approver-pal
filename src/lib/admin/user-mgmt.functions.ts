@@ -24,6 +24,18 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Admin only");
 }
 
+async function findSapConfigId(aliases: string[]): Promise<string | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const wanted = new Set(aliases.map(norm));
+  const { data } = await supabaseAdmin
+    .from("sap_api_configs")
+    .select("id, name, is_active");
+  const match = (data ?? []).find((r) => r.is_active && wanted.has(norm(r.name)));
+  return match?.id ?? null;
+}
+
+
 export const createUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
