@@ -1,47 +1,88 @@
-## Goal
-Match the exact Create User SAP payload. The shape is already correct — only the `ROLES` array needs fixing so it reflects the user's per-plant selections instead of a cartesian product.
+## Root cause
 
-## Current vs expected
+The Create User config in SAP API Settings defines its request fields with dotted/array paths:
 
-The dialog stores selected roles as composite values `"<plant>::<role>"` (e.g. `3801::ADMIN`, `3801::APPROVER`, `3802::VIEWER`).
-
-- **Current submit** in `CreateUserDialog` (`src/routes/_authenticated/admin.users.tsx`) strips off the plant, dedupes role names, then `createUserViaSap` re-expands every role across every selected plant.
-  Result: `3801::ADMIN`, `3802::VIEWER` → sends `ADMIN` and `VIEWER` to **both** 3801 and 3802.
-- **Expected** (per provided sample): each composite selection becomes one `ROLES` row with its own `WERKS` + `ROLE`. `PLANTS` stays as the list of distinct selected plants.
-
-All other fields (`USER`, `FIRST_NAME`, `LAST_NAME`, `EMAIL`, `CONTACT`, `PASSWORD`, `ZCONFPSWD`, `STATUS`, `PLANTS[].WERKS`) already match the sample. Response handling (`STATUS=TRUE`, `MESSAGE`, `NUMBER`) already matches.
-
-## Changes
-
-### 1. `src/lib/admin/user-mgmt.functions.ts` — `createUserViaSap`
-- Change `roles` input from `string[]` (role names) to `Array<{ plant: string; role: string }>`, min 1, max 200.
-- Build `ROLES` directly from that array:
-  ```ts
-  ROLES: data.roles.map(({ plant, role }) => ({
-    WERKS: plant,
-    ROLE: String(role).toUpperCase(),
-  })),
-  ```
-- `PLANTS` unchanged (distinct selected plants → `[{ WERKS }]`).
-- Drop the cartesian `uniquePlants.flatMap(...)` logic.
-- Audit-log payload unchanged in shape (still redacts passwords).
-
-### 2. `src/routes/_authenticated/admin.users.tsx` — `CreateUserDialog.submit`
-Replace the current `roles` mapping:
-```ts
-roles: roles
-  .map((v) => {
-    const [plant, role] = v.split("::");
-    return plant && role ? { plant, role } : null;
-  })
-  .filter((x): x is { plant: string; role: string } => !!x),
 ```
-No UI changes — the `RoleMultiSelect` already produces these composite values.
+CREATE.USER, CREATE.FIRST_NAME, CREATE.LAST_NAME, CREATE.EMAIL,
+CREATE.CONTACT, CREATE.PASSWORD, CREATE.ZCONFPSWD, CREATE.STATUS,
+CREATE.PLANTS[].WERKS, CREATE.ROLES[].WERKS, CREATE.ROLES[].ROLE
+```
 
-### 3. Config lookup (unchanged)
-Server fn already resolves the active SAP API config by name (`USER_CREATE` / `Create User` / `CreateUser`) and posts the same `{ ...inner, CREATE: inner }` envelope through the middleware proxy. Response parsing already treats `STATUS=TRUE` as success and surfaces `MESSAGE`.
+The middleware's `buildRequestPayload` treats every `field_name` as a flat key. It does `payload[f.field_name] = inputs[f.field_name]`. So the body actually POSTed to SAP looks like:
+
+```json
+{ "CREATE.USER": null, "CREATE.FIRST_NAME": null, "CREATE.PLANTS[].WERKS": null, ... }
+```
+
+There is no `CREATE.USER` nested object in what SAP receives — that is why SAP responds "User is mandatory" even though the UI sent a value. Our server fn also keys its payload as `{ USER, FIRST_NAME, ..., CREATE: { ... } }`, none of which match the configured `field_name`s, so every field resolves to `null`.
+
+## Fix
+
+Two changes, kept narrow to Create User and any other config that uses dotted / `[]` field names.
+
+### 1. `middleware/server.js` — `buildRequestPayload` (and tiny helpers)
+
+Make the builder understand dotted paths and `[]` array segments. Behavior:
+
+- **Flat name** (no `.`, no `[]`) — unchanged: read `inputs[name]`, set `payload[name]`.
+- **Dotted scalar** (e.g. `CREATE.USER`) — read `inputs["CREATE.USER"]`, then set nested at path `CREATE.USER` on the outgoing payload.
+- **Array leaf** (e.g. `CREATE.PLANTS[].WERKS`) — group all fields sharing the same array root (`CREATE.PLANTS`). Read the input once as `inputs["CREATE.PLANTS"]`, which must be an array of objects. For each entry, project only the configured leaf names (`WERKS`, plus `ROLE` for `CREATE.ROLES[]`) and set the resulting array at the nested array-root path on the payload.
+
+Required validation:
+- dotted scalar required and resolved value is null / empty → "Missing required field: CREATE.USER".
+- array root with any required leaf and the input array is missing / empty → "Missing required field: CREATE.PLANTS".
+
+Helpers to add:
+- `setPath(obj, "A.B.C", value)` — create intermediate objects as needed.
+- `splitArrayField(name)` → returns `{ arrayRoot, leaf }` when the name contains `[].`, else `null`.
+
+Resulting body for Create User becomes the exact SAP shape:
+
+```json
+{
+  "CREATE": {
+    "USER": "SURYA001",
+    "FIRST_NAME": "SURYA",
+    "LAST_NAME": "MAHAPATRA",
+    "EMAIL": "...",
+    "CONTACT": "9876543210",
+    "PASSWORD": "...",
+    "ZCONFPSWD": "...",
+    "STATUS": "ACTIVE",
+    "PLANTS": [{"WERKS": "3801"}, {"WERKS": "3802"}],
+    "ROLES":  [{"WERKS": "3801","ROLE":"ADMIN"}, ...]
+  }
+}
+```
+
+Backwards-compat: configs that use flat field names (every existing GET endpoint) keep working unchanged; only field names containing `.` or `[]` go through the new path.
+
+### 2. `src/lib/admin/user-mgmt.functions.ts` — `createUserViaSap`
+
+Replace the `payload` shape so input keys match the configured `field_name`s exactly:
+
+```ts
+const payload: Record<string, unknown> = {
+  "CREATE.USER":       data.sap_user_id.toUpperCase(),
+  "CREATE.FIRST_NAME": data.first_name.toUpperCase(),
+  "CREATE.LAST_NAME":  data.last_name.toUpperCase(),
+  "CREATE.EMAIL":      data.email,
+  "CREATE.CONTACT":    data.contact_number,
+  "CREATE.PASSWORD":   data.password,
+  "CREATE.ZCONFPSWD":  data.confirm_password,
+  "CREATE.STATUS":     data.status === "Active" ? "ACTIVE" : "INACTIVE",
+  "CREATE.PLANTS":     uniquePlants.map((p) => ({ WERKS: p })),
+  "CREATE.ROLES":      data.roles.map(({ plant, role }) => ({
+    WERKS: plant.trim(),
+    ROLE:  String(role).trim().toUpperCase(),
+  })),
+};
+```
+
+Audit-log entry still redacts `CREATE.PASSWORD` / `CREATE.ZCONFPSWD`. No other server fn or UI change.
 
 ## Out of scope
-- SAP API Settings screen, middleware proxy code, Custom Roles tab.
-- Validation rules other than the `roles` shape.
-- Local DB writes (this flow is SAP-only; no `profiles`/`user_roles` insert is added).
+
+- Other SAP configs (`*_Approve_Reject`) that also use `DATA[].*` field names — same dotted-name handling will benefit them automatically once the middleware is upgraded, but no caller wiring is changed in this task.
+- SAP API Settings UI, Custom Roles flow, plant/role pickers, local DB writes.
+- Middleware deployment — the operator needs to redeploy the middleware service for the change to take effect; flagged in the PR notes.
