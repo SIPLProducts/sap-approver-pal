@@ -534,11 +534,8 @@ function UsersTab() {
 /* ============================================================
  * CUSTOM ROLES TAB
  * ============================================================ */
-function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) {
+function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope: string; onEditRole?: (role: any) => void }) {
   const qc = useQueryClient();
-  const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState<{ id: string; name: string; description: string; is_active: boolean } | null>(null);
-
   const { data: customRoles = [] } = useQuery({
     queryKey: ["admin-custom-roles"],
     queryFn: async () => (await supabase.from("custom_roles").select("*, user_custom_roles(count)").order("name")).data ?? [],
@@ -547,21 +544,6 @@ function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) 
   async function toggleActive(id: string, next: boolean) {
     const { error } = await supabase.from("custom_roles").update({ is_active: next }).eq("id", id);
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
-  }
-
-  async function saveEdit() {
-    if (!editForm) return;
-    if (!editForm.name) return toast.error("Name required");
-    const { error } = await supabase.from("custom_roles").update({
-      name: editForm.name,
-      description: editForm.description || null,
-      is_active: editForm.is_active,
-    }).eq("id", editForm.id);
-    if (error) return toast.error(error.message);
-    toast.success("Role updated");
-    setEditOpen(false);
-    setEditForm(null);
     qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
   }
 
@@ -601,7 +583,7 @@ function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) 
               </TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex items-center gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => { setEditForm({ id: r.id, name: r.name, description: r.description ?? "", is_active: !!r.is_active }); setEditOpen(true); }}>
+                  <Button size="icon" variant="ghost" onClick={() => onEditRole?.(r)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)}>
@@ -619,25 +601,6 @@ function CustomRolesTab({ tenantScope: _tenantScope }: { tenantScope: string }) 
         </TableBody>
       </Table>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit role</DialogTitle></DialogHeader>
-          {editForm && (
-            <div className="space-y-3">
-              <div><Label>Name</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
-              <div><Label>Description</Label><Input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} /></div>
-              <div className="flex items-center gap-2">
-                <Switch checked={editForm.is_active} onCheckedChange={(v) => setEditForm({ ...editForm, is_active: v })} />
-                <Label>Active</Label>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={saveEdit}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
