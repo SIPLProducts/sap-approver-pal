@@ -141,9 +141,10 @@ function UserManagementPage() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setRoleCreateOpen(false)}>Cancel</Button>
-                  <Button onClick={submitCreateRole}>Create</Button>
+                  <Button variant="outline" onClick={() => setRoleCreateOpen(false)} disabled={creatingRole}>Cancel</Button>
+                  <Button onClick={submitCreateRole} disabled={creatingRole}>{creatingRole ? "Creating..." : "Create"}</Button>
                 </DialogFooter>
+
               </DialogContent>
             </Dialog>
           </div>
