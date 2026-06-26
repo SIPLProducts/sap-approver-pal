@@ -1,52 +1,56 @@
-## Problem
+# Why SAP still says "ROLE and ACTIVITY are mandatory"
 
-SAP middleware returned:
-```
-{"status":"ERROR","message":"ROLE and ACTIVITY are mandatory","number":"100"}
-```
-…but the app showed "Role created successfully" and inserted DB rows.
+The middleware does NOT forward our payload verbatim. In `middleware/server.js → invokeSap` it builds the SAP request from `cfg.requestFields` (per-config field mapping), reading values out of `inputs` by `field_name` (or via `${input.X}` expressions). It then sends `{ field_name: value, ... }` to SAP.
 
-Root cause is in `createCustomRoleViaSap` (`src/lib/admin/user-mgmt.functions.ts`, lines ~412–414):
+Today the app calls the middleware with:
+
+```
+inputs = { CREATE: { ROLE, ROLE_DES, ACTIVITY: [...] } }
+```
+
+So `inputs.ROLE`, `inputs.ROLE_DES`, and `inputs.ACTIVITY` are all undefined. If the SAP API Settings → `ROLE_CREATE` config has request fields named `ROLE` / `ROLE_DES` / `ACTIVITY` (column source) — which it almost certainly does, given the SAP error — they all resolve to empty and SAP rejects with `"ROLE and ACTIVITY are mandatory"`.
+
+`createUserViaSap` likely "works" only because its `USER_CREATE` config either has a single column field named `CREATE`, or different field names that happen to read from the wrapper. We shouldn't depend on that.
+
+# Fix (frontend/server-fn only, no middleware or DB changes)
+
+In `src/lib/admin/user-mgmt.functions.ts → createCustomRoleViaSap`, send the inputs in BOTH shapes so the middleware's field mapping picks them up no matter how `ROLE_CREATE.requestFields` is configured:
 
 ```ts
-const statusStr = String(sapBody?.STATUS ?? "").toUpperCase();
-const success = result.ok && (statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "");
+const inner = {
+  ROLE: data.name.toUpperCase(),
+  ROLE_DES: data.description || "",
+  ACTIVITY: uniqueScreens.map((k) => ({
+    ACTIVITY: k.toUpperCase(),
+    RELEASE_CODE: k,
+  })),
+};
+const payload = {
+  // Flat top-level — used when config fields are named ROLE / ROLE_DES / ACTIVITY
+  ROLE: inner.ROLE,
+  ROLE_DES: inner.ROLE_DES,
+  ACTIVITY: inner.ACTIVITY,
+  // Wrapped — used when config has a single column field named CREATE
+  CREATE: inner,
+};
 ```
 
-The handler only reads UPPERCASE keys (`STATUS`, `MESSAGE`, `NUMBER`). SAP returned **lowercase** (`status`, `message`, `number`), so `statusStr` became `""` → treated as success → DB inserts + success toast, even though SAP rejected the request.
+Apply the same dual-shape pattern to `createUserViaSap` so it doesn't silently rely on the wrapper either:
 
-## Fix (scoped, presentation/handler logic only)
+```ts
+const inner = { USER: ..., FIRST_NAME: ..., /* ... */ ROLES: [...] };
+const payload = { ...inner, CREATE: inner };
+```
 
-Edit `createCustomRoleViaSap` to read SAP fields case-insensitively and treat `ERROR` (or any non-success value) as failure.
+The existing case-insensitive status / message / number response handling (`pickField`, `isExplicitError`, `isExplicitSuccess`) stays as-is and continues to surface real SAP errors instead of false-success toasts.
 
-1. Add a small local helper to pick a field regardless of case:
-   ```ts
-   const pick = (obj: any, ...keys: string[]) => {
-     for (const k of keys) {
-       if (obj?.[k] !== undefined) return obj[k];
-       if (obj?.[k.toLowerCase()] !== undefined) return obj[k.toLowerCase()];
-       if (obj?.[k.toUpperCase()] !== undefined) return obj[k.toUpperCase()];
-     }
-     return undefined;
-   };
-   ```
-2. Replace the status/success block:
-   ```ts
-   const rawStatus = pick(sapBody, "STATUS");
-   const statusStr = String(rawStatus ?? "").toUpperCase();
-   const sapMessage = pick(sapBody, "MESSAGE");
-   const sapNumber  = pick(sapBody, "NUMBER");
-   // explicit ERROR/FAIL is a failure; SUCCESS/TRUE pass; empty only passes if HTTP ok and no message that looks like an error
-   const isExplicitError = statusStr === "ERROR" || statusStr === "FAIL" || statusStr === "FAILURE" || statusStr === "FALSE";
-   const isExplicitSuccess = statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "S" || statusStr === "OK";
-   const success = result.ok && !isExplicitError && (isExplicitSuccess || statusStr === "");
-   ```
-3. Use `sapMessage` / `sapNumber` (instead of `sapBody?.MESSAGE` / `sapBody?.NUMBER`) in:
-   - the error throw: `const msg = sapMessage || result.error || ...`
-   - the success return: `message: String(sapMessage ?? ...)`, `number: sapNumber ?? null`
-4. Apply the same case-insensitive read in `createUserViaSap` (same file) so user-create surfaces SAP errors consistently. No payload/schema changes.
+# Out of scope
 
-## Out of scope
+- No changes to `middleware/server.js`, no changes to `sap_api_configs` rows, no schema/UI changes.
+- No changes to `listRolesForPlants` (separate `ROLE_LIST` config, already works).
 
-- Why SAP says "ROLE and ACTIVITY are mandatory" (likely a payload-shape mismatch with this SAP endpoint). After this fix the real error will surface in the UI and we can iterate on the payload shape in a follow-up.
-- No DB schema, RLS, or UI changes.
+# Verification
+
+1. Open Admin → Users & Roles → Add New Role, fill RESL_ADMIN with screens, Save.
+2. Expect a real success toast and a new row in `custom_roles` + `role_permissions`.
+3. If SAP still rejects, the audit row in `admin_audit_log` (`action = user.sap_role_create`) will show the full request/response — share that and we'll adjust the field names to match the actual `ROLE_CREATE` config.
