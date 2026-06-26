@@ -271,43 +271,6 @@ function UsersTab({ tenants }: { tenants: any[] }) {
 
   return (
     <div className="space-y-5">
-      {/* Action bar */}
-      <div className="flex items-center justify-end gap-2">
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogTrigger asChild>
-            <Button><UserPlus className="h-4 w-4 mr-2" /> Create User</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Invite a new user</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>Full name</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
-              <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              <div>
-                <Label>Initial role (optional)</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as AppRole })}>
-                  <SelectTrigger><SelectValue placeholder="No role" /></SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Tenant (optional)</Label>
-                <Select value={form.tenant_id} onValueChange={(v) => setForm({ ...form, tenant_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Global" /></SelectTrigger>
-                  <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-              <Button onClick={submitInvite}>Send invite</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        <Button variant="outline" onClick={refreshAll}><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
-      </div>
-
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiTile icon={UsersRound} value={kpis.total} label="Total Users" tone="primary" />
