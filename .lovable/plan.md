@@ -1,61 +1,21 @@
-# Redesign Create User Dialog
+## Goals
 
-Match the attached mockup: clean, compact, single-column form. Replace the Plants/Roles tables with multi-select dropdowns. Drop the invite/password mode toggle. Keep First Name + Last Name (two fields) instead of single Full Name.
+1. Plant dropdown trigger shows selected plant IDs (comma-separated, truncated) instead of "X selected".
+2. Both Plant and Role F4 popovers expose a **Select All / Clear All** toggle at the top of the list.
+3. Both popovers scroll correctly when the list overflows.
 
-## Field order (top to bottom)
+## Changes
 
-1. **Plant** * — multi-select dropdown (`PlantMultiSelect`), placeholder "— Select Plants —", helper text "Please select at least one plant"
-2. **User ID** * — text, placeholder "Enter User ID (e.g., USR001)" → `profiles.sap_user_id`
-3. **First Name** * — text
-4. **Last Name** * — text
-5. **Email ID** * — email
-6. **Contact Number** * — tel, placeholder "Enter 10-digit number"
-7. **Role** * — multi-select dropdown of `AppRole` values, placeholder "— Select Roles —"
-8. **Password** * — password with eye toggle, placeholder "Enter password"
-9. **Confirm Password** * — password, placeholder "Re-enter password"
-10. **Status** * — Select with "Active" / "Inactive" (default Active)
+### `src/components/sap/plant-multi-select.tsx`
+- Trigger label: when `value.length > 0`, render `value.join(", ")` inside a `truncate` span instead of `"{n} selected"`. Keep mono font and the chevron.
+- Inside `CommandList`, above the plants `CommandGroup`, add a sticky header row `CommandItem` "Select all (N)" / "Clear all (N)" that toggles between `onChange(plants)` and `onChange([])` based on whether every plant is currently selected.
+- Widen `PopoverContent` to `w-[280px]` and set `max-h-[320px]`; add `overflow-hidden` so the inner `CommandList` (already `max-h-[300px] overflow-y-auto`) owns the scrollbar. Add `onWheel={(e) => e.stopPropagation()}` on `PopoverContent` so wheel events don't bubble to the parent `Dialog` and get swallowed.
 
-Footer: right-aligned `Cancel` (outline) + `Save` (primary, with save icon).
+### `src/routes/_authenticated/admin.users.tsx` — `RoleMultiSelect` (around line 905)
+- Add the same "Select all / Clear all" `CommandItem` above the roles `CommandGroup`, toggling between `onChange(ALL_ROLES)` and `onChange([])`.
+- Add `max-h-[320px] overflow-hidden` and `onWheel={(e) => e.stopPropagation()}` to its `PopoverContent` for the in-dialog scroll fix.
+- Leave the existing trigger label logic (already shows role names up to 2, then count) unchanged unless feedback says otherwise.
 
-## Visual style
-
-- Dialog width `max-w-md`, single column, generous vertical rhythm (`space-y-4`).
-- Labels: small medium-weight, red asterisk for required (`<span className="text-destructive">*</span>`).
-- Inputs: existing shadcn `Input`/`Select` with default border; full width.
-- Header: "Add New User" title, close `X` (already provided by `DialogContent`).
-- Use existing design tokens only — no hardcoded colors.
-
-## Behavior
-
-- Validation (zod):
-  - plants: at least 1
-  - roles: at least 1
-  - sap_user_id, first_name, last_name: required, trimmed, ≤100
-  - email: valid email
-  - contact_number: required, 10 digits
-  - password: ≥8 chars
-  - confirm_password: must equal password
-  - status: "Active" | "Inactive"
-- On submit → call existing `createUser` server fn in `mode: "password"` with `plants` + `roles` arrays. Toast on success, invalidate users query, close dialog.
-
-## Files to change
-
-- `src/routes/_authenticated/admin.users.tsx`
-  - Rewrite `CreateUserDialog`:
-    - Remove plants table state and rows UI
-    - Remove roles table state and rows UI
-    - Remove mode toggle (always password)
-    - Replace with multi-select fields using existing `PlantMultiSelect` for plants and a new lightweight multi-select for roles (checkbox list inside `Popover` with `Command`, reusing shadcn primitives already in repo)
-    - Reorder fields to match mockup
-    - Update footer buttons (Cancel + Save w/ icon)
-
-## Out of scope
-
-- No backend or migration changes (existing `createUser` already accepts `plants: string[]`, `roles: AppRole[]`, and `mode`).
-- No edit-user flow changes.
-
-## Technical notes
-
-- Roles multi-select: render `Popover` + `Command` + checkbox items using `ROLE_LABELS`; trigger shows comma-separated selected labels or placeholder.
-- First-listed plant remains `is_default = true` (already handled by backend); selection order from `PlantMultiSelect` is preserved.
-- Always pass `mode: "password"` to `createUser`; ignore old invite path in this dialog (server fn still supports it for future use).
+### Out of scope
+- No backend / validation / submit-flow changes.
+- No edits to `src/components/ui/command.tsx` or `popover.tsx`.
