@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { inviteUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
+import { PlantSelect } from "@/components/sap/plant-select";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: UserManagementPage,
@@ -192,7 +193,7 @@ function UserManagementPage() {
           <TabsTrigger value="matrix">Approval Matrix</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users"><UsersTab tenants={tenants} /></TabsContent>
+        <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="custom_roles"><CustomRolesTab tenantScope={tenantScope} /></TabsContent>
         <TabsContent value="permissions"><PermissionsTab /></TabsContent>
         <TabsContent value="matrix"><ApprovalMatrixTab tenantScope={tenantScope} tenants={tenants} /></TabsContent>
@@ -233,7 +234,7 @@ function KpiTile({
 /* ============================================================
  * USERS TAB
  * ============================================================ */
-function UsersTab({ tenants }: { tenants: any[] }) {
+function UsersTab() {
   const qc = useQueryClient();
   const { user: me } = useAuth();
   const [search, setSearch] = useState("");
@@ -336,15 +337,20 @@ function UsersTab({ tenants }: { tenants: any[] }) {
             <p className="text-sm text-muted-foreground">View and manage user roles</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            <Select value={plantFilter} onValueChange={setPlantFilter}>
-              <SelectTrigger className="w-56"><SelectValue placeholder="All plants" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Plants</SelectItem>
-                {tenants.map((t) => (
-                  <SelectItem key={t.id} value={t.code}>{t.code} — {t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-1">
+              <div className="w-56">
+                <PlantSelect
+                  value={plantFilter === "all" ? "" : plantFilter}
+                  onChange={(v) => setPlantFilter(v ? v : "all")}
+                  placeholder="All plants"
+                />
+              </div>
+              {plantFilter !== "all" && (
+                <Button variant="ghost" size="sm" onClick={() => setPlantFilter("all")}>
+                  Clear
+                </Button>
+              )}
+            </div>
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
