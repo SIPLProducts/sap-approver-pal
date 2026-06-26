@@ -24,7 +24,7 @@ import {
   UsersRound, UserCog, RefreshCw, Pencil, UserX, X,
   Eye, EyeOff, Save, Check, ChevronDown,
 } from "lucide-react";
-import { createUserViaSap, deleteUser, setBuiltInRole, listRolesForPlants, createCustomRoleViaSap } from "@/lib/admin/user-mgmt.functions";
+import { createUserViaSap, deleteUser, setBuiltInRole, createCustomRoleViaSap } from "@/lib/admin/user-mgmt.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
