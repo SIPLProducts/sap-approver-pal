@@ -200,7 +200,7 @@ export const createUserViaSap = createServerFn({ method: "POST" })
     confirm_password: z.string().min(8).max(200),
     status: z.enum(["Active", "Inactive"]).default("Active"),
     plants: z.array(z.string().min(1).max(20)).min(1).max(50),
-    roles: z.array(z.enum(APP_ROLES)).min(1).max(50),
+    roles: z.array(z.string().trim().min(1).max(60)).min(1).max(50),
   }).refine((v) => v.password === v.confirm_password, {
     message: "Passwords do not match",
     path: ["confirm_password"],
