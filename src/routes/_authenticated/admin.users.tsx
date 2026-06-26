@@ -149,6 +149,43 @@ function UserManagementPage() {
                       <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Activities (Screen Permissions)</Label>
+                    <div className="border rounded-md p-2 space-y-2 max-h-64 overflow-auto">
+                      {PERMISSION_ACTIONS.map((a) => {
+                        const upper = a.toUpperCase();
+                        const idx = roleForm.activities.findIndex((x) => x.ACTIVITY === upper);
+                        const checked = idx >= 0;
+                        return (
+                          <div key={a} className="flex items-center gap-2">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                if (v) {
+                                  setRoleForm({ ...roleForm, activities: [...roleForm.activities, { ACTIVITY: upper, RELEASE_CODE: "" }] });
+                                } else {
+                                  setRoleForm({ ...roleForm, activities: roleForm.activities.filter((x) => x.ACTIVITY !== upper) });
+                                }
+                              }}
+                            />
+                            <span className="text-sm capitalize w-24">{a}</span>
+                            <Input
+                              className="h-8 flex-1"
+                              placeholder="Release code (e.g. 01)"
+                              maxLength={10}
+                              disabled={!checked}
+                              value={checked ? roleForm.activities[idx].RELEASE_CODE : ""}
+                              onChange={(e) => {
+                                const next = roleForm.activities.slice();
+                                if (idx >= 0) next[idx] = { ...next[idx], RELEASE_CODE: e.target.value };
+                                setRoleForm({ ...roleForm, activities: next });
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setRoleCreateOpen(false)} disabled={creatingRole}>Cancel</Button>
