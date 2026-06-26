@@ -265,3 +265,58 @@ export const createUserViaSap = createServerFn({ method: "POST" })
     };
   });
 
+export const listRolesForPlants = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    plants: z.array(z.string().min(1).max(20)).min(1).max(50),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs").select("id").eq("name", "ROLE_LIST").maybeSingle();
+    if (!cfg?.id) {
+      throw new Error("SAP Role List API is not configured. Add a config named ROLE_LIST in SAP API Settings.");
+    }
+
+    const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
+    const payload = {
+      ROLE_LIST: {
+        PLANTS: uniquePlants.map((p) => ({ WERKS: p })),
+      },
+    };
+
+    const result = await invokeViaMiddleware(cfg.id, payload);
+    const sapBody: any = result.data ?? {};
+    if (!result.ok) {
+      const msg = sapBody?.MESSAGE || result.error || `SAP request failed (status ${result.status})`;
+      throw new Error(String(msg));
+    }
+    if (sapBody && typeof sapBody === "object" && "STATUS" in sapBody) {
+      const status = String(sapBody.STATUS ?? "").toUpperCase();
+      if (status && status !== "TRUE") {
+        throw new Error(String(sapBody.MESSAGE || "SAP returned no roles"));
+      }
+    }
+
+    // Extract roles from a variety of possible SAP response shapes.
+    const out = new Set<string>();
+    const visit = (node: any) => {
+      if (!node) return;
+      if (Array.isArray(node)) { node.forEach(visit); return; }
+      if (typeof node === "string") { out.add(node.trim().toUpperCase()); return; }
+      if (typeof node === "object") {
+        if (typeof node.ROLE === "string") out.add(node.ROLE.trim().toUpperCase());
+        if (typeof node.AGR_NAME === "string") out.add(node.AGR_NAME.trim().toUpperCase());
+        for (const k of Object.keys(node)) {
+          if (k === "PLANTS" || k === "WERKS") continue;
+          if (/ROLE/i.test(k)) visit(node[k]);
+        }
+      }
+    };
+    visit(sapBody);
+
+    return { roles: Array.from(out).filter(Boolean).sort() };
+  });
+
