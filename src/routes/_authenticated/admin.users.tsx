@@ -748,19 +748,19 @@ function CreateUserDialog({
 
     setSubmitting(true);
     try {
-      await createFn({ data: {
+      const res = await createFn({ data: {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
         contact_number: form.contact_number.trim(),
-        status: form.status,
-        mode: "password",
+        status: form.status === "Active" ? "Active" : "Inactive",
         password: form.password,
+        confirm_password: form.confirm_password,
         plants,
         roles,
       } });
-      toast.success("User created");
+      toast.success(res?.message ?? "User created successfully");
       reset();
       onCreated();
     } catch (e: any) {
@@ -769,6 +769,7 @@ function CreateUserDialog({
       setSubmitting(false);
     }
   }
+
 
   return (
     <Dialog open={open} onOpenChange={close}>
