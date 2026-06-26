@@ -92,7 +92,7 @@ function UserManagementPage() {
       toast.success(res?.message || "Custom role created");
       if (res?.db_error) toast.warning(`Saved in SAP but local insert failed: ${res.db_error}`);
       setRoleCreateOpen(false);
-      setRoleForm({ name: "", description: "", tenant_id: "", screen_keys: [] });
+      setRoleForm({ name: "", description: "", tenant_id: "", screen_keys: [], is_active: true });
       qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
     } catch (e: any) {
       toast.error(e?.message || "Failed to create role");
