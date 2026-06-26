@@ -178,7 +178,7 @@ export const inviteUser = createServerFn({ method: "POST" })
 
 export const deleteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().uuid() }).parse(d))
+  .inputValidator((d) => z.object({ user_id: z.string().trim().min(1).max(60) }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     if (data.user_id === context.userId) throw new Error("Cannot delete your own account");
