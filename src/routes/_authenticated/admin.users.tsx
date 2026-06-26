@@ -832,41 +832,31 @@ function CreateUserDialog({
 
   const sortedPlants = useMemo(() => [...plants].sort(), [plants]);
   const rolesQuery = useQuery({
-    queryKey: ["custom-roles-for-plants", sortedPlants],
+    queryKey: ["custom-roles-all"],
     queryFn: async () => {
-      if (sortedPlants.length === 0) return [] as { value: string; label: string }[];
-      const { data: tRows, error: tErr } = await supabase
-        .from("tenants")
-        .select("id, code")
-        .in("code", sortedPlants);
-      if (tErr) throw new Error(tErr.message);
-      const tenantIds = (tRows ?? []).map((t) => t.id);
-      const codeById = new Map((tRows ?? []).map((t) => [t.id, t.code]));
-      if (tenantIds.length === 0) return [];
-      const { data: rRows, error: rErr } = await supabase
+      const { data, error } = await supabase
         .from("custom_roles")
-        .select("id, name, tenant_id, is_active")
+        .select("id, name")
         .eq("is_active", true)
-        .in("tenant_id", tenantIds)
         .order("name");
-      if (rErr) throw new Error(rErr.message);
-      return (rRows ?? []).map((r) => {
-        const plant = codeById.get(r.tenant_id as string) ?? "";
-        return { value: `${plant}::${r.name}`, label: `${plant} - ${r.name}` };
-      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { id: string; name: string }[];
     },
-    enabled: sortedPlants.length > 0,
     staleTime: 60_000,
   });
-  const roleOptions = rolesQuery.data ?? [];
+  const customRoles = rolesQuery.data ?? [];
+  const roleOptions = useMemo(() => {
+    if (sortedPlants.length === 0) return [] as { value: string; label: string }[];
+    return sortedPlants.flatMap((p) =>
+      customRoles.map((r) => ({ value: `${p}::${r.name}`, label: `${p} - ${r.name}` })),
+    );
+  }, [sortedPlants, customRoles]);
 
-  // Drop selected roles that are no longer available for the chosen plants.
+  // Drop selected roles that are no longer available.
   useEffect(() => {
-    if (!rolesQuery.data) return;
     const valid = new Set(roleOptions.map((o) => o.value));
     setRoles((prev) => prev.filter((r) => valid.has(r)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rolesQuery.data]);
+  }, [roleOptions]);
 
   // Surface role-fetch errors so failures aren't silent.
   const lastErrRef = useRef<string | null>(null);
@@ -881,6 +871,9 @@ function CreateUserDialog({
       lastErrRef.current = null;
     }
   }, [rolesQuery.isError, rolesQuery.error, rolesQuery.isFetching]);
+
+
+
 
 
   function reset() {
@@ -1006,7 +999,7 @@ function CreateUserDialog({
               }
             />
             {plants.length > 0 && !rolesQuery.isFetching && !rolesQuery.isError && roleOptions.length === 0 && (
-              <p className="text-[11px] text-destructive mt-1">No custom roles for selected plants.</p>
+              <p className="text-[11px] text-destructive mt-1">No custom roles configured.</p>
             )}
           </Field>
 
