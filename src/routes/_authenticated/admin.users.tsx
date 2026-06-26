@@ -70,6 +70,10 @@ function UserManagementPage() {
 
   async function submitCreateRole() {
     if (!roleForm.name) return toast.error("Name required");
+    if (roleForm.activities.length === 0) return toast.error("Select at least one activity");
+    if (roleForm.activities.some((a) => !a.RELEASE_CODE.trim())) {
+      return toast.error("Enter a release code for every selected activity");
+    }
     const tenant_id = roleForm.tenant_id || (tenantScope !== "all" ? tenantScope : "");
     setCreatingRole(true);
     try {
@@ -78,12 +82,13 @@ function UserManagementPage() {
           name: roleForm.name,
           description: roleForm.description,
           tenant_id,
+          activities: roleForm.activities,
         },
       });
       toast.success(res?.message || "Custom role created");
       if (res?.db_error) toast.warning(`Saved in SAP but local insert failed: ${res.db_error}`);
       setRoleCreateOpen(false);
-      setRoleForm({ name: "", description: "", tenant_id: "" });
+      setRoleForm({ name: "", description: "", tenant_id: "", activities: [] });
       qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
     } catch (e: any) {
       toast.error(e?.message || "Failed to create role");
