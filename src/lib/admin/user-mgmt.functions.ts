@@ -390,11 +390,11 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
 
-    const { data: cfg } = await supabaseAdmin
-      .from("sap_api_configs").select("id").eq("name", "ROLE_CREATE").maybeSingle();
-    if (!cfg?.id) {
-      throw new Error("SAP Create Role API is not configured. Add a config named ROLE_CREATE in SAP API Settings.");
+    const cfgId = await findSapConfigId(["ROLE_CREATE", "Create Role", "CreateRole"]);
+    if (!cfgId) {
+      throw new Error("SAP Create Role API is not configured. Add an active config named ROLE_CREATE (or 'Create Role') in SAP API Settings.");
     }
+
 
     const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
     const payload = {
