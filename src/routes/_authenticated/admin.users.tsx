@@ -20,10 +20,14 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   UserPlus, Search, Trash2, Plus, ShieldCheck, Building2,
-  UsersRound, UserCog, RefreshCw, Pencil, UserX, Mail, KeyRound, X,
+  UsersRound, UserCog, RefreshCw, Pencil, UserX, X,
+  Eye, EyeOff, Save, Check, ChevronDown,
 } from "lucide-react";
 import { createUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
+import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: UserManagementPage,
@@ -692,9 +696,7 @@ function ApprovalMatrixTab({ tenantScope, tenants }: { tenantScope: string; tena
 /* ============================================================
  * CREATE USER DIALOG
  * ============================================================ */
-type CreationMode = "invite" | "password";
-type PlantRow = { id: string; code: string };
-type RoleRow = { id: string; plant: string; role: AppRole | "" };
+type CreationStatus = "Active" | "Inactive";
 
 const emptyForm = () => ({
   sap_user_id: "",
@@ -702,8 +704,7 @@ const emptyForm = () => ({
   last_name: "",
   email: "",
   contact_number: "",
-  status: "Active" as "Active" | "Inactive",
-  mode: "invite" as CreationMode,
+  status: "Active" as CreationStatus,
   password: "",
   confirm_password: "",
 });
@@ -717,14 +718,16 @@ function CreateUserDialog({
 }) {
   const createFn = useServerFn(createUser);
   const [form, setForm] = useState(emptyForm);
-  const [plants, setPlants] = useState<PlantRow[]>([{ id: crypto.randomUUID(), code: "" }]);
-  const [roleRows, setRoleRows] = useState<RoleRow[]>([{ id: crypto.randomUUID(), plant: "", role: "" }]);
+  const [plants, setPlants] = useState<string[]>([]);
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   function reset() {
     setForm(emptyForm());
-    setPlants([{ id: crypto.randomUUID(), code: "" }]);
-    setRoleRows([{ id: crypto.randomUUID(), plant: "", role: "" }]);
+    setPlants([]);
+    setRoles([]);
+    setShowPw(false);
   }
 
   function close(next: boolean) {
@@ -733,17 +736,14 @@ function CreateUserDialog({
   }
 
   async function submit() {
+    if (plants.length === 0) return toast.error("Please select at least one plant");
     if (!form.sap_user_id.trim()) return toast.error("User ID is required");
     if (!form.first_name.trim() || !form.last_name.trim()) return toast.error("First and Last name are required");
     if (!form.email.trim()) return toast.error("Email is required");
-    if (form.mode === "password") {
-      if (form.password.length < 8) return toast.error("Password must be at least 8 characters");
-      if (form.password !== form.confirm_password) return toast.error("Passwords do not match");
-    }
-    const plantCodes = Array.from(new Set(plants.map((p) => p.code.trim()).filter(Boolean)));
-    const roles = Array.from(new Set(
-      roleRows.map((r) => r.role).filter((r): r is AppRole => !!r),
-    ));
+    if (!/^\d{10}$/.test(form.contact_number.trim())) return toast.error("Contact number must be 10 digits");
+    if (roles.length === 0) return toast.error("Please select at least one role");
+    if (form.password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (form.password !== form.confirm_password) return toast.error("Passwords do not match");
 
     setSubmitting(true);
     try {
@@ -752,14 +752,14 @@ function CreateUserDialog({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
-        contact_number: form.contact_number.trim() || undefined,
+        contact_number: form.contact_number.trim(),
         status: form.status,
-        mode: form.mode,
-        password: form.mode === "password" ? form.password : undefined,
-        plants: plantCodes,
+        mode: "password",
+        password: form.password,
+        plants,
         roles,
       } });
-      toast.success(form.mode === "invite" ? "Invitation sent" : "User created");
+      toast.success("User created");
       reset();
       onCreated();
     } catch (e: any) {
@@ -771,181 +771,123 @@ function CreateUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-w-3xl p-0 gap-0 max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-md p-0 gap-0 max-h-[90vh] flex flex-col">
         <DialogHeader className="px-6 py-4 border-b">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-              <UserPlus className="h-5 w-5" />
-            </div>
-            <div>
-              <DialogTitle className="text-lg">Create User</DialogTitle>
-              <p className="text-xs text-muted-foreground">Set up a new account, assign plants and roles in one step.</p>
-            </div>
-          </div>
+          <DialogTitle className="text-base font-semibold">Add New User</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {/* Profile */}
-          <section className="rounded-lg border bg-muted/20">
-            <SectionHeader n={1} title="Profile" subtitle="Identity, contact and access credentials" />
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Field label="User ID" required>
-                <Input value={form.sap_user_id} onChange={(e) => setForm({ ...form, sap_user_id: e.target.value })} placeholder="SAP employee id" />
-              </Field>
-              <Field label="First Name" required>
-                <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
-              </Field>
-              <Field label="Last Name" required>
-                <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
-              </Field>
-              <Field label="Email" required>
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              </Field>
-              <Field label="Contact Number">
-                <Input value={form.contact_number} onChange={(e) => setForm({ ...form, contact_number: e.target.value })} placeholder="+91 ..." />
-              </Field>
-              <Field label="Status">
-                <div className="inline-flex rounded-md border p-0.5 bg-background">
-                  <button type="button" onClick={() => setForm({ ...form, status: "Active" })}
-                    className={`px-3 h-8 text-xs font-medium rounded ${form.status === "Active" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
-                    Active
-                  </button>
-                  <button type="button" onClick={() => setForm({ ...form, status: "Inactive" })}
-                    className={`px-3 h-8 text-xs font-medium rounded ${form.status === "Inactive" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
-                    Inactive
-                  </button>
-                </div>
-              </Field>
-
-              <div className="sm:col-span-3 pt-2 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Creation mode</Label>
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <ModeCard
-                    selected={form.mode === "invite"}
-                    onClick={() => setForm({ ...form, mode: "invite" })}
-                    icon={Mail}
-                    title="Send invite email"
-                    desc="User receives a link to set their own password"
-                  />
-                  <ModeCard
-                    selected={form.mode === "password"}
-                    onClick={() => setForm({ ...form, mode: "password" })}
-                    icon={KeyRound}
-                    title="Set password now"
-                    desc="Account is active immediately with this password"
-                  />
-                </div>
-              </div>
-
-              {form.mode === "password" && (
-                <>
-                  <Field label="Password" required>
-                    <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 8 characters" />
-                  </Field>
-                  <Field label="Confirm Password" required>
-                    <Input type="password" value={form.confirm_password} onChange={(e) => setForm({ ...form, confirm_password: e.target.value })} />
-                  </Field>
-                </>
-              )}
-            </div>
-          </section>
-
-          {/* Plants */}
-          <section className="rounded-lg border bg-muted/20">
-            <SectionHeader
-              n={2} title="Plants" subtitle="Assign one or more SAP plants to this user"
-              action={
-                <Button size="sm" variant="ghost" onClick={() => setPlants([...plants, { id: crypto.randomUUID(), code: "" }])}>
-                  <Plus className="h-4 w-4 mr-1" /> Add Row
-                </Button>
-              }
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <Field label="Plant" required>
+            <PlantMultiSelect
+              value={plants}
+              onChange={setPlants}
+              placeholder="— Select Plants —"
             />
-            <div className="p-4 space-y-2">
-              {plants.map((row, idx) => (
-                <div key={row.id} className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <PlantSelect
-                      value={row.code}
-                      onChange={(code) => setPlants(plants.map((p) => p.id === row.id ? { ...p, code } : p))}
-                      placeholder="Select plant"
-                    />
-                  </div>
-                  {idx === 0 && row.code && <Badge variant="secondary" className="text-[10px]">Default</Badge>}
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => setPlants(plants.length === 1 ? [{ id: crypto.randomUUID(), code: "" }] : plants.filter((p) => p.id !== row.id))}
-                    aria-label="Remove plant"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </section>
+            {plants.length === 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1">Please select at least one plant</p>
+            )}
+          </Field>
 
-          {/* Roles */}
-          <section className="rounded-lg border bg-muted/20">
-            <SectionHeader
-              n={3} title="Roles" subtitle="Pick a plant context and a role to grant"
-              action={
-                <Button size="sm" variant="ghost" onClick={() => setRoleRows([...roleRows, { id: crypto.randomUUID(), plant: "", role: "" }])}>
-                  <Plus className="h-4 w-4 mr-1" /> Add Row
-                </Button>
-              }
+          <Field label="User ID" required>
+            <Input
+              value={form.sap_user_id}
+              onChange={(e) => setForm({ ...form, sap_user_id: e.target.value })}
+              placeholder="Enter User ID (e.g., USR001)"
             />
-            <div className="p-4 space-y-2">
-              {roleRows.map((row) => (
-                <div key={row.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
-                  <PlantSelect
-                    value={row.plant}
-                    onChange={(plant) => setRoleRows(roleRows.map((r) => r.id === row.id ? { ...r, plant } : r))}
-                    placeholder="Plant"
-                  />
-                  <Select
-                    value={row.role}
-                    onValueChange={(v) => setRoleRows(roleRows.map((r) => r.id === row.id ? { ...r, role: v as AppRole } : r))}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => setRoleRows(roleRows.length === 1 ? [{ id: crypto.randomUUID(), plant: "", role: "" }] : roleRows.filter((r) => r.id !== row.id))}
-                    aria-label="Remove role"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+          </Field>
+
+          <Field label="First Name" required>
+            <Input
+              value={form.first_name}
+              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              placeholder="Enter first name"
+            />
+          </Field>
+
+          <Field label="Last Name" required>
+            <Input
+              value={form.last_name}
+              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+              placeholder="Enter last name"
+            />
+          </Field>
+
+          <Field label="Email ID" required>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="Enter email"
+            />
+          </Field>
+
+          <Field label="Contact Number" required>
+            <Input
+              value={form.contact_number}
+              onChange={(e) => setForm({ ...form, contact_number: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+              placeholder="Enter 10-digit number"
+              inputMode="numeric"
+            />
+          </Field>
+
+          <Field label="Role" required>
+            <RoleMultiSelect value={roles} onChange={setRoles} />
+          </Field>
+
+          <Field label="Password" required>
+            <div className="relative">
+              <Input
+                type={showPw ? "text" : "password"}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Enter password"
+                className="pr-9"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPw ? "Hide password" : "Show password"}
+              >
+                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
-          </section>
+          </Field>
+
+          <Field label="Confirm Password" required>
+            <Input
+              type="password"
+              value={form.confirm_password}
+              onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
+              placeholder="Re-enter password"
+            />
+          </Field>
+
+          <Field label="Status" required>
+            <Select
+              value={form.status}
+              onValueChange={(v) => setForm({ ...form, status: v as CreationStatus })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t bg-background">
-          <Button variant="outline" onClick={() => close(false)} disabled={submitting}>Cancel</Button>
+        <DialogFooter className="px-6 py-4 border-t bg-background gap-2 sm:gap-2">
+          <Button variant="outline" onClick={() => close(false)} disabled={submitting}>
+            Cancel
+          </Button>
           <Button onClick={submit} disabled={submitting}>
-            {submitting ? "Creating..." : "Create User"}
+            <Save className="h-4 w-4 mr-1.5" />
+            {submitting ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function SectionHeader({ n, title, subtitle, action }: { n: number; title: string; subtitle?: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3 border-b bg-background/60 rounded-t-lg">
-      <div className="flex items-center gap-3">
-        <div className="h-7 w-7 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center">
-          {n}
-        </div>
-        <div>
-          <div className="text-sm font-semibold">{title}</div>
-          {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
-        </div>
-      </div>
-      {action}
-    </div>
   );
 }
 
@@ -960,30 +902,57 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-function ModeCard({
-  selected, onClick, icon: Icon, title, desc,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  icon: typeof Mail;
-  title: string;
-  desc: string;
-}) {
+function RoleMultiSelect({ value, onChange }: { value: AppRole[]; onChange: (v: AppRole[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const selected = useMemo(() => new Set(value), [value]);
+
+  function toggle(r: AppRole) {
+    if (selected.has(r)) onChange(value.filter((x) => x !== r));
+    else onChange([...value, r]);
+  }
+
+  const label = value.length === 0
+    ? "— Select Roles —"
+    : value.length <= 2
+      ? value.map((r) => ROLE_LABELS[r]).join(", ")
+      : `${value.length} roles selected`;
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-left flex items-start gap-3 p-3 rounded-md border transition-colors ${
-        selected ? "border-primary bg-primary/5 ring-1 ring-primary/30" : "border-border bg-background hover:bg-muted/40"
-      }`}
-    >
-      <div className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{title}</div>
-        <div className="text-xs text-muted-foreground">{desc}</div>
-      </div>
-    </button>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "h-9 w-full justify-between font-normal",
+            value.length === 0 && "text-muted-foreground",
+          )}
+        >
+          <span className="truncate">{label}</span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search role…" className="h-9" />
+          <CommandList>
+            <CommandEmpty>No role found.</CommandEmpty>
+            <CommandGroup>
+              {ALL_ROLES.map((r) => {
+                const isSel = selected.has(r);
+                return (
+                  <CommandItem key={r} value={ROLE_LABELS[r]} onSelect={() => toggle(r)}>
+                    <Check className={cn("mr-2 h-4 w-4", isSel ? "opacity-100" : "opacity-0")} />
+                    {ROLE_LABELS[r]}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
+

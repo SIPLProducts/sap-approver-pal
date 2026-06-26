@@ -1,112 +1,61 @@
-## Goal
+# Redesign Create User Dialog
 
-Replace the small "Invite a new user" dialog on `/admin/users` with a polished, professional Create User dialog that captures full profile details, multiple plants (SAP F4), and multiple plant+role pairs in one shot.
+Match the attached mockup: clean, compact, single-column form. Replace the Plants/Roles tables with multi-select dropdowns. Drop the invite/password mode toggle. Keep First Name + Last Name (two fields) instead of single Full Name.
 
-## Dialog Layout
+## Field order (top to bottom)
 
-A wider modal (`max-w-3xl`) organized in three clearly separated sections, with a sticky footer.
+1. **Plant** * — multi-select dropdown (`PlantMultiSelect`), placeholder "— Select Plants —", helper text "Please select at least one plant"
+2. **User ID** * — text, placeholder "Enter User ID (e.g., USR001)" → `profiles.sap_user_id`
+3. **First Name** * — text
+4. **Last Name** * — text
+5. **Email ID** * — email
+6. **Contact Number** * — tel, placeholder "Enter 10-digit number"
+7. **Role** * — multi-select dropdown of `AppRole` values, placeholder "— Select Roles —"
+8. **Password** * — password with eye toggle, placeholder "Enter password"
+9. **Confirm Password** * — password, placeholder "Re-enter password"
+10. **Status** * — Select with "Active" / "Inactive" (default Active)
 
-```text
-+-------------------------------------------------------+
-| Create User                                       [x] |
-+-------------------------------------------------------+
-| 1  Profile                                            |
-|    User ID*        First Name*    Last Name*          |
-|    Email*          Contact Number                     |
-|                                                       |
-|    Creation mode:  ( ) Set password now               |
-|                    (•) Send invite email              |
-|    Password        Confirm Password   (when "Set...") |
-|                                                       |
-|    Status:   [ Active  •  Inactive ]   (toggle)       |
-|-------------------------------------------------------|
-| 2  Plants                              [+ Add Row]    |
-|    +--------------------------+ +------+              |
-|    | Plant (SAP F4 picker)    | |  X   |              |
-|    +--------------------------+ +------+              |
-|    | Plant (SAP F4 picker)    | |  X   |              |
-|    +--------------------------+ +------+              |
-|    First row marked as Default (badge).               |
-|-------------------------------------------------------|
-| 3  Roles                               [+ Add Row]    |
-|    +--------------+ +----------------+ +------+       |
-|    | Plant (F4)   | | Role (dropdown)| |  X   |       |
-|    +--------------+ +----------------+ +------+       |
-|    Plant column is informational; Roles save globally |
-|    (current `user_roles` semantics).                  |
-+-------------------------------------------------------+
-|                          [Cancel]  [Create User]      |
-+-------------------------------------------------------+
-```
+Footer: right-aligned `Cancel` (outline) + `Save` (primary, with save icon).
 
-Visual polish (using existing design tokens — no hard-coded colors):
-- Numbered section headers with subtle muted subtitle.
-- `Card`-style grouping per section inside the dialog with `border` + `bg-muted/20`.
-- Plant picker reuses `PlantSelect` (single SAP F4 picker per row) for both the Plants table and the Roles table.
-- "Add Row" = ghost button with `+` icon, aligned right of each section header.
-- Per-row remove = `Trash2` icon button in `ghost` variant.
-- Status uses a segmented control (two `Button`s with `default`/`outline` variants) for clarity over a plain switch.
-- Footer is sticky inside the dialog with `Cancel` (outline) and `Create User` (primary).
+## Visual style
 
-## Validation (client + server, zod)
+- Dialog width `max-w-md`, single column, generous vertical rhythm (`space-y-4`).
+- Labels: small medium-weight, red asterisk for required (`<span className="text-destructive">*</span>`).
+- Inputs: existing shadcn `Input`/`Select` with default border; full width.
+- Header: "Add New User" title, close `X` (already provided by `DialogContent`).
+- Use existing design tokens only — no hardcoded colors.
 
-- User ID, First Name, Last Name, Email required.
-- Email format valid.
-- Contact Number: optional, digits/`+`/space/`-`, max 20.
-- When mode = "Set password": Password ≥ 8 chars, must equal Confirm Password.
-- Plants rows: drop empty rows; de-dupe by code.
-- Roles rows: drop rows with empty role; de-dupe; ignore Plant column when persisting.
+## Behavior
 
-## Backend mapping
+- Validation (zod):
+  - plants: at least 1
+  - roles: at least 1
+  - sap_user_id, first_name, last_name: required, trimmed, ≤100
+  - email: valid email
+  - contact_number: required, 10 digits
+  - password: ≥8 chars
+  - confirm_password: must equal password
+  - status: "Active" | "Inactive"
+- On submit → call existing `createUser` server fn in `mode: "password"` with `plants` + `roles` arrays. Toast on success, invalidate users query, close dialog.
 
-- `profiles.full_name` ← `${firstName} ${lastName}`.
-- `profiles.sap_user_id` ← User ID.
-- `profiles.email` ← email (also kept by `handle_new_user`).
-- New columns added by migration: `profiles.first_name`, `profiles.last_name`, `profiles.contact_number text`, `profiles.status text not null default 'Active' check (status in ('Active','Inactive'))`.
-- Plants → `user_tenants` rows (first row `is_default = true`) — same shape as today.
-- Roles → `user_roles` rows (one per selected role, global).
+## Files to change
 
-## Server function changes (`src/lib/admin/user-mgmt.functions.ts`)
-
-Replace `inviteUser` with a single `createUser` that handles both modes:
-
-```ts
-createUser({
-  user_id: string,        // SAP user id
-  first_name, last_name, email, contact_number?,
-  status: "Active" | "Inactive",
-  mode: "invite" | "password",
-  password?: string,      // required when mode === "password"
-  plants: string[],       // plant codes
-  roles: AppRole[],       // global roles
-})
-```
-
-Behavior:
-- `mode === "invite"`: `supabaseAdmin.auth.admin.inviteUserByEmail(email, { data: { full_name }})` (current behavior).
-- `mode === "password"`: `supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name }})`.
-- After auth user exists, `update` profile with `first_name`, `last_name`, `sap_user_id`, `contact_number`, `status`.
-- Insert plants into `user_tenants` (existing matching/skip logic kept).
-- Insert each role into `user_roles`.
-- Audit log entry with mode + counts.
-- `status === "Inactive"`: also call `supabaseAdmin.auth.admin.updateUserById(newId, { ban_duration: "876000h" })` so they cannot sign in.
-
-Keep `deleteUser` and `setBuiltInRole` unchanged. Export `inviteUser` as a thin alias to `createUser` (mode="invite") for any other caller — none found, but kept defensively.
-
-## Frontend changes (`src/routes/_authenticated/admin.users.tsx`)
-
-- Replace `inviteForm` state with a richer object including `plants: string[]` and `roles: AppRole[]`.
-- New component `CreateUserDialog` extracted in-file (still local to keep diff focused) — receives `open`, `onOpenChange`, and uses `useServerFn(createUser)`.
-- Reuse `PlantSelect` for per-row plant pickers; reuse the role list from `ROLE_LABELS`.
-- On success: toast, close dialog, invalidate `admin-profiles`, `admin-user-roles`, `admin-user-tenants`.
-- "Plants" column in Users table already reads `user_tenants`; "Role" column already reads `user_roles`. No table changes needed.
-
-## Migration
-
-Add the three new profile columns + check constraint via `supabase--migration`. No RLS changes; existing `profiles` policies already cover admin updates.
+- `src/routes/_authenticated/admin.users.tsx`
+  - Rewrite `CreateUserDialog`:
+    - Remove plants table state and rows UI
+    - Remove roles table state and rows UI
+    - Remove mode toggle (always password)
+    - Replace with multi-select fields using existing `PlantMultiSelect` for plants and a new lightweight multi-select for roles (checkbox list inside `Popover` with `Command`, reusing shadcn primitives already in repo)
+    - Reorder fields to match mockup
+    - Update footer buttons (Cancel + Save w/ icon)
 
 ## Out of scope
 
-- Editing existing users from this dialog (separate Edit flow stays as-is).
-- Per-plant role scoping (user chose "use existing tables as-is").
-- Changes to Custom Roles, Permissions, or Approval Matrix tabs.
+- No backend or migration changes (existing `createUser` already accepts `plants: string[]`, `roles: AppRole[]`, and `mode`).
+- No edit-user flow changes.
+
+## Technical notes
+
+- Roles multi-select: render `Popover` + `Command` + checkbox items using `ROLE_LABELS`; trigger shows comma-separated selected labels or placeholder.
+- First-listed plant remains `is_default = true` (already handled by backend); selection order from `PlantMultiSelect` is preserved.
+- Always pass `mode: "password"` to `createUser`; ignore old invite path in this dialog (server fn still supports it for future use).
