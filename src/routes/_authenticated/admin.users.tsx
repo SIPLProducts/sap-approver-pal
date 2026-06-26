@@ -27,6 +27,7 @@ import { createUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.fu
 import { PlantSelect } from "@/components/sap/plant-select";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
@@ -951,11 +952,10 @@ function RoleMultiSelect({ value, onChange }: { value: AppRole[]; onChange: (v: 
                 }}
                 className="font-medium border-b rounded-none"
               >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    value.length === ALL_ROLES.length ? "opacity-100" : "opacity-0",
-                  )}
+                <Checkbox
+                  checked={value.length === ALL_ROLES.length}
+                  tabIndex={-1}
+                  className="pointer-events-none mr-2"
                 />
                 {value.length === ALL_ROLES.length
                   ? `Clear all (${ALL_ROLES.length})`
@@ -965,7 +965,7 @@ function RoleMultiSelect({ value, onChange }: { value: AppRole[]; onChange: (v: 
                 const isSel = selected.has(r);
                 return (
                   <CommandItem key={r} value={ROLE_LABELS[r]} onSelect={() => toggle(r)}>
-                    <Check className={cn("mr-2 h-4 w-4", isSel ? "opacity-100" : "opacity-0")} />
+                    <Checkbox checked={isSel} tabIndex={-1} className="pointer-events-none mr-2" />
                     {ROLE_LABELS[r]}
                   </CommandItem>
                 );
