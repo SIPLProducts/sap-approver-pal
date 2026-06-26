@@ -270,7 +270,8 @@ export const listRolesForPlants = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
     plants: z.array(z.string().min(1).max(20)).min(1).max(50),
   }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
 
@@ -300,23 +301,68 @@ export const listRolesForPlants = createServerFn({ method: "POST" })
       }
     }
 
-    // Extract roles from a variety of possible SAP response shapes.
+    // Extract roles from a permissive set of SAP response shapes.
+    const SKIP_KEYS = new Set([
+      "PLANTS", "WERKS", "STATUS", "MESSAGE", "NUMBER",
+      "TYPE", "ID", "NO", "TIMESTAMP", "DATE", "TIME",
+    ]);
+    const ROLE_FIELDS = new Set([
+      "ROLE", "ROLES", "AGR_NAME", "ROLE_ID", "ROLE_CODE", "ROLE_NAME",
+      "Z_ROLE", "ZROLE", "ZAGR_NAME", "RNAME", "RID",
+    ]);
+    const looksLikeRole = (s: string) => {
+      const t = s.trim();
+      if (!t) return false;
+      // exclude pure-numeric plant-like codes
+      if (/^\d{1,6}$/.test(t)) return false;
+      return t.length <= 60;
+    };
+
     const out = new Set<string>();
     const visit = (node: any) => {
-      if (!node) return;
+      if (node == null) return;
       if (Array.isArray(node)) { node.forEach(visit); return; }
-      if (typeof node === "string") { out.add(node.trim().toUpperCase()); return; }
-      if (typeof node === "object") {
-        if (typeof node.ROLE === "string") out.add(node.ROLE.trim().toUpperCase());
-        if (typeof node.AGR_NAME === "string") out.add(node.AGR_NAME.trim().toUpperCase());
-        for (const k of Object.keys(node)) {
-          if (k === "PLANTS" || k === "WERKS") continue;
-          if (/ROLE/i.test(k)) visit(node[k]);
+      if (typeof node === "string") {
+        if (looksLikeRole(node)) out.add(node.trim().toUpperCase());
+        return;
+      }
+      if (typeof node !== "object") return;
+
+      // Known role-bearing fields
+      for (const f of ROLE_FIELDS) {
+        const v = (node as any)[f];
+        if (typeof v === "string" && looksLikeRole(v)) out.add(v.trim().toUpperCase());
+      }
+      // Row shape: { WERKS:"3801", <some>:"ADMIN" } — treat the other string as role
+      if (typeof (node as any).WERKS === "string") {
+        for (const [k, v] of Object.entries(node)) {
+          if (k === "WERKS" || SKIP_KEYS.has(k)) continue;
+          if (typeof v === "string" && looksLikeRole(v)) out.add(v.trim().toUpperCase());
         }
+      }
+      // Recurse into every non-skipped child
+      for (const [k, v] of Object.entries(node)) {
+        if (SKIP_KEYS.has(k)) continue;
+        if (v && (typeof v === "object")) visit(v);
       }
     };
     visit(sapBody);
 
-    return { roles: Array.from(out).filter(Boolean).sort() };
+    const roles = Array.from(out).filter(Boolean).sort();
+
+    // Audit (best-effort, truncated) for future shape debugging
+    try {
+      const snapshot = JSON.stringify(sapBody).slice(0, 4000);
+      await supabaseAdmin.from("admin_audit_log").insert({
+        actor_id: context.userId,
+        action: "user.sap_role_list",
+        target_table: "sap_roles",
+        target_id: null,
+        payload: { request: payload, response_snapshot: snapshot, roles_count: roles.length },
+      });
+    } catch {/* ignore audit failure */}
+
+    return { roles };
   });
+
 
