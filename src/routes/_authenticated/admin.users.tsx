@@ -1088,26 +1088,27 @@ function RoleMultiSelect({
 }: {
   value: string[];
   onChange: (v: string[]) => void;
-  options: string[];
+  options: { value: string; label: string }[];
   loading?: boolean;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => new Set(value), [value]);
+  const labelByValue = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of options) m.set(o.value, o.label);
+    return m;
+  }, [options]);
 
   function toggle(r: string) {
     if (selected.has(r)) onChange(value.filter((x) => x !== r));
     else onChange([...value, r]);
   }
 
-  function labelFor(r: string) {
-    return (ROLE_LABELS as Record<string, string>)[r] ?? r;
-  }
-
   const label = value.length === 0
     ? placeholder
     : value.length <= 2
-      ? value.map(labelFor).join(", ")
+      ? value.map((v) => labelByValue.get(v) ?? v).join(", ")
       : `${value.length} roles selected`;
 
   const allSelected = options.length > 0 && value.length === options.length;
@@ -1145,7 +1146,7 @@ function RoleMultiSelect({
                   value="__select_all_roles__"
                   onSelect={() => {
                     if (allSelected) onChange([]);
-                    else onChange([...options]);
+                    else onChange(options.map((o) => o.value));
                   }}
                   className="font-medium border-b rounded-none"
                 >
@@ -1158,12 +1159,12 @@ function RoleMultiSelect({
                     ? `Clear all (${options.length})`
                     : `Select all (${options.length})`}
                 </CommandItem>
-                {options.map((r) => {
-                  const isSel = selected.has(r);
+                {options.map((o) => {
+                  const isSel = selected.has(o.value);
                   return (
-                    <CommandItem key={r} value={labelFor(r)} onSelect={() => toggle(r)}>
+                    <CommandItem key={o.value} value={o.label} onSelect={() => toggle(o.value)}>
                       <Checkbox checked={isSel} tabIndex={-1} className="pointer-events-none mr-2" />
-                      {labelFor(r)}
+                      {o.label}
                     </CommandItem>
                   );
                 })}
