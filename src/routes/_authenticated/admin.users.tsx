@@ -717,7 +717,7 @@ function CreateUserDialog({
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
 }) {
-  const createFn = useServerFn(createUser);
+  const createFn = useServerFn(createUserViaSap);
   const [form, setForm] = useState(emptyForm);
   const [plants, setPlants] = useState<string[]>([]);
   const [roles, setRoles] = useState<AppRole[]>([]);
