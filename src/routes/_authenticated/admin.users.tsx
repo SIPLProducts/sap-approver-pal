@@ -20,9 +20,9 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   UserPlus, Search, Trash2, Plus, ShieldCheck, Building2,
-  UsersRound, UserCog, RefreshCw, Pencil, UserX,
+  UsersRound, UserCog, RefreshCw, Pencil, UserX, Mail, KeyRound, X,
 } from "lucide-react";
-import { inviteUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
+import { createUser, deleteUser, setBuiltInRole } from "@/lib/admin/user-mgmt.functions";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { PlantSelect } from "@/components/sap/plant-select";
 
