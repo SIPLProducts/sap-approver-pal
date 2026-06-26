@@ -365,4 +365,85 @@ export const listRolesForPlants = createServerFn({ method: "POST" })
     return { roles };
   });
 
+export const createCustomRoleViaSap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    name: z.string().trim().min(1).max(60),
+    description: z.string().trim().max(240).optional().or(z.literal("")),
+    tenant_id: z.string().trim().optional().or(z.literal("")),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs").select("id").eq("name", "ROLE_CREATE").maybeSingle();
+    if (!cfg?.id) {
+      throw new Error("SAP Create Role API is not configured. Add a config named ROLE_CREATE in SAP API Settings.");
+    }
+
+    // Resolve plant codes (WERKS) from tenant_id, or all tenants when global.
+    let plantCodes: string[] = [];
+    if (data.tenant_id) {
+      const { data: t } = await supabaseAdmin
+        .from("tenants").select("code").eq("id", data.tenant_id).maybeSingle();
+      if (t?.code) plantCodes = [t.code];
+    } else {
+      const { data: tRows } = await supabaseAdmin.from("tenants").select("code");
+      plantCodes = (tRows ?? []).map((r: any) => r.code).filter(Boolean);
+    }
+
+    const payload = {
+      CREATE: {
+        ROLE: data.name.toUpperCase(),
+        DESCRIPTION: data.description || "",
+        PLANTS: plantCodes.map((p) => ({ WERKS: p })),
+      },
+    };
+
+    const result = await invokeViaMiddleware(cfg.id, payload);
+    const sapBody: any = result.data ?? {};
+    const statusStr = String(sapBody?.STATUS ?? "").toUpperCase();
+    const success = result.ok && (statusStr === "TRUE" || statusStr === "");
+
+    let dbError: string | null = null;
+    if (success) {
+      const { error: insErr } = await supabaseAdmin.from("custom_roles").insert({
+        name: data.name,
+        description: data.description || null,
+        tenant_id: data.tenant_id || null,
+      });
+      if (insErr) dbError = insErr.message;
+    }
+
+    await supabaseAdmin.from("admin_audit_log").insert({
+      actor_id: context.userId,
+      action: "user.sap_role_create",
+      target_table: "custom_roles",
+      target_id: null,
+      payload: {
+        request: payload.CREATE,
+        response: sapBody,
+        middleware_status: result.status,
+        middleware_error: result.error ?? null,
+        success,
+        db_error: dbError,
+      },
+    });
+
+    if (!success) {
+      const msg = sapBody?.MESSAGE || result.error || `SAP rejected the request (status ${result.status})`;
+      throw new Error(String(msg));
+    }
+
+    return {
+      ok: true,
+      message: String(sapBody?.MESSAGE ?? `Role ${payload.CREATE.ROLE} created successfully`),
+      number: sapBody?.NUMBER ?? null,
+      db_error: dbError,
+    };
+  });
+
+
 
