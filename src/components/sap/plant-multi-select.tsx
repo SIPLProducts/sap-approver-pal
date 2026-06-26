@@ -134,14 +134,18 @@ export function PlantMultiSelect({
             ) : value.length === 0 ? (
               placeholder
             ) : (
-              <span className="truncate">
-                {value.length} selected
+              <span className="truncate text-left">
+                {value.join(", ")}
               </span>
             )}
             <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[240px] p-0" align="start">
+        <PopoverContent
+          className="w-[280px] p-0 max-h-[340px] overflow-hidden"
+          align="start"
+          onWheel={(e) => e.stopPropagation()}
+        >
           <Command>
             <CommandInput placeholder="Search plant…" className="h-9" />
             <CommandList>
@@ -167,6 +171,24 @@ export function PlantMultiSelect({
                 <>
                   <CommandEmpty>No plant found.</CommandEmpty>
                   <CommandGroup>
+                    <CommandItem
+                      value="__select_all__"
+                      onSelect={() => {
+                        if (value.length === plants.length) onChange([]);
+                        else onChange(plants);
+                      }}
+                      className="font-medium border-b rounded-none"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-3.5 w-3.5",
+                          value.length === plants.length ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      {value.length === plants.length
+                        ? `Clear all (${plants.length})`
+                        : `Select all (${plants.length})`}
+                    </CommandItem>
                     {plants.map((p) => {
                       const isSel = selected.has(p);
                       return (
