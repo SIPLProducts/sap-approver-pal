@@ -466,16 +466,17 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     });
 
     if (!success) {
-      const msg = sapBody?.MESSAGE || result.error || `SAP rejected the request (status ${result.status})`;
+      const msg = sapMessage || result.error || `SAP rejected the request (status ${result.status})`;
       throw new Error(String(msg));
     }
 
     return {
       ok: true,
-      message: String(sapBody?.MESSAGE ?? `Role ${payload.CREATE.ROLE} created successfully`),
-      number: sapBody?.NUMBER ?? null,
+      message: String(sapMessage ?? `Role ${payload.CREATE.ROLE} created successfully`),
+      number: sapNumber ?? null,
       db_error: dbError,
     };
+
   });
 
 
