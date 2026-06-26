@@ -128,11 +128,11 @@ function UserManagementPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Tenant (optional)</Label>
-                    <Select value={inviteForm.tenant_id} onValueChange={(v) => setInviteForm({ ...inviteForm, tenant_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Global" /></SelectTrigger>
-                      <SelectContent>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <Label>Plants (optional)</Label>
+                    <PlantMultiSelect
+                      value={inviteForm.plants}
+                      onChange={(plants) => setInviteForm({ ...inviteForm, plants })}
+                    />
                   </div>
                 </div>
                 <DialogFooter>
