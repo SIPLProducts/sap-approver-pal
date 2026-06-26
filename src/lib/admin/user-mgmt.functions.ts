@@ -584,6 +584,7 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       status: string;
       plants: string[];
       roles: string[];
+      role_assignments: { werks: string; role: string }[];
       raw: any;
     };
 
@@ -595,7 +596,7 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       return u;
     };
 
-    const byUser = new Map<string, Row & { _plants: Set<string>; _roles: Set<string> }>();
+    const byUser = new Map<string, Row & { _plants: Set<string>; _roles: Set<string>; _assignments: Set<string> }>();
 
     for (const r of rows) {
       if (r == null || typeof r !== "object") continue;
@@ -630,9 +631,17 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
 
       const rolesNode = pickField(r, "ROLES") ?? pickField(r, "ROLE");
       let nestedRoles: string[] = [];
+      const nestedRoleAssignments: Array<{ werks: string; role: string }> = [];
       if (Array.isArray(rolesNode)) {
         const acc = new Set<string>();
-        for (const ro of rolesNode) for (const s of collectStrings(ro, ["ROLE", "AGR_NAME", "ROLE_NAME"])) acc.add(s.toUpperCase());
+        for (const ro of rolesNode) {
+          for (const s of collectStrings(ro, ["ROLE", "AGR_NAME", "ROLE_NAME"])) acc.add(s.toUpperCase());
+          if (ro && typeof ro === "object") {
+            const w = String((ro as any).WERKS ?? (ro as any).PLANT ?? "").trim();
+            const rn = String((ro as any).ROLE ?? (ro as any).AGR_NAME ?? (ro as any).ROLE_NAME ?? "").trim().toUpperCase();
+            if (w && rn) nestedRoleAssignments.push({ werks: w, role: rn });
+          }
+        }
         nestedRoles = Array.from(acc);
       } else if (rolesNode != null && typeof rolesNode !== "string" && typeof rolesNode !== "number") {
         nestedRoles = collectStrings(rolesNode, ["ROLE", "AGR_NAME", "ROLE_NAME"]).map((s) => s.toUpperCase());
@@ -650,9 +659,11 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
           status,
           plants: [],
           roles: [],
+          role_assignments: [],
           raw: r,
           _plants: new Set<string>(),
           _roles: new Set<string>(),
+          _assignments: new Set<string>(),
         };
         byUser.set(key, entry);
       } else {
@@ -667,6 +678,13 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       for (const p of nestedPlants) entry._plants.add(p);
       if (singleRole) entry._roles.add(singleRole.toUpperCase());
       for (const ro of nestedRoles) entry._roles.add(ro);
+      // Capture (plant, role) pairs from this row
+      if (singlePlant && singleRole) {
+        entry._assignments.add(`${singlePlant}|${singleRole.toUpperCase()}`);
+      }
+      for (const a of nestedRoleAssignments) {
+        entry._assignments.add(`${a.werks}|${a.role}`);
+      }
     }
 
     const users: Row[] = Array.from(byUser.values()).map((e) => ({
@@ -679,6 +697,10 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       status: e.status,
       plants: Array.from(e._plants).sort(),
       roles: Array.from(e._roles).sort(),
+      role_assignments: Array.from(e._assignments).sort().map((s) => {
+        const [werks, role] = s.split("|");
+        return { werks, role };
+      }),
       raw: e.raw,
     }));
 
@@ -713,17 +735,20 @@ export const editUserViaSap = createServerFn({ method: "POST" })
     last_name: z.string().trim().min(1).max(100),
     email: z.string().trim().email().max(200),
     contact_number: z.string().trim().regex(/^\d{10}$/),
-    password: z.string().min(8).max(200),
-    confirm_password: z.string().min(8).max(200),
+    password: z.string().max(200).optional().default(""),
+    confirm_password: z.string().max(200).optional().default(""),
     status: z.enum(["Active", "Inactive"]).default("Active"),
     plants: z.array(z.string().min(1).max(20)).min(1).max(50),
     roles: z.array(z.object({
       plant: z.string().trim().min(1).max(20),
       role: z.string().trim().min(1).max(60),
     })).min(1).max(200),
-  }).refine((v) => v.password === v.confirm_password, {
+  }).refine((v) => !v.password || v.password === v.confirm_password, {
     message: "Passwords do not match",
     path: ["confirm_password"],
+  }).refine((v) => !v.password || v.password.length >= 8, {
+    message: "Password must be at least 8 characters",
+    path: ["password"],
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -736,14 +761,12 @@ export const editUserViaSap = createServerFn({ method: "POST" })
     }
 
     const uniquePlants = Array.from(new Set(data.plants.map((p) => p.trim()).filter(Boolean)));
-    const inner = {
+    const inner: Record<string, unknown> = {
       USER: data.sap_user_id.toUpperCase(),
       FIRST_NAME: data.first_name.toUpperCase(),
       LAST_NAME: data.last_name.toUpperCase(),
       EMAIL: data.email,
       CONTACT: data.contact_number,
-      PASSWORD: data.password,
-      ZCONFPSWD: data.confirm_password,
       STATUS: data.status === "Active" ? "ACTIVE" : "INACTIVE",
       PLANTS: uniquePlants.map((p) => ({ WERKS: p })),
       ROLES: data.roles.map(({ plant, role }) => ({
@@ -751,6 +774,10 @@ export const editUserViaSap = createServerFn({ method: "POST" })
         ROLE: String(role).trim().toUpperCase(),
       })),
     };
+    if (data.password) {
+      inner.PASSWORD = data.password;
+      inner.ZCONFPSWD = data.confirm_password || data.password;
+    }
     const payload = { EDIT: inner };
 
     const result = await invokeViaMiddleware(cfgId, payload);
@@ -769,7 +796,7 @@ export const editUserViaSap = createServerFn({ method: "POST" })
       target_table: "sap_users",
       target_id: null,
       payload: {
-        request: { EDIT: { ...inner, PASSWORD: "***", ZCONFPSWD: "***" } },
+        request: { EDIT: { ...inner, ...(inner.PASSWORD ? { PASSWORD: "***", ZCONFPSWD: "***" } : {}) } },
         response: sapBody,
         middleware_status: result.status,
         middleware_error: result.error ?? null,

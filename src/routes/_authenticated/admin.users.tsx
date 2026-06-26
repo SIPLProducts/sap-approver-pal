@@ -585,7 +585,7 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
               </TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex items-center gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => onEditRole?.(r)}>
+                  <Button size="icon" variant="ghost" onClick={() => handleEdit(r)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)}>
@@ -783,6 +783,8 @@ function ApprovalMatrixTab({ tenantScope, tenants }: { tenantScope: string; tena
  * ============================================================ */
 type CreationStatus = "Active" | "Inactive";
 
+const PASSWORD_SENTINEL = "********";
+
 const emptyForm = () => ({
   sap_user_id: "",
   first_name: "",
@@ -862,15 +864,23 @@ function CreateUserDialog({
         email: editUser.email ?? "",
         contact_number: editUser.contact ?? "",
         status: editUser.status === "ACTIVE" || editUser.status === "Active" ? "Active" as CreationStatus : "Inactive" as CreationStatus,
-        password: "",
-        confirm_password: "",
+        password: PASSWORD_SENTINEL,
+        confirm_password: PASSWORD_SENTINEL,
       });
-      setPlants(editUser.plants ?? []);
-      setRoles((editUser.roles ?? []).map((r: string) => {
-        // Try to pair each role with the first plant; if multiple plants, duplicate
-        const plant = (editUser.plants ?? [])[0] ?? "";
-        return plant ? `${plant}::${r}` : "";
-      }).filter(Boolean));
+      const editPlants: string[] = editUser.plants ?? [];
+      setPlants(editPlants);
+      const assignments: Array<{ werks: string; role: string }> = Array.isArray(editUser.role_assignments) ? editUser.role_assignments : [];
+      let composite: string[] = [];
+      if (assignments.length > 0) {
+        composite = assignments
+          .map((a) => (a.werks && a.role ? `${a.werks}::${String(a.role).toUpperCase()}` : ""))
+          .filter(Boolean);
+      } else {
+        const rs: string[] = editUser.roles ?? [];
+        // Fallback: pair every role with every plant
+        for (const p of editPlants) for (const r of rs) composite.push(`${p}::${String(r).toUpperCase()}`);
+      }
+      setRoles(Array.from(new Set(composite)));
     } else {
       setForm(emptyForm());
       setPlants([]);
@@ -897,11 +907,16 @@ function CreateUserDialog({
     if (!form.email.trim()) return toast.error("Email is required");
     if (!/^\d{10}$/.test(form.contact_number.trim())) return toast.error("Contact number must be 10 digits");
     if (roles.length === 0) return toast.error("Please select at least one role");
-    if (form.password.length < 8) return toast.error("Password must be at least 8 characters");
-    if (form.password !== form.confirm_password) return toast.error("Passwords do not match");
+    const passwordUnchanged = editUser && form.password === PASSWORD_SENTINEL && form.confirm_password === PASSWORD_SENTINEL;
+    if (!passwordUnchanged) {
+      if (form.password.length < 8) return toast.error("Password must be at least 8 characters");
+      if (form.password !== form.confirm_password) return toast.error("Passwords do not match");
+    }
 
     setSubmitting(true);
     try {
+      const sendPwd = passwordUnchanged ? "" : form.password;
+      const sendConfirm = passwordUnchanged ? "" : form.confirm_password;
       const base = {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
@@ -909,8 +924,8 @@ function CreateUserDialog({
         email: form.email.trim(),
         contact_number: form.contact_number.trim(),
         status: form.status === "Active" ? "Active" : "Inactive",
-        password: form.password,
-        confirm_password: form.confirm_password,
+        password: sendPwd,
+        confirm_password: sendConfirm,
         plants,
         roles: roles
           .map((v) => {
