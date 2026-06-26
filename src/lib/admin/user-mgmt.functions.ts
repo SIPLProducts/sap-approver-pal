@@ -35,6 +35,21 @@ async function findSapConfigId(aliases: string[]): Promise<string | null> {
   return match?.id ?? null;
 }
 
+function pickField(obj: any, key: string): any {
+  if (obj == null || typeof obj !== "object") return undefined;
+  if (obj[key] !== undefined) return obj[key];
+  const lower = key.toLowerCase();
+  if (obj[lower] !== undefined) return obj[lower];
+  const upper = key.toUpperCase();
+  if (obj[upper] !== undefined) return obj[upper];
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase() === lower) return obj[k];
+  }
+  return undefined;
+}
+
+
+
 
 export const createUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -249,7 +264,13 @@ export const createUserViaSap = createServerFn({ method: "POST" })
 
     const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
-    const success = result.ok && String(sapBody?.STATUS ?? "").toUpperCase() === "TRUE";
+    const rawStatus = pickField(sapBody, "STATUS");
+    const statusStr = String(rawStatus ?? "").toUpperCase();
+    const sapMessage = pickField(sapBody, "MESSAGE");
+    const sapNumber = pickField(sapBody, "NUMBER");
+    const isExplicitError = statusStr === "ERROR" || statusStr === "FAIL" || statusStr === "FAILURE" || statusStr === "FALSE" || statusStr === "E";
+    const isExplicitSuccess = statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "S" || statusStr === "OK";
+    const success = result.ok && !isExplicitError && (isExplicitSuccess || statusStr === "");
 
     await supabaseAdmin.from("admin_audit_log").insert({
       actor_id: context.userId,
@@ -266,15 +287,16 @@ export const createUserViaSap = createServerFn({ method: "POST" })
     });
 
     if (!success) {
-      const msg = sapBody?.MESSAGE || result.error || `SAP rejected the request (status ${result.status})`;
+      const msg = sapMessage || result.error || `SAP rejected the request (status ${result.status})`;
       throw new Error(String(msg));
     }
 
     return {
       ok: true,
-      message: String(sapBody?.MESSAGE ?? `User ${payload.CREATE.USER} created successfully`),
-      number: sapBody?.NUMBER ?? null,
+      message: String(sapMessage ?? `User ${payload.CREATE.USER} created successfully`),
+      number: sapNumber ?? null,
     };
+
   });
 
 export const listRolesForPlants = createServerFn({ method: "POST" })
@@ -410,8 +432,14 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
 
     const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
-    const statusStr = String(sapBody?.STATUS ?? "").toUpperCase();
-    const success = result.ok && (statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "");
+    const rawStatus = pickField(sapBody, "STATUS");
+    const statusStr = String(rawStatus ?? "").toUpperCase();
+    const sapMessage = pickField(sapBody, "MESSAGE");
+    const sapNumber = pickField(sapBody, "NUMBER");
+    const isExplicitError = statusStr === "ERROR" || statusStr === "FAIL" || statusStr === "FAILURE" || statusStr === "FALSE" || statusStr === "E";
+    const isExplicitSuccess = statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "S" || statusStr === "OK";
+    const success = result.ok && !isExplicitError && (isExplicitSuccess || statusStr === "");
+
 
     let dbError: string | null = null;
     let newRoleId: string | null = null;
@@ -453,16 +481,17 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     });
 
     if (!success) {
-      const msg = sapBody?.MESSAGE || result.error || `SAP rejected the request (status ${result.status})`;
+      const msg = sapMessage || result.error || `SAP rejected the request (status ${result.status})`;
       throw new Error(String(msg));
     }
 
     return {
       ok: true,
-      message: String(sapBody?.MESSAGE ?? `Role ${payload.CREATE.ROLE} created successfully`),
-      number: sapBody?.NUMBER ?? null,
+      message: String(sapMessage ?? `Role ${payload.CREATE.ROLE} created successfully`),
+      number: sapNumber ?? null,
       db_error: dbError,
     };
+
   });
 
 
