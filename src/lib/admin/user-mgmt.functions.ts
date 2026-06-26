@@ -22,6 +22,100 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Admin only");
 }
 
+export const createUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    sap_user_id: z.string().trim().min(1).max(60),
+    first_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().min(1).max(100),
+    email: z.string().trim().email().max(200),
+    contact_number: z.string().trim().max(20).optional().or(z.literal("")),
+    status: z.enum(["Active", "Inactive"]).default("Active"),
+    mode: z.enum(["invite", "password"]),
+    password: z.string().min(8).max(200).optional(),
+    plants: z.array(z.string().min(1).max(20)).max(50).default([]),
+    roles: z.array(z.enum(APP_ROLES)).max(50).default([]),
+  }).refine((v) => v.mode !== "password" || !!v.password, {
+    message: "Password is required when setting a password",
+    path: ["password"],
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const full_name = `${data.first_name} ${data.last_name}`.trim();
+    let newId: string | undefined;
+
+    if (data.mode === "invite") {
+      const { data: created, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
+        data: { full_name },
+      });
+      if (error) throw new Error(error.message);
+      newId = created.user?.id;
+    } else {
+      const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+        email: data.email,
+        password: data.password!,
+        email_confirm: true,
+        user_metadata: { full_name },
+      });
+      if (error) throw new Error(error.message);
+      newId = created.user?.id;
+    }
+    if (!newId) throw new Error("User creation returned no id");
+
+    // Update profile with extended fields (handle_new_user trigger created the row)
+    await supabaseAdmin.from("profiles").update({
+      full_name,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      sap_user_id: data.sap_user_id,
+      contact_number: data.contact_number || null,
+      status: data.status,
+    }).eq("id", newId);
+
+    // Roles
+    const uniqueRoles = Array.from(new Set(data.roles));
+    if (uniqueRoles.length > 0) {
+      await supabaseAdmin.from("user_roles").insert(
+        uniqueRoles.map((role) => ({ user_id: newId!, role })),
+      );
+    }
+
+    // Plants
+    let matched: { id: string; code: string }[] = [];
+    let skipped: string[] = [];
+    if (data.plants.length > 0) {
+      const codes = Array.from(new Set(data.plants.map((c) => c.trim()).filter(Boolean)));
+      const { data: tRows } = await supabaseAdmin
+        .from("tenants").select("id, code").in("code", codes);
+      matched = (tRows ?? []) as { id: string; code: string }[];
+      const found = new Set(matched.map((t) => t.code));
+      skipped = codes.filter((c) => !found.has(c));
+      if (matched.length > 0) {
+        await supabaseAdmin.from("user_tenants").insert(
+          matched.map((t, i) => ({ user_id: newId!, tenant_id: t.id, is_default: i === 0 })),
+        );
+      }
+    }
+
+    // Inactive users are banned from signing in
+    if (data.status === "Inactive") {
+      await supabaseAdmin.auth.admin.updateUserById(newId, { ban_duration: "876000h" });
+    }
+
+    await supabaseAdmin.from("admin_audit_log").insert({
+      actor_id: context.userId, action: "user.create", target_table: "auth.users", target_id: newId,
+      payload: {
+        email: data.email, mode: data.mode, status: data.status,
+        roles: uniqueRoles, plants: data.plants, skipped_plants: skipped,
+      },
+    });
+
+    return { user_id: newId, plants_added: matched.length, plants_skipped: skipped };
+  });
+
+// Backwards-compatible alias for any caller still using the invite-only shape.
 export const inviteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
@@ -40,29 +134,17 @@ export const inviteUser = createServerFn({ method: "POST" })
     const newId = created.user?.id;
     if (!newId) throw new Error("Invite returned no user id");
     if (data.role) await supabaseAdmin.from("user_roles").insert({ user_id: newId, role: data.role });
-
-    let matched: { id: string; code: string }[] = [];
-    let skipped: string[] = [];
     if (data.plants && data.plants.length > 0) {
       const codes = Array.from(new Set(data.plants.map((c) => c.trim()).filter(Boolean)));
-      const { data: tRows } = await supabaseAdmin
-        .from("tenants").select("id, code").in("code", codes);
-      matched = (tRows ?? []) as { id: string; code: string }[];
-      const found = new Set(matched.map((t) => t.code));
-      skipped = codes.filter((c) => !found.has(c));
+      const { data: tRows } = await supabaseAdmin.from("tenants").select("id, code").in("code", codes);
+      const matched = (tRows ?? []) as { id: string; code: string }[];
       if (matched.length > 0) {
-        const rows = matched.map((t, i) => ({
-          user_id: newId, tenant_id: t.id, is_default: i === 0,
-        }));
-        await supabaseAdmin.from("user_tenants").insert(rows);
+        await supabaseAdmin.from("user_tenants").insert(
+          matched.map((t, i) => ({ user_id: newId, tenant_id: t.id, is_default: i === 0 })),
+        );
       }
     }
-
-    await supabaseAdmin.from("admin_audit_log").insert({
-      actor_id: context.userId, action: "user.invite", target_table: "auth.users", target_id: newId,
-      payload: { email: data.email, role: data.role, plants: data.plants ?? [], skipped_plants: skipped },
-    });
-    return { user_id: newId, plants_added: matched.length, plants_skipped: skipped };
+    return { user_id: newId };
   });
 
 export const deleteUser = createServerFn({ method: "POST" })
