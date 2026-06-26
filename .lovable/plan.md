@@ -1,42 +1,48 @@
-## Diagnosis
+## What the 401 actually means
 
-The app's SAP calls go: browser → server function `runSapApi` → `invokeViaMiddleware` → `POST {middleware_url}/sap/invoke` → your Node middleware → SAP.
+`middleware/server.js` returns **401 Unauthorized** in exactly one place — the `requireSharedSecret` guard (line 61–67):
 
-Your configured `middleware_url` is:
-
+```js
+if (!got || got !== SHARED_SECRET) {
+  return res.status(401).json({ ok: false, error: "Invalid or missing x-shared-secret" });
+}
 ```
-https://worsening-doodle-floral.ngrok-free.dev
-```
 
-The 502 Bad Gateway is returned by **ngrok**, not by the app and not by SAP. 502 from ngrok means the tunnel is up but the upstream — your local Node middleware (`middleware/server.js`, default port 3005) — is not reachable. That is why Postman works for you locally (you hit `localhost:3005` directly) but the app fails (the cloud worker can only reach SAP through the ngrok tunnel, which has no one listening behind it).
+When **SAP itself** rejects with 401 (bad username/password/sap-client), the middleware wraps it as **502 Bad Gateway** (named routes line 549–557, generic `/sap/invoke` line 502). It would also return the SAP HTML login page as a 502 with `__sap_html_error: true` in the body.
 
-Common causes, in order of likelihood:
+So the 401 you're seeing right now is **not** SAP auth failing — it's the **app ↔ middleware shared-secret mismatch**. The request never reaches SAP.
 
-1. The middleware Node process is not running on the machine ngrok is forwarding to.
-2. The middleware is running on a different port than ngrok is forwarding to (default expected: `3005`).
-3. ngrok was restarted and got a new URL, but `middleware_url` in SAP API Settings still points to the old one.
-4. The free ngrok tunnel hit a limit / was killed.
+## Likely causes (in order)
 
-## Fix steps (no code change needed first)
+1. **Proxy Secret in the app DB is empty or different from `MIDDLEWARE_SHARED_SECRET`** on the middleware host. `invokeViaMiddleware` only attaches the `x-shared-secret` header when `sap_global_secrets.proxy_secret` is set (sap-client.server.ts line 145). If it's blank, the middleware sees no header and returns 401.
+2. **Trailing whitespace / newline** in either value (common when pasted into ngrok-running shell vs. the app form).
+3. **Two different middleware instances** — the app is pointed at a middleware started with a different `MIDDLEWARE_SHARED_SECRET` env than the one you saved as Proxy Secret.
 
-1. On the middleware host machine, confirm the service is up:
-   - `curl http://localhost:3005/__health` — should return `{"ok":true,"service":"sap-middleware",...}`.
-   - If it errors, start it: `cd middleware && npm start` (or restart the Windows service if installed via `install-windows-service.ps1`).
-2. Confirm ngrok is forwarding to the right port:
-   - `ngrok http 3005` and check the public URL it prints.
-   - From any machine: `curl https://worsening-doodle-floral.ngrok-free.dev/__health` — must return the same health JSON. If it returns 502, ngrok cannot reach `localhost:3005`.
-3. If ngrok printed a new URL, update **SAP API Settings → Middleware Configuration → Middleware URL** to that new URL and save.
-4. Retry the failing screen in the app.
+## Verification steps (no code change yet)
 
-## If it still fails after the above
+Run these and share results — they pinpoint which of the three it is:
 
-Capture and share:
-- Output of `curl -i https://worsening-doodle-floral.ngrok-free.dev/__health`
-- Middleware console log lines around the failing request (the middleware logs every incoming request with method/path/body)
-- The full app-side error toast / Network response body for the failing call
+1. On the middleware host, print the loaded secret length (don't print the value):
+   ```
+   node -e "import('dotenv/config').then(()=>console.log('len=', (process.env.MIDDLEWARE_SHARED_SECRET||process.env.SHARED_SECRET||'').length))"
+   ```
+2. From any shell, call the middleware directly with a known-bad and known-good secret:
+   ```
+   curl -i -X POST https://worsening-doodle-floral.ngrok-free.dev/sap/invoke \
+     -H "content-type: application/json" -H "x-shared-secret: WRONG" \
+     -d '{"configId":"00000000-0000-0000-0000-000000000000"}'
+   ```
+   - Expect: `401 {"ok":false,"error":"Invalid or missing x-shared-secret"}` — confirms guard works.
+   Then retry with the **exact** Proxy Secret you saved in the app. If that also returns 401, the value in the app DB doesn't match the middleware env.
+3. In the app, open SAP API Settings → Middleware Configuration → re-enter the Proxy Secret (don't just look at it; the field is masked). Save.
 
-With those three I can pinpoint whether it's a shared-secret mismatch, an APP_BASE_URL misconfig on the middleware, or a SAP-side auth/HTML-page response.
+## Then — and only then — if the failure mode changes
 
-## Out of scope
+- If you start seeing **502 Bad Gateway** with `__sap_html_error: true` in the response body → that's the real SAP-side authentication failure. The fix is the SAP Connection username/password/sap-client in the app, not the middleware.
+- If you see **502 Bad Gateway** with a JSON body and `status: 401` from SAP → SAP rejected the Basic auth header. Confirm the username has API access, password isn't expired/locked, and the `sap-client` value is sent (either in `extra_headers` as `sap-client: <nnn>` or as a query param the request fields produce).
 
-No code change is proposed yet — the 502 is an infra/connectivity issue, not an app bug. If after step 4 we discover a real code-side cause (e.g. the worker needs different error surfacing, or `invokeViaMiddleware` should retry/timeout differently), I will plan that as a follow-up.
+## What would change in code (only if needed after diagnosis)
+
+- Surface the middleware's own 401 distinctly in the app UI (currently `invokeViaMiddleware` just passes `body.ok` and the raw status). A small change in `src/lib/sap/sap-client.server.ts` (~line 148–156) could detect HTTP 401 from the middleware and return `error: "Proxy Secret mismatch — middleware rejected the shared secret"` so this exact confusion doesn't recur.
+
+No file edits are proposed yet — I need the curl/`len=` results above before touching code.
