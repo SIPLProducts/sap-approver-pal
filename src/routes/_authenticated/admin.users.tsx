@@ -735,11 +735,26 @@ function CreateUserDialog({
   const roleOptions = rolesQuery.data?.roles ?? [];
 
   // Drop selected roles that are no longer available for the chosen plants.
-  useMemo(() => {
+  useEffect(() => {
     if (!rolesQuery.data) return;
     setRoles((prev) => prev.filter((r) => roleOptions.includes(r)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rolesQuery.data]);
+
+  // Surface SAP role-fetch errors so failures aren't silent.
+  const lastErrRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (rolesQuery.isError) {
+      const msg = (rolesQuery.error as Error)?.message ?? "Failed to load roles";
+      if (lastErrRef.current !== msg) {
+        lastErrRef.current = msg;
+        toast.error(msg);
+      }
+    } else if (!rolesQuery.isFetching) {
+      lastErrRef.current = null;
+    }
+  }, [rolesQuery.isError, rolesQuery.error, rolesQuery.isFetching]);
+
 
   function reset() {
     setForm(emptyForm());
