@@ -543,6 +543,12 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
     qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
   }
 
+  async function handleEdit(r: any) {
+    const { data } = await supabase.from("role_permissions").select("screen_key").eq("custom_role_id", r.id);
+    const screen_keys = (data ?? []).map((p: any) => p.screen_key);
+    onEditRole?.({ ...r, screen_keys });
+  }
+
   async function deleteRole(id: string, userCount: number) {
     if (userCount > 0) return toast.error("Unassign users from this role first");
     const { error } = await supabase.from("custom_roles").delete().eq("id", id);
