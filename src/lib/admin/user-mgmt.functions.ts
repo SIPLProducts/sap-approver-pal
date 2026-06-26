@@ -417,8 +417,14 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
 
     const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
-    const statusStr = String(sapBody?.STATUS ?? "").toUpperCase();
-    const success = result.ok && (statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "");
+    const rawStatus = pickField(sapBody, "STATUS");
+    const statusStr = String(rawStatus ?? "").toUpperCase();
+    const sapMessage = pickField(sapBody, "MESSAGE");
+    const sapNumber = pickField(sapBody, "NUMBER");
+    const isExplicitError = statusStr === "ERROR" || statusStr === "FAIL" || statusStr === "FAILURE" || statusStr === "FALSE" || statusStr === "E";
+    const isExplicitSuccess = statusStr === "SUCCESS" || statusStr === "TRUE" || statusStr === "S" || statusStr === "OK";
+    const success = result.ok && !isExplicitError && (isExplicitSuccess || statusStr === "");
+
 
     let dbError: string | null = null;
     let newRoleId: string | null = null;
