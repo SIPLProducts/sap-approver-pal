@@ -300,7 +300,7 @@ export const listRolesForPlants = createServerFn({ method: "POST" })
       },
     };
 
-    const result = await invokeViaMiddleware(cfg.id, payload);
+    const result = await invokeViaMiddleware(cfgId, payload);
     const sapBody: any = result.data ?? {};
     if (!result.ok) {
       const msg = sapBody?.MESSAGE || result.error || `SAP request failed (status ${result.status})`;
