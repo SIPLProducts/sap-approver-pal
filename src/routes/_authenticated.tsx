@@ -190,7 +190,7 @@ function AuthenticatedLayout() {
 
       {open && <div className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-30" onClick={() => setOpen(false)} />}
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
         <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 lg:px-6 sticky top-0 z-20">
           <button className="lg:hidden text-muted-foreground p-2 -ml-2 rounded-md hover:bg-accent" onClick={() => setOpen(true)} aria-label="Open menu">
             <span className="text-lg leading-none">☰</span>
