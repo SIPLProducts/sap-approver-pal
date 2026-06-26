@@ -933,20 +933,38 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-function RoleMultiSelect({ value, onChange }: { value: AppRole[]; onChange: (v: AppRole[]) => void }) {
+function RoleMultiSelect({
+  value,
+  onChange,
+  options,
+  loading,
+  placeholder = "— Select Roles —",
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  options: string[];
+  loading?: boolean;
+  placeholder?: string;
+}) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => new Set(value), [value]);
 
-  function toggle(r: AppRole) {
+  function toggle(r: string) {
     if (selected.has(r)) onChange(value.filter((x) => x !== r));
     else onChange([...value, r]);
   }
 
+  function labelFor(r: string) {
+    return (ROLE_LABELS as Record<string, string>)[r] ?? r;
+  }
+
   const label = value.length === 0
-    ? "— Select Roles —"
+    ? placeholder
     : value.length <= 2
-      ? value.map((r) => ROLE_LABELS[r]).join(", ")
+      ? value.map(labelFor).join(", ")
       : `${value.length} roles selected`;
+
+  const allSelected = options.length > 0 && value.length === options.length;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -972,35 +990,39 @@ function RoleMultiSelect({ value, onChange }: { value: AppRole[]; onChange: (v: 
         <Command>
           <CommandInput placeholder="Search role…" className="h-9" />
           <CommandList>
-            <CommandEmpty>No role found.</CommandEmpty>
-            <CommandGroup>
-              <CommandItem
-                value="__select_all_roles__"
-                onSelect={() => {
-                  if (value.length === ALL_ROLES.length) onChange([]);
-                  else onChange([...ALL_ROLES]);
-                }}
-                className="font-medium border-b rounded-none"
-              >
-                <Checkbox
-                  checked={value.length === ALL_ROLES.length}
-                  tabIndex={-1}
-                  className="pointer-events-none mr-2"
-                />
-                {value.length === ALL_ROLES.length
-                  ? `Clear all (${ALL_ROLES.length})`
-                  : `Select all (${ALL_ROLES.length})`}
-              </CommandItem>
-              {ALL_ROLES.map((r) => {
-                const isSel = selected.has(r);
-                return (
-                  <CommandItem key={r} value={ROLE_LABELS[r]} onSelect={() => toggle(r)}>
-                    <Checkbox checked={isSel} tabIndex={-1} className="pointer-events-none mr-2" />
-                    {ROLE_LABELS[r]}
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
+            <CommandEmpty>
+              {loading ? "Loading roles…" : options.length === 0 ? "Select plants to load roles." : "No role found."}
+            </CommandEmpty>
+            {options.length > 0 && (
+              <CommandGroup>
+                <CommandItem
+                  value="__select_all_roles__"
+                  onSelect={() => {
+                    if (allSelected) onChange([]);
+                    else onChange([...options]);
+                  }}
+                  className="font-medium border-b rounded-none"
+                >
+                  <Checkbox
+                    checked={allSelected}
+                    tabIndex={-1}
+                    className="pointer-events-none mr-2"
+                  />
+                  {allSelected
+                    ? `Clear all (${options.length})`
+                    : `Select all (${options.length})`}
+                </CommandItem>
+                {options.map((r) => {
+                  const isSel = selected.has(r);
+                  return (
+                    <CommandItem key={r} value={labelFor(r)} onSelect={() => toggle(r)}>
+                      <Checkbox checked={isSel} tabIndex={-1} className="pointer-events-none mr-2" />
+                      {labelFor(r)}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
