@@ -596,7 +596,7 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       return u;
     };
 
-    const byUser = new Map<string, Row & { _plants: Set<string>; _roles: Set<string> }>();
+    const byUser = new Map<string, Row & { _plants: Set<string>; _roles: Set<string>; _assignments: Set<string> }>();
 
     for (const r of rows) {
       if (r == null || typeof r !== "object") continue;
@@ -631,9 +631,17 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
 
       const rolesNode = pickField(r, "ROLES") ?? pickField(r, "ROLE");
       let nestedRoles: string[] = [];
+      const nestedRoleAssignments: Array<{ werks: string; role: string }> = [];
       if (Array.isArray(rolesNode)) {
         const acc = new Set<string>();
-        for (const ro of rolesNode) for (const s of collectStrings(ro, ["ROLE", "AGR_NAME", "ROLE_NAME"])) acc.add(s.toUpperCase());
+        for (const ro of rolesNode) {
+          for (const s of collectStrings(ro, ["ROLE", "AGR_NAME", "ROLE_NAME"])) acc.add(s.toUpperCase());
+          if (ro && typeof ro === "object") {
+            const w = String((ro as any).WERKS ?? (ro as any).PLANT ?? "").trim();
+            const rn = String((ro as any).ROLE ?? (ro as any).AGR_NAME ?? (ro as any).ROLE_NAME ?? "").trim().toUpperCase();
+            if (w && rn) nestedRoleAssignments.push({ werks: w, role: rn });
+          }
+        }
         nestedRoles = Array.from(acc);
       } else if (rolesNode != null && typeof rolesNode !== "string" && typeof rolesNode !== "number") {
         nestedRoles = collectStrings(rolesNode, ["ROLE", "AGR_NAME", "ROLE_NAME"]).map((s) => s.toUpperCase());
@@ -651,9 +659,11 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
           status,
           plants: [],
           roles: [],
+          role_assignments: [],
           raw: r,
           _plants: new Set<string>(),
           _roles: new Set<string>(),
+          _assignments: new Set<string>(),
         };
         byUser.set(key, entry);
       } else {
@@ -668,6 +678,13 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       for (const p of nestedPlants) entry._plants.add(p);
       if (singleRole) entry._roles.add(singleRole.toUpperCase());
       for (const ro of nestedRoles) entry._roles.add(ro);
+      // Capture (plant, role) pairs from this row
+      if (singlePlant && singleRole) {
+        entry._assignments.add(`${singlePlant}|${singleRole.toUpperCase()}`);
+      }
+      for (const a of nestedRoleAssignments) {
+        entry._assignments.add(`${a.werks}|${a.role}`);
+      }
     }
 
     const users: Row[] = Array.from(byUser.values()).map((e) => ({
@@ -680,6 +697,10 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       status: e.status,
       plants: Array.from(e._plants).sort(),
       roles: Array.from(e._roles).sort(),
+      role_assignments: Array.from(e._assignments).sort().map((s) => {
+        const [werks, role] = s.split("|");
+        return { werks, role };
+      }),
       raw: e.raw,
     }));
 
