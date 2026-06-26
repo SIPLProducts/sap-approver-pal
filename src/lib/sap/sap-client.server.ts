@@ -147,6 +147,23 @@ export async function invokeViaMiddleware(
   try {
     const res = await fetch(url, { method: "POST", headers, body: JSON.stringify({ configId, inputs }) });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+
+    // Distinguish middleware-level 401 (shared-secret mismatch) from SAP-level 401.
+    // The middleware itself only returns 401 from its `requireSharedSecret` guard;
+    // SAP auth failures come back wrapped as 502 with a `status:401` inside `body`.
+    if (res.status === 401) {
+      const middlewareErr = typeof body.error === "string" ? body.error : "Invalid or missing x-shared-secret";
+      return {
+        ok: false,
+        status: 401,
+        latency_ms: Date.now() - t0,
+        data: body.data ?? null,
+        error: gs?.proxy_secret
+          ? `Proxy Secret mismatch — middleware rejected the shared secret (${middlewareErr}). Re-enter the Proxy Secret in SAP API Settings → Middleware Configuration so it matches MIDDLEWARE_SHARED_SECRET on the middleware host.`
+          : `Proxy Secret is not configured in the app. Set it in SAP API Settings → Middleware Configuration (must match MIDDLEWARE_SHARED_SECRET on the middleware host).`,
+      };
+    }
+
     return {
       ok: !!body.ok,
       status: typeof body.status === "number" ? body.status : res.status,
