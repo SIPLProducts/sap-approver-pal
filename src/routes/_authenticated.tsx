@@ -72,7 +72,7 @@ function AuthenticatedLayout() {
     return () => { supabase.removeChannel(ch); };
   }, [user, qc]);
 
-  const isAdmin = roles?.includes("Admin");
+  const isAdmin = perms.isAdmin;
   const sync = useServerFn(syncFromSAP);
 
   async function pullSap() {
@@ -91,28 +91,29 @@ function AuthenticatedLayout() {
     nav({ to: "/login" });
   }
 
-  if (loading || !user) {
+  if (loading || !user || perms.loading) {
     return <div className="min-h-screen grid place-items-center text-muted-foreground">Loading…</div>;
   }
 
+  const can = perms.can;
   const sdChildren = [
-    { to: "/sd/price", label: "Price Approvals", icon: Tag },
-    { to: "/sd/contract", label: "Contract Approvals", icon: FileText },
-    { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2 },
-    { to: "/sd/sales-order", label: "Sales Order Approvals", icon: ShoppingCart },
-  ];
+    { to: "/sd/price", label: "Price Approvals", icon: Tag, screen: "approvals.inbox.sd" },
+    { to: "/sd/contract", label: "Contract Approvals", icon: FileText, screen: "approvals.inbox.sd" },
+    { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2, screen: "approvals.inbox.sd" },
+    { to: "/sd/sales-order", label: "Sales Order Approvals", icon: ShoppingCart, screen: "approvals.inbox.sd" },
+  ].filter((it) => can(it.screen));
 
-  const nav_items = [
-    { to: "/inbox/mm", label: "MM Approvals", icon: Package },
-    { to: "/history", label: "History", icon: History },
-    ...(isAdmin ? [
-      { to: "/admin/users", label: "Users & Roles", icon: Users },
-     { to: "/admin/strategies", label: "Release Strategies", icon: ShieldCheck },
-     { to: "/admin/sap-api", label: "SAP API Settings", icon: Server },
-     { to: "/admin/integrations", label: "Integrations", icon: Plug },
-    ] : []),
-    { to: "/settings", label: "Settings", icon: Settings },
-  ];
+  const showMm = can("approvals.inbox.mm");
+  const showSd = sdChildren.length > 0;
+
+  const manage_items = [
+    { to: "/history", label: "History", icon: History, screen: "approvals.history" },
+    { to: "/admin/users", label: "Users & Roles", icon: Users, screen: "admin.users" },
+    { to: "/admin/strategies", label: "Release Strategies", icon: ShieldCheck, screen: "admin.strategies" },
+    { to: "/admin/sap-api", label: "SAP API Settings", icon: Server, screen: "sap.api_settings" },
+    { to: "/admin/integrations", label: "Integrations", icon: Plug, screen: "sap.integrations" },
+    { to: "/settings", label: "Settings", icon: Settings, screen: null as string | null },
+  ].filter((it) => it.screen === null || can(it.screen));
 
   return (
     <div className="h-screen overflow-hidden bg-background flex">
