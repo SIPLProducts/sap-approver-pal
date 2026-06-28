@@ -57,6 +57,18 @@ function sapLoginSucceeded(body: unknown): boolean {
   });
 }
 
+function sapLoginRejected(body: unknown): boolean {
+  return collectObjects(body).some((record) => {
+    if (record.ok === false || record.success === false) return true;
+    const text = Object.entries(record)
+      .filter(([key]) => /^(error|message|msg|text|description|remarks|returnmessage|status|code|type|result)$/i.test(key))
+      .map(([, value]) => stringValue(value).trim().toLowerCase())
+      .filter(Boolean)
+      .join(" ");
+    return /\b(fail|failed|failure|invalid|denied|reject|rejected|unauthorized|forbidden|locked|incorrect|wrong|not successful)\b/i.test(text);
+  });
+}
+
 function loginErrorFromBody(body: unknown, fallback: string): string {
   const record = asRecord(body);
   if (typeof record?.error === "string") return record.error;
@@ -124,7 +136,7 @@ export const sapLogin = createServerFn({ method: "POST" })
         const rawText = await res.text().catch(() => "");
         const body = parseResponseBody(rawText);
         const bodyRecord = asRecord(body);
-        ok = res.ok || sapLoginSucceeded(body);
+        ok = (res.ok && !sapLoginRejected(body)) || sapLoginSucceeded(body);
         status = statusValue(bodyRecord?.status) ?? res.status;
         message = `${status}`;
         if (!ok) {
