@@ -151,10 +151,8 @@ function UserManagementPage() {
         ) : tab === "custom_roles" ? (
           <div className="flex items-center gap-2 sm:flex-shrink-0">
             <Button variant="outline" onClick={refreshAll}><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
-            <Dialog open={roleCreateOpen} onOpenChange={setRoleCreateOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="h-4 w-4 mr-2" /> Add Role</Button>
-              </DialogTrigger>
+            <Dialog open={roleCreateOpen} onOpenChange={(v) => { setRoleCreateOpen(v); if (!v) setRoleForm({ id: "", name: "", description: "", tenant_id: "", screen_keys: [], is_active: true }); }}>
+              <Button onClick={() => { setRoleForm({ id: "", name: "", description: "", tenant_id: "", screen_keys: [], is_active: true }); setRoleCreateOpen(true); }}><Plus className="h-4 w-4 mr-2" /> Add Role</Button>
               <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>{roleForm.id ? "Edit Role" : "Add New Role"}</DialogTitle></DialogHeader>
                 <div className="space-y-4">
