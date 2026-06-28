@@ -65,8 +65,14 @@ function PricePage() {
     queryFn: () => userIdFn(),
   });
 
-  const [plant, setPlant] = useState("");
+  const { activePlant } = useActiveContext();
+  const [plant, setPlant] = useState(activePlant ?? "");
   const [userId, setUserId] = useState("");
+
+  useEffect(() => {
+    if (activePlant && !plant) setPlant(activePlant);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlant]);
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
