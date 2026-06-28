@@ -78,7 +78,14 @@ function buildBuiltInAdminProfile(): SapProfile {
 }
 
 export function ActiveContextProvider({ children }: { children: ReactNode }) {
-  const profile = useSapProfile();
+  const sapProfile = useSapProfile();
+  const { isAdmin: builtInAdmin } = useIsBuiltInAdmin();
+
+  const profile: SapProfile | null = useMemo(() => {
+    if (sapProfile) return sapProfile;
+    if (builtInAdmin) return buildBuiltInAdminProfile();
+    return null;
+  }, [sapProfile, builtInAdmin]);
 
   const plants: AssignedPlant[] = useMemo(
     () => (profile?.plants ?? []).map(plantFromProfile).sort((a, b) => a.code.localeCompare(b.code)),
