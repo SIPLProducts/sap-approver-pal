@@ -60,7 +60,7 @@ function InboxPage() {
     },
   });
 
-  const moduleRows = useMemo(() => rows.filter((r) => r.module === mod), [rows, mod]);
+  const moduleRows = useMemo(() => rows.filter((r) => r.module === mod && (!activePlant || r.plant === activePlant)), [rows, mod, activePlant]);
   const filtered = useMemo(() => moduleRows.filter((r) =>
     !q || r.sap_doc_no.toLowerCase().includes(q.toLowerCase())
       || r.title.toLowerCase().includes(q.toLowerCase())
