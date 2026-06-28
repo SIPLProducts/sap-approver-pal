@@ -194,6 +194,7 @@ export const sapLogin = createServerFn({ method: "POST" })
     let message = "";
     let error: string | undefined;
     let session: { email: string; tokenHash: string } | undefined;
+    let loginPath = "direct";
 
     try {
       const [{ data: g }, { data: gs }] = await Promise.all([
@@ -210,6 +211,7 @@ export const sapLogin = createServerFn({ method: "POST" })
       ]);
 
       if (g?.middleware_url) {
+        loginPath = "middleware";
         const url = `${g.middleware_url.replace(/\/$/, "")}/login/Login_API`;
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
@@ -288,7 +290,7 @@ export const sapLogin = createServerFn({ method: "POST" })
       config_id: cfg.id,
       status: ok ? "ok" : "error",
       latency_ms: Date.now() - t0,
-      message: `login: ${message}`,
+      message: `login ${loginPath}: ${message}`,
     });
 
     return { ok, status, error, email: session?.email, tokenHash: session?.tokenHash };
