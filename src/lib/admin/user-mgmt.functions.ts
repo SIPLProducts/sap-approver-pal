@@ -17,11 +17,12 @@ const APP_ROLES = [
 ] as const;
 
 async function assertAdmin(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("user_roles").select("role")
-    .eq("user_id", userId).eq("role", "Admin").maybeSingle();
-  if (!data) throw new Error("Admin only");
+  const { assertAnyScreen } = await import("@/lib/admin/assert-screen");
+  await assertAnyScreen(userId, [
+    "admin.users",
+    "admin.custom_roles",
+    "admin.role_permissions",
+  ]);
 }
 
 async function findSapConfigId(aliases: string[]): Promise<string | null> {
