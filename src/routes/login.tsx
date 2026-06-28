@@ -47,6 +47,16 @@ function LoginPage() {
           toast.error(result.error ?? `Login failed (${result.status})`);
           return;
         }
+        if (!result.email || !result.tokenHash) {
+          toast.error("SAP login succeeded, but the app session could not be created.");
+          return;
+        }
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          type: "magiclink",
+          email: result.email,
+          token_hash: result.tokenHash,
+        });
+        if (verifyError) throw verifyError;
         toast.success("Welcome");
         nav({ to: "/inbox" });
       } else {
