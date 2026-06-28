@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { syncFromSAP } from "@/lib/sap/sap.functions";
 import { usePermissions } from "@/hooks/use-permissions";
-import { ActiveContextProvider, useActiveContext, type ActiveRole } from "@/hooks/use-active-context";
+import { ActiveContextProvider, useActiveContext } from "@/hooks/use-active-context";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthenticatedRoot });
 
@@ -88,6 +88,9 @@ function AuthenticatedLayout() {
   }
 
   async function logout() {
+    const { setSapProfile } = await import("@/hooks/use-sap-profile");
+    setSapProfile(null);
+    try { localStorage.removeItem("app.activePlant"); localStorage.removeItem("app.activeRole"); } catch {}
     await supabase.auth.signOut();
     nav({ to: "/login" });
   }
@@ -121,16 +124,10 @@ function AuthenticatedLayout() {
   function onRoleChange(v: string) {
     const idx = v.indexOf(":");
     if (idx < 0) return;
-    const kind = v.slice(0, idx);
     const value = v.slice(idx + 1);
-    const found = ctx.roles.find((r) => r.kind === kind && r.value === value);
+    const found = ctx.roles.find((r) => r.value === value);
     if (!found) return;
-    const next: ActiveRole =
-      found.kind === "built_in"
-        ? { kind: "built_in", value: found.value }
-        : { kind: "custom", value: found.value, label: found.label };
-    ctx.setActiveRole(next);
-    // Refetch lists scoped to permissions/plant
+    ctx.setActiveRole({ kind: "sap", value: found.value, label: found.label });
     qc.invalidateQueries();
   }
 
@@ -250,9 +247,6 @@ function AuthenticatedLayout() {
                 {ctx.roles.map((r) => (
                   <SelectItem key={`${r.kind}:${r.value}`} value={`${r.kind}:${r.value}`}>
                     {r.label}
-                    <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {r.kind === "built_in" ? "Built-in" : "Custom"}
-                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

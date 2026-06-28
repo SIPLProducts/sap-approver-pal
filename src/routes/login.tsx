@@ -56,6 +56,10 @@ function LoginPage() {
           token_hash: result.tokenHash,
         });
         if (verifyError) throw verifyError;
+        if (result.profile) {
+          const { setSapProfile } = await import("@/hooks/use-sap-profile");
+          setSapProfile(result.profile);
+        }
         toast.success("Welcome");
         nav({ to: "/inbox" });
       } else {

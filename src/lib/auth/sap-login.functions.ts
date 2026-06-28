@@ -6,13 +6,111 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+export type SapProfilePayload = {
+  user: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  status?: string;
+  contact?: string;
+  plants: Array<{
+    code: string;
+    name?: string;
+    roles: Array<{ role: string; label?: string; activities: string[] }>;
+  }>;
+};
+
 type SapLoginResult = {
   ok: boolean;
   status: number;
   error?: string;
   email?: string;
   tokenHash?: string;
+  profile?: SapProfilePayload;
 };
+
+function pickStr(r: Record<string, unknown> | null | undefined, ...keys: string[]): string | undefined {
+  if (!r) return undefined;
+  for (const k of keys) {
+    const v = r[k] ?? r[k.toLowerCase()] ?? r[k.toUpperCase()];
+    if (typeof v === "string" && v.trim()) return v;
+    if (typeof v === "number") return String(v);
+  }
+  return undefined;
+}
+
+function asArray(v: unknown): unknown[] {
+  if (Array.isArray(v)) return v;
+  if (v && typeof v === "object") return [v];
+  return [];
+}
+
+function extractSapProfile(body: unknown): SapProfilePayload | undefined {
+  // Find the first object in the response that has a USER + PLANTS shape.
+  const queue: unknown[] = [body];
+  let found: Record<string, unknown> | null = null;
+  let depth = 0;
+  while (queue.length && depth < 200) {
+    depth += 1;
+    const cur = queue.shift();
+    if (!cur || typeof cur !== "object") continue;
+    if (Array.isArray(cur)) {
+      for (const item of cur) queue.push(item);
+      continue;
+    }
+    const rec = cur as Record<string, unknown>;
+    const hasUser =
+      pickStr(rec, "USER", "USERID", "USER_ID", "USERNAME") !== undefined;
+    const hasPlants = "PLANTS" in rec || "plants" in rec;
+    if (hasUser && hasPlants) {
+      found = rec;
+      break;
+    }
+    for (const v of Object.values(rec)) queue.push(v);
+  }
+  if (!found) return undefined;
+
+  const plantsRaw = asArray((found as any).PLANTS ?? (found as any).plants);
+  type R = { role: string; label?: string; activities: string[] };
+  type P = { code: string; name?: string; roles: R[] };
+  const plants: P[] = [];
+  for (const p of plantsRaw) {
+    const pr = (p && typeof p === "object" ? p : {}) as Record<string, unknown>;
+    const code = pickStr(pr, "PLANT", "PLANT_CODE", "CODE", "WERKS");
+    if (!code) continue;
+    const name = pickStr(pr, "PLANT_NAME", "NAME", "DESCRIPTION");
+    const rolesRaw = asArray((pr as any).ROLES ?? (pr as any).roles);
+    const roles: R[] = [];
+    for (const r of rolesRaw) {
+      const rr = (r && typeof r === "object" ? r : {}) as Record<string, unknown>;
+      const role = pickStr(rr, "ROLE", "ROLE_CODE", "ROLE_ID");
+      if (!role) continue;
+      const label = pickStr(rr, "ROLE_DES", "ROLE_NAME", "DESCRIPTION");
+      const actsRaw = asArray((rr as any).ACTIVITIES ?? (rr as any).activities);
+      const activities: string[] = [];
+      for (const a of actsRaw) {
+        if (typeof a === "string") {
+          if (a.trim()) activities.push(a.trim().toUpperCase());
+        } else if (a && typeof a === "object") {
+          const ac = pickStr(a as Record<string, unknown>, "ACTIVITY", "SCREEN", "CODE");
+          if (ac) activities.push(ac.trim().toUpperCase());
+        }
+      }
+      roles.push({ role, label, activities: Array.from(new Set(activities)) });
+    }
+    plants.push({ code, name, roles });
+  }
+
+  return {
+    user: pickStr(found, "USER", "USERID", "USER_ID", "USERNAME") ?? "",
+    firstName: pickStr(found, "FIRST_NAME", "FIRSTNAME"),
+    lastName: pickStr(found, "LAST_NAME", "LASTNAME"),
+    email: pickStr(found, "EMAIL"),
+    status: pickStr(found, "STATUS"),
+    contact: pickStr(found, "CONTACT", "PHONE", "MOBILE"),
+    plants,
+  };
+}
 
 function parseResponseBody(text: string): unknown {
   if (!text.trim()) return null;
@@ -237,6 +335,7 @@ export const sapLogin = createServerFn({ method: "POST" })
     let message = "";
     let error: string | undefined;
     let session: { email: string; tokenHash: string } | undefined;
+    let profile: SapProfilePayload | undefined;
     let loginPath = "direct";
 
     try {
@@ -267,6 +366,7 @@ export const sapLogin = createServerFn({ method: "POST" })
         const body = parseResponseBody(rawText);
         const bodyRecord = asRecord(body);
         ok = (res.ok && !sapLoginRejected(body)) || sapLoginSucceeded(body);
+        if (ok) profile = extractSapProfile(body);
         status = statusValue(bodyRecord?.status) ?? res.status;
         message = `${status}`;
         if (!ok) {
@@ -313,6 +413,7 @@ export const sapLogin = createServerFn({ method: "POST" })
         const body = parseResponseBody(rawText);
         const bodyRecord = asRecord(body);
         ok = (res.ok && !sapLoginRejected(body)) || sapLoginSucceeded(body);
+        if (ok) profile = extractSapProfile(body);
         status = statusValue(bodyRecord?.status) ?? res.status;
         message = `${res.status} ${res.statusText}`;
         if (!ok) {
@@ -336,5 +437,5 @@ export const sapLogin = createServerFn({ method: "POST" })
       message: `login ${loginPath}: ${message}`,
     });
 
-    return { ok, status, error, email: session?.email, tokenHash: session?.tokenHash };
+    return { ok, status, error, email: session?.email, tokenHash: session?.tokenHash, profile };
   });
