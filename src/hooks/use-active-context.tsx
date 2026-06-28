@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSapProfile, type SapProfilePlant } from "@/hooks/use-sap-profile";
+import { useSapProfile, type SapProfile, type SapProfilePlant } from "@/hooks/use-sap-profile";
+import { useIsBuiltInAdmin } from "@/hooks/use-is-builtin-admin";
+import { ALL_SCREENS } from "@/lib/admin/screen-keys";
 
 export type ActiveRole = { kind: "sap"; value: string; label: string };
 
@@ -9,10 +11,10 @@ export type AssignedRole = { kind: "sap"; value: string; label: string; activiti
 type ActiveCtx = {
   loading: boolean;
   plants: AssignedPlant[];
-  roles: AssignedRole[]; // roles available under the currently active plant
+  roles: AssignedRole[];
   activePlant: string | null;
   activeRole: ActiveRole | null;
-  activeActivities: string[]; // UPPERCASE activities for active plant+role
+  activeActivities: string[];
   setActivePlant: (code: string | null) => void;
   setActiveRole: (role: ActiveRole | null) => void;
 };
@@ -56,8 +58,34 @@ function plantFromProfile(p: SapProfilePlant): AssignedPlant {
   return { code: p.code, name: p.name };
 }
 
+function buildBuiltInAdminProfile(): SapProfile {
+  return {
+    user: "builtin-admin",
+    plants: [
+      {
+        code: "ALL",
+        name: "All Plants",
+        roles: [
+          {
+            role: "ADMIN",
+            label: "Administrator",
+            activities: ALL_SCREENS.map((s) => s.activity),
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function ActiveContextProvider({ children }: { children: ReactNode }) {
-  const profile = useSapProfile();
+  const sapProfile = useSapProfile();
+  const { isAdmin: builtInAdmin } = useIsBuiltInAdmin();
+
+  const profile: SapProfile | null = useMemo(() => {
+    if (sapProfile) return sapProfile;
+    if (builtInAdmin) return buildBuiltInAdminProfile();
+    return null;
+  }, [sapProfile, builtInAdmin]);
 
   const plants: AssignedPlant[] = useMemo(
     () => (profile?.plants ?? []).map(plantFromProfile).sort((a, b) => a.code.localeCompare(b.code)),

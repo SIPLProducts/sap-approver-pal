@@ -1,22 +1,47 @@
-## Plan
+## Goal
 
-1. **Fix Admin screen visibility after login**
-   - Update the SAP login profile parser so role activities are read from all common response shapes, not only `ACTIVITIES`.
-   - Support activity arrays named `ACTIVITY`, `ACTIVITIES`, `SCREEN`, `SCREENS`, and nested objects containing `ACTIVITY`, `SCREEN`, or `CODE`.
-   - Keep the screen mapping driven by `screen-keys.ts`; no role-name hardcoding.
+When a user signs in through Lovable Cloud (Google / email — not SAP), they currently have no SAP profile cached, so the sidebar shows nothing and every screen-gated action is blocked. Make those users see every screen and have every action enabled, without hardcoding role names anywhere.
 
-2. **Make active role defaults stable after login**
-   - Tighten the active plant/role repair logic so stored stale selections cannot leave the Admin role with partial or empty activities.
-   - When a valid role is selected/defaulted, persist that role cleanly so the sidebar uses the current SAP profile immediately.
+## Approach
 
-3. **Default all permissions for selected screens on role create/edit**
-   - In `createCustomRoleViaSap` and `editCustomRoleViaSap`, insert one `role_permissions` row for every selected screen and every action in `PERMISSION_ACTIONS`: `view`, `create`, `edit`, `delete`, `approve`, `export`.
-   - This means new roles start with all actions enabled for each selected screen, and users can later turn individual actions off in the permission matrix.
+Treat "signed in via Cloud with the built-in `Admin` role" as a synthetic SAP context that grants every screen activity. Drive it from the existing `screen-keys.ts` registry — no role-name strings anywhere else.
 
-4. **Fix permission matrix row matching**
-   - Update the toggle logic so it matches an existing permission by both `screen_key` and `action`.
-   - This prevents toggling one action from accidentally updating the first permission row for that screen.
+### Client
 
-5. **Validate**
-   - Check TypeScript-level syntax for the touched files via the normal harness.
-   - Verify from code paths that selected screens create full permission rows and Admin activities map to sidebar screens without hardcoded role checks.
+1. **New hook `useIsBuiltInAdmin`** (`src/hooks/use-is-builtin-admin.ts`)
+   - Calls the existing `has_role(auth.uid(), 'Admin')` RPC via the browser Supabase client.
+   - Returns `{ loading, isAdmin }`. Cached via TanStack Query so the sidebar doesn't refetch.
+
+2. **Synthetic profile in `useActiveContext`** (`src/hooks/use-active-context.tsx`)
+   - If `useSapProfile()` returns `null` AND `useIsBuiltInAdmin()` is `true`, build a synthetic profile:
+     - One plant `{ code: "ALL", name: "All Plants", roles: [{ role: "ADMIN", label: "Administrator", activities: ALL_SCREENS.map(s => s.activity) }] }`.
+   - Everything downstream (`plants`, `roles`, `activeActivities`, `usePermissions.can`, sidebar visibility) then works unchanged.
+   - SAP-authenticated users are unaffected because the synthetic profile only kicks in when the cached SAP profile is absent.
+
+### Server
+
+3. **`assertScreen` / `assertAnyScreen`** (`src/lib/admin/assert-screen.ts`)
+   - Already passes when the user has the built-in `Admin` user_role. Tighten the "SAP not loaded" branch so it only throws when the user is also not a built-in Admin (otherwise just allow). This makes Cloud-only admins able to invoke every server function.
+
+4. **Auto-grant `Admin` on first Cloud sign-in** (migration)
+   - Update the `handle_new_user` trigger to also insert `('Admin')` into `public.user_roles` for the new `auth.users` row when the table is empty (first user) — keep current behavior otherwise. This avoids requiring a manual SQL step to bootstrap the first Google admin.
+   - No new tables, no GRANT changes needed (user_roles GRANTs already exist).
+
+## Non-goals / guarantees
+
+- No role-name hardcoding in screen logic — the synthetic profile is built from `ALL_SCREENS`, and screen access still flows through `activityToScreenKey`.
+- SAP login flow, role-switcher, and custom-role permission matrix are untouched.
+- No changes to `screen-keys.ts`, `usePermissions`, or the sidebar.
+
+## Files to change
+
+- `src/hooks/use-is-builtin-admin.ts` (new)
+- `src/hooks/use-active-context.tsx` (inject synthetic profile)
+- `src/lib/admin/assert-screen.ts` (allow built-in Admin even when SAP profile missing — already mostly there; remove the misleading "sign out" error for admins)
+- New migration: extend `handle_new_user` to bootstrap the first user as `Admin`
+
+## Validation
+
+- Sign in via Google with no SAP profile → sidebar shows every module; opening Admin → Users & Roles loads and edit buttons work.
+- Existing SAP user with cached profile → behavior unchanged (synthetic profile not used).
+- Switching roles in top bar for SAP user → still reactive (no regression).

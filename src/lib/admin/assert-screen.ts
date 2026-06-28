@@ -11,10 +11,23 @@ type SapProfile = {
   }>;
 };
 
+async function isBuiltInAdmin(supabaseAdmin: any, userId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "Admin")
+    .maybeSingle();
+  return !!data;
+}
+
 export async function assertScreen(userId: string, screenKey: string): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  // 1. SAP-cached activities
+  // 1. Built-in Admin role grants every screen
+  if (await isBuiltInAdmin(supabaseAdmin, userId)) return;
+
+  // 2. SAP-cached activities
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("sap_profile")
@@ -32,15 +45,6 @@ export async function assertScreen(userId: string, screenKey: string): Promise<v
     }
   }
 
-  // 2. Fallback: built-in Admin role
-  const { data: admin } = await supabaseAdmin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "Admin")
-    .maybeSingle();
-  if (admin) return;
-
   if (!sap?.plants?.length) {
     throw new Error(
       "Your SAP permissions are not loaded on the server. Please sign out and sign in again to refresh.",
@@ -55,6 +59,8 @@ export async function assertScreen(userId: string, screenKey: string): Promise<v
  */
 export async function assertAnyScreen(userId: string, screenKeys: string[]): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  if (await isBuiltInAdmin(supabaseAdmin, userId)) return;
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -75,14 +81,6 @@ export async function assertAnyScreen(userId: string, screenKeys: string[]): Pro
     }
   }
 
-  const { data: admin } = await supabaseAdmin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "Admin")
-    .maybeSingle();
-  if (admin) return;
-
   if (!sap?.plants?.length) {
     throw new Error(
       "Your SAP permissions are not loaded on the server. Please sign out and sign in again to refresh.",
@@ -90,3 +88,4 @@ export async function assertAnyScreen(userId: string, screenKeys: string[]): Pro
   }
   throw new Error("Not authorized for this screen");
 }
+
