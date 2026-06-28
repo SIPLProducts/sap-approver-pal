@@ -247,9 +247,6 @@ function AuthenticatedLayout() {
                 {ctx.roles.map((r) => (
                   <SelectItem key={`${r.kind}:${r.value}`} value={`${r.kind}:${r.value}`}>
                     {r.label}
-                    <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {r.kind === "built_in" ? "Built-in" : "Custom"}
-                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
