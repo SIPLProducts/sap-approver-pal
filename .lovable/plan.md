@@ -1,107 +1,82 @@
-# Load Plants, Roles & Screens from SAP Login Response
+## Problem
 
-The SAP `Login_API` already returns the full authorization tree:
+Two related bugs caused by an activity↔screen-key mismatch and a stale admin gate.
 
-```json
-{
-  "USER": "SARVI_INFO1",
-  "FIRST_NAME": "...", "LAST_NAME": "...", "EMAIL": "...",
-  "PLANTS": [
-    { "PLANT": "3801",
-      "ROLES": [
-        { "ROLE": "RESL_ADMIN",
-          "ACTIVITIES": [
-            { "ACTIVITY": "ADMIN.APPROVAL_MATRIX", "RELEASE_CODE": "ad" },
-            { "ACTIVITY": "APPROVALS.DETAIL",      "RELEASE_CODE": "ap" },
-            ...
-          ]
-        }
-      ]
-    }
-  ]
-}
+### 1. Permissions don't match the active SAP role
+
+`usePermissions` turns each SAP activity into a screen key by lowercasing it:
+
+```
+"APPROVALS.INBOX_MM"  ->  "approvals.inbox_mm"   (SAP-style, underscores)
+"APPROVALS.INBOX.MM"  ->  "approvals.inbox.mm"   (app screen key, dots)
 ```
 
-Today this payload is discarded after the auth handshake and the UI falls back to Supabase tables (`user_tenants`, `user_roles`, `user_custom_roles`, `role_permissions`), so the plant dropdown is empty, no role appears, and every screen is hidden. We will switch the top bar and screen-gating to read the SAP payload directly.
+The sidebar / `can()` use the app keys from `SCREEN_GROUPS` (e.g. `approvals.inbox.mm`, `admin.users`), while SAP returns activities in its own naming. Where the two happen to coincide, the screen shows. Where they differ, the user is either denied a screen they should see or shown a screen they shouldn't — exactly the symptom on RESL_ADMIN.
 
-## What to build
+There is also no shared source of truth: the "Create custom role" dialog sends `ACTIVITY = screen_key.toUpperCase()` to SAP while `usePermissions` reads it back through the lowercase rule, so custom roles created in the app and built-in SAP roles use two different conventions.
 
-### 1. Return SAP profile from `sapLogin`
-`src/lib/auth/sap-login.functions.ts`
-- After a successful SAP call, extract the user record (handle both the bare object and common wrappers like `{ data: {...} }` / `{ LOGIN: {...} }`).
-- Normalize into:
-  ```ts
-  type SapProfile = {
-    user: string;
-    firstName?: string; lastName?: string; email?: string;
-    status?: string; contact?: string;
-    plants: Array<{
-      code: string;            // PLANT
-      name?: string;           // PLANT_NAME if present
-      roles: Array<{
-        role: string;          // ROLE
-        label?: string;        // ROLE_DES if present
-        activities: string[];  // ACTIVITY codes, uppercased
-      }>;
-    }>;
-  };
-  ```
-- Add `profile?: SapProfile` to the existing `SapLoginResult` and return it alongside `email`/`tokenHash`. No DB writes.
+### 2. "Failed to load users — Admin only"
 
-### 2. Persist the profile on the client
-`src/routes/login.tsx`
-- Right after `verifyOtp` succeeds, if `result.profile` is present, `localStorage.setItem("sap.profile", JSON.stringify(result.profile))`.
-- On `logout` (in `_authenticated.tsx`), `localStorage.removeItem("sap.profile")` plus the existing `app.activePlant` / `app.activeRole` keys.
+`listUsersViaSap` (and every other server function in `user-mgmt.functions.ts`, `sap-api.functions.ts`, `sap-global.functions.ts`, `integrations.functions.ts`) calls `assertAdmin(context.userId)`, which checks the Supabase `user_roles` table for `role = 'Admin'`. SAP-only users have no row there, so the call rejects with `Admin only` even when their SAP role grants `ADMIN.USERS`.
 
-### 3. New hook `useSapProfile`
-`src/hooks/use-sap-profile.ts` (new)
-- Reads `sap.profile` from `localStorage`, exposes `{ profile, plants, rolesFor(plantCode), activitiesFor(plantCode, role) }`.
-- Listens to `storage` events so login updates propagate.
+## Fix
 
-### 4. Replace data source in `use-active-context.tsx`
-- Drop the three Supabase queries (`my-plants`, `my-built-roles`, `my-custom-roles`).
-- Plants come from `profile.plants` (code + optional name).
-- Roles come from the roles of the currently selected plant (so changing plant rescopes the role dropdown). All SAP roles use a new kind:
-  ```ts
-  type ActiveRole = { kind: "sap"; value: string; label: string };
-  ```
-  The old `"built_in" | "custom"` shape is removed; persisted `app.activeRole` entries with the old shape are ignored and re-defaulted.
-- When the active plant changes and the current role is not present under it, auto-pick the first role of the new plant.
+### A. One source of truth for screens ↔ activities
 
-### 5. Rewrite `use-permissions.ts`
-- Remove the `role_permissions` query.
-- `allowedScreens` = the active role's `activities` mapped to screen keys: lowercase the activity (`ADMIN.USERS` → `admin.users`). Built `Set<string>`.
-- `can(screen, action="view")` returns `allowedScreens.has(screen)`. Action-level gating is not present in the SAP payload, so view-permission implies all actions on that screen (matches existing sidebar usage).
-- `isAdmin` = the active role contains `ADMIN.USERS` AND `ADMIN.ROLE_PERMISSIONS` activities (covers `RESL_ADMIN` without hard-coding role names).
-- `activeRoleLabel` = role label from the SAP payload.
+Extend `src/lib/admin/screen-keys.ts` so every entry in `SCREEN_GROUPS` declares its SAP activity code, and add helpers:
 
-### 6. Sidebar / route gating
-`src/routes/_authenticated.tsx`
-- No structural change: existing `can(...)` filtering on `sdChildren` and `manage_items` already drives the sidebar, so dynamic screens "just work" once `usePermissions` reads from SAP.
-- Plant dropdown options now come from `ctx.plants` (SAP). Selecting a plant triggers `qc.invalidateQueries()` (already in place) so inbox/history refetch.
-- `src/routes/index.tsx` first-allowed-screen redirect already iterates `allowedScreens` — no change needed.
+```ts
+// pseudo-shape
+{ key: "approvals.inbox.mm",  label: "MM Approvals Inbox", activity: "APPROVALS.INBOX_MM" }
+{ key: "admin.users",         label: "Users & Roles",      activity: "ADMIN.USERS" }
+// ...one row per screen
+```
 
-### 7. Role create/edit: empty `RELEASE_CODE`
-`src/lib/admin/user-mgmt.functions.ts`
-- Lines 427-430 and 843-846: change
-  ```ts
-  ACTIVITY: uniqueScreens.map((k) => ({ ACTIVITY: k.toUpperCase(), RELEASE_CODE: k }))
-  ```
-  to
-  ```ts
-  ACTIVITY: uniqueScreens.map((k) => ({ ACTIVITY: k.toUpperCase(), RELEASE_CODE: "" }))
-  ```
+Helpers:
+- `activityToScreenKey(activity)` — uses the table, no string munging.
+- `screenKeyToActivity(key)` — used when creating/editing custom roles.
+- `ALL_ACTIVITIES` — used to translate the active role's `ACTIVITIES[]` into `allowedScreens`.
 
-## Out of scope
-- No DB schema changes. `user_tenants` / `user_roles` / `role_permissions` tables stay (still used by admin screens / approval matrix). Only the runtime *gating* of the logged-in user's UI switches to the SAP payload.
-- The Supabase magic-link session is still used for auth + RLS. The SAP profile only drives Plant/Role/Screen visibility.
-- Google sign-in users (no SAP profile in storage) keep the Admin/full-access behavior they have today.
+The full activity list is taken from the SAP login payload the user pasted (`ADMIN.APPROVAL_MATRIX`, `ADMIN.USERS`, `APPROVALS.DETAIL`, `APPROVALS.HISTORY`, `APPROVALS.INBOX_MM`, `APPROVALS.INBOX_SD`, `ADMIN.ROLE_PERMISSIONS`, `ADMIN.CUSTOM_ROLES`, `ADMIN.STRATEGIES`, `SAP.API_SETTINGS`, `SAP.INTEGRATIONS`, `SAP.SYNC_LOG`, `REPORTS.AUDIT`, `REPORTS.NOTIFICATIONS`). The mapping is data, not hardcoded per role — every role's permissions still come from SAP.
 
-## Files touched
-- edit `src/lib/auth/sap-login.functions.ts` (parse + return profile)
-- edit `src/routes/login.tsx` (persist profile on success)
-- new  `src/hooks/use-sap-profile.ts`
-- edit `src/hooks/use-active-context.tsx` (SAP-backed plants/roles)
-- edit `src/hooks/use-permissions.ts` (activities → allowedScreens)
-- edit `src/routes/_authenticated.tsx` (clear `sap.profile` on logout)
-- edit `src/lib/admin/user-mgmt.functions.ts` (RELEASE_CODE: "")
+Update sites:
+- `src/hooks/use-permissions.ts` — build `allowedScreens` via `activityToScreenKey`; drop the lowercase rule. `isAdmin` stays derived (has `admin.users` AND `admin.role_permissions`).
+- `src/lib/admin/user-mgmt.functions.ts` — `createCustomRoleViaSap` / `editCustomRoleViaSap` send `ACTIVITY: screenKeyToActivity(k)` and `RELEASE_CODE: ""` (already done).
+- Role-permissions UI — when reading existing custom roles back, normalize via `activityToScreenKey` so the chips match.
+
+### B. Server-side gate driven by SAP activities, not Supabase `Admin`
+
+1. At login, persist the SAP profile server-side so server functions can authorize without trusting the client.
+   - Add `profiles.sap_profile JSONB` (single column, full profile blob) via migration.
+   - `sapLogin` (server fn) writes `sap_profile` for the matched Supabase user after the SAP handshake succeeds.
+
+2. Replace `assertAdmin` with `assertScreen(userId, screenKey)`:
+   - Reads `profiles.sap_profile`, flattens all activities across all plants/roles, maps to screen keys, and checks membership.
+   - Falls back to the existing `user_roles.Admin` check so Google/dev admins keep working.
+
+3. Apply per call site (no broad relaxation):
+   - `listUsersViaSap`, `listRolesForPlants` → `assertScreen(uid, "admin.users")`
+   - `createUserViaSap`, `createUser`, `inviteUser`, `deleteUser`, `setBuiltInRole`, `editUserViaSap` → `assertScreen(uid, "admin.users")`
+   - `createCustomRoleViaSap`, `editCustomRoleViaSap` → `assertScreen(uid, "admin.custom_roles")` (or `admin.role_permissions`)
+   - `sap-api.functions.ts` → `assertScreen(uid, "sap.api_settings")`
+   - `integrations.functions.ts` → `assertScreen(uid, "sap.integrations")`
+   - `sap-global.functions.ts` → keep `Admin`-only (global config) but also accept `admin.role_permissions`.
+
+### C. Verify
+
+- Sign in as `SARVI_INFO1` (RESL_ADMIN): every checked screen in the "11 of 14" dialog should appear; SAP API Settings / Integrations / Sync Log should not.
+- Open `/admin/users`: table loads via `listUsersViaSap` with no "Admin only".
+- Switch to a non-admin role: sidebar collapses to that role's screens only.
+- Create a new custom role with a subset of screens, sign in as that role: only those screens render.
+
+## Files
+
+- `src/lib/admin/screen-keys.ts` — add `activity` per screen + helpers
+- `src/hooks/use-permissions.ts` — use `activityToScreenKey`
+- `src/lib/admin/user-mgmt.functions.ts` — `assertScreen`, send mapped activity on create/edit role
+- `src/lib/admin/sap-api.functions.ts`, `integrations.functions.ts`, `sap-global.functions.ts` — `assertScreen`
+- `src/lib/auth/sap-login.functions.ts` — persist `sap_profile` to `profiles`
+- `src/routes/_authenticated/admin.users.tsx` — translate role activities → screen keys when displaying existing custom roles
+- New migration: add `profiles.sap_profile JSONB`
+
+No new tables, no hardcoded role lists. Screen visibility and server authorization both come from the SAP activities returned by `Login_API`.

@@ -298,7 +298,15 @@ async function createBackendSessionForSapUser(supabaseAdmin: any, username: stri
   const tokenHash = link?.properties?.hashed_token;
   if (!tokenHash) throw new Error("Could not create backend login token.");
 
-  return { email, tokenHash };
+  return { email, tokenHash, userId };
+}
+
+async function persistSapProfile(supabaseAdmin: any, userId: string, profile: SapProfilePayload) {
+  try {
+    await supabaseAdmin.from("profiles").update({ sap_profile: profile }).eq("id", userId);
+  } catch {
+    /* ignore — best effort */
+  }
 }
 
 export const sapLogin = createServerFn({ method: "POST" })
@@ -334,7 +342,7 @@ export const sapLogin = createServerFn({ method: "POST" })
     let status = 0;
     let message = "";
     let error: string | undefined;
-    let session: { email: string; tokenHash: string } | undefined;
+    let session: { email: string; tokenHash: string; userId?: string } | undefined;
     let profile: SapProfilePayload | undefined;
     let loginPath = "direct";
 
@@ -423,6 +431,9 @@ export const sapLogin = createServerFn({ method: "POST" })
 
       if (ok) {
         session = await createBackendSessionForSapUser(supabaseAdmin, data.username);
+        if (profile && (session as any)?.userId) {
+          await persistSapProfile(supabaseAdmin, (session as any).userId, profile);
+        }
       }
     } catch (e) {
       ok = false;

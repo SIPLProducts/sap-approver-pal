@@ -17,11 +17,12 @@ const APP_ROLES = [
 ] as const;
 
 async function assertAdmin(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("user_roles").select("role")
-    .eq("user_id", userId).eq("role", "Admin").maybeSingle();
-  if (!data) throw new Error("Admin only");
+  const { assertAnyScreen } = await import("@/lib/admin/assert-screen");
+  await assertAnyScreen(userId, [
+    "admin.users",
+    "admin.custom_roles",
+    "admin.role_permissions",
+  ]);
 }
 
 async function findSapConfigId(aliases: string[]): Promise<string | null> {
@@ -420,12 +421,13 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     }
 
 
+    const { screenKeyToActivity } = await import("@/lib/admin/screen-keys");
     const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
     const inner = {
       ROLE: data.name.toUpperCase(),
       ROLE_DES: data.description || "",
       ACTIVITY: uniqueScreens.map((k) => ({
-        ACTIVITY: k.toUpperCase(),
+        ACTIVITY: screenKeyToActivity(k),
         RELEASE_CODE: "",
       })),
     };
@@ -836,12 +838,13 @@ export const editCustomRoleViaSap = createServerFn({ method: "POST" })
       throw new Error("SAP Edit Role API is not configured. Add an active config named Edit_Role (or 'Edit Role') in SAP API Settings.");
     }
 
+    const { screenKeyToActivity } = await import("@/lib/admin/screen-keys");
     const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
     const inner = {
       ROLE: data.name.toUpperCase(),
       ROLE_DES: data.description || "",
       ACTIVITY: uniqueScreens.map((k) => ({
-        ACTIVITY: k.toUpperCase(),
+        ACTIVITY: screenKeyToActivity(k),
         RELEASE_CODE: "",
       })),
     };

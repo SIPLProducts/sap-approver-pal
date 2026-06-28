@@ -8,14 +8,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 async function assertAdmin(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "Admin")
-    .maybeSingle();
-  if (!data) throw new Error("Admin only");
+  const { assertAnyScreen } = await import("@/lib/admin/assert-screen");
+  await assertAnyScreen(userId, ["sap.api_settings"]);
 }
 
 const ConfigSchema = z.object({
