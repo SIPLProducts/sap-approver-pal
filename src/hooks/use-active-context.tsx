@@ -48,6 +48,10 @@ function writeStoredRole(role: ActiveRole | null) {
   else localStorage.removeItem(ROLE_KEY);
 }
 
+function normRole(value: string) {
+  return value.trim().toUpperCase();
+}
+
 function plantFromProfile(p: SapProfilePlant): AssignedPlant {
   return { code: p.code, name: p.name };
 }
@@ -111,7 +115,7 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
       }
       return;
     }
-    const found = activeRole ? roles.find((r) => r.value === activeRole.value) : undefined;
+    const found = activeRole ? roles.find((r) => normRole(r.value) === normRole(activeRole.value)) : undefined;
     if (!found) {
       const r0 = roles[0];
       const next = { kind: "sap" as const, value: r0.value, label: r0.label };
@@ -128,7 +132,7 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
 
   const activeActivities = useMemo(() => {
     if (!activeRole) return [];
-    return roles.find((r) => r.value === activeRole.value)?.activities ?? [];
+    return roles.find((r) => normRole(r.value) === normRole(activeRole.value))?.activities ?? [];
   }, [roles, activeRole]);
 
   const setActivePlant = (code: string | null) => {
