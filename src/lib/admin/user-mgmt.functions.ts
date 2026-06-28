@@ -421,7 +421,7 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
     }
 
 
-    const { screenKeyToActivity } = await import("@/lib/admin/screen-keys");
+    const { screenKeyToActivity, PERMISSION_ACTIONS } = await import("@/lib/admin/screen-keys");
     const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
     const inner = {
       ROLE: data.name.toUpperCase(),
@@ -458,12 +458,14 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
         dbError = insErr.message;
       } else if (inserted?.id) {
         newRoleId = inserted.id;
-        const permRows = uniqueScreens.map((k) => ({
-          custom_role_id: newRoleId!,
-          screen_key: k,
-          action: "view",
-          allowed: true,
-        }));
+        const permRows = uniqueScreens.flatMap((k) =>
+          PERMISSION_ACTIONS.map((action) => ({
+            custom_role_id: newRoleId!,
+            screen_key: k,
+            action,
+            allowed: true,
+          })),
+        );
         const { error: permErr } = await supabaseAdmin.from("role_permissions").insert(permRows);
         if (permErr) dbError = permErr.message;
       }
@@ -838,7 +840,7 @@ export const editCustomRoleViaSap = createServerFn({ method: "POST" })
       throw new Error("SAP Edit Role API is not configured. Add an active config named Edit_Role (or 'Edit Role') in SAP API Settings.");
     }
 
-    const { screenKeyToActivity } = await import("@/lib/admin/screen-keys");
+    const { screenKeyToActivity, PERMISSION_ACTIONS } = await import("@/lib/admin/screen-keys");
     const uniqueScreens = Array.from(new Set(data.screen_keys.map((k) => k.trim()).filter(Boolean)));
     const inner = {
       ROLE: data.name.toUpperCase(),
@@ -872,12 +874,14 @@ export const editCustomRoleViaSap = createServerFn({ method: "POST" })
         dbError = updErr.message;
       } else {
         await supabaseAdmin.from("role_permissions").delete().eq("custom_role_id", data.role_id);
-        const permRows = uniqueScreens.map((k) => ({
-          custom_role_id: data.role_id,
-          screen_key: k,
-          action: "view",
-          allowed: true,
-        }));
+        const permRows = uniqueScreens.flatMap((k) =>
+          PERMISSION_ACTIONS.map((action) => ({
+            custom_role_id: data.role_id,
+            screen_key: k,
+            action,
+            allowed: true,
+          })),
+        );
         const { error: permErr } = await supabaseAdmin.from("role_permissions").insert(permRows);
         if (permErr) dbError = permErr.message;
       }
