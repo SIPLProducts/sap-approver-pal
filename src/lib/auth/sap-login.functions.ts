@@ -45,6 +45,46 @@ function asArray(v: unknown): unknown[] {
   return [];
 }
 
+function pickValue(r: Record<string, unknown> | null | undefined, ...keys: string[]): unknown {
+  if (!r) return undefined;
+  for (const key of keys) {
+    const lower = key.toLowerCase();
+    for (const [k, v] of Object.entries(r)) {
+      if (k.toLowerCase() === lower) return v;
+    }
+  }
+  return undefined;
+}
+
+function collectActivityCodes(value: unknown, depth = 0): string[] {
+  if (depth > 6 || value == null) return [];
+  if (typeof value === "string" || typeof value === "number") {
+    const code = String(value).trim().toUpperCase();
+    return code ? [code] : [];
+  }
+  if (Array.isArray(value)) {
+    return Array.from(new Set(value.flatMap((item) => collectActivityCodes(item, depth + 1))));
+  }
+  if (typeof value !== "object") return [];
+
+  const record = value as Record<string, unknown>;
+  const out: string[] = [];
+  for (const key of ["ACTIVITY", "SCREEN", "CODE"]) {
+    const direct = pickValue(record, key);
+    if (typeof direct === "string" || typeof direct === "number") {
+      const code = String(direct).trim().toUpperCase();
+      if (code) out.push(code);
+    }
+  }
+  for (const key of ["ACTIVITIES", "ACTIVITY", "SCREENS", "SCREEN"]) {
+    const nested = pickValue(record, key);
+    if (nested !== undefined && nested !== value && typeof nested !== "string" && typeof nested !== "number") {
+      out.push(...collectActivityCodes(nested, depth + 1));
+    }
+  }
+  return Array.from(new Set(out));
+}
+
 function extractSapProfile(body: unknown): SapProfilePayload | undefined {
   // Find the first object in the response that has a USER + PLANTS shape.
   const queue: unknown[] = [body];
@@ -86,16 +126,12 @@ function extractSapProfile(body: unknown): SapProfilePayload | undefined {
       const role = pickStr(rr, "ROLE", "ROLE_CODE", "ROLE_ID");
       if (!role) continue;
       const label = pickStr(rr, "ROLE_DES", "ROLE_NAME", "DESCRIPTION");
-      const actsRaw = asArray((rr as any).ACTIVITIES ?? (rr as any).activities);
-      const activities: string[] = [];
-      for (const a of actsRaw) {
-        if (typeof a === "string") {
-          if (a.trim()) activities.push(a.trim().toUpperCase());
-        } else if (a && typeof a === "object") {
-          const ac = pickStr(a as Record<string, unknown>, "ACTIVITY", "SCREEN", "CODE");
-          if (ac) activities.push(ac.trim().toUpperCase());
-        }
-      }
+      const actsRaw =
+        pickValue(rr, "ACTIVITIES") ??
+        pickValue(rr, "ACTIVITY") ??
+        pickValue(rr, "SCREENS") ??
+        pickValue(rr, "SCREEN");
+      const activities = collectActivityCodes(actsRaw ?? rr);
       roles.push({ role, label, activities: Array.from(new Set(activities)) });
     }
     plants.push({ code, name, roles });

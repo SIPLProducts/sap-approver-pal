@@ -36,6 +36,22 @@ function readStoredRole(): ActiveRole | null {
   }
 }
 
+function writeStoredPlant(code: string | null) {
+  if (typeof window === "undefined") return;
+  if (code) localStorage.setItem(PLANT_KEY, code);
+  else localStorage.removeItem(PLANT_KEY);
+}
+
+function writeStoredRole(role: ActiveRole | null) {
+  if (typeof window === "undefined") return;
+  if (role) localStorage.setItem(ROLE_KEY, JSON.stringify(role));
+  else localStorage.removeItem(ROLE_KEY);
+}
+
+function normRole(value: string) {
+  return value.trim().toUpperCase();
+}
+
 function plantFromProfile(p: SapProfilePlant): AssignedPlant {
   return { code: p.code, name: p.name };
 }
@@ -63,11 +79,17 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     if (plants.length === 0) {
-      if (activePlant !== null) setActivePlantState(null);
+      if (activePlant !== null) {
+        setActivePlantState(null);
+        writeStoredPlant(null);
+      }
       return;
     }
     if (!activePlant || !plants.some((p) => p.code === activePlant)) {
       setActivePlantState(plants[0].code);
+      writeStoredPlant(plants[0].code);
+    } else {
+      writeStoredPlant(activePlant);
     }
   }, [hydrated, plants, activePlant]);
 
@@ -87,35 +109,40 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     if (roles.length === 0) {
-      if (activeRole) setActiveRoleState(null);
+      if (activeRole) {
+        setActiveRoleState(null);
+        writeStoredRole(null);
+      }
       return;
     }
-    const exists = activeRole ? roles.some((r) => r.value === activeRole.value) : false;
-    if (!exists) {
+    const found = activeRole ? roles.find((r) => normRole(r.value) === normRole(activeRole.value)) : undefined;
+    if (!found) {
       const r0 = roles[0];
-      setActiveRoleState({ kind: "sap", value: r0.value, label: r0.label });
+      const next = { kind: "sap" as const, value: r0.value, label: r0.label };
+      setActiveRoleState(next);
+      writeStoredRole(next);
+    } else if (activeRole?.kind !== "sap" || activeRole.label !== found.label) {
+      const next = { kind: "sap" as const, value: found.value, label: found.label };
+      setActiveRoleState(next);
+      writeStoredRole(next);
+    } else {
+      writeStoredRole(activeRole);
     }
   }, [hydrated, roles, activeRole]);
 
   const activeActivities = useMemo(() => {
     if (!activeRole) return [];
-    return roles.find((r) => r.value === activeRole.value)?.activities ?? [];
+    return roles.find((r) => normRole(r.value) === normRole(activeRole.value))?.activities ?? [];
   }, [roles, activeRole]);
 
   const setActivePlant = (code: string | null) => {
     setActivePlantState(code);
-    if (typeof window !== "undefined") {
-      if (code) localStorage.setItem(PLANT_KEY, code);
-      else localStorage.removeItem(PLANT_KEY);
-    }
+    writeStoredPlant(code);
   };
 
   const setActiveRole = (role: ActiveRole | null) => {
     setActiveRoleState(role);
-    if (typeof window !== "undefined") {
-      if (role) localStorage.setItem(ROLE_KEY, JSON.stringify(role));
-      else localStorage.removeItem(ROLE_KEY);
-    }
+    writeStoredRole(role);
   };
 
   const value: ActiveCtx = {
