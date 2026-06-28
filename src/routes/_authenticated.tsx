@@ -20,6 +20,7 @@ function AuthenticatedLayout() {
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const perms = usePermissions();
   const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
   const [sdExpanded, setSdExpanded] = useState(sdOpen);
   useEffect(() => { if (sdOpen) setSdExpanded(true); }, [sdOpen]);
