@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { syncFromSAP } from "@/lib/sap/sap.functions";
 import { usePermissions } from "@/hooks/use-permissions";
-import { ActiveContextProvider, useActiveContext, type ActiveRole } from "@/hooks/use-active-context";
+import { ActiveContextProvider, useActiveContext } from "@/hooks/use-active-context";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthenticatedRoot });
 
