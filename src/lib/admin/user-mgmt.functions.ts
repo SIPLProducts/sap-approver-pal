@@ -426,7 +426,7 @@ export const createCustomRoleViaSap = createServerFn({ method: "POST" })
       ROLE_DES: data.description || "",
       ACTIVITY: uniqueScreens.map((k) => ({
         ACTIVITY: k.toUpperCase(),
-        RELEASE_CODE: k,
+        RELEASE_CODE: "",
       })),
     };
     // Middleware config has a single `CREATE` column field; it forwards
@@ -842,7 +842,7 @@ export const editCustomRoleViaSap = createServerFn({ method: "POST" })
       ROLE_DES: data.description || "",
       ACTIVITY: uniqueScreens.map((k) => ({
         ACTIVITY: k.toUpperCase(),
-        RELEASE_CODE: k,
+        RELEASE_CODE: "",
       })),
     };
     const payload = { EDIT: inner };
