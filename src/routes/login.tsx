@@ -31,6 +31,17 @@ function LoginPage() {
     setBusy(true);
     try {
       if (mode === "signin") {
+        // Try Supabase auth first when the user ID looks like an email.
+        const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId);
+        if (looksLikeEmail) {
+          const { error } = await supabase.auth.signInWithPassword({ email: userId, password });
+          if (!error) {
+            toast.success("Welcome");
+            nav({ to: "/inbox" });
+            return;
+          }
+        }
+        // Fall back to SAP proxy login.
         const result = await sapLoginFn({ data: { username: userId, password } });
         if (!result.ok) {
           toast.error(result.error ?? `Login failed (${result.status})`);
