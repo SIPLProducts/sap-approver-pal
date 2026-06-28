@@ -88,6 +88,9 @@ function AuthenticatedLayout() {
   }
 
   async function logout() {
+    const { setSapProfile } = await import("@/hooks/use-sap-profile");
+    setSapProfile(null);
+    try { localStorage.removeItem("app.activePlant"); localStorage.removeItem("app.activeRole"); } catch {}
     await supabase.auth.signOut();
     nav({ to: "/login" });
   }
@@ -121,16 +124,10 @@ function AuthenticatedLayout() {
   function onRoleChange(v: string) {
     const idx = v.indexOf(":");
     if (idx < 0) return;
-    const kind = v.slice(0, idx);
     const value = v.slice(idx + 1);
-    const found = ctx.roles.find((r) => r.kind === kind && r.value === value);
+    const found = ctx.roles.find((r) => r.value === value);
     if (!found) return;
-    const next: ActiveRole =
-      found.kind === "built_in"
-        ? { kind: "built_in", value: found.value }
-        : { kind: "custom", value: found.value, label: found.label };
-    ctx.setActiveRole(next);
-    // Refetch lists scoped to permissions/plant
+    ctx.setActiveRole({ kind: "sap", value: found.value, label: found.label });
     qc.invalidateQueries();
   }
 
