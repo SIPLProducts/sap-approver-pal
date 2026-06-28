@@ -24,6 +24,7 @@ function InboxPage() {
   const { module } = Route.useParams();
   const mod = module.toUpperCase() as "MM" | "SD";
   const { user } = useAuth();
+  const { activePlant } = useActiveContext();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
 
