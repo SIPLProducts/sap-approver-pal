@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 export type SapProfileRole = {
   role: string;
@@ -24,42 +24,50 @@ export type SapProfile = {
 
 export const SAP_PROFILE_KEY = "sap.profile";
 
-function read(): SapProfile | null {
+let cachedRaw: string | null = null;
+let cachedSnapshot: SapProfile | null = null;
+
+function readSnapshot(): SapProfile | null {
   if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(SAP_PROFILE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SapProfile;
-    if (!parsed || !Array.isArray(parsed.plants)) return null;
-    return parsed;
-  } catch {
+  const raw = window.localStorage.getItem(SAP_PROFILE_KEY);
+  if (raw === cachedRaw) return cachedSnapshot;
+  cachedRaw = raw;
+  if (!raw) {
+    cachedSnapshot = null;
     return null;
   }
+  try {
+    const parsed = JSON.parse(raw) as SapProfile;
+    cachedSnapshot = parsed && Array.isArray(parsed.plants) ? parsed : null;
+  } catch {
+    cachedSnapshot = null;
+  }
+  return cachedSnapshot;
+}
+
+function subscribe(cb: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === SAP_PROFILE_KEY || e.key === null) cb();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener("sap-profile-changed", cb);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener("sap-profile-changed", cb);
+  };
 }
 
 export function useSapProfile(): SapProfile | null {
-  const [profile, setProfile] = useState<SapProfile | null>(null);
-
-  useEffect(() => {
-    setProfile(read());
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === SAP_PROFILE_KEY || e.key === null) setProfile(read());
-    };
-    const onCustom = () => setProfile(read());
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("sap-profile-changed", onCustom);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("sap-profile-changed", onCustom);
-    };
-  }, []);
-
-  return profile;
+  return useSyncExternalStore(subscribe, readSnapshot, () => null);
 }
 
 export function setSapProfile(profile: SapProfile | null) {
   if (typeof window === "undefined") return;
   if (profile) localStorage.setItem(SAP_PROFILE_KEY, JSON.stringify(profile));
   else localStorage.removeItem(SAP_PROFILE_KEY);
+  // Invalidate cache so the next snapshot read returns the new value.
+  cachedRaw = null;
+  cachedSnapshot = null;
   window.dispatchEvent(new Event("sap-profile-changed"));
 }
