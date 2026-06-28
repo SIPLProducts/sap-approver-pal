@@ -437,5 +437,5 @@ export const sapLogin = createServerFn({ method: "POST" })
       message: `login ${loginPath}: ${message}`,
     });
 
-    return { ok, status, error, email: session?.email, tokenHash: session?.tokenHash };
+    return { ok, status, error, email: session?.email, tokenHash: session?.tokenHash, profile };
   });
