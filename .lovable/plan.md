@@ -1,35 +1,36 @@
-# Fix: Login_API payload reaches middleware empty
+## Goal
+Make the Login page succeed when `Login_API` returns a valid business response, and show a useful error only when the SAP/middleware call truly fails.
 
-## Root cause
+## What I found
+- The app now calls the raw middleware route `/login/Login_API`, so the payload should no longer be stripped by request-field mapping.
+- The current app logic only treats the middleware response as success when `body.ok === true`.
+- If the middleware/SAP returns HTTP 403 but with a SAP business response body that represents a valid login result, the app currently still treats it as failure because it relies on HTTP `ok/status` instead of parsing the SAP login response shape.
 
-The login server function posts `{ LOGIN: { USER, PASSWORD } }` to the middleware as `inputs`, hitting the generic `/sap/invoke` route. That route calls `invokeSap()`, which **rebuilds** the SAP body via `buildRequestPayload(cfg.requestFields, inputs)` — it only includes fields configured under the API's "Request Fields" tab. The `Login_API` config has no request-field mappings, so the body actually sent to SAP is `{}`. SAP rejects it with `403 / error code 1003`.
+## Plan
+1. Update `src/lib/auth/sap-login.functions.ts` response handling for the proxy path:
+   - Parse the raw response body safely, whether it is JSON or text.
+   - Return `ok: true` when the middleware response is HTTP success OR the SAP response body indicates a successful login.
+   - If HTTP 403 is returned but the SAP payload contains a usable login-success response, continue login instead of showing the failure toast.
+   - Preserve failure toasts for real middleware failures, network errors, invalid JSON, or explicit SAP login rejection.
 
-The middleware already has a "raw passthrough" pattern (`namedRawInvokeRoute` → `invokeSapRaw`) used by approve/reject endpoints — it sends `inputs` verbatim as the SAP body. We just need to use it for `Login_API`.
+2. Add a small helper inside the same server function to detect the login result from common SAP body shapes:
+   - direct `{ ok: true }`
+   - nested `{ data: ... }`
+   - login response objects containing success/status/message fields
+   - tolerate string/number status values without crashing
 
-Postman works because you send the full body manually; the middleware's mapping step is what strips it.
+3. Keep the request payload unchanged:
+   ```json
+   { "inputs": { "LOGIN": { "USER": "<User ID>", "PASSWORD": "<Password>" } } }
+   ```
 
-## Changes
+4. Keep the UI unchanged except it will now continue to `/inbox` when the SAP login response is accepted.
 
-### 1. `middleware/server.js`
-Register a named raw route for Login:
-```js
-// Auth
-namedRawInvokeRoute("/login/Login_API", "Login_API");
-```
-(Place next to the other `namedRawInvokeRoute` calls.) After deploying the middleware, this endpoint will POST the literal `{ LOGIN: {...} }` to SAP.
+5. Add clearer log/toast error text so we can distinguish:
+   - middleware unreachable
+   - shared-secret/auth problem
+   - SAP rejected credentials
+   - SAP returned 403 with parseable business response
 
-### 2. `src/lib/auth/sap-login.functions.ts`
-In the `auth_type === "proxy"` branch, stop calling `invokeViaMiddleware(cfg.id, payload)` (generic mapped route). Instead, POST directly to the middleware's raw login endpoint:
-- Read `middleware_url` from `sap_global_settings` and `proxy_secret` from `sap_global_secrets` (same pattern already used in `invokeViaMiddleware`).
-- `fetch(`${middleware_url}/login/Login_API`, { method: "POST", headers: { "Content-Type": "application/json", "x-shared-secret": proxy_secret }, body: JSON.stringify({ inputs: { LOGIN: { USER, PASSWORD } } }) })`.
-- Map response: `ok` from body, `status` from body, `error` from body when not ok (include `data` preview so 1003-style SAP errors surface in the toast).
-
-Keep the existing `basic` branch (direct call) unchanged.
-
-## Operator step (outside code)
-The user must redeploy/restart the Node middleware after the `server.js` change so the new `/login/Login_API` route is live.
-
-## Out of scope
-- No DB/schema changes.
-- No change to login UI.
-- No change to other SAP APIs.
+## Outside-code requirement
+After any middleware changes already made, the Node middleware must be restarted/redeployed so `/login/Login_API` is available in the running middleware.
