@@ -873,13 +873,20 @@ export const editCustomRoleViaSap = createServerFn({ method: "POST" })
       if (updErr) {
         dbError = updErr.message;
       } else {
+        const { data: existingPerms } = await supabaseAdmin
+          .from("role_permissions")
+          .select("screen_key, action, allowed")
+          .eq("custom_role_id", data.role_id);
+        const existingAllowed = new Map(
+          (existingPerms ?? []).map((p: any) => [`${p.screen_key}:${p.action}`, Boolean(p.allowed)]),
+        );
         await supabaseAdmin.from("role_permissions").delete().eq("custom_role_id", data.role_id);
         const permRows = uniqueScreens.flatMap((k) =>
           PERMISSION_ACTIONS.map((action) => ({
             custom_role_id: data.role_id,
             screen_key: k,
             action,
-            allowed: true,
+            allowed: existingAllowed.get(`${k}:${action}`) ?? true,
           })),
         );
         const { error: permErr } = await supabaseAdmin.from("role_permissions").insert(permRows);
