@@ -17,7 +17,7 @@ function LoginPage() {
   const nav = useNavigate();
   const sapLoginFn = useServerFn(sapLogin);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,7 +31,7 @@ function LoginPage() {
     setBusy(true);
     try {
       if (mode === "signin") {
-        const result = await sapLoginFn({ data: { username: email, password } });
+        const result = await sapLoginFn({ data: { username: userId, password } });
         if (!result.ok) {
           toast.error(result.error ?? `Login failed (${result.status})`);
           return;
@@ -40,7 +40,7 @@ function LoginPage() {
         nav({ to: "/inbox" });
       } else {
         const { error } = await supabase.auth.signUp({
-          email, password,
+          email: userId, password,
           options: { emailRedirectTo: window.location.origin, data: { full_name: name } },
         });
         if (error) throw error;
@@ -149,7 +149,7 @@ function LoginPage() {
 
           <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
             <div className="h-px flex-1 bg-border" />
-            <span>or with email</span>
+            <span>or with user ID</span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
@@ -161,8 +161,8 @@ function LoginPage() {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-medium">Work email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11" />
+              <Label htmlFor="userId" className="text-xs font-medium">User ID</Label>
+              <Input id="userId" type="text" autoComplete="username" value={userId} onChange={(e) => setUserId(e.target.value)} required className="h-11" />
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -190,18 +190,18 @@ function LoginPage() {
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: "Admin", email: "admin@demo.app" },
-                  { label: "HOD", email: "hod@demo.app" },
-                  { label: "Finance", email: "finance@demo.app" },
-                  { label: "Requester", email: "requester@demo.app" },
+                  { label: "Admin", userId: "admin@demo.app" },
+                  { label: "HOD", userId: "hod@demo.app" },
+                  { label: "Finance", userId: "finance@demo.app" },
+                  { label: "Requester", userId: "requester@demo.app" },
                 ].map((a) => (
                   <Button
-                    key={a.email}
+                    key={a.userId}
                     type="button"
                     variant="outline"
                     size="sm"
                     className="h-8 text-xs font-medium"
-                    onClick={() => { setEmail(a.email); setPassword("Demo@1234"); }}
+                    onClick={() => { setUserId(a.userId); setPassword("Demo@1234"); }}
                   >
                     {a.label}
                   </Button>
