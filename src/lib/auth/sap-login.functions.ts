@@ -6,6 +6,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+type SapLoginResult = {
+  ok: boolean;
+  status: number;
+  error?: string;
+  email?: string;
+  tokenHash?: string;
+};
+
 function parseResponseBody(text: string): unknown {
   if (!text.trim()) return null;
   try {
@@ -82,6 +90,76 @@ function loginErrorFromBody(body: unknown, fallback: string): string {
   return fallback;
 }
 
+function syntheticSapEmail(username: string): string {
+  const local = username
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._+-]+/g, ".")
+    .replace(/\.{2,}/g, ".")
+    .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "")
+    .slice(0, 64)
+    .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
+  return `${local || "sap-user"}@sap-login.invalid`;
+}
+
+async function findAuthUserByEmail(supabaseAdmin: any, email: string) {
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const user = data?.users?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+    if (user) return user;
+    if (!data?.users || data.users.length < 1000) break;
+  }
+  return null;
+}
+
+async function createBackendSessionForSapUser(supabaseAdmin: any, username: string) {
+  const sapUserId = username.trim();
+  const email = syntheticSapEmail(sapUserId);
+  let user = await findAuthUserByEmail(supabaseAdmin, email);
+
+  if (!user) {
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: `${crypto.randomUUID()}${crypto.randomUUID()}`,
+      email_confirm: true,
+      user_metadata: {
+        full_name: sapUserId,
+        sap_user_id: sapUserId,
+        auth_source: "sap",
+      },
+    });
+
+    if (error && !/already|exist|registered/i.test(error.message)) throw error;
+    user = data?.user ?? (await findAuthUserByEmail(supabaseAdmin, email));
+  }
+
+  if (!user?.id) throw new Error("Could not create backend session for SAP user.");
+
+  const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
+    {
+      id: user.id,
+      full_name: sapUserId,
+      email,
+      sap_user_id: sapUserId,
+      status: "Active",
+    },
+    { onConflict: "id" },
+  );
+  if (profileError) throw profileError;
+
+  const { data: link, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  if (linkError) throw linkError;
+
+  const tokenHash = link?.properties?.hashed_token;
+  if (!tokenHash) throw new Error("Could not create backend login token.");
+
+  return { email, tokenHash };
+}
+
 export const sapLogin = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
@@ -91,7 +169,7 @@ export const sapLogin = createServerFn({ method: "POST" })
       })
       .parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<SapLoginResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: cfg } = await supabaseAdmin
@@ -115,16 +193,25 @@ export const sapLogin = createServerFn({ method: "POST" })
     let status = 0;
     let message = "";
     let error: string | undefined;
+    let session: { email: string; tokenHash: string } | undefined;
+    let loginPath = "direct";
 
     try {
-      if (cfg.auth_type === "proxy") {
-        const [{ data: g }, { data: gs }] = await Promise.all([
-          supabaseAdmin.from("sap_global_settings").select("middleware_url").eq("id", "default").maybeSingle(),
-          supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
-        ]);
-        if (!g?.middleware_url) {
-          return { ok: false, status: 0, error: "Middleware URL is not configured in SAP API Settings." };
-        }
+      const [{ data: g }, { data: gs }] = await Promise.all([
+        supabaseAdmin
+          .from("sap_global_settings")
+          .select("middleware_url, sap_base_url, sap_username")
+          .eq("id", "default")
+          .maybeSingle(),
+        supabaseAdmin
+          .from("sap_global_secrets")
+          .select("proxy_secret, sap_password")
+          .eq("id", "default")
+          .maybeSingle(),
+      ]);
+
+      if (g?.middleware_url) {
+        loginPath = "middleware";
         const url = `${g.middleware_url.replace(/\/$/, "")}/login/Login_API`;
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
@@ -151,16 +238,6 @@ export const sapLogin = createServerFn({ method: "POST" })
           }
         }
       } else {
-        const { data: g } = await supabaseAdmin
-          .from("sap_global_settings")
-          .select("sap_base_url, sap_username")
-          .eq("id", "default")
-          .maybeSingle();
-        const { data: gs } = await supabaseAdmin
-          .from("sap_global_secrets")
-          .select("sap_password")
-          .eq("id", "default")
-          .maybeSingle();
         const { data: creds } = await supabaseAdmin
           .from("sap_api_credentials")
           .select("extra_headers")
@@ -189,15 +266,22 @@ export const sapLogin = createServerFn({ method: "POST" })
           headers,
           body: method === "GET" || method === "HEAD" ? undefined : JSON.stringify(payload),
         });
-        status = res.status;
-        ok = res.ok;
+        const rawText = await res.text().catch(() => "");
+        const body = parseResponseBody(rawText);
+        const bodyRecord = asRecord(body);
+        ok = (res.ok && !sapLoginRejected(body)) || sapLoginSucceeded(body);
+        status = statusValue(bodyRecord?.status) ?? res.status;
         message = `${res.status} ${res.statusText}`;
         if (!ok) {
-          const text = await res.text().catch(() => "");
-          error = `Login failed (${res.status})${text ? `: ${text.slice(0, 200)}` : ""}`;
+          error = loginErrorFromBody(body, `Direct SAP login failed (${res.status})`);
         }
       }
+
+      if (ok) {
+        session = await createBackendSessionForSapUser(supabaseAdmin, data.username);
+      }
     } catch (e) {
+      ok = false;
       message = (e as Error).message;
       error = message;
     }
@@ -206,8 +290,8 @@ export const sapLogin = createServerFn({ method: "POST" })
       config_id: cfg.id,
       status: ok ? "ok" : "error",
       latency_ms: Date.now() - t0,
-      message: `login: ${message}`,
+      message: `login ${loginPath}: ${message}`,
     });
 
-    return { ok, status, error };
+    return { ok, status, error, email: session?.email, tokenHash: session?.tokenHash };
   });
