@@ -208,9 +208,6 @@ export const sapLogin = createServerFn({ method: "POST" })
       ]);
 
       if (g?.middleware_url) {
-        const [{ data: gs }] = await Promise.all([
-          supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
-        ]);
         const url = `${g.middleware_url.replace(/\/$/, "")}/login/Login_API`;
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
