@@ -279,6 +279,7 @@ export const sapLogin = createServerFn({ method: "POST" })
         session = await createBackendSessionForSapUser(supabaseAdmin, data.username);
       }
     } catch (e) {
+      ok = false;
       message = (e as Error).message;
       error = message;
     }
