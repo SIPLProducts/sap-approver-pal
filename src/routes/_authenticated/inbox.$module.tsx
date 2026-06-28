@@ -10,6 +10,7 @@ import { DOC_TYPE_LABELS } from "@/lib/approvals/constants";
 import { PageHeader } from "@/components/exec/page-header";
 import { KpiTile } from "@/components/exec/kpi-tile";
 import { Search, Inbox, Clock3, Gauge, TrendingUp, ChevronRight } from "lucide-react";
+import { useActiveContext } from "@/hooks/use-active-context";
 
 export const Route = createFileRoute("/_authenticated/inbox/$module")({
   beforeLoad: ({ params }) => {
