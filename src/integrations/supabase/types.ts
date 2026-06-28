@@ -468,6 +468,7 @@ export type Database = {
           last_name: string | null
           phone: string | null
           plant: string | null
+          sap_profile: Json | null
           sap_user_id: string | null
           status: string
           updated_at: string
@@ -485,6 +486,7 @@ export type Database = {
           last_name?: string | null
           phone?: string | null
           plant?: string | null
+          sap_profile?: Json | null
           sap_user_id?: string | null
           status?: string
           updated_at?: string
@@ -502,6 +504,7 @@ export type Database = {
           last_name?: string | null
           phone?: string | null
           plant?: string | null
+          sap_profile?: Json | null
           sap_user_id?: string | null
           status?: string
           updated_at?: string
