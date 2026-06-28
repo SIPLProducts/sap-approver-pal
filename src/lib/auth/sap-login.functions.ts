@@ -6,6 +6,70 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+function parseResponseBody(text: string): unknown {
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : value == null ? "" : String(value);
+}
+
+function statusValue(value: unknown): number | undefined {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function collectObjects(value: unknown, depth = 0): Record<string, unknown>[] {
+  if (depth > 4) return [];
+  if (Array.isArray(value)) return value.flatMap((item) => collectObjects(item, depth + 1));
+  const record = asRecord(value);
+  if (!record) return [];
+  return [record, ...Object.values(record).flatMap((item) => collectObjects(item, depth + 1))];
+}
+
+function sapLoginSucceeded(body: unknown): boolean {
+  const records = collectObjects(body);
+  if (records.some((record) => record.ok === true || record.success === true)) return true;
+
+  return records.some((record) => {
+    const values = Object.entries(record).map(([key, value]) => [key.toLowerCase(), stringValue(value).trim().toLowerCase()] as const);
+    const status = values.find(([key]) => /^(status|code|returncode|responsecode|type|result)$/.test(key))?.[1];
+    const message = values.find(([key]) => /^(message|msg|text|description|remarks|returnmessage)$/.test(key))?.[1] ?? "";
+
+    if (["s", "success", "successful", "ok", "true", "1", "200"].includes(status ?? "")) return true;
+    if (message && /\b(success|successful|valid|authenticated|welcome|logged in|login ok)\b/i.test(message)) return true;
+    return false;
+  });
+}
+
+function loginErrorFromBody(body: unknown, fallback: string): string {
+  const record = asRecord(body);
+  if (typeof record?.error === "string") return record.error;
+  const nested = record?.data;
+  const nestedRecord = asRecord(nested);
+  if (typeof nestedRecord?.error === "string") return nestedRecord.error;
+  if (typeof nestedRecord?.message === "string") return nestedRecord.message;
+  if (typeof nested === "string" && nested.trim()) return nested.slice(0, 200);
+  if (typeof body === "string" && body.trim()) return body.slice(0, 200);
+  if (body != null) return JSON.stringify(body).slice(0, 200);
+  return fallback;
+}
+
 export const sapLogin = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
@@ -57,18 +121,22 @@ export const sapLogin = createServerFn({ method: "POST" })
           headers,
           body: JSON.stringify({ inputs: payload }),
         });
-        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-        ok = !!body.ok;
-        status = typeof body.status === "number" ? body.status : res.status;
+        const rawText = await res.text().catch(() => "");
+        const body = parseResponseBody(rawText);
+        const bodyRecord = asRecord(body);
+        ok = res.ok || sapLoginSucceeded(body);
+        status = statusValue(bodyRecord?.status) ?? res.status;
         message = `${status}`;
         if (!ok) {
-          const preview =
-            typeof body.error === "string"
-              ? body.error
-              : body.data
-                ? JSON.stringify(body.data).slice(0, 200)
-                : `Login failed (${status})`;
-          error = preview;
+          if (res.status === 401) {
+            error = "Middleware rejected the shared secret. Check the proxy secret configuration.";
+          } else if (res.status === 404) {
+            error = "Middleware login route was not found. Restart or redeploy the Node middleware.";
+          } else if (res.status === 403) {
+            error = loginErrorFromBody(body, "SAP rejected the login request (403).");
+          } else {
+            error = loginErrorFromBody(body, `Login failed (${status})`);
+          }
         }
       } else {
         const { data: g } = await supabaseAdmin
