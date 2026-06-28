@@ -7,12 +7,22 @@ import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, Shi
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { syncFromSAP } from "@/lib/sap/sap.functions";
 import { usePermissions } from "@/hooks/use-permissions";
+import { ActiveContextProvider, useActiveContext, type ActiveRole } from "@/hooks/use-active-context";
 
-export const Route = createFileRoute("/_authenticated")({ component: AuthenticatedLayout });
+export const Route = createFileRoute("/_authenticated")({ component: AuthenticatedRoot });
+
+function AuthenticatedRoot() {
+  return (
+    <ActiveContextProvider>
+      <AuthenticatedLayout />
+    </ActiveContextProvider>
+  );
+}
 
 function AuthenticatedLayout() {
   const { user, loading } = useAuth();
@@ -21,6 +31,7 @@ function AuthenticatedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const perms = usePermissions();
+  const ctx = useActiveContext();
   const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
   const [sdExpanded, setSdExpanded] = useState(sdOpen);
   useEffect(() => { if (sdOpen) setSdExpanded(true); }, [sdOpen]);
@@ -33,15 +44,6 @@ function AuthenticatedLayout() {
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle();
       return data;
-    },
-  });
-
-  const { data: roles } = useQuery({
-    queryKey: ["roles", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user!.id);
-      return (data ?? []).map((r) => r.role);
     },
   });
 
@@ -72,7 +74,6 @@ function AuthenticatedLayout() {
     return () => { supabase.removeChannel(ch); };
   }, [user, qc]);
 
-  const isAdmin = perms.isAdmin;
   const sync = useServerFn(syncFromSAP);
 
   async function pullSap() {
@@ -115,6 +116,24 @@ function AuthenticatedLayout() {
     { to: "/settings", label: "Settings", icon: Settings, screen: null as string | null },
   ].filter((it) => it.screen === null || can(it.screen));
 
+  // ===== Top-bar role/plant select handlers =====
+  const roleSelectValue = ctx.activeRole ? `${ctx.activeRole.kind}:${ctx.activeRole.value}` : "";
+  function onRoleChange(v: string) {
+    const idx = v.indexOf(":");
+    if (idx < 0) return;
+    const kind = v.slice(0, idx);
+    const value = v.slice(idx + 1);
+    const found = ctx.roles.find((r) => r.kind === kind && r.value === value);
+    if (!found) return;
+    const next: ActiveRole =
+      found.kind === "built_in"
+        ? { kind: "built_in", value: found.value }
+        : { kind: "custom", value: found.value, label: found.label };
+    ctx.setActiveRole(next);
+    // Refetch lists scoped to permissions/plant
+    qc.invalidateQueries();
+  }
+
   return (
     <div className="h-screen overflow-hidden bg-background flex">
       {/* Sidebar */}
@@ -138,7 +157,6 @@ function AuthenticatedLayout() {
             </Link>
           )}
 
-          {/* SD Approvals expandable group */}
           {showSd && (
             <>
               <button
@@ -190,7 +208,7 @@ function AuthenticatedLayout() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[12px] font-medium truncate text-sidebar-foreground">{profile?.full_name || user.email}</div>
-              <div className="text-[10px] text-sidebar-foreground/55 truncate">{(roles ?? []).join(" · ") || "No roles"}</div>
+              <div className="text-[10px] text-sidebar-foreground/55 truncate">{perms.activeRoleLabel ?? "No active role"}</div>
             </div>
           </div>
           <Button onClick={logout} variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/75 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent">
@@ -207,7 +225,41 @@ function AuthenticatedLayout() {
             <span className="text-lg leading-none">☰</span>
           </button>
           <div className="lg:hidden flex items-center"><BrandLogo className="h-7" /></div>
-          <div className="hidden lg:flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+
+          {/* Plant + Role selectors */}
+          {ctx.plants.length > 0 && (
+            <Select value={ctx.activePlant ?? ""} onValueChange={(v) => ctx.setActivePlant(v || null)}>
+              <SelectTrigger className="h-9 w-[150px] text-sm">
+                <SelectValue placeholder="Select plant" />
+              </SelectTrigger>
+              <SelectContent>
+                {ctx.plants.map((p) => (
+                  <SelectItem key={p.code} value={p.code}>
+                    Plant {p.code}{p.name ? ` — ${p.name}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {ctx.roles.length > 0 && (
+            <Select value={roleSelectValue} onValueChange={onRoleChange}>
+              <SelectTrigger className="h-9 w-[160px] text-sm">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                {ctx.roles.map((r) => (
+                  <SelectItem key={`${r.kind}:${r.value}`} value={`${r.kind}:${r.value}`}>
+                    {r.label}
+                    <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {r.kind === "built_in" ? "Built-in" : "Custom"}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <div className="hidden xl:flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground ml-2">
             <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
             Live · SAP synced
           </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PlantSelect } from "@/components/sap/plant-select";
+import { useActiveContext } from "@/hooks/use-active-context";
 import {
   fetchContractApprovals,
   submitContractDecision,
@@ -80,7 +81,9 @@ function ContractPage() {
   const fetchFn = useServerFn(fetchContractApprovals);
   const decisionFn = useServerFn(submitContractDecision);
 
-  const [plant, setPlant] = useState("");
+  const { activePlant: __ap } = useActiveContext();
+  const [plant, setPlant] = useState(__ap ?? "");
+  useEffect(() => { if (__ap && !plant) setPlant(__ap); /* eslint-disable-next-line */ }, [__ap]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
   const [customerTo, setCustomerTo] = useState("");

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -27,6 +27,7 @@ import {
   type ScSoRow,
 } from "@/lib/sd/sc-so-approval.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
+import { useActiveContext } from "@/hooks/use-active-context";
 
 type Status = "pending" | "accepted" | "rejected";
 type ApprovalType = "service" | "sales";
@@ -125,7 +126,9 @@ function ScSoPage() {
   const fetchFn = useServerFn(fetchScSoApprovals);
   const decisionFn = useServerFn(submitScSoDecision);
 
-  const [plant, setPlant] = useState("");
+  const { activePlant: __ap } = useActiveContext();
+  const [plant, setPlant] = useState(__ap ?? "");
+  useEffect(() => { if (__ap && !plant) setPlant(__ap); /* eslint-disable-next-line */ }, [__ap]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
   const [customerTo, setCustomerTo] = useState("");

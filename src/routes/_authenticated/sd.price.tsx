@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlantSelect } from "@/components/sap/plant-select";
+import { useActiveContext } from "@/hooks/use-active-context";
 import {
   fetchPriceApprovals,
   getMySapUserId,
@@ -64,8 +65,14 @@ function PricePage() {
     queryFn: () => userIdFn(),
   });
 
-  const [plant, setPlant] = useState("");
+  const { activePlant } = useActiveContext();
+  const [plant, setPlant] = useState(activePlant ?? "");
   const [userId, setUserId] = useState("");
+
+  useEffect(() => {
+    if (activePlant && !plant) setPlant(activePlant);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlant]);
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);

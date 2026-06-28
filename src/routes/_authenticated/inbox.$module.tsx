@@ -10,6 +10,7 @@ import { DOC_TYPE_LABELS } from "@/lib/approvals/constants";
 import { PageHeader } from "@/components/exec/page-header";
 import { KpiTile } from "@/components/exec/kpi-tile";
 import { Search, Inbox, Clock3, Gauge, TrendingUp, ChevronRight } from "lucide-react";
+import { useActiveContext } from "@/hooks/use-active-context";
 
 export const Route = createFileRoute("/_authenticated/inbox/$module")({
   beforeLoad: ({ params }) => {
@@ -23,6 +24,7 @@ function InboxPage() {
   const { module } = Route.useParams();
   const mod = module.toUpperCase() as "MM" | "SD";
   const { user } = useAuth();
+  const { activePlant } = useActiveContext();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
 
@@ -58,7 +60,7 @@ function InboxPage() {
     },
   });
 
-  const moduleRows = useMemo(() => rows.filter((r) => r.module === mod), [rows, mod]);
+  const moduleRows = useMemo(() => rows.filter((r) => r.module === mod && (!activePlant || r.plant === activePlant)), [rows, mod, activePlant]);
   const filtered = useMemo(() => moduleRows.filter((r) =>
     !q || r.sap_doc_no.toLowerCase().includes(q.toLowerCase())
       || r.title.toLowerCase().includes(q.toLowerCase())

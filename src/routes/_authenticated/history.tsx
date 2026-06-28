@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useActiveContext } from "@/hooks/use-active-context";
+import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -9,7 +11,8 @@ export const Route = createFileRoute("/_authenticated/history")({ component: His
 
 function HistoryPage() {
   const { user } = useAuth();
-  const { data: rows = [] } = useQuery({
+  const { activePlant } = useActiveContext();
+  const { data: allRows = [] } = useQuery({
     queryKey: ["history", user?.id],
     enabled: !!user,
     queryFn: async () => {
@@ -20,6 +23,7 @@ function HistoryPage() {
       return docs ?? [];
     },
   });
+  const rows = useMemo(() => activePlant ? allRows.filter((d) => d.plant === activePlant) : allRows, [allRows, activePlant]);
 
   return (
     <div className="space-y-5">
