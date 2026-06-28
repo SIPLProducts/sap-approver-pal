@@ -130,40 +130,48 @@ function AuthenticatedLayout() {
         </div>
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Workspaces</div>
-          <Link to="/inbox/mm" onClick={() => setOpen(false)}
-            className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/inbox/mm") ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
-            {pathname.startsWith("/inbox/mm") && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
-            <Package className="h-4 w-4 shrink-0" /> <span className="truncate">MM Approvals</span>
-          </Link>
-
-          {/* SD Approvals expandable group */}
-          <button
-            type="button"
-            onClick={() => setSdExpanded((v) => !v)}
-            className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}
-          >
-            {sdOpen && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
-            <Truck className="h-4 w-4 shrink-0" />
-            <span className="flex-1 text-left truncate">SD Approvals</span>
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />
-          </button>
-          {sdExpanded && (
-            <div className="ml-5 pl-3 border-l border-sidebar-border/70 space-y-0.5 mt-0.5 mb-1">
-              {sdChildren.map((it) => {
-                const active = pathname.startsWith(it.to);
-                const Icon = it.icon;
-                return (
-                  <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] transition-colors ${active ? "bg-sidebar-primary/15 text-sidebar-primary-foreground/95 font-medium" : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
-                    <Icon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{it.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
+          {showMm && (
+            <Link to="/inbox/mm" onClick={() => setOpen(false)}
+              className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/inbox/mm") ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
+              {pathname.startsWith("/inbox/mm") && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+              <Package className="h-4 w-4 shrink-0" /> <span className="truncate">MM Approvals</span>
+            </Link>
           )}
 
-          <div className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Manage</div>
-          {nav_items.slice(1).map((it) => {
+          {/* SD Approvals expandable group */}
+          {showSd && (
+            <>
+              <button
+                type="button"
+                onClick={() => setSdExpanded((v) => !v)}
+                className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}
+              >
+                {sdOpen && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+                <Truck className="h-4 w-4 shrink-0" />
+                <span className="flex-1 text-left truncate">SD Approvals</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />
+              </button>
+              {sdExpanded && (
+                <div className="ml-5 pl-3 border-l border-sidebar-border/70 space-y-0.5 mt-0.5 mb-1">
+                  {sdChildren.map((it) => {
+                    const active = pathname.startsWith(it.to);
+                    const Icon = it.icon;
+                    return (
+                      <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] transition-colors ${active ? "bg-sidebar-primary/15 text-sidebar-primary-foreground/95 font-medium" : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
+                        <Icon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{it.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {manage_items.length > 0 && (
+            <div className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Manage</div>
+          )}
+          {manage_items.map((it) => {
             const active = pathname.startsWith(it.to);
             const Icon = it.icon;
             return (
