@@ -115,10 +115,42 @@ async function findAuthUserByEmail(supabaseAdmin: any, email: string) {
 
 async function createBackendSessionForSapUser(supabaseAdmin: any, username: string) {
   const sapUserId = username.trim();
-  const email = syntheticSapEmail(sapUserId);
-  let user = await findAuthUserByEmail(supabaseAdmin, email);
 
-  if (!user) {
+  // 1. Try to match an admin-provisioned profile by sap_user_id
+  const { data: existingProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email, sap_user_id, full_name")
+    .ilike("sap_user_id", sapUserId)
+    .maybeSingle();
+
+  let userId: string | undefined = existingProfile?.id;
+  let email: string =
+    existingProfile?.email && /@/.test(existingProfile.email)
+      ? existingProfile.email
+      : syntheticSapEmail(sapUserId);
+
+  // 2. Ensure an auth.users row exists for this profile/email
+  let authUser = await findAuthUserByEmail(supabaseAdmin, email);
+
+  if (!authUser && userId) {
+    // Profile exists but no auth user yet — create one bound to the profile id
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      id: userId,
+      email,
+      password: `${crypto.randomUUID()}${crypto.randomUUID()}`,
+      email_confirm: true,
+      user_metadata: {
+        full_name: existingProfile?.full_name || sapUserId,
+        sap_user_id: sapUserId,
+        auth_source: "sap",
+      },
+    });
+    if (error && !/already|exist|registered/i.test(error.message)) throw error;
+    authUser = data?.user ?? (await findAuthUserByEmail(supabaseAdmin, email));
+  }
+
+  if (!authUser && !userId) {
+    // No profile, no auth user — create both via synthetic email
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: `${crypto.randomUUID()}${crypto.randomUUID()}`,
@@ -129,24 +161,35 @@ async function createBackendSessionForSapUser(supabaseAdmin: any, username: stri
         auth_source: "sap",
       },
     });
-
     if (error && !/already|exist|registered/i.test(error.message)) throw error;
-    user = data?.user ?? (await findAuthUserByEmail(supabaseAdmin, email));
+    authUser = data?.user ?? (await findAuthUserByEmail(supabaseAdmin, email));
   }
 
-  if (!user?.id) throw new Error("Could not create backend session for SAP user.");
+  if (!authUser?.id) throw new Error("Could not create backend session for SAP user.");
+  userId = authUser.id;
 
-  const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
-    {
-      id: user.id,
-      full_name: sapUserId,
-      email,
-      sap_user_id: sapUserId,
-      status: "Active",
-    },
-    { onConflict: "id" },
-  );
-  if (profileError) throw profileError;
+  // 3. Ensure profile exists; do not overwrite existing fields
+  if (!existingProfile) {
+    const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
+      {
+        id: userId,
+        full_name: sapUserId,
+        email,
+        sap_user_id: sapUserId,
+        status: "Active",
+      },
+      { onConflict: "id" },
+    );
+    if (profileError) throw profileError;
+  } else {
+    // Backfill sap_user_id only if missing
+    if (!existingProfile.sap_user_id) {
+      await supabaseAdmin
+        .from("profiles")
+        .update({ sap_user_id: sapUserId })
+        .eq("id", userId);
+    }
+  }
 
   const { data: link, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: "magiclink",
