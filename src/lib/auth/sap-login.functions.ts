@@ -6,13 +6,111 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+export type SapProfilePayload = {
+  user: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  status?: string;
+  contact?: string;
+  plants: Array<{
+    code: string;
+    name?: string;
+    roles: Array<{ role: string; label?: string; activities: string[] }>;
+  }>;
+};
+
 type SapLoginResult = {
   ok: boolean;
   status: number;
   error?: string;
   email?: string;
   tokenHash?: string;
+  profile?: SapProfilePayload;
 };
+
+function pickStr(r: Record<string, unknown> | null | undefined, ...keys: string[]): string | undefined {
+  if (!r) return undefined;
+  for (const k of keys) {
+    const v = r[k] ?? r[k.toLowerCase()] ?? r[k.toUpperCase()];
+    if (typeof v === "string" && v.trim()) return v;
+    if (typeof v === "number") return String(v);
+  }
+  return undefined;
+}
+
+function asArray(v: unknown): unknown[] {
+  if (Array.isArray(v)) return v;
+  if (v && typeof v === "object") return [v];
+  return [];
+}
+
+function extractSapProfile(body: unknown): SapProfilePayload | undefined {
+  // Find the first object in the response that has a USER + PLANTS shape.
+  const queue: unknown[] = [body];
+  let found: Record<string, unknown> | null = null;
+  let depth = 0;
+  while (queue.length && depth < 200) {
+    depth += 1;
+    const cur = queue.shift();
+    if (!cur || typeof cur !== "object") continue;
+    if (Array.isArray(cur)) {
+      for (const item of cur) queue.push(item);
+      continue;
+    }
+    const rec = cur as Record<string, unknown>;
+    const hasUser =
+      pickStr(rec, "USER", "USERID", "USER_ID", "USERNAME") !== undefined;
+    const hasPlants = "PLANTS" in rec || "plants" in rec;
+    if (hasUser && hasPlants) {
+      found = rec;
+      break;
+    }
+    for (const v of Object.values(rec)) queue.push(v);
+  }
+  if (!found) return undefined;
+
+  const plantsRaw = asArray((found as any).PLANTS ?? (found as any).plants);
+  const plants = plantsRaw
+    .map((p) => {
+      const pr = (p && typeof p === "object" ? p : {}) as Record<string, unknown>;
+      const code = pickStr(pr, "PLANT", "PLANT_CODE", "CODE", "WERKS");
+      if (!code) return null;
+      const name = pickStr(pr, "PLANT_NAME", "NAME", "DESCRIPTION");
+      const rolesRaw = asArray(pr.ROLES ?? (pr as any).roles);
+      const roles = rolesRaw
+        .map((r) => {
+          const rr = (r && typeof r === "object" ? r : {}) as Record<string, unknown>;
+          const role = pickStr(rr, "ROLE", "ROLE_CODE", "ROLE_ID");
+          if (!role) return null;
+          const label = pickStr(rr, "ROLE_DES", "ROLE_NAME", "DESCRIPTION");
+          const actsRaw = asArray(rr.ACTIVITIES ?? (rr as any).activities);
+          const activities: string[] = [];
+          for (const a of actsRaw) {
+            if (typeof a === "string") {
+              if (a.trim()) activities.push(a.trim().toUpperCase());
+            } else if (a && typeof a === "object") {
+              const ac = pickStr(a as Record<string, unknown>, "ACTIVITY", "SCREEN", "CODE");
+              if (ac) activities.push(ac.trim().toUpperCase());
+            }
+          }
+          return { role, label, activities: Array.from(new Set(activities)) };
+        })
+        .filter((x): x is { role: string; label?: string; activities: string[] } => !!x);
+      return { code, name, roles };
+    })
+    .filter((p): p is { code: string; name?: string; roles: any[] } => !!p);
+
+  return {
+    user: pickStr(found, "USER", "USERID", "USER_ID", "USERNAME") ?? "",
+    firstName: pickStr(found, "FIRST_NAME", "FIRSTNAME"),
+    lastName: pickStr(found, "LAST_NAME", "LASTNAME"),
+    email: pickStr(found, "EMAIL"),
+    status: pickStr(found, "STATUS"),
+    contact: pickStr(found, "CONTACT", "PHONE", "MOBILE"),
+    plants,
+  };
+}
 
 function parseResponseBody(text: string): unknown {
   if (!text.trim()) return null;
