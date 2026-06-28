@@ -71,35 +71,35 @@ function extractSapProfile(body: unknown): SapProfilePayload | undefined {
   if (!found) return undefined;
 
   const plantsRaw = asArray((found as any).PLANTS ?? (found as any).plants);
-  const plants = plantsRaw
-    .map((p) => {
-      const pr = (p && typeof p === "object" ? p : {}) as Record<string, unknown>;
-      const code = pickStr(pr, "PLANT", "PLANT_CODE", "CODE", "WERKS");
-      if (!code) return null;
-      const name = pickStr(pr, "PLANT_NAME", "NAME", "DESCRIPTION");
-      const rolesRaw = asArray(pr.ROLES ?? (pr as any).roles);
-      const roles = rolesRaw
-        .map((r) => {
-          const rr = (r && typeof r === "object" ? r : {}) as Record<string, unknown>;
-          const role = pickStr(rr, "ROLE", "ROLE_CODE", "ROLE_ID");
-          if (!role) return null;
-          const label = pickStr(rr, "ROLE_DES", "ROLE_NAME", "DESCRIPTION");
-          const actsRaw = asArray(rr.ACTIVITIES ?? (rr as any).activities);
-          const activities: string[] = [];
-          for (const a of actsRaw) {
-            if (typeof a === "string") {
-              if (a.trim()) activities.push(a.trim().toUpperCase());
-            } else if (a && typeof a === "object") {
-              const ac = pickStr(a as Record<string, unknown>, "ACTIVITY", "SCREEN", "CODE");
-              if (ac) activities.push(ac.trim().toUpperCase());
-            }
-          }
-          return { role, label, activities: Array.from(new Set(activities)) };
-        })
-        .filter((x): x is { role: string; label?: string; activities: string[] } => !!x);
-      return { code, name, roles };
-    })
-    .filter((p): p is { code: string; name?: string; roles: any[] } => !!p);
+  type R = { role: string; label?: string; activities: string[] };
+  type P = { code: string; name?: string; roles: R[] };
+  const plants: P[] = [];
+  for (const p of plantsRaw) {
+    const pr = (p && typeof p === "object" ? p : {}) as Record<string, unknown>;
+    const code = pickStr(pr, "PLANT", "PLANT_CODE", "CODE", "WERKS");
+    if (!code) continue;
+    const name = pickStr(pr, "PLANT_NAME", "NAME", "DESCRIPTION");
+    const rolesRaw = asArray((pr as any).ROLES ?? (pr as any).roles);
+    const roles: R[] = [];
+    for (const r of rolesRaw) {
+      const rr = (r && typeof r === "object" ? r : {}) as Record<string, unknown>;
+      const role = pickStr(rr, "ROLE", "ROLE_CODE", "ROLE_ID");
+      if (!role) continue;
+      const label = pickStr(rr, "ROLE_DES", "ROLE_NAME", "DESCRIPTION");
+      const actsRaw = asArray((rr as any).ACTIVITIES ?? (rr as any).activities);
+      const activities: string[] = [];
+      for (const a of actsRaw) {
+        if (typeof a === "string") {
+          if (a.trim()) activities.push(a.trim().toUpperCase());
+        } else if (a && typeof a === "object") {
+          const ac = pickStr(a as Record<string, unknown>, "ACTIVITY", "SCREEN", "CODE");
+          if (ac) activities.push(ac.trim().toUpperCase());
+        }
+      }
+      roles.push({ role, label, activities: Array.from(new Set(activities)) });
+    }
+    plants.push({ code, name, roles });
+  }
 
   return {
     user: pickStr(found, "USER", "USERID", "USER_ID", "USERNAME") ?? "",
