@@ -1,54 +1,107 @@
-## Goal
-Add Plant and Role dropdowns to the top header bar. Each shows only what's assigned to the logged-in user. Plant filters approval/inbox/history queries; Role gates which screens are visible (one active role at a time).
+# Load Plants, Roles & Screens from SAP Login Response
 
-## Data sources (no schema changes)
-- Plants → `user_tenants` joined to `tenants` (already populated by admin user-mgmt).
-- Built-in roles → `user_roles.role`.
-- Custom roles → `user_custom_roles` joined to `custom_roles` (id, name).
-- Permissions → `role_permissions` filtered to the single active role.
+The SAP `Login_API` already returns the full authorization tree:
 
-## Plan
+```json
+{
+  "USER": "SARVI_INFO1",
+  "FIRST_NAME": "...", "LAST_NAME": "...", "EMAIL": "...",
+  "PLANTS": [
+    { "PLANT": "3801",
+      "ROLES": [
+        { "ROLE": "RESL_ADMIN",
+          "ACTIVITIES": [
+            { "ACTIVITY": "ADMIN.APPROVAL_MATRIX", "RELEASE_CODE": "ad" },
+            { "ACTIVITY": "APPROVALS.DETAIL",      "RELEASE_CODE": "ap" },
+            ...
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
 
-### 1. Active context provider — `src/hooks/use-active-context.tsx`
-New React context + provider that holds `{ activePlant, activeRole }` where `activeRole` is `{ kind: "built_in" | "custom", value: string }`. Loads from `localStorage` (keys `app.activePlant`, `app.activeRole`) on mount; falls back to the user's first assigned plant / first role. Persists changes back to `localStorage`. Mounted inside `_authenticated` layout so it's available to all protected screens.
+Today this payload is discarded after the auth handshake and the UI falls back to Supabase tables (`user_tenants`, `user_roles`, `user_custom_roles`, `role_permissions`), so the plant dropdown is empty, no role appears, and every screen is hidden. We will switch the top bar and screen-gating to read the SAP payload directly.
 
-### 2. Queries for the user's assignments — extend `usePermissions` or new `useMyAssignments`
-- New hook `useMyAssignments()` returns:
-  - `plants: { code, name }[]` from `user_tenants → tenants` where `user_id = auth.uid()`.
-  - `roles: { kind, value, label }[]` — union of built-in (`user_roles`) and custom (`user_custom_roles → custom_roles`).
-- Cached via React Query with `staleTime: 60_000`.
+## What to build
 
-### 3. Rework `usePermissions` to honor the *active* role
-- Accept active role from context (or read it internally from the provider).
-- Replace the current "union of all roles" query with a single-role query: fetch `role_permissions` matching only the active role (`built_in_role = X` OR `custom_role_id = Y`).
-- `isAdmin` becomes true only when active role is built-in `Admin`. Sidebar/route gating then reflects what the active role can see — switching roles updates the visible screens immediately.
+### 1. Return SAP profile from `sapLogin`
+`src/lib/auth/sap-login.functions.ts`
+- After a successful SAP call, extract the user record (handle both the bare object and common wrappers like `{ data: {...} }` / `{ LOGIN: {...} }`).
+- Normalize into:
+  ```ts
+  type SapProfile = {
+    user: string;
+    firstName?: string; lastName?: string; email?: string;
+    status?: string; contact?: string;
+    plants: Array<{
+      code: string;            // PLANT
+      name?: string;           // PLANT_NAME if present
+      roles: Array<{
+        role: string;          // ROLE
+        label?: string;        // ROLE_DES if present
+        activities: string[];  // ACTIVITY codes, uppercased
+      }>;
+    }>;
+  };
+  ```
+- Add `profile?: SapProfile` to the existing `SapLoginResult` and return it alongside `email`/`tokenHash`. No DB writes.
 
-### 4. Top-bar UI — edit `src/routes/_authenticated.tsx`
-- Wrap `AuthenticatedLayout` content in `<ActiveContextProvider>`.
-- In the header (before the Sync SAP button), render two compact shadcn `<Select>` controls:
-  - Plant: options = `assignments.plants` (label `code — name`), placeholder "Select plant". Hidden if user has 0 plants.
-  - Role: options = `assignments.roles` (label = role name + small `Built-in`/`Custom` tag), hidden if user has ≤1 role *and* showing it adds no value (still show single-role as read-only badge for clarity).
-- Selecting either updates context → triggers re-render of sidebar (gated by `usePermissions`) and refetch of plant-scoped queries.
+### 2. Persist the profile on the client
+`src/routes/login.tsx`
+- Right after `verifyOtp` succeeds, if `result.profile` is present, `localStorage.setItem("sap.profile", JSON.stringify(result.profile))`.
+- On `logout` (in `_authenticated.tsx`), `localStorage.removeItem("sap.profile")` plus the existing `app.activePlant` / `app.activeRole` keys.
 
-### 5. Plant filter wiring
-- Read `activePlant` in queries that already accept a plant filter. Concretely, pass it into the existing query keys / args for:
-  - `src/routes/_authenticated/inbox.$module.tsx` (MM and SD inbox lists)
-  - `src/routes/_authenticated/history.tsx`
-  - `src/routes/_authenticated/sd.price.tsx`, `sd.contract.tsx`, `sd.sc-so.tsx`, `sd.sales-order.tsx` (these already use `PlantSelect`; switch their internal plant state to default from `activePlant` and stay in sync when it changes; keep the inline `PlantSelect` so users can still override per-screen, or remove it — see "Open question" below).
-- The plant value sent to server fns is the tenant `code` (e.g. `3601`), matching the existing SAP `WERKS/VKORG` usage.
+### 3. New hook `useSapProfile`
+`src/hooks/use-sap-profile.ts` (new)
+- Reads `sap.profile` from `localStorage`, exposes `{ profile, plants, rolesFor(plantCode), activitiesFor(plantCode, role) }`.
+- Listens to `storage` events so login updates propagate.
 
-### 6. Sidebar/route gating already in place
-- `usePermissions` is already consumed in `src/routes/_authenticated.tsx` to filter sidebar entries. Once it switches to the active-role-only mode, no further sidebar code changes are needed.
-- If the user switches to a role that doesn't include the current route's screen, redirect to the first allowed screen (reuse logic from `src/routes/index.tsx`).
+### 4. Replace data source in `use-active-context.tsx`
+- Drop the three Supabase queries (`my-plants`, `my-built-roles`, `my-custom-roles`).
+- Plants come from `profile.plants` (code + optional name).
+- Roles come from the roles of the currently selected plant (so changing plant rescopes the role dropdown). All SAP roles use a new kind:
+  ```ts
+  type ActiveRole = { kind: "sap"; value: string; label: string };
+  ```
+  The old `"built_in" | "custom"` shape is removed; persisted `app.activeRole` entries with the old shape are ignored and re-defaulted.
+- When the active plant changes and the current role is not present under it, auto-pick the first role of the new plant.
 
-### 7. Files touched
-- New: `src/hooks/use-active-context.tsx`, `src/hooks/use-my-assignments.ts`
-- Edit: `src/hooks/use-permissions.ts`, `src/routes/_authenticated.tsx`, `src/routes/index.tsx` (first-allowed-screen redirect helper), and the inbox/history/SD screens to read `activePlant`.
+### 5. Rewrite `use-permissions.ts`
+- Remove the `role_permissions` query.
+- `allowedScreens` = the active role's `activities` mapped to screen keys: lowercase the activity (`ADMIN.USERS` → `admin.users`). Built `Set<string>`.
+- `can(screen, action="view")` returns `allowedScreens.has(screen)`. Action-level gating is not present in the SAP payload, so view-permission implies all actions on that screen (matches existing sidebar usage).
+- `isAdmin` = the active role contains `ADMIN.USERS` AND `ADMIN.ROLE_PERMISSIONS` activities (covers `RESL_ADMIN` without hard-coding role names).
+- `activeRoleLabel` = role label from the SAP payload.
+
+### 6. Sidebar / route gating
+`src/routes/_authenticated.tsx`
+- No structural change: existing `can(...)` filtering on `sdChildren` and `manage_items` already drives the sidebar, so dynamic screens "just work" once `usePermissions` reads from SAP.
+- Plant dropdown options now come from `ctx.plants` (SAP). Selecting a plant triggers `qc.invalidateQueries()` (already in place) so inbox/history refetch.
+- `src/routes/index.tsx` first-allowed-screen redirect already iterates `allowedScreens` — no change needed.
+
+### 7. Role create/edit: empty `RELEASE_CODE`
+`src/lib/admin/user-mgmt.functions.ts`
+- Lines 427-430 and 843-846: change
+  ```ts
+  ACTIVITY: uniqueScreens.map((k) => ({ ACTIVITY: k.toUpperCase(), RELEASE_CODE: k }))
+  ```
+  to
+  ```ts
+  ACTIVITY: uniqueScreens.map((k) => ({ ACTIVITY: k.toUpperCase(), RELEASE_CODE: "" }))
+  ```
 
 ## Out of scope
-- No DB schema changes; relies on existing `user_tenants`, `user_roles`, `user_custom_roles`, `role_permissions`.
-- Per-screen `PlantSelect` keeps working; this just adds a global default.
-- Action-level gating (create/edit) still flows through `can(screen, action)` unchanged.
+- No DB schema changes. `user_tenants` / `user_roles` / `role_permissions` tables stay (still used by admin screens / approval matrix). Only the runtime *gating* of the logged-in user's UI switches to the SAP payload.
+- The Supabase magic-link session is still used for auth + RLS. The SAP profile only drives Plant/Role/Screen visibility.
+- Google sign-in users (no SAP profile in storage) keep the Admin/full-access behavior they have today.
 
-## Open question (will default if not answered)
-Should the per-screen `PlantSelect` on SD pages be removed in favor of only the header dropdown? Default: keep both — header sets the default, per-screen lets the user override for that view.
+## Files touched
+- edit `src/lib/auth/sap-login.functions.ts` (parse + return profile)
+- edit `src/routes/login.tsx` (persist profile on success)
+- new  `src/hooks/use-sap-profile.ts`
+- edit `src/hooks/use-active-context.tsx` (SAP-backed plants/roles)
+- edit `src/hooks/use-permissions.ts` (activities → allowedScreens)
+- edit `src/routes/_authenticated.tsx` (clear `sap.profile` on logout)
+- edit `src/lib/admin/user-mgmt.functions.ts` (RELEASE_CODE: "")
