@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -27,6 +27,7 @@ function AuthenticatedRoot() {
 function AuthenticatedLayout() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
+  const router = useRouter();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
@@ -129,6 +130,8 @@ function AuthenticatedLayout() {
     if (!found) return;
     ctx.setActiveRole({ kind: "sap", value: found.value, label: found.label });
     qc.invalidateQueries();
+    // Re-run any route loaders that gated on the previous role's permissions
+    router.invalidate();
   }
 
   return (
