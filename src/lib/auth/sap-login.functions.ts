@@ -42,12 +42,34 @@ export const sapLogin = createServerFn({ method: "POST" })
 
     try {
       if (cfg.auth_type === "proxy") {
-        const { invokeViaMiddleware } = await import("@/lib/sap/sap-client.server");
-        const res = await invokeViaMiddleware(cfg.id, payload);
-        ok = res.ok;
-        status = res.status;
-        message = res.error ?? `${res.status}`;
-        if (!ok) error = res.error ?? `Login failed (${res.status})`;
+        const [{ data: g }, { data: gs }] = await Promise.all([
+          supabaseAdmin.from("sap_global_settings").select("middleware_url").eq("id", "default").maybeSingle(),
+          supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+        ]);
+        if (!g?.middleware_url) {
+          return { ok: false, status: 0, error: "Middleware URL is not configured in SAP API Settings." };
+        }
+        const url = `${g.middleware_url.replace(/\/$/, "")}/login/Login_API`;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (gs?.proxy_secret) headers["x-shared-secret"] = gs.proxy_secret;
+        const res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ inputs: payload }),
+        });
+        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        ok = !!body.ok;
+        status = typeof body.status === "number" ? body.status : res.status;
+        message = `${status}`;
+        if (!ok) {
+          const preview =
+            typeof body.error === "string"
+              ? body.error
+              : body.data
+                ? JSON.stringify(body.data).slice(0, 200)
+                : `Login failed (${status})`;
+          error = preview;
+        }
       } else {
         const { data: g } = await supabaseAdmin
           .from("sap_global_settings")

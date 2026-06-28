@@ -736,6 +736,9 @@ namedRawInvokeRoute("/sales_order_approval/Sales_Order_Approve_Reject", "Sales_O
 namedRawInvokeRoute("/service_certificate/Fetch", "Sevice_Certificate_Fetch");
 namedRawInvokeRoute("/service_certificate/Service_Certificate_Approve_Reject", "Service_Certificate_Approve_Reject");
 
+// Auth — Login (raw passthrough; sends { LOGIN: { USER, PASSWORD } } verbatim)
+namedRawInvokeRoute("/login/Login_API", "Login_API");
+
 
 
 
