@@ -95,8 +95,10 @@ function syntheticSapEmail(username: string): string {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9._+-]+/g, ".")
+    .replace(/\.{2,}/g, ".")
     .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "")
-    .slice(0, 64);
+    .slice(0, 64)
+    .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
   return `${local || "sap-user"}@sap-login.invalid`;
 }
 
