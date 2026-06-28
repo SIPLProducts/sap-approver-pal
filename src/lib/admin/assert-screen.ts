@@ -41,6 +41,11 @@ export async function assertScreen(userId: string, screenKey: string): Promise<v
     .maybeSingle();
   if (admin) return;
 
+  if (!sap?.plants?.length) {
+    throw new Error(
+      "Your SAP permissions are not loaded on the server. Please sign out and sign in again to refresh.",
+    );
+  }
   throw new Error("Not authorized for this screen");
 }
 

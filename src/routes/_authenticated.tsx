@@ -228,7 +228,7 @@ function AuthenticatedLayout() {
 
           {/* Plant + Role selectors */}
           {ctx.plants.length > 0 && (
-            <Select value={ctx.activePlant ?? ""} onValueChange={(v) => ctx.setActivePlant(v || null)}>
+            <Select value={ctx.activePlant ?? ""} onValueChange={(v) => { ctx.setActivePlant(v || null); qc.invalidateQueries(); router.invalidate(); }}>
               <SelectTrigger className="h-9 w-[150px] text-sm">
                 <SelectValue placeholder="Select plant" />
               </SelectTrigger>
