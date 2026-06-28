@@ -342,7 +342,7 @@ export const sapLogin = createServerFn({ method: "POST" })
     let status = 0;
     let message = "";
     let error: string | undefined;
-    let session: { email: string; tokenHash: string } | undefined;
+    let session: { email: string; tokenHash: string; userId?: string } | undefined;
     let profile: SapProfilePayload | undefined;
     let loginPath = "direct";
 
