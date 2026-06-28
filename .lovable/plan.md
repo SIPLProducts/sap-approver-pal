@@ -1,72 +1,54 @@
 ## Goal
-After a SAP login, load the user's assigned roles/permissions and render only the sidebar entries and routes the user is allowed to access.
+Add Plant and Role dropdowns to the top header bar. Each shows only what's assigned to the logged-in user. Plant filters approval/inbox/history queries; Role gates which screens are visible (one active role at a time).
 
-## Root cause
-Two problems compound:
-
-1. **SAP login ignores admin-provisioned profiles.** `sapLogin` (in `src/lib/auth/sap-login.functions.ts`) always creates/looks up an auth user by a synthetic email (`<sapid>@sap-login.invalid`). If an admin had already created the user in `admin/users` (which stores `sap_user_id` on `profiles` and rows in `user_roles` / `user_custom_roles`), SAP login creates a *new* auth user with no roles, so `user_roles` is empty after login.
-2. **Sidebar gating uses only `roles.includes("Admin")`.** `src/routes/_authenticated.tsx` shows MM/SD/History/Settings to everyone and Admin-only items only to Admins. There is no mapping from sidebar items to `role_permissions.screen_key`, and custom roles (via `user_custom_roles` → `role_permissions`) are not consulted at all.
+## Data sources (no schema changes)
+- Plants → `user_tenants` joined to `tenants` (already populated by admin user-mgmt).
+- Built-in roles → `user_roles.role`.
+- Custom roles → `user_custom_roles` joined to `custom_roles` (id, name).
+- Permissions → `role_permissions` filtered to the single active role.
 
 ## Plan
 
-### 1. Match SAP user to the pre-provisioned profile (server)
-File: `src/lib/auth/sap-login.functions.ts`
+### 1. Active context provider — `src/hooks/use-active-context.tsx`
+New React context + provider that holds `{ activePlant, activeRole }` where `activeRole` is `{ kind: "built_in" | "custom", value: string }`. Loads from `localStorage` (keys `app.activePlant`, `app.activeRole`) on mount; falls back to the user's first assigned plant / first role. Persists changes back to `localStorage`. Mounted inside `_authenticated` layout so it's available to all protected screens.
 
-- Before creating any synthetic auth user, look up `profiles` by `sap_user_id = <login id>` (case-insensitive). If found:
-  - Reuse that profile's `id` as the auth user id.
-  - If no `auth.users` row exists for that id yet, create one via `admin.createUser` with the profile's real email (or a synthetic one if missing), passing `id` so it matches the profile.
-  - Do not overwrite existing `full_name`, `email`, `status` on the profile — only fill blanks.
-- Only when there is no existing profile with that `sap_user_id`, fall back to the current synthetic-email flow (and stamp `sap_user_id` on the new profile).
-- Continue to return `{ email, tokenHash }` so the browser can `verifyOtp` and get a real Supabase session — that session will now carry the right `auth.uid()` and therefore the right `user_roles` / `user_custom_roles`.
+### 2. Queries for the user's assignments — extend `usePermissions` or new `useMyAssignments`
+- New hook `useMyAssignments()` returns:
+  - `plants: { code, name }[]` from `user_tenants → tenants` where `user_id = auth.uid()`.
+  - `roles: { kind, value, label }[]` — union of built-in (`user_roles`) and custom (`user_custom_roles → custom_roles`).
+- Cached via React Query with `staleTime: 60_000`.
 
-### 2. Resolve effective permissions for the signed-in user (client)
-New hook: `src/hooks/use-permissions.ts`
+### 3. Rework `usePermissions` to honor the *active* role
+- Accept active role from context (or read it internally from the provider).
+- Replace the current "union of all roles" query with a single-role query: fetch `role_permissions` matching only the active role (`built_in_role = X` OR `custom_role_id = Y`).
+- `isAdmin` becomes true only when active role is built-in `Admin`. Sidebar/route gating then reflects what the active role can see — switching roles updates the visible screens immediately.
 
-- Inputs: current `user.id`.
-- Queries (parallel, cached via React Query):
-  - `user_roles` → built-in roles
-  - `user_custom_roles` → custom role ids
-  - `role_permissions` filtered to those built-in roles and custom role ids, `allowed = true`
-- Output:
-  ```ts
-  {
-    loading: boolean,
-    roles: AppRole[],
-    isAdmin: boolean,
-    allowedScreens: Set<string>,        // screen_keys where any allowed=true
-    can: (screen, action='view') => boolean,
-  }
-  ```
-- `Admin` short-circuits to "all screens allowed" (keeps current admin behaviour).
+### 4. Top-bar UI — edit `src/routes/_authenticated.tsx`
+- Wrap `AuthenticatedLayout` content in `<ActiveContextProvider>`.
+- In the header (before the Sync SAP button), render two compact shadcn `<Select>` controls:
+  - Plant: options = `assignments.plants` (label `code — name`), placeholder "Select plant". Hidden if user has 0 plants.
+  - Role: options = `assignments.roles` (label = role name + small `Built-in`/`Custom` tag), hidden if user has ≤1 role *and* showing it adds no value (still show single-role as read-only badge for clarity).
+- Selecting either updates context → triggers re-render of sidebar (gated by `usePermissions`) and refetch of plant-scoped queries.
 
-### 3. Map sidebar items to screen keys and filter
-File: `src/routes/_authenticated.tsx`
+### 5. Plant filter wiring
+- Read `activePlant` in queries that already accept a plant filter. Concretely, pass it into the existing query keys / args for:
+  - `src/routes/_authenticated/inbox.$module.tsx` (MM and SD inbox lists)
+  - `src/routes/_authenticated/history.tsx`
+  - `src/routes/_authenticated/sd.price.tsx`, `sd.contract.tsx`, `sd.sc-so.tsx`, `sd.sales-order.tsx` (these already use `PlantSelect`; switch their internal plant state to default from `activePlant` and stay in sync when it changes; keep the inline `PlantSelect` so users can still override per-screen, or remove it — see "Open question" below).
+- The plant value sent to server fns is the tenant `code` (e.g. `3601`), matching the existing SAP `WERKS/VKORG` usage.
 
-- Tag every nav entry with a `screen` key from `src/lib/admin/screen-keys.ts`:
-  - MM Approvals → `approvals.inbox.mm`
-  - SD parent visible if any of `approvals.inbox.sd` allowed; each SD child also tagged `approvals.inbox.sd` (single screen in current taxonomy).
-  - History → `approvals.history`
-  - Users & Roles → `admin.users`
-  - Release Strategies → `admin.strategies`
-  - SAP API Settings → `sap.api_settings`
-  - Integrations → `sap.integrations`
-  - Settings → always visible (personal settings, no screen gate).
-- Use `usePermissions()`; while `loading`, render the sidebar skeleton (no flicker of admin items). After load, filter items by `can(screen, 'view')`.
-- Remove the ad-hoc `isAdmin` check; admin items appear naturally because Admin grants all screens.
+### 6. Sidebar/route gating already in place
+- `usePermissions` is already consumed in `src/routes/_authenticated.tsx` to filter sidebar entries. Once it switches to the active-role-only mode, no further sidebar code changes are needed.
+- If the user switches to a role that doesn't include the current route's screen, redirect to the first allowed screen (reuse logic from `src/routes/index.tsx`).
 
-### 4. Route-level guard for direct URL access
-New pathless layout: `src/routes/_authenticated/_perm.tsx` is NOT used (would require restructuring). Instead, add a small `<RequirePermission screen="..." />` wrapper component and use it inside each protected page's component (MM inbox, SD pages, History, Admin pages). If denied, show a friendly "You don't have access to this screen" card with a link back to an allowed landing route.
+### 7. Files touched
+- New: `src/hooks/use-active-context.tsx`, `src/hooks/use-my-assignments.ts`
+- Edit: `src/hooks/use-permissions.ts`, `src/routes/_authenticated.tsx`, `src/routes/index.tsx` (first-allowed-screen redirect helper), and the inbox/history/SD screens to read `activePlant`.
 
-- Also update `src/routes/index.tsx` redirect: instead of always sending to `/inbox/mm`, send to the first allowed screen (MM → SD → History → Settings) so users without MM still land somewhere they can see.
+## Out of scope
+- No DB schema changes; relies on existing `user_tenants`, `user_roles`, `user_custom_roles`, `role_permissions`.
+- Per-screen `PlantSelect` keeps working; this just adds a global default.
+- Action-level gating (create/edit) still flows through `can(screen, action)` unchanged.
 
-### 5. Notes / out of scope
-- No DB schema changes; existing `user_roles`, `user_custom_roles`, `role_permissions` are sufficient.
-- The Node middleware is not touched.
-- Action-level gating (create/edit/delete buttons) is exposed via `can(screen, action)` but only wired into the sidebar/route gate in this change; per-button gating can be a follow-up.
-
-## Technical details
-
-- All queries scoped by `auth.uid()` via existing RLS on `user_roles`, `user_custom_roles`, `role_permissions`.
-- `usePermissions` uses `useQuery` with `enabled: !!user`, `staleTime: 60_000`, and invalidates on `supabase.auth` `SIGNED_IN` / `SIGNED_OUT` events (extending the existing channel subscription).
-- SAP login profile match uses `supabaseAdmin.from('profiles').select('id,email').ilike('sap_user_id', loginId).maybeSingle()` and `admin.createUser({ id, email, email_confirm: true })` when the auth row is missing.
-- Generated magic link works for either case because `generateLink` is keyed on `email`, which we now align with the existing profile.
+## Open question (will default if not answered)
+Should the per-screen `PlantSelect` on SD pages be removed in favor of only the header dropdown? Default: keep both — header sets the default, per-screen lets the user override for that view.
