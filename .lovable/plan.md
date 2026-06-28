@@ -1,20 +1,10 @@
-## Issue
-Editing a role fails Zod validation: `screen_keys` array > 50.
+## Problem
 
-## Root cause
-`CustomRolesTab.handleEdit` (`src/routes/_authenticated/admin.users.tsx` line 548) loads from `role_permissions`, which stores one row per (screen × action). With 15 screens × up to 6 actions, the mapped `screen_keys` can reach ~90 entries with many duplicates, exceeding the validator's `.max(50)` and never matching the screen picker (which expects unique screen keys).
+In the Custom Roles tab, clicking **Edit Role** populates `roleForm` with that role's data and opens the dialog. Afterward, clicking **Add Role** reopens the same dialog without clearing `roleForm`, so it still shows "Edit Role" with the previous role's fields prefilled.
 
-## Fix
-`src/routes/_authenticated/admin.users.tsx` — in `handleEdit` (~line 548), dedupe before passing up:
+## Fix (UI only — `src/routes/_authenticated/admin.users.tsx`, ~line 154-159)
 
-```ts
-const screen_keys = Array.from(
-  new Set((data ?? []).map((p: any) => p.screen_key).filter(Boolean))
-);
-onEditRole?.({ ...r, screen_keys });
-```
+1. Replace the `<DialogTrigger asChild>` Add Role button with a plain `<Button>` whose `onClick` first resets `roleForm` to empty defaults (`{ id: "", name: "", description: "", tenant_id: "", screen_keys: [], is_active: true }`) and then calls `setRoleCreateOpen(true)`. This guarantees Add Role always opens in create mode.
+2. Update the `<Dialog onOpenChange>` so that when the dialog closes (`v === false`), `roleForm` is also reset to the same empty defaults. This prevents leftover edit state from leaking into the next open (e.g. closing via X / overlay then clicking Add Role).
 
-No backend / validator / schema changes. The existing `.max(50)` cap is fine — there are only 15 defined screens, so the deduped list will always fit.
-
-## Out of scope
-- Validator limits, role_permissions schema, create-role flow.
+No backend, validator, or schema changes. Edit Role flow continues to work since `onEditRole` sets `roleForm` before opening.
