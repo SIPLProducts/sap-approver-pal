@@ -142,7 +142,7 @@ async function createBackendSessionForSapUser(supabaseAdmin: any, username: stri
       full_name: sapUserId,
       email,
       sap_user_id: sapUserId,
-      status: "active",
+      status: "Active",
     },
     { onConflict: "id" },
   );
