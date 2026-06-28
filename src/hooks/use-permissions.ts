@@ -25,16 +25,20 @@ export function usePermissions(): UsePermissions {
     return s;
   }, [activeActivities]);
 
+  // Cosmetic flag only — derived from any ADMIN.* activity granted by the
+  // active role. Never use this as a gate; use `can(screen, action)` instead.
   const isAdmin = useMemo(
-    () => allowedScreens.has("admin.users") && allowedScreens.has("admin.role_permissions"),
-    [allowedScreens],
+    () => activeActivities.some((a) => a.trim().toUpperCase().startsWith("ADMIN.")),
+    [activeActivities],
   );
 
   const loading = authLoading || ctxLoading;
   const ready = !loading && !!user;
 
+  // SAP returns a single ACTIVITY per screen with no separate
+  // view/edit/delete activity. If the active role grants the screen, every
+  // action on that screen is allowed.
   function can(screen: string, _action: PermissionAction = "view") {
-    if (isAdmin) return true;
     return allowedScreens.has(screen);
   }
 
