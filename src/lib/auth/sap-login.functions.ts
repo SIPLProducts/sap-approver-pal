@@ -413,6 +413,7 @@ export const sapLogin = createServerFn({ method: "POST" })
         const body = parseResponseBody(rawText);
         const bodyRecord = asRecord(body);
         ok = (res.ok && !sapLoginRejected(body)) || sapLoginSucceeded(body);
+        if (ok) profile = extractSapProfile(body);
         status = statusValue(bodyRecord?.status) ?? res.status;
         message = `${res.status} ${res.statusText}`;
         if (!ok) {
