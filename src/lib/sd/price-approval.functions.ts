@@ -191,7 +191,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
             headers,
             body: JSON.stringify({
               configId: cfg.id,
-              inputs: { PLANT: data.plant, USER_ID: userId },
+              inputs: { PLANT: plantArray, USER_ID: userId },
             }),
           });
           target = fallback;
