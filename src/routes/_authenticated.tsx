@@ -106,6 +106,7 @@ function AuthenticatedLayout() {
     { to: "/sd/contract", label: "Contract Approvals", icon: FileText, screen: "approvals.inbox.sd" },
     { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2, screen: "approvals.inbox.sd" },
     { to: "/sd/sales-order", label: "Sales Order Approvals", icon: ShoppingCart, screen: "approvals.inbox.sd" },
+    { to: "/sd/bmw-status", label: "BMW Status Report", icon: BarChart3, screen: "approvals.inbox.sd" },
   ].filter((it) => can(it.screen));
 
   const showMm = can("approvals.inbox.mm");
