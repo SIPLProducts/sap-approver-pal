@@ -93,28 +93,15 @@ function PricePage() {
 
   const mutation = useMutation({
     mutationFn: async (vars: { plants: string[]; user_id: string }) => {
-      const allRows: PriceRow[] = [];
-      const errors: string[] = [];
-      let fetched_at: string | null = null;
-      // Serialize per-plant calls — middleware/SAP cannot reliably serve
-      // concurrent same-config calls (causes "Missing required field(s): PLANT").
-      for (const p of vars.plants) {
-        try {
-          const v: any = await fetchFn({
-            data: { plant: p, user_id: vars.user_id || undefined },
-          });
-          if (Array.isArray(v?.rows)) allRows.push(...v.rows);
-          if (v?.error) errors.push(`${p}: ${v.error}`);
-          if (v?.fetched_at) fetched_at = v.fetched_at;
-        } catch (e) {
-          errors.push(`${p}: ${(e as Error)?.message ?? "failed"}`);
-        }
-      }
+      const v: any = await fetchFn({
+        data: { plants: vars.plants, user_id: vars.user_id || undefined },
+      });
+      const rows = Array.isArray(v?.rows) ? (v.rows as PriceRow[]) : [];
       return {
-        rows: allRows,
-        count: allRows.length,
-        error: errors.length ? errors.join("; ") : null,
-        fetched_at: fetched_at ?? new Date().toISOString(),
+        rows,
+        count: rows.length,
+        error: v?.error ?? null,
+        fetched_at: v?.fetched_at ?? new Date().toISOString(),
       };
     },
     onSuccess: (res) => {
