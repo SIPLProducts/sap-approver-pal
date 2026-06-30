@@ -104,7 +104,6 @@ function SalesOrderPage() {
   useEffect(() => { if (__ap && plants.length === 0) setPlants([__ap]); /* eslint-disable-next-line */ }, [__ap]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
-  const [customerTo, setCustomerTo] = useState("");
   const [status, setStatusState] = useState<Status>(urlStatus);
   const [rows, setRows] = useState<SalesOrderRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -168,7 +167,7 @@ function SalesOrderPage() {
       plants,
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
-      customer_to: customerTo.trim() || customerFrom.trim(),
+      customer_to: customerFrom.trim(),
       status: s,
     });
   }
@@ -365,20 +364,10 @@ function SalesOrderPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Customer From</Label>
+            <Label className="text-xs">Customer</Label>
             <Input
               value={customerFrom}
               onChange={(e) => setCustomerFrom(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="optional"
-              className="h-9 font-mono"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Customer To</Label>
-            <Input
-              value={customerTo}
-              onChange={(e) => setCustomerTo(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && execute()}
               placeholder="optional"
               className="h-9 font-mono"
