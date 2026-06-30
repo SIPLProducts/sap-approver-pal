@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PlantSelect } from "@/components/sap/plant-select";
+import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   fetchPriceApprovals,
@@ -66,11 +66,11 @@ function PricePage() {
   });
 
   const { activePlant } = useActiveContext();
-  const [plant, setPlant] = useState(activePlant ?? "");
+  const [plants, setPlants] = useState<string[]>(activePlant ? [activePlant] : []);
   const [userId, setUserId] = useState("");
 
   useEffect(() => {
-    if (activePlant && !plant) setPlant(activePlant);
+    if (activePlant && plants.length === 0) setPlants([activePlant]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlant]);
 
@@ -92,8 +92,33 @@ function PricePage() {
   }>({ action: "accepted", messages: [], total: 0 });
 
   const mutation = useMutation({
-    mutationFn: (vars: { plant: string; user_id: string }) =>
-      fetchFn({ data: { plant: vars.plant, user_id: vars.user_id || undefined } }),
+    mutationFn: async (vars: { plants: string[]; user_id: string }) => {
+      const settled = await Promise.allSettled(
+        vars.plants.map((p) =>
+          fetchFn({ data: { plant: p, user_id: vars.user_id || undefined } }),
+        ),
+      );
+      const allRows: PriceRow[] = [];
+      const errors: string[] = [];
+      let fetched_at: string | null = null;
+      settled.forEach((r, i) => {
+        const p = vars.plants[i];
+        if (r.status === "fulfilled") {
+          const v: any = r.value;
+          if (Array.isArray(v?.rows)) allRows.push(...v.rows);
+          if (v?.error) errors.push(`${p}: ${v.error}`);
+          if (v?.fetched_at) fetched_at = v.fetched_at;
+        } else {
+          errors.push(`${p}: ${(r.reason as Error)?.message ?? "failed"}`);
+        }
+      });
+      return {
+        rows: allRows,
+        count: allRows.length,
+        error: errors.length ? errors.join("; ") : null,
+        fetched_at: fetched_at ?? new Date().toISOString(),
+      };
+    },
     onSuccess: (res) => {
       setRows(res.rows);
       setDecided({});
@@ -110,16 +135,15 @@ function PricePage() {
 
 
   function execute() {
-    const p = plant.trim();
-    if (!p) {
-      toast.error("Plant is required");
+    if (plants.length === 0) {
+      toast.error("Select at least one plant");
       return;
     }
-    mutation.mutate({ plant: p, user_id: userId.trim() });
+    mutation.mutate({ plants, user_id: userId.trim() });
   }
 
   function reset() {
-    setPlant("");
+    setPlants([]);
     setUserId(userIdData?.sap_user_id ?? "");
     setRows([]);
     setDecided({});
