@@ -28,8 +28,9 @@ type ColGroup =
   | "ph_sales"
   | "sales"
   | "release_s"
-  | "billing";
-type ColDef = { key: string; label: string; type: ColType; group: ColGroup };
+  | "billing"
+  | "extra";
+type ColDef = { key: string; label: string; type: ColType; group: ColGroup; aliases?: string[] };
 
 const CORE_COLS: ColDef[] = [
   { key: "COMPANY_CODE", label: "Company Code", type: "text", group: "core" },
@@ -43,14 +44,14 @@ const CORE_COLS: ColDef[] = [
 const BP_COLS: ColDef[] = [
   { key: "BP_CUS_GROUP", label: "Cust. Group", type: "text", group: "bp" },
   { key: "BP_PRICE_GROUP", label: "Price Group", type: "text", group: "bp" },
-  { key: "BP_SERVICE_VALID_FROM", label: "Srv Valid From", type: "date", group: "bp" },
-  { key: "BP_SERVICE_VALID_TO", label: "Srv Valid To", type: "date", group: "bp" },
-  { key: "BP_SERVICE_START_DATE", label: "Srv Start Date", type: "date", group: "bp" },
+  { key: "BP_SERVICE_VALID_FROM", aliases: ["BP_SRV_VALID_FROM"], label: "Srv Valid From", type: "date", group: "bp" },
+  { key: "BP_SERVICE_VALID_TO", aliases: ["BP_SRV_VALID_TO"], label: "Srv Valid To", type: "date", group: "bp" },
+  { key: "BP_SERVICE_START_DATE", aliases: ["BP_SRV_START_DATE"], label: "Srv Start Date", type: "date", group: "bp" },
   { key: "BP_REG_DATE", label: "Reg. Date", type: "date", group: "bp" },
   { key: "BP_UPPER_SLAB", label: "Upper Slab", type: "decimal3", group: "bp" },
-  { key: "BP_NO_BEDS_INV", label: "Beds to Invoice", type: "int", group: "bp" },
-  { key: "BP_AGR_FROM", label: "Agr. Valid From", type: "date", group: "bp" },
-  { key: "BP_AGR_TO", label: "Agr. Valid To", type: "date", group: "bp" },
+  { key: "BP_NO_BEDS_INV", aliases: ["BP_NO_BEDS_INVOICE"], label: "Beds to Invoice", type: "int", group: "bp" },
+  { key: "BP_AGR_FROM", aliases: ["BP_AGR_VALID_FROM"], label: "Agr. Valid From", type: "date", group: "bp" },
+  { key: "BP_AGR_TO", aliases: ["BP_AGR_VALID_TO"], label: "Agr. Valid To", type: "date", group: "bp" },
   { key: "BP_ACTIVE_INACTIVE", label: "Status", type: "status", group: "bp" },
   { key: "BP_FIXED_RATE", label: "Fixed Rate", type: "currency2", group: "bp" },
   { key: "BP_PER_BED_RATE", label: "Per Bed Rate", type: "currency2", group: "bp" },
@@ -65,22 +66,22 @@ const MBD_COLS: ColDef[] = [
 const CONTRACT_COLS: ColDef[] = [
   { key: "CONTRACT_NO", label: "Contract No", type: "text", group: "contract" },
   { key: "CONTRACT_ITEM", label: "Item", type: "int", group: "contract" },
-  { key: "CONTRACT_DATE", label: "Create Date", type: "date", group: "contract" },
+  { key: "CONTRACT_DATE", aliases: ["CONTRACT_CREATE_DATE"], label: "Create Date", type: "date", group: "contract" },
   { key: "CONTRACT_CREATED_BY", label: "Created By", type: "text", group: "contract" },
   { key: "MATERIAL_CODE", label: "Material Code", type: "text", group: "contract" },
-  { key: "CONTRACT_NET_VALUE", label: "Net Value", type: "currency2", group: "contract" },
-  { key: "CONTRACT_TAX", label: "Tax", type: "currency2", group: "contract" },
-  { key: "CONTRACT_TOTAL", label: "Total", type: "currency2", group: "contract" },
+  { key: "CONTRACT_NET_VALUE", aliases: ["NET_VALUE"], label: "Net Value", type: "currency2", group: "contract" },
+  { key: "CONTRACT_TAX", aliases: ["TAX"], label: "Tax", type: "currency2", group: "contract" },
+  { key: "CONTRACT_TOTAL", aliases: ["TOTAL"], label: "Total", type: "currency2", group: "contract" },
   { key: "CON_CUS_GROUP", label: "Con Cust. Group", type: "text", group: "contract" },
   { key: "CON_PRICE_GROUP", label: "Con Price Group", type: "text", group: "contract" },
-  { key: "CON_SERVICE_VALID_FRM", label: "Con Srv Valid From", type: "date", group: "contract" },
-  { key: "CON_SERVICE_VALID_TO", label: "Con Srv Valid To", type: "date", group: "contract" },
-  { key: "CON_SERVICE_START_DT", label: "Con Srv Start", type: "date", group: "contract" },
+  { key: "CON_SERVICE_VALID_FRM", aliases: ["CON_SRV_VALID_FROM"], label: "Con Srv Valid From", type: "date", group: "contract" },
+  { key: "CON_SERVICE_VALID_TO", aliases: ["CON_SRV_VALID_TO"], label: "Con Srv Valid To", type: "date", group: "contract" },
+  { key: "CON_SERVICE_START_DT", aliases: ["CON_SRV_START_DATE"], label: "Con Srv Start", type: "date", group: "contract" },
   { key: "CON_REG_DATE", label: "Con Reg. Date", type: "date", group: "contract" },
   { key: "CON_UPPER_SLAB", label: "Con Upper Slab", type: "decimal3", group: "contract" },
-  { key: "CON_NO_BEDS_INV", label: "Con Beds to Invoice", type: "int", group: "contract" },
-  { key: "CON_AGR_FROM", label: "Con Agr. Valid From", type: "date", group: "contract" },
-  { key: "CON_AGR_TO", label: "Con Agr. Valid To", type: "date", group: "contract" },
+  { key: "CON_NO_BEDS_INV", aliases: ["CON_NO_BEDS_INVOICE"], label: "Con Beds to Invoice", type: "int", group: "contract" },
+  { key: "CON_AGR_FROM", aliases: ["CON_AGR_VALID_FROM"], label: "Con Agr. Valid From", type: "date", group: "contract" },
+  { key: "CON_AGR_TO", aliases: ["CON_AGR_VALID_TO"], label: "Con Agr. Valid To", type: "date", group: "contract" },
   { key: "CON_ACTIVE_INACTIVE", label: "Con Status", type: "status", group: "contract" },
   { key: "CON_FIXED_RATE", label: "Con Fixed Rate", type: "currency2", group: "contract" },
   { key: "CON_PER_BED_RATE", label: "Con Per Bed Rate", type: "currency2", group: "contract" },
@@ -181,12 +182,35 @@ const GROUP_META: Record<ColGroup, { label: string; className: string }> = {
   sales: { label: "Sales Order", className: "bg-teal-500/10" },
   release_s: { label: "Sales Releases", className: "bg-indigo-500/10" },
   billing: { label: "Billing", className: "bg-orange-500/10" },
+  extra: { label: "Other SAP Fields", className: "bg-muted/40" },
 };
 
 function isEmpty(v: unknown): boolean {
   if (v == null) return true;
   const s = String(v).trim();
-  return s === "" || s === "0000-00-00";
+  return s === "" || s === "0000-00-00" || s === "--";
+}
+
+function valueForColumn(row: BmwStatusRow, col: ColDef): unknown {
+  for (const key of [col.key, ...(col.aliases ?? [])]) {
+    const value = row[key];
+    if (!isEmpty(value)) return value;
+  }
+  return row[col.key];
+}
+
+function schemaWithSapExtras(schema: ColDef[], rows: BmwStatusRow[]): ColDef[] {
+  const known = new Set(schema.flatMap((c) => [c.key, ...(c.aliases ?? [])]));
+  const extra: ColDef[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      if (known.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      extra.push({ key, label: key, type: "text", group: "extra" });
+    }
+  }
+  return extra.length ? [...schema, ...extra] : schema;
 }
 
 function formatNumber(v: unknown, decimals: number): string | null {
@@ -266,6 +290,9 @@ function BmwStatusReportPage() {
   function execute() {
     if (!salesOrgFrom.trim()) return toast.error("Select Sales Organization From");
     if (!salesOrgTo.trim()) return toast.error("Select Sales Organization To");
+    setRows([]);
+    setLastFetchedAt(null);
+    setActiveMode(mode);
     mutation.mutate();
   }
 
@@ -283,7 +310,7 @@ function BmwStatusReportPage() {
   }
 
   const canExecute = !!salesOrgFrom && !!salesOrgTo && !mutation.isPending;
-  const schema = SCHEMAS[activeMode];
+  const schema = schemaWithSapExtras(SCHEMAS[activeMode], rows);
   const groupSpans = computeGroupSpans(schema);
 
   return (
@@ -448,7 +475,7 @@ function BmwStatusReportPage() {
                       <th
                         key={c.key}
                         className={`${align} font-semibold px-3 py-2 whitespace-nowrap border-b ${groupBoundary ? "border-l" : ""}`}
-                        title={c.key}
+                        title={[c.key, ...(c.aliases ?? [])].join(" / ")}
                       >
                         {c.label}
                       </th>
@@ -463,7 +490,7 @@ function BmwStatusReportPage() {
                     {schema.map((c, idx) => {
                       const prev = schema[idx - 1];
                       const groupBoundary = !prev || prev.group !== c.group;
-                      const raw = r[c.key];
+                      const raw = valueForColumn(r, c);
                       let content: React.ReactNode = "—";
                       let align = "text-left";
                       if (c.type === "date") {
