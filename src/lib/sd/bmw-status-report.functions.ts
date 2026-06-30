@@ -174,6 +174,7 @@ export const fetchBmwStatusReport = createServerFn({ method: "POST" })
     return {
       rows,
       columns,
+      mode: data.mode,
       fetched_at: new Date().toISOString(),
       count: rows.length,
       error: null as string | null,
