@@ -239,7 +239,7 @@ function PricePage() {
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
-            <PlantSelect value={plant} onChange={setPlant} />
+            <PlantMultiSelect value={plants} onChange={setPlants} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">USER_ID</Label>
@@ -252,7 +252,7 @@ function PricePage() {
           </div>
           <div />
           <div className="flex gap-2">
-            <Button size="sm" onClick={execute} disabled={!plant.trim() || mutation.isPending}>
+            <Button size="sm" onClick={execute} disabled={plants.length === 0 || mutation.isPending}>
               {mutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : (
