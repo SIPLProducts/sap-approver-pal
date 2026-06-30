@@ -111,7 +111,7 @@ export function PlantMultiSelect({
             <span className="flex-1 text-left truncate">{placeholder}</span>
           ) : (
             <div
-              className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap text-left no-scrollbar"
+              className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap text-left [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               onWheel={(e) => {
                 if (e.deltaY !== 0) {
                   e.currentTarget.scrollLeft += e.deltaY;
