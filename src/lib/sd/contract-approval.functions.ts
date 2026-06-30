@@ -154,9 +154,10 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
       bodyOut = JSON.stringify({ inputs });
       proxied = true;
     } else {
+      const firstPlant = data.plants[0];
       const join = cfg.endpoint_url.includes("?") ? "&" : "?";
       const qs =
-        `${join}PLANT=${encodeURIComponent(inputs.PLANT)}` +
+        `${join}PLANT=${encodeURIComponent(firstPlant)}` +
         `&CUSTOMER_FROM=${encodeURIComponent(inputs.CUSTOMER_FROM)}` +
         `&CUSTOMER_TO=${encodeURIComponent(inputs.CUSTOMER_TO)}` +
         `&USER_ID=${encodeURIComponent(inputs.USER_ID)}` +
