@@ -1,80 +1,26 @@
-# Plan: BMW Status Report screen (SD module)
+## Goal
+Stop the selected-plant chip list (`PlantMultiSelect`) from pushing the SELECTION SCREEN grid taller when multiple plants are picked. The Plant cell should keep the same row height as User ID / Customer / Execute, and any chip overflow should expand upward over the field or stay self-contained.
 
-Add a new report screen under SD Approvals, placed after "Sales Order Approvals" in the sidebar. Reuses the existing `approvals.inbox.sd` permission, so no DB or screen-keys changes.
+## Diagnosis
+In `src/components/sap/plant-multi-select.tsx`, the component renders the popover trigger and a `flex flex-wrap` chip row inside the same `<div className="space-y-2">`. The chip row is part of normal flow, so as more plants are added the Plant grid cell grows and (because the row uses `items-end`) the other fields visually drop. The selected codes are already shown comma-separated inside the trigger button itself, so the chip row is redundant detail rather than the primary readout.
 
-## 1. New server function — `src/lib/sd/bmw-status-report.functions.ts`
+## Change
+Edit `src/components/sap/plant-multi-select.tsx` only:
 
-`fetchBmwStatusReport` (createServerFn POST, `requireSupabaseAuth`):
-- Inputs: `plants: string[]`, `selection: "customer" | "contract" | "sales"`, `customer?: string`, `contract?: string`, `sales_document?: string`.
-- Loads the SAP API config named `BMW_Status_Report` (case-insensitive, `is_active`).
-- Builds payload `{ PLANT: plants.map(p => ({ plant: p })), SELECTION: <code>, CUSTOMER, CONTRACT, SALES_DOCUMENT, USER_ID }` (middleware will collapse single-plant arrays as it already does for other SD calls).
-- Calls SAP via the existing `runSapApi` helper / shared executor used by the other SD functions, returns `{ rows, error, fetched_at, debug }`.
-- If the config is missing/inactive, returns `{ rows: [], error: "BMW_Status_Report API is not configured in SAP API Settings" }` instead of throwing — keeps the screen usable until an admin wires it.
+1. Wrap the existing `Popover` + chips in a `relative` container so chip overflow can be positioned out of flow.
+2. Render the chip strip as an `absolute` element anchored to the bottom of the trigger and growing upward:
+   - `absolute bottom-full left-0 right-0 mb-1`
+   - `flex flex-wrap gap-1 justify-start`
+   - keep current chip styling (rounded pill, `X` remove button)
+   - add a subtle container background (`bg-popover/95 backdrop-blur border rounded-md p-1 shadow-sm`) only when 1+ chips exist, so chips read clearly when they float over the label above.
+3. Remove the in-flow `space-y-2` wrapper gap so the trigger height matches sibling inputs exactly.
+4. Keep the trigger's truncated comma-separated summary as the always-visible readout — chips become an expandable detail that floats above without resizing the grid row.
+5. Cap chip area height with `max-h-24 overflow-y-auto` so an extreme selection doesn't cover the whole form; it scrolls within its own floating area.
 
-## 2. New route — `src/routes/_authenticated/sd.bmw-status-report.tsx`
+No changes to:
+- The four SD route files (`sd.contract.tsx`, `sd.price.tsx`, `sd.sales-order.tsx`, `sd.sc-so.tsx`)
+- `sd-approval-shell.tsx`
+- Server functions, middleware, or DB
 
-File path maps to URL `/sd/bmw-status-report`, route id `/_authenticated/sd/bmw-status-report`.
-
-Layout mirrors `sd.sales-order.tsx` selection card:
-
-- Title: "BMW Status Report", subtitle "Fetch BMW status data live from SAP via BMW_Status_Report.", badge `ZBMW_STATUS_RPT`.
-- Selection card grid (`md:grid-cols-3 lg:grid-cols-5`) fields:
-  - **Sales Organization** *(required)* — `PlantMultiSelect` (this is the F4 Plant helper already used across SD; same component, same label semantics).
-  - **Customer** — `<Input>` (enabled only when selection = customer).
-  - **Contract Number** — `<Input>` (enabled only when selection = contract).
-  - **Sales Document** — `<Input>` (enabled only when selection = sales). Shown only when "Sales-wise" is chosen; hidden in the other two modes to keep the grid tidy. (Field added implicitly by the "Sales-wise" radio — user didn't list it but the radio needs an input.)
-  - Execute + Reset buttons.
-- Radio row below the grid (same divider treatment as Sales Order screen) with three options:
-  - Customer-wise Selection (default)
-  - Contract-wise Selection
-  - Sales-wise Selection
-  - Switching the radio clears the other inputs and disables them.
-- Execute disabled until at least one plant is chosen AND the active selection field is non-empty.
-
-### Result table
-
-`Card` with horizontal scroll, sticky header, max-h-[60vh]. Columns (in the exact order the user listed):
-
-```
-Company Code, Sales Organization, Customer Number, Customer Name,
-Distribution Channel, Division, BP Customer Group, BP Price Group,
-BP Service Valid From, BP Service Valid To, BP Service Start Date,
-BP Registration Date, BP Upper Slab Qty, BP Beds to Invoice,
-BP Agreement Valid From, BP Agreement Valid To, BP Active/Inactive,
-BP Fixed Rate, BP Per Bed Rate, BP Excess Qty Rate,
-Contract Number, Contract Item No, Contract Creation Date, Contract Created By,
-Material Code, Net Value, Tax Amount, Total Amount,
-Contract Customer Group, Contract Price Group,
-Contract Service Valid From, Contract Service Valid To,
-Contract Service Start Date, Contract Registration Date,
-Contract Upper Slab Qty, Contract Beds to Invoice,
-Contract Agreement Valid From, Contract Agreement Valid To,
-Contract Active/Inactive, Contract Fixed Rate,
-Contract Per Bed Rate, Contract Excess Qty Rate
-```
-
-Each column maps to a SAP field key (e.g. `BUKRS`, `VKORG`, `KUNNR`, `NAME1`, `VTWEG`, `SPART`, `KDGRP`, `KONDA`, `ZZ_BP_SERV_FROM`, etc.). Since SAP field names aren't confirmed, the row renderer reads each cell via a `pick(row, [...candidateKeys])` helper that tries common SAP aliases and falls back to `—`. Dates use the existing `fmtDate` helper (DDMMYYYY/ISO), numbers use `fmtNum`.
-
-Table header sticky, monospaced cells for codes, right-aligned for numeric columns. Empty state and loading spinner match the Sales Order screen.
-
-## 3. Sidebar entry — `src/routes/_authenticated.tsx`
-
-Append one item to the `sdChildren` array (after Sales Order Approvals):
-
-```ts
-{ to: "/sd/bmw-status-report", label: "BMW Status Report",
-  icon: FileBarChart, screen: "approvals.inbox.sd" },
-```
-
-Import `FileBarChart` from `lucide-react`. No other layout changes.
-
-## 4. No other changes
-
-- No DB migration, no screen-keys edit, no permission table change — reuses `approvals.inbox.sd`.
-- No edits to existing SD screens or `PlantMultiSelect`.
-- Admin still needs to create a SAP API config named `BMW_Status_Report` (Get + payload mapping) in **SAP API Settings** before Execute returns data; until then the screen renders an inline "API not configured" notice.
-
-## Risks / open items
-
-- SAP response field names are unknown; the renderer uses tolerant key lookup. Once you share a sample payload I can tighten the mappings.
-- "Sales-wise Selection" requires a Sales Document input — added implicitly. If you'd rather it filter by something else (e.g. date range), say so.
+## Risk
+The floating chip area visually overlaps the `Plant *` label above the trigger when many plants are selected. Acceptable per the user's request ("expand upward … without affecting the layout"); the trigger text still shows the same selection.
