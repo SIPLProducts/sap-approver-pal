@@ -1,26 +1,41 @@
-## Goal
-Stop the selected-plant chip list (`PlantMultiSelect`) from pushing the SELECTION SCREEN grid taller when multiple plants are picked. The Plant cell should keep the same row height as User ID / Customer / Execute, and any chip overflow should expand upward over the field or stay self-contained.
+## Goals
 
-## Diagnosis
-In `src/components/sap/plant-multi-select.tsx`, the component renders the popover trigger and a `flex flex-wrap` chip row inside the same `<div className="space-y-2">`. The chip row is part of normal flow, so as more plants are added the Plant grid cell grows and (because the row uses `items-end`) the other fields visually drop. The selected codes are already shown comma-separated inside the trigger button itself, so the chip row is redundant detail rather than the primary readout.
+1. **Plant multi-select**: keep selected values inside the trigger at a fixed height (no floating overlay, no row growth) — values scroll horizontally inside the field so the grid never shifts.
+2. **BMW Status Report**: split Sales Organization into two separate fields (From / To) and lay out the selection screen as a clean 4-column grid.
 
-## Change
-Edit `src/components/sap/plant-multi-select.tsx` only:
+## Changes
 
-1. Wrap the existing `Popover` + chips in a `relative` container so chip overflow can be positioned out of flow.
-2. Render the chip strip as an `absolute` element anchored to the bottom of the trigger and growing upward:
-   - `absolute bottom-full left-0 right-0 mb-1`
-   - `flex flex-wrap gap-1 justify-start`
-   - keep current chip styling (rounded pill, `X` remove button)
-   - add a subtle container background (`bg-popover/95 backdrop-blur border rounded-md p-1 shadow-sm`) only when 1+ chips exist, so chips read clearly when they float over the label above.
-3. Remove the in-flow `space-y-2` wrapper gap so the trigger height matches sibling inputs exactly.
-4. Keep the trigger's truncated comma-separated summary as the always-visible readout — chips become an expandable detail that floats above without resizing the grid row.
-5. Cap chip area height with `max-h-24 overflow-y-auto` so an extreme selection doesn't cover the whole form; it scrolls within its own floating area.
+### 1. `src/components/sap/plant-multi-select.tsx`
+- Remove the absolute floating chip strip (lines 93–113 wrapper + chip block).
+- Keep the trigger `Button` at `h-9`, but render the selected values as a single-line horizontally scrollable strip inside the trigger:
+  - Replace the `<span className="truncate text-left">{value.join(", ")}</span>` with a `<div className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap no-scrollbar text-left font-mono pr-2">` containing comma-separated codes.
+  - Keep `ChevronsUpDown` icon as `shrink-0` on the right so it stays anchored.
+  - Stop the wheel/drag from toggling the popover by adding `onClick`/`onPointerDown` `stopPropagation` only on the scroll strip when there are many items — simplest: leave the click behavior (clicking the trigger still opens popover) and just allow horizontal wheel/touch scroll inside.
+- Drop the outer `relative` wrapper; component returns the `Popover` directly so it occupies exactly one grid cell with no extra height above.
+- Net effect: the field never grows, the grid row never moves, and a user can horizontally scroll through all selected codes inside the input. Removal is still possible by re-opening the popover and unchecking — matches standard combobox UX.
 
-No changes to:
-- The four SD route files (`sd.contract.tsx`, `sd.price.tsx`, `sd.sales-order.tsx`, `sd.sc-so.tsx`)
-- `sd-approval-shell.tsx`
-- Server functions, middleware, or DB
+### 2. `src/routes/_authenticated/sd.bmw-status.tsx`
+Rework the selection-screen grid to four columns with two distinct Sales Organization fields:
+
+```text
+Row 1: [Sales Org From *] [Sales Org To *] [Customer From] [Customer To]
+Row 2: [Contract From   ] [Contract To   ] [Selection Type ............]
+Row 3: [Execute] [Reset]   (right-aligned action bar)
+```
+
+- Replace the single `PlantMultiSelect` (spanning all columns) with **two single-value pickers** — reuse the existing `PlantSelect` component (already in the project) for `Sales Org From` and `Sales Org To`. Each occupies one grid cell.
+- Remove the derived `salesOrgFrom` / `salesOrgTo` `useMemo` (no longer derived from a list) and replace with two `useState<string>` values, sent directly to the server fn.
+- Update the grid container to `grid gap-3 md:grid-cols-2 lg:grid-cols-4 items-end`, with the Selection Type radio group placed inline as a cell spanning `lg:col-span-2` on row 2.
+- Move Execute / Reset into a dedicated action row at the bottom of the card (right-aligned with `flex justify-end`), so the input grid stays a clean 4-column layout.
+- Validation: require both `salesOrgFrom` and `salesOrgTo` (toast errors if missing). Payload mapping in the server fn is unchanged — it already accepts `sales_org_from` / `sales_org_to`.
+
+### 3. Other SD approval screens
+The Plant multi-select fix in step 1 automatically resolves the "grid disturbance when selecting multiple plants" issue across `sd.contract.tsx`, `sd.price.tsx`, `sd.sales-order.tsx`, and `sd.sc-so.tsx` — no edits needed in those files because they all consume the same `PlantMultiSelect`.
+
+## Out of scope
+- No server-function / payload changes (`bmw-status-report.functions.ts` already accepts separate from/to values).
+- No DB or migration changes.
+- No styling changes beyond layout.
 
 ## Risk
-The floating chip area visually overlaps the `Plant *` label above the trigger when many plants are selected. Acceptable per the user's request ("expand upward … without affecting the layout"); the trigger text still shows the same selection.
+- Horizontally scrolling inside a button trigger is uncommon UX; clicking still opens the popover, which is the expected combobox behavior. Removing chips means users can't click an `X` on each chip — they remove via the popover checklist instead.
