@@ -1,51 +1,65 @@
 ## Goal
-Fix the `Missing required field(s): PLANT` 500 error that appears when fetching SD approvals with more than one plant selected.
+Send all selected plants in a single SAP call as an array of `{ plant }` objects, instead of fanning out one HTTP call per plant.
 
 ## Diagnosis
+The middleware currently receives `{ PLANT: "3806", USER_ID: "..." }` (a scalar) per fan-out call. SAP actually expects:
 
-When multi-plant fan-out runs, each plant is fetched with its own
-`{ inputs: { PLANT: "<code>", ... } }` body, so the client-side payload is
-correct. The error string comes from the standalone middleware
-(`middleware/server.js` → `buildRequestPayload` → "Missing required
-field(s): ...") which is reached via the proxy route for each plant.
+```json
+{ "PLANT": [{ "plant": "3801" }, { "plant": "3806" }], "USER_ID": "..." }
+```
 
-The client currently fans out with `Promise.allSettled(plants.map(...))`,
-i.e. *all plants in parallel*. The SAP middleware + SAP backend chain in this
-environment cannot reliably handle two concurrent calls for the same
-config/user — the second concurrent request observes an empty/overwritten
-input object and the field validator fails with "Missing required field(s):
-PLANT". Single-plant fetches work because there is no concurrency.
+The middleware's request-field mapper already supports array-of-objects via the `PLANT[].plant` field convention (see `buildRequestPayload` / `splitArrayField` in `middleware/server.js`) — it pulls `inputs.PLANT` and maps each element's `plant` leaf into the SAP payload. So all that's needed app-side is to stop fanning out and send the array shape SAP wants.
 
-## Fix — serialize fan-out
+## Changes
 
-In each of the four SD screens (`sd.contract.tsx`, `sd.price.tsx`,
-`sd.sales-order.tsx`, `sd.sc-so.tsx`), change the `mutationFn` from a
-parallel `Promise.allSettled(plants.map(...))` over `fetchFn(...)` to a
-sequential `for (const p of vars.plants) { try { ... } catch { ... } }`
-loop. Behaviour stays identical otherwise:
+### 1. Server functions — accept `plants: string[]` and send array
+For each of the four SD fetch server functions:
+- `src/lib/sd/contract-approval.functions.ts` — `fetchContractApprovals`
+- `src/lib/sd/sales-order-approval.functions.ts` — `fetchSalesOrderApprovals`
+- `src/lib/sd/sc-so-approval.functions.ts` — `fetchScSoApprovals`
+- `src/lib/sd/price-approval.functions.ts` — `fetchPriceApprovals`
 
-- accumulate rows from successful plants into a single array
-- collect per-plant error messages into the combined error string
-  (`"3801: <msg>; 3806: <msg>"`)
-- preserve `fetched_at`, the toast, and the existing row-merging shape
-- nothing on the SAP server functions or middleware changes
+Changes per function:
+- Replace input validator field `plant: z.string()…` with `plants: z.array(z.string().trim().min(1)).min(1, "At least one plant required")`.
+- Build `PLANT: data.plants.map((p) => ({ plant: p }))` in the proxy `inputs` payload.
+- Non-proxy (direct SAP) branch: same array shape in the JSON body; for GET querystring fallback, encode the first plant only and log a console warning that the direct-SAP path doesn't support multi-plant (proxy is the supported path).
+- Add `PLANT` to the rows where missing so the UI can display which plant each row came from.
 
-### Files
+### 2. Client — single call with array
+For each of the four SD screens:
+- `src/routes/_authenticated/sd.contract.tsx`
+- `src/routes/_authenticated/sd.price.tsx`
+- `src/routes/_authenticated/sd.sales-order.tsx`
+- `src/routes/_authenticated/sd.sc-so.tsx`
 
-- `src/routes/_authenticated/sd.contract.tsx` — `mutationFn`
-- `src/routes/_authenticated/sd.price.tsx` — `mutationFn`
-- `src/routes/_authenticated/sd.sales-order.tsx` — `mutationFn`
-- `src/routes/_authenticated/sd.sc-so.tsx` — `mutationFn`
+Replace the per-plant `for` loop in each `mutationFn` with one call:
+
+```ts
+const v: any = await fetchFn({
+  data: {
+    plants: vars.plants,           // <- array
+    user_id: vars.user_id,
+    customer_from: vars.customer_from,
+    customer_to: vars.customer_to,
+    status: vars.status,
+    // approval_type for sc-so
+  },
+});
+return {
+  rows: v?.rows ?? [],
+  count: (v?.rows ?? []).length,
+  error: v?.error ?? null,
+  fetched_at: v?.fetched_at ?? new Date().toISOString(),
+};
+```
+
+Keep "at least one plant" validation, the toast, and the rest of the UI unchanged.
 
 ## Non-goals
-- No changes to the SAP server functions, the middleware, or the DB.
-- No change to validation ("at least one plant"), pickers, or the
-  `sd-approval-shell.tsx` client-side filter.
+- No changes to the middleware (`middleware/server.js`) — its existing `PLANT[].plant` array mapping covers this.
+- No DB migration. The `sap_api_request_fields` rows for each fetch config must already use the `PLANT[].plant` array convention; if any config still has a scalar `PLANT` field, the user updates it in Admin → SAP API (out of scope for this code change).
+- No change to the approve/reject server functions.
+- No change to `sd-approval-shell.tsx` filter or admin screens.
 
-## Risk / trade-off
-Sequential fetching is slower than parallel for users selecting many
-plants — total time scales linearly with plant count instead of being
-dominated by the slowest single SAP call. This is the correct trade-off
-given the middleware/SAP cannot reliably serve concurrent requests.
-A future option is to add a small concurrency limit (e.g. `p-limit(1)` or
-`p-limit(2)`) once the middleware is hardened.
+## Risk
+If a particular fetch config's `sap_api_request_fields` still has a scalar `PLANT` row (instead of `PLANT[].plant`), middleware will throw "Missing required field(s): PLANT" again because it won't find a scalar `PLANT` in inputs. Fix is a one-row config edit per affected config — not a code change.

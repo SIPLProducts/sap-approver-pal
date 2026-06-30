@@ -86,7 +86,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
-      plant: z.string().min(1, "Plant is required").max(40),
+      plants: z.array(z.string().trim().min(1).max(40)).min(1, "At least one plant required"),
       user_id: z.string().trim().max(40).optional(),
     }).parse(d),
   )
@@ -121,8 +121,11 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
       "NEOBMWCONS";
 
     // Build target URL — endpoint already has ?sap-client=300, so append &.
+    // Direct-SAP (non-proxy) path supports only one plant via querystring.
+    const firstPlant = data.plants[0];
+    const plantArray = data.plants.map((p) => ({ plant: p }));
     const join = cfg.endpoint_url.includes("?") ? "&" : "?";
-    const qs = `${join}PLANT=${encodeURIComponent(data.plant)}&USER_ID=${encodeURIComponent(userId)}`;
+    const qs = `${join}PLANT=${encodeURIComponent(firstPlant)}&USER_ID=${encodeURIComponent(userId)}`;
 
     // Decide whether to proxy. Either:
     //   - per-config auth_type === 'proxy' (legacy), OR
@@ -153,7 +156,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
       bodyOut = JSON.stringify({
-        inputs: { PLANT: data.plant, USER_ID: userId },
+        inputs: { PLANT: plantArray, USER_ID: userId },
       });
       proxied = true;
     } else {
@@ -188,7 +191,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
             headers,
             body: JSON.stringify({
               configId: cfg.id,
-              inputs: { PLANT: data.plant, USER_ID: userId },
+              inputs: { PLANT: plantArray, USER_ID: userId },
             }),
           });
           target = fallback;

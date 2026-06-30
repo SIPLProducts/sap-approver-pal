@@ -163,35 +163,22 @@ function ScSoPage() {
       status: Status;
       approval_type: ApprovalType;
     }) => {
-      const allRows: ScSoRow[] = [];
-      const errors: string[] = [];
-      let fetched_at: string | null = null;
-      // Serialize per-plant calls — middleware/SAP cannot reliably serve
-      // concurrent same-config calls (causes "Missing required field(s): PLANT").
-      for (const p of vars.plants) {
-        try {
-          const v: any = await fetchFn({
-            data: {
-              plant: p,
-              user_id: vars.user_id,
-              customer_from: vars.customer_from,
-              customer_to: vars.customer_to,
-              status: vars.status,
-              approval_type: vars.approval_type,
-            },
-          });
-          if (Array.isArray(v?.rows)) allRows.push(...v.rows);
-          if (v?.error) errors.push(`${p}: ${v.error}`);
-          if (v?.fetched_at) fetched_at = v.fetched_at;
-        } catch (e) {
-          errors.push(`${p}: ${(e as Error)?.message ?? "failed"}`);
-        }
-      }
+      const v: any = await fetchFn({
+        data: {
+          plants: vars.plants,
+          user_id: vars.user_id,
+          customer_from: vars.customer_from,
+          customer_to: vars.customer_to,
+          status: vars.status,
+          approval_type: vars.approval_type,
+        },
+      });
+      const rows = Array.isArray(v?.rows) ? (v.rows as ScSoRow[]) : [];
       return {
-        rows: allRows,
-        count: allRows.length,
-        error: errors.length ? errors.join("; ") : null,
-        fetched_at: fetched_at ?? new Date().toISOString(),
+        rows,
+        count: rows.length,
+        error: v?.error ?? null,
+        fetched_at: v?.fetched_at ?? new Date().toISOString(),
       };
     },
     onSuccess: (res: any) => {
