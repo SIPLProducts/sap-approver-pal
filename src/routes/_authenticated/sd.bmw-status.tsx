@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
+import { PlantSelect } from "@/components/sap/plant-select";
 import {
   fetchBmwStatusReport,
   type BmwStatusRow,
@@ -26,7 +26,8 @@ export const Route = createFileRoute("/_authenticated/sd/bmw-status")({
 function BmwStatusReportPage() {
   const fetchFn = useServerFn(fetchBmwStatusReport);
 
-  const [salesOrgs, setSalesOrgs] = useState<string[]>([]);
+  const [salesOrgFrom, setSalesOrgFrom] = useState("");
+  const [salesOrgTo, setSalesOrgTo] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
   const [customerTo, setCustomerTo] = useState("");
   const [contractFrom, setContractFrom] = useState("");
@@ -37,21 +38,12 @@ function BmwStatusReportPage() {
   const [columns, setColumns] = useState<string[]>([]);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
-  const salesOrgFrom = useMemo(() => {
-    if (salesOrgs.length === 0) return "";
-    return [...salesOrgs].sort()[0];
-  }, [salesOrgs]);
-  const salesOrgTo = useMemo(() => {
-    if (salesOrgs.length === 0) return "";
-    return [...salesOrgs].sort()[salesOrgs.length - 1];
-  }, [salesOrgs]);
-
   const mutation = useMutation({
     mutationFn: async () => {
       const v: any = await fetchFn({
         data: {
-          sales_org_from: salesOrgFrom,
-          sales_org_to: salesOrgTo,
+          sales_org_from: salesOrgFrom.trim(),
+          sales_org_to: (salesOrgTo || salesOrgFrom).trim(),
           customer_from: customerFrom.trim(),
           customer_to: customerTo.trim(),
           contract_from: contractFrom.trim(),
@@ -73,12 +65,14 @@ function BmwStatusReportPage() {
   });
 
   function execute() {
-    if (salesOrgs.length === 0) return toast.error("Select at least one Sales Organization");
+    if (!salesOrgFrom.trim()) return toast.error("Select Sales Organization From");
+    if (!salesOrgTo.trim()) return toast.error("Select Sales Organization To");
     mutation.mutate();
   }
 
   function reset() {
-    setSalesOrgs([]);
+    setSalesOrgFrom("");
+    setSalesOrgTo("");
     setCustomerFrom("");
     setCustomerTo("");
     setContractFrom("");
@@ -89,7 +83,7 @@ function BmwStatusReportPage() {
     setLastFetchedAt(null);
   }
 
-  const canExecute = salesOrgs.length > 0 && !mutation.isPending;
+  const canExecute = !!salesOrgFrom && !!salesOrgTo && !mutation.isPending;
 
   return (
     <div className="space-y-5">
@@ -106,28 +100,32 @@ function BmwStatusReportPage() {
         </div>
       </div>
 
-      <Card className="p-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
+      <Card className="p-4 space-y-4">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-3 items-end">
-          <div className="space-y-1.5 md:col-span-3 lg:col-span-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 items-end">
+          <div className="space-y-1.5">
             <Label className="text-xs">
-              Sales Organization (From – To) <span className="text-destructive">*</span>
+              Sales Organization From <span className="text-destructive">*</span>
             </Label>
-            <PlantMultiSelect
-              value={salesOrgs}
-              onChange={setSalesOrgs}
-              placeholder="Select sales organizations…"
+            <PlantSelect
+              value={salesOrgFrom}
+              onChange={setSalesOrgFrom}
+              placeholder="Select…"
             />
-            {salesOrgs.length > 0 && (
-              <p className="text-[11px] text-muted-foreground font-mono">
-                FROM {salesOrgFrom} → TO {salesOrgTo}
-              </p>
-            )}
           </div>
-
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Sales Organization To <span className="text-destructive">*</span>
+            </Label>
+            <PlantSelect
+              value={salesOrgTo}
+              onChange={setSalesOrgTo}
+              placeholder="Select…"
+            />
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Customer From</Label>
             <Input
@@ -148,7 +146,6 @@ function BmwStatusReportPage() {
               className="h-9 font-mono"
             />
           </div>
-          <div />
 
           <div className="space-y-1.5">
             <Label className="text-xs">Contract From</Label>
@@ -170,43 +167,41 @@ function BmwStatusReportPage() {
               className="h-9 font-mono"
             />
           </div>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={execute} disabled={!canExecute}>
-              {mutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              Execute
-            </Button>
-            <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
-          </div>
-        </div>
-
-        <div className="mt-4 -mx-4 px-4 pt-3 border-t">
-          <div className="flex items-center gap-6 flex-wrap">
-            <Label className="text-xs text-muted-foreground">
+          <div className="space-y-1.5 md:col-span-2 lg:col-span-2">
+            <Label className="text-xs">
               Selection Type <span className="text-destructive">*</span>
             </Label>
             <RadioGroup
               value={mode}
               onValueChange={(v) => setMode(v as Mode)}
-              className="flex items-center gap-5"
+              className="flex items-center gap-5 h-9"
             >
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <RadioGroupItem value="customer" id="bmw-r-cus" />
-                Customer-wise Selection
+                Customer-wise
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <RadioGroupItem value="contract" id="bmw-r-cont" />
-                Contract-wise Selection
+                Contract-wise
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <RadioGroupItem value="sales" id="bmw-r-sales" />
-                Sales-wise Selection
+                Sales-wise
               </label>
             </RadioGroup>
           </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t">
+          <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
+          <Button size="sm" onClick={execute} disabled={!canExecute}>
+            {mutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            Execute
+          </Button>
         </div>
       </Card>
 
