@@ -116,7 +116,6 @@ function BmwStatusReportPage() {
   const [mode, setMode] = useState<Mode>("customer");
 
   const [rows, setRows] = useState<BmwStatusRow[]>([]);
-  const [columns, setColumns] = useState<string[]>([]);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
   const mutation = useMutation({
