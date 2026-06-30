@@ -158,7 +158,7 @@ function BmwStatusReportPage() {
     setContractTo("");
     setMode("customer");
     setRows([]);
-    setColumns([]);
+    setRows([]);
     setLastFetchedAt(null);
   }
 
