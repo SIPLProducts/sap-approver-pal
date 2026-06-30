@@ -301,26 +301,98 @@ function BmwStatusReportPage() {
               {mutation.isPending ? "Fetching…" : "No data. Set filters and click Execute."}
             </div>
           ) : (
-            <table className="w-full text-xs">
-              <thead className="bg-muted/50 border-b sticky top-0 z-10">
+            <table className="w-full text-xs border-collapse">
+              <thead className="sticky top-0 z-10">
                 <tr>
-                  <th className="text-left font-semibold px-3 py-2 w-10">#</th>
-                  {columns.map((c) => (
-                    <th key={c} className="text-left font-semibold px-3 py-2 whitespace-nowrap">
-                      {c}
-                    </th>
-                  ))}
+                  <th rowSpan={2} className="text-left font-semibold px-3 py-2 w-10 bg-muted/70 border-b align-bottom">
+                    #
+                  </th>
+                  {(["core", "bp", "contract"] as ColGroup[]).map((g) => {
+                    const span = COLUMN_SCHEMA.filter((c) => c.group === g).length;
+                    const meta = GROUP_META[g];
+                    return (
+                      <th
+                        key={g}
+                        colSpan={span}
+                        className={`text-center font-semibold px-3 py-1.5 border-b border-l text-[11px] uppercase tracking-wide ${meta.className}`}
+                      >
+                        {meta.label}
+                      </th>
+                    );
+                  })}
+                </tr>
+                <tr className="bg-muted/50">
+                  {COLUMN_SCHEMA.map((c, idx) => {
+                    const prev = COLUMN_SCHEMA[idx - 1];
+                    const groupBoundary = !prev || prev.group !== c.group;
+                    const align =
+                      c.type === "decimal3" || c.type === "currency2" || c.type === "int"
+                        ? "text-right"
+                        : "text-left";
+                    return (
+                      <th
+                        key={c.key}
+                        className={`${align} font-semibold px-3 py-2 whitespace-nowrap border-b ${groupBoundary ? "border-l" : ""}`}
+                        title={c.key}
+                      >
+                        {c.label}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={i} className="border-b last:border-0 hover:bg-accent/40">
                     <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
-                    {columns.map((c) => (
-                      <td key={c} className="px-3 py-2 whitespace-nowrap font-mono">
-                        {r[c] == null || r[c] === "" ? "—" : String(r[c])}
-                      </td>
-                    ))}
+                    {COLUMN_SCHEMA.map((c, idx) => {
+                      const prev = COLUMN_SCHEMA[idx - 1];
+                      const groupBoundary = !prev || prev.group !== c.group;
+                      const raw = r[c.key];
+                      let content: React.ReactNode = "—";
+                      let align = "text-left";
+                      if (c.type === "date") {
+                        const f = formatDate(raw);
+                        if (f) content = f;
+                      } else if (c.type === "decimal3") {
+                        align = "text-right tabular-nums";
+                        const f = formatNumber(raw, 3);
+                        if (f) content = f;
+                      } else if (c.type === "currency2") {
+                        align = "text-right tabular-nums";
+                        const f = formatNumber(raw, 2);
+                        if (f) content = f;
+                      } else if (c.type === "int") {
+                        align = "text-right tabular-nums";
+                        if (!isEmpty(raw)) {
+                          const n = parseInt(String(raw).trim(), 10);
+                          if (Number.isFinite(n)) content = String(n);
+                        }
+                      } else if (c.type === "status") {
+                        if (!isEmpty(raw)) {
+                          const s = String(raw).trim();
+                          const active = s === "01";
+                          content = (
+                            <Badge
+                              variant={active ? "default" : "secondary"}
+                              className="text-[10px] px-1.5 py-0"
+                            >
+                              {active ? "Active" : "Inactive"}
+                            </Badge>
+                          );
+                        }
+                      } else {
+                        if (!isEmpty(raw)) content = String(raw).trim();
+                      }
+                      return (
+                        <td
+                          key={c.key}
+                          className={`px-3 py-2 whitespace-nowrap ${align} ${groupBoundary ? "border-l" : ""}`}
+                        >
+                          {content}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
