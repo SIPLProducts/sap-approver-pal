@@ -121,8 +121,11 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
       "NEOBMWCONS";
 
     // Build target URL — endpoint already has ?sap-client=300, so append &.
+    // Direct-SAP (non-proxy) path supports only one plant via querystring.
+    const firstPlant = data.plants[0];
+    const plantArray = data.plants.map((p) => ({ plant: p }));
     const join = cfg.endpoint_url.includes("?") ? "&" : "?";
-    const qs = `${join}PLANT=${encodeURIComponent(data.plant)}&USER_ID=${encodeURIComponent(userId)}`;
+    const qs = `${join}PLANT=${encodeURIComponent(firstPlant)}&USER_ID=${encodeURIComponent(userId)}`;
 
     // Decide whether to proxy. Either:
     //   - per-config auth_type === 'proxy' (legacy), OR
