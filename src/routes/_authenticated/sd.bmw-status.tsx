@@ -136,7 +136,6 @@ function BmwStatusReportPage() {
     onSuccess: (res: any) => {
       const r = Array.isArray(res?.rows) ? (res.rows as BmwStatusRow[]) : [];
       setRows(r);
-      setColumns(Array.isArray(res?.columns) ? res.columns : r.length > 0 ? Object.keys(r[0]) : []);
       setLastFetchedAt(res?.fetched_at ?? new Date().toISOString());
       if (res?.error) toast.error(res.error);
       else toast.success(`Loaded ${r.length} record${r.length === 1 ? "" : "s"} from SAP`);
