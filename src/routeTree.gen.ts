@@ -20,6 +20,7 @@ import { Route as AuthenticatedSdScSoRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedSdSalesOrderRouteImport } from './routes/_authenticated/sd.sales-order'
 import { Route as AuthenticatedSdPriceRouteImport } from './routes/_authenticated/sd.price'
 import { Route as AuthenticatedSdContractRouteImport } from './routes/_authenticated/sd.contract'
+import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
 import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
 import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
@@ -87,6 +88,12 @@ const AuthenticatedSdContractRoute = AuthenticatedSdContractRouteImport.update({
   path: '/sd/contract',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSdBmwStatusRoute =
+  AuthenticatedSdBmwStatusRouteImport.update({
+    id: '/sd/bmw-status',
+    path: '/sd/bmw-status',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInboxModuleRoute =
   AuthenticatedInboxModuleRouteImport.update({
     id: '/inbox/$module',
@@ -155,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
   '/sd/price': typeof AuthenticatedSdPriceRoute
   '/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
@@ -177,6 +185,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
   '/sd/price': typeof AuthenticatedSdPriceRoute
   '/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
@@ -201,6 +210,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/_authenticated/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/_authenticated/sd/contract': typeof AuthenticatedSdContractRoute
   '/_authenticated/sd/price': typeof AuthenticatedSdPriceRoute
   '/_authenticated/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/approval/$id'
     | '/inbox/$module'
+    | '/sd/bmw-status'
     | '/sd/contract'
     | '/sd/price'
     | '/sd/sales-order'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/approval/$id'
     | '/inbox/$module'
+    | '/sd/bmw-status'
     | '/sd/contract'
     | '/sd/price'
     | '/sd/sales-order'
@@ -270,6 +282,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/users'
     | '/_authenticated/approval/$id'
     | '/_authenticated/inbox/$module'
+    | '/_authenticated/sd/bmw-status'
     | '/_authenticated/sd/contract'
     | '/_authenticated/sd/price'
     | '/_authenticated/sd/sales-order'
@@ -370,6 +383,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSdContractRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/sd/bmw-status': {
+      id: '/_authenticated/sd/bmw-status'
+      path: '/sd/bmw-status'
+      fullPath: '/sd/bmw-status'
+      preLoaderRoute: typeof AuthenticatedSdBmwStatusRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inbox/$module': {
       id: '/_authenticated/inbox/$module'
       path: '/inbox/$module'
@@ -452,6 +472,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
   AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
+  AuthenticatedSdBmwStatusRoute: typeof AuthenticatedSdBmwStatusRoute
   AuthenticatedSdContractRoute: typeof AuthenticatedSdContractRoute
   AuthenticatedSdPriceRoute: typeof AuthenticatedSdPriceRoute
   AuthenticatedSdSalesOrderRoute: typeof AuthenticatedSdSalesOrderRoute
@@ -470,6 +491,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
   AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
+  AuthenticatedSdBmwStatusRoute: AuthenticatedSdBmwStatusRoute,
   AuthenticatedSdContractRoute: AuthenticatedSdContractRoute,
   AuthenticatedSdPriceRoute: AuthenticatedSdPriceRoute,
   AuthenticatedSdSalesOrderRoute: AuthenticatedSdSalesOrderRoute,
