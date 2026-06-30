@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { PlantSelect } from "@/components/sap/plant-select";
+import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   fetchContractApprovals,
@@ -82,8 +82,8 @@ function ContractPage() {
   const decisionFn = useServerFn(submitContractDecision);
 
   const { activePlant: __ap } = useActiveContext();
-  const [plant, setPlant] = useState(__ap ?? "");
-  useEffect(() => { if (__ap && !plant) setPlant(__ap); /* eslint-disable-next-line */ }, [__ap]);
+  const [plants, setPlants] = useState<string[]>(__ap ? [__ap] : []);
+  useEffect(() => { if (__ap && plants.length === 0) setPlants([__ap]); /* eslint-disable-next-line */ }, [__ap]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
   const [customerTo, setCustomerTo] = useState("");
@@ -109,13 +109,47 @@ function ContractPage() {
   }>({ action: "accepted", messages: [], total: 0 });
 
   const mutation = useMutation({
-    mutationFn: (vars: {
-      plant: string;
+    mutationFn: async (vars: {
+      plants: string[];
       user_id: string;
       customer_from: string;
       customer_to: string;
       status: Status;
-    }) => fetchFn({ data: vars }),
+    }) => {
+      const settled = await Promise.allSettled(
+        vars.plants.map((p) =>
+          fetchFn({
+            data: {
+              plant: p,
+              user_id: vars.user_id,
+              customer_from: vars.customer_from,
+              customer_to: vars.customer_to,
+              status: vars.status,
+            },
+          }),
+        ),
+      );
+      const allRows: ContractRow[] = [];
+      const errors: string[] = [];
+      let fetched_at: string | null = null;
+      settled.forEach((r, i) => {
+        const p = vars.plants[i];
+        if (r.status === "fulfilled") {
+          const v: any = r.value;
+          if (Array.isArray(v?.rows)) allRows.push(...v.rows);
+          if (v?.error) errors.push(`${p}: ${v.error}`);
+          if (v?.fetched_at) fetched_at = v.fetched_at;
+        } else {
+          errors.push(`${p}: ${(r.reason as Error)?.message ?? "failed"}`);
+        }
+      });
+      return {
+        rows: allRows,
+        count: allRows.length,
+        error: errors.length ? errors.join("; ") : null,
+        fetched_at: fetched_at ?? new Date().toISOString(),
+      };
+    },
     onSuccess: (res) => {
       setRows(res.rows);
       setSelected(new Set());
@@ -128,10 +162,9 @@ function ContractPage() {
   });
 
   function fetchFor(s: Status) {
-    const p = plant.trim();
-    if (!p) return;
+    if (plants.length === 0) return;
     mutation.mutate({
-      plant: p,
+      plants,
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerTo.trim() || customerFrom.trim(),
@@ -140,7 +173,7 @@ function ContractPage() {
   }
 
   function execute() {
-    if (!plant.trim()) return toast.error("Plant is required");
+    if (plants.length === 0) return toast.error("Select at least one plant");
     fetchFor(status);
   }
 
@@ -148,11 +181,11 @@ function ContractPage() {
     setStatusState(s);
     setSelected(new Set());
     setReasons(new Map());
-    if (lastFetchedAt && plant.trim()) fetchFor(s);
+    if (lastFetchedAt && plants.length > 0) fetchFor(s);
   }
 
   function reset() {
-    setPlant("");
+    setPlants([]);
     setUserId("");
     setCustomerFrom("");
     setCustomerTo("");
@@ -163,7 +196,7 @@ function ContractPage() {
     setLastFetchedAt(null);
   }
 
-  const canExecute = !!plant.trim() && !mutation.isPending;
+  const canExecute = plants.length > 0 && !mutation.isPending;
 
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
   const allChecked = indexed.length > 0 && indexed.every(({ k }) => selected.has(k));
@@ -307,7 +340,7 @@ function ContractPage() {
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
-            <PlantSelect value={plant} onChange={setPlant} />
+            <PlantMultiSelect value={plants} onChange={setPlants} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">User ID</Label>
