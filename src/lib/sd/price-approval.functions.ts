@@ -156,7 +156,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
       bodyOut = JSON.stringify({
-        inputs: { PLANT: data.plant, USER_ID: userId },
+        inputs: { PLANT: plantArray, USER_ID: userId },
       });
       proxied = true;
     } else {
