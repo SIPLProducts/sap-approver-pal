@@ -93,25 +93,23 @@ function PricePage() {
 
   const mutation = useMutation({
     mutationFn: async (vars: { plants: string[]; user_id: string }) => {
-      const settled = await Promise.allSettled(
-        vars.plants.map((p) =>
-          fetchFn({ data: { plant: p, user_id: vars.user_id || undefined } }),
-        ),
-      );
       const allRows: PriceRow[] = [];
       const errors: string[] = [];
       let fetched_at: string | null = null;
-      settled.forEach((r, i) => {
-        const p = vars.plants[i];
-        if (r.status === "fulfilled") {
-          const v: any = r.value;
+      // Serialize per-plant calls — middleware/SAP cannot reliably serve
+      // concurrent same-config calls (causes "Missing required field(s): PLANT").
+      for (const p of vars.plants) {
+        try {
+          const v: any = await fetchFn({
+            data: { plant: p, user_id: vars.user_id || undefined },
+          });
           if (Array.isArray(v?.rows)) allRows.push(...v.rows);
           if (v?.error) errors.push(`${p}: ${v.error}`);
           if (v?.fetched_at) fetched_at = v.fetched_at;
-        } else {
-          errors.push(`${p}: ${(r.reason as Error)?.message ?? "failed"}`);
+        } catch (e) {
+          errors.push(`${p}: ${(e as Error)?.message ?? "failed"}`);
         }
-      });
+      }
       return {
         rows: allRows,
         count: allRows.length,
