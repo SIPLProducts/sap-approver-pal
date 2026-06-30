@@ -134,9 +134,14 @@ function SalesOrderPage() {
       customer_to: string;
       status: Status;
     }) => {
-      const settled = await Promise.allSettled(
-        vars.plants.map((p) =>
-          fetchFn({
+      const allRows: SalesOrderRow[] = [];
+      const errors: string[] = [];
+      let fetched_at: string | null = null;
+      // Serialize per-plant calls — middleware/SAP cannot reliably serve
+      // concurrent same-config calls (causes "Missing required field(s): PLANT").
+      for (const p of vars.plants) {
+        try {
+          const v: any = await fetchFn({
             data: {
               plant: p,
               user_id: vars.user_id,
@@ -144,23 +149,14 @@ function SalesOrderPage() {
               customer_to: vars.customer_to,
               status: vars.status,
             },
-          }),
-        ),
-      );
-      const allRows: SalesOrderRow[] = [];
-      const errors: string[] = [];
-      let fetched_at: string | null = null;
-      settled.forEach((r, i) => {
-        const p = vars.plants[i];
-        if (r.status === "fulfilled") {
-          const v: any = r.value;
+          });
           if (Array.isArray(v?.rows)) allRows.push(...v.rows);
           if (v?.error) errors.push(`${p}: ${v.error}`);
           if (v?.fetched_at) fetched_at = v.fetched_at;
-        } else {
-          errors.push(`${p}: ${(r.reason as Error)?.message ?? "failed"}`);
+        } catch (e) {
+          errors.push(`${p}: ${(e as Error)?.message ?? "failed"}`);
         }
-      });
+      }
       return {
         rows: allRows,
         count: allRows.length,

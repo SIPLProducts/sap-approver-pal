@@ -1,46 +1,51 @@
 ## Goal
-Allow selecting multiple plants in the Plant F4 picker on the SD approval screens, and fan out the SAP fetch so results are merged across all selected plants.
+Fix the `Missing required field(s): PLANT` 500 error that appears when fetching SD approvals with more than one plant selected.
 
-## Scope
-- `src/components/sd/sd-approval-shell.tsx` (shared shell used by SD screens)
-- `src/routes/_authenticated/sd.contract.tsx`
-- `src/routes/_authenticated/sd.price.tsx`
-- `src/routes/_authenticated/sd.sales-order.tsx`
-- `src/routes/_authenticated/sd.sc-so.tsx`
+## Diagnosis
 
-Out of scope: Admin → Users plant filter and the Users row-edit plant picker (those stay single-select / existing multi-select as-is).
+When multi-plant fan-out runs, each plant is fetched with its own
+`{ inputs: { PLANT: "<code>", ... } }` body, so the client-side payload is
+correct. The error string comes from the standalone middleware
+(`middleware/server.js` → `buildRequestPayload` → "Missing required
+field(s): ...") which is reached via the proxy route for each plant.
 
-## Changes
+The client currently fans out with `Promise.allSettled(plants.map(...))`,
+i.e. *all plants in parallel*. The SAP middleware + SAP backend chain in this
+environment cannot reliably handle two concurrent calls for the same
+config/user — the second concurrent request observes an empty/overwritten
+input object and the field validator fails with "Missing required field(s):
+PLANT". Single-plant fetches work because there is no concurrency.
 
-1. **Picker swap**
-   - Replace `PlantSelect` with the existing `PlantMultiSelect` in the shell and the four SD screens.
-   - State becomes `plants: string[]` instead of `plant: string`. Storage in `localStorage` (the "active plant" defaulting flow used today) keeps a single string; we'll derive the initial array from `[activePlant]` and let the user expand.
+## Fix — serialize fan-out
 
-2. **Validation**
-   - "At least one plant required" — disable the Execute/Fetch button when `plants.length === 0` and surface the existing toast message ("Plant is required" → "Select at least one plant").
+In each of the four SD screens (`sd.contract.tsx`, `sd.price.tsx`,
+`sd.sales-order.tsx`, `sd.sc-so.tsx`), change the `mutationFn` from a
+parallel `Promise.allSettled(plants.map(...))` over `fetchFn(...)` to a
+sequential `for (const p of vars.plants) { try { ... } catch { ... } }`
+loop. Behaviour stays identical otherwise:
 
-3. **Fan-out fetch (per screen)**
-   Each screen currently calls a single `fetchFor(plant)` style server fn. Replace with:
-   ```ts
-   const results = await Promise.all(
-     plants.map((p) => fetchFor({ ...inputs, plant: p }))
-   );
-   const rows = results.flatMap((r) => r.rows ?? []);
-   ```
-   - Preserve existing error handling: if any single plant call rejects, surface a toast naming the failed plant(s) but still render successful ones (Promise.allSettled).
-   - Dedupe rows by the screen's natural key (document number) when merging.
-   - `lastFetchedAt` / pagination / cached state shapes stay unchanged — only the row source is the merged array.
+- accumulate rows from successful plants into a single array
+- collect per-plant error messages into the combined error string
+  (`"3801: <msg>; 3806: <msg>"`)
+- preserve `fetched_at`, the toast, and the existing row-merging shape
+- nothing on the SAP server functions or middleware changes
 
-4. **Query keys**
-   - Update React Query keys from `["sd-...", plant, ...]` to `["sd-...", [...plants].sort().join(","), ...]` so re-selecting the same set hits cache.
+### Files
 
-5. **Row display**
-   - Add a "Plant" column (or ensure existing column is visible) on each screen so merged rows from different plants stay distinguishable. If the column already exists, no change.
+- `src/routes/_authenticated/sd.contract.tsx` — `mutationFn`
+- `src/routes/_authenticated/sd.price.tsx` — `mutationFn`
+- `src/routes/_authenticated/sd.sales-order.tsx` — `mutationFn`
+- `src/routes/_authenticated/sd.sc-so.tsx` — `mutationFn`
 
 ## Non-goals
-- No changes to SAP server functions themselves (they keep accepting a single plant).
-- No DB / migration changes.
-- No change to admin.users PlantSelect filter or to role/permission logic.
+- No changes to the SAP server functions, the middleware, or the DB.
+- No change to validation ("at least one plant"), pickers, or the
+  `sd-approval-shell.tsx` client-side filter.
 
-## Risks
-- Fan-out multiplies SAP calls; for users with many assigned plants this may be slow. We're capping nothing by default — flag for future throttling if needed.
+## Risk / trade-off
+Sequential fetching is slower than parallel for users selecting many
+plants — total time scales linearly with plant count instead of being
+dominated by the slowest single SAP call. This is the correct trade-off
+given the middleware/SAP cannot reliably serve concurrent requests.
+A future option is to add a small concurrency limit (e.g. `p-limit(1)` or
+`p-limit(2)`) once the middleware is hardened.
