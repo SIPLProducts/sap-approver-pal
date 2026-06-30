@@ -222,6 +222,7 @@ function BmwStatusReportPage() {
             <Label className="text-xs">Contract/sales created from</Label>
             <Input
               value={contractFrom}
+              type="date"
               onChange={(e) => setContractFrom(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && execute()}
               placeholder="optional"
@@ -232,6 +233,7 @@ function BmwStatusReportPage() {
             <Label className="text-xs">Contract/sales created to</Label>
             <Input
               value={contractTo}
+              type="date"
               onChange={(e) => setContractTo(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && execute()}
               placeholder="optional"
