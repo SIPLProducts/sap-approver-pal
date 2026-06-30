@@ -195,7 +195,6 @@ function SalesOrderPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
-    setCustomerTo("");
     setStatusState("pending");
     setRows([]);
     setSelected(new Set());
