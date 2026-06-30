@@ -19,6 +19,87 @@ import {
 
 type Mode = "customer" | "contract" | "sales";
 
+type ColType = "text" | "date" | "decimal3" | "currency2" | "int" | "status";
+type ColGroup = "core" | "bp" | "contract";
+type ColDef = { key: string; label: string; type: ColType; group: ColGroup };
+
+const COLUMN_SCHEMA: ColDef[] = [
+  { key: "COMPANY_CODE", label: "Company Code", type: "text", group: "core" },
+  { key: "SALES_ORG", label: "Sales Org", type: "text", group: "core" },
+  { key: "CUSTOMER", label: "Customer", type: "text", group: "core" },
+  { key: "CUSTOMER_NAME", label: "Customer Name", type: "text", group: "core" },
+  { key: "DIS_CHANNEL", label: "Dist. Channel", type: "text", group: "core" },
+  { key: "DIVISION", label: "Division", type: "text", group: "core" },
+
+  { key: "BP_CUS_GROUP", label: "Cust. Group", type: "text", group: "bp" },
+  { key: "BP_PRICE_GROUP", label: "Price Group", type: "text", group: "bp" },
+  { key: "BP_SRV_VALID_FROM", label: "Srv Valid From", type: "date", group: "bp" },
+  { key: "BP_SRV_VALID_TO", label: "Srv Valid To", type: "date", group: "bp" },
+  { key: "BP_SRV_START_DATE", label: "Srv Start Date", type: "date", group: "bp" },
+  { key: "BP_REG_DATE", label: "Reg. Date", type: "date", group: "bp" },
+  { key: "BP_UPPER_SLAB", label: "Upper Slab Qty", type: "decimal3", group: "bp" },
+  { key: "BP_NO_BEDS_INVOICE", label: "Beds to Invoice", type: "int", group: "bp" },
+  { key: "BP_AGR_VALID_FROM", label: "Agr. Valid From", type: "date", group: "bp" },
+  { key: "BP_AGR_VALID_TO", label: "Agr. Valid To", type: "date", group: "bp" },
+  { key: "BP_ACTIVE_INACTIVE", label: "Status", type: "status", group: "bp" },
+  { key: "BP_FIXED_RATE", label: "Fixed Rate", type: "decimal3", group: "bp" },
+  { key: "BP_PER_BED_RATE", label: "Per Bed Rate", type: "decimal3", group: "bp" },
+  { key: "BP_EXCESS_QTY_RATE", label: "Excess Qty Rate", type: "decimal3", group: "bp" },
+
+  { key: "CONTRACT_NO", label: "Contract No", type: "text", group: "contract" },
+  { key: "CONTRACT_ITEM", label: "Item", type: "int", group: "contract" },
+  { key: "CONTRACT_CREATE_DATE", label: "Create Date", type: "date", group: "contract" },
+  { key: "CONTRACT_CREATED_BY", label: "Created By", type: "text", group: "contract" },
+  { key: "MATERIAL_CODE", label: "Material Code", type: "text", group: "contract" },
+  { key: "NET_VALUE", label: "Net Value", type: "currency2", group: "contract" },
+  { key: "TAX", label: "Tax", type: "currency2", group: "contract" },
+  { key: "TOTAL", label: "Total", type: "currency2", group: "contract" },
+  { key: "CON_CUS_GROUP", label: "Con Cust. Group", type: "text", group: "contract" },
+  { key: "CON_PRICE_GROUP", label: "Con Price Group", type: "text", group: "contract" },
+  { key: "CON_SRV_VALID_FROM", label: "Con Srv Valid From", type: "date", group: "contract" },
+  { key: "CON_SRV_VALID_TO", label: "Con Srv Valid To", type: "date", group: "contract" },
+  { key: "CON_SRV_START_DATE", label: "Con Srv Start", type: "date", group: "contract" },
+  { key: "CON_REG_DATE", label: "Con Reg. Date", type: "date", group: "contract" },
+  { key: "CON_UPPER_SLAB", label: "Con Upper Slab", type: "decimal3", group: "contract" },
+  { key: "CON_NO_BEDS_INVOICE", label: "Con Beds to Invoice", type: "int", group: "contract" },
+  { key: "CON_AGR_VALID_FROM", label: "Con Agr. Valid From", type: "date", group: "contract" },
+  { key: "CON_AGR_VALID_TO", label: "Con Agr. Valid To", type: "date", group: "contract" },
+  { key: "CON_ACTIVE_INACTIVE", label: "Con Status", type: "status", group: "contract" },
+  { key: "CON_FIXED_RATE", label: "Con Fixed Rate", type: "decimal3", group: "contract" },
+  { key: "CON_PER_BED_RATE", label: "Con Per Bed Rate", type: "decimal3", group: "contract" },
+  { key: "CON_EXCESS_QTY_RATE", label: "Con Excess Qty Rate", type: "decimal3", group: "contract" },
+];
+
+const GROUP_META: Record<ColGroup, { label: string; className: string }> = {
+  core: { label: "Core", className: "bg-muted/60" },
+  bp: { label: "Business Partner", className: "bg-blue-500/10" },
+  contract: { label: "Contract", className: "bg-emerald-500/10" },
+};
+
+function isEmpty(v: unknown): boolean {
+  if (v == null) return true;
+  const s = String(v).trim();
+  return s === "" || s === "0000-00-00";
+}
+
+function formatNumber(v: unknown, decimals: number): string | null {
+  if (isEmpty(v)) return null;
+  const n = parseFloat(String(v).trim());
+  if (!Number.isFinite(n)) return null;
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function formatDate(v: unknown): string | null {
+  if (isEmpty(v)) return null;
+  const s = String(v).trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return s;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
 export const Route = createFileRoute("/_authenticated/sd/bmw-status")({
   component: BmwStatusReportPage,
 });
@@ -35,7 +116,6 @@ function BmwStatusReportPage() {
   const [mode, setMode] = useState<Mode>("customer");
 
   const [rows, setRows] = useState<BmwStatusRow[]>([]);
-  const [columns, setColumns] = useState<string[]>([]);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -56,7 +136,6 @@ function BmwStatusReportPage() {
     onSuccess: (res: any) => {
       const r = Array.isArray(res?.rows) ? (res.rows as BmwStatusRow[]) : [];
       setRows(r);
-      setColumns(Array.isArray(res?.columns) ? res.columns : r.length > 0 ? Object.keys(r[0]) : []);
       setLastFetchedAt(res?.fetched_at ?? new Date().toISOString());
       if (res?.error) toast.error(res.error);
       else toast.success(`Loaded ${r.length} record${r.length === 1 ? "" : "s"} from SAP`);
@@ -79,7 +158,6 @@ function BmwStatusReportPage() {
     setContractTo("");
     setMode("customer");
     setRows([]);
-    setColumns([]);
     setLastFetchedAt(null);
   }
 
@@ -223,26 +301,98 @@ function BmwStatusReportPage() {
               {mutation.isPending ? "Fetching…" : "No data. Set filters and click Execute."}
             </div>
           ) : (
-            <table className="w-full text-xs">
-              <thead className="bg-muted/50 border-b sticky top-0 z-10">
+            <table className="w-full text-xs border-collapse">
+              <thead className="sticky top-0 z-10">
                 <tr>
-                  <th className="text-left font-semibold px-3 py-2 w-10">#</th>
-                  {columns.map((c) => (
-                    <th key={c} className="text-left font-semibold px-3 py-2 whitespace-nowrap">
-                      {c}
-                    </th>
-                  ))}
+                  <th rowSpan={2} className="text-left font-semibold px-3 py-2 w-10 bg-muted/70 border-b align-bottom">
+                    #
+                  </th>
+                  {(["core", "bp", "contract"] as ColGroup[]).map((g) => {
+                    const span = COLUMN_SCHEMA.filter((c) => c.group === g).length;
+                    const meta = GROUP_META[g];
+                    return (
+                      <th
+                        key={g}
+                        colSpan={span}
+                        className={`text-center font-semibold px-3 py-1.5 border-b border-l text-[11px] uppercase tracking-wide ${meta.className}`}
+                      >
+                        {meta.label}
+                      </th>
+                    );
+                  })}
+                </tr>
+                <tr className="bg-muted/50">
+                  {COLUMN_SCHEMA.map((c, idx) => {
+                    const prev = COLUMN_SCHEMA[idx - 1];
+                    const groupBoundary = !prev || prev.group !== c.group;
+                    const align =
+                      c.type === "decimal3" || c.type === "currency2" || c.type === "int"
+                        ? "text-right"
+                        : "text-left";
+                    return (
+                      <th
+                        key={c.key}
+                        className={`${align} font-semibold px-3 py-2 whitespace-nowrap border-b ${groupBoundary ? "border-l" : ""}`}
+                        title={c.key}
+                      >
+                        {c.label}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={i} className="border-b last:border-0 hover:bg-accent/40">
                     <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
-                    {columns.map((c) => (
-                      <td key={c} className="px-3 py-2 whitespace-nowrap font-mono">
-                        {r[c] == null || r[c] === "" ? "—" : String(r[c])}
-                      </td>
-                    ))}
+                    {COLUMN_SCHEMA.map((c, idx) => {
+                      const prev = COLUMN_SCHEMA[idx - 1];
+                      const groupBoundary = !prev || prev.group !== c.group;
+                      const raw = r[c.key];
+                      let content: React.ReactNode = "—";
+                      let align = "text-left";
+                      if (c.type === "date") {
+                        const f = formatDate(raw);
+                        if (f) content = f;
+                      } else if (c.type === "decimal3") {
+                        align = "text-right tabular-nums";
+                        const f = formatNumber(raw, 3);
+                        if (f) content = f;
+                      } else if (c.type === "currency2") {
+                        align = "text-right tabular-nums";
+                        const f = formatNumber(raw, 2);
+                        if (f) content = f;
+                      } else if (c.type === "int") {
+                        align = "text-right tabular-nums";
+                        if (!isEmpty(raw)) {
+                          const n = parseInt(String(raw).trim(), 10);
+                          if (Number.isFinite(n)) content = String(n);
+                        }
+                      } else if (c.type === "status") {
+                        if (!isEmpty(raw)) {
+                          const s = String(raw).trim();
+                          const active = s === "01";
+                          content = (
+                            <Badge
+                              variant={active ? "default" : "secondary"}
+                              className="text-[10px] px-1.5 py-0"
+                            >
+                              {active ? "Active" : "Inactive"}
+                            </Badge>
+                          );
+                        }
+                      } else {
+                        if (!isEmpty(raw)) content = String(raw).trim();
+                      }
+                      return (
+                        <td
+                          key={c.key}
+                          className={`px-3 py-2 whitespace-nowrap ${align} ${groupBoundary ? "border-l" : ""}`}
+                        >
+                          {content}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
