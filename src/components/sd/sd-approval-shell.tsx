@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, Filter, RotateCcw } from "lucide-react";
-import { PlantSelect } from "@/components/sap/plant-select";
+import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import type { Database } from "@/integrations/supabase/types";
 
 type DocType = Database["public"]["Enums"]["document_type"];
@@ -46,7 +46,7 @@ export function SdApprovalShell({
   title, subtitle, tCode, levels, docType, columns, extraFilters, defaultExtra,
   status, onStatusChange,
 }: Props) {
-  const [plant, setPlant] = useState("");
+  const [plants, setPlants] = useState<string[]>([]);
   const [customer, setCustomer] = useState("");
   const [extra, setExtra] = useState<string[]>(defaultExtra ?? (extraFilters?.[0] ? [extraFilters[0].id] : []));
 
@@ -64,12 +64,15 @@ export function SdApprovalShell({
     },
   });
 
-  const filtered = useMemo(() => rows.filter((r) =>
-    (!plant || (r.plant ?? "").toLowerCase().includes(plant.toLowerCase())) &&
-    (!customer || (r.customer_name ?? "").toLowerCase().includes(customer.toLowerCase()) || (r.sap_doc_no ?? "").toLowerCase().includes(customer.toLowerCase()))
-  ), [rows, plant, customer]);
+  const filtered = useMemo(() => {
+    const plantSet = new Set(plants.map((p) => p.toLowerCase()));
+    return rows.filter((r) =>
+      (plantSet.size === 0 || plantSet.has((r.plant ?? "").toLowerCase())) &&
+      (!customer || (r.customer_name ?? "").toLowerCase().includes(customer.toLowerCase()) || (r.sap_doc_no ?? "").toLowerCase().includes(customer.toLowerCase()))
+    );
+  }, [rows, plants, customer]);
 
-  function reset() { setPlant(""); setCustomer(""); onStatusChange("pending"); }
+  function reset() { setPlants([]); setCustomer(""); onStatusChange("pending"); }
 
   function toggleExtra(id: string) {
     setExtra((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
@@ -98,7 +101,7 @@ export function SdApprovalShell({
         <div className="grid gap-3 md:grid-cols-[200px_240px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Plant</Label>
-            <PlantSelect value={plant} onChange={setPlant} />
+            <PlantMultiSelect value={plants} onChange={setPlants} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Customer / Doc No</Label>
