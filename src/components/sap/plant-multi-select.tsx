@@ -90,7 +90,27 @@ export function PlantMultiSelect({
   }
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("relative", className)}>
+      {value.length > 0 && (
+        <div className="absolute bottom-full left-0 right-0 mb-1 z-10 flex flex-wrap gap-1 rounded-md border bg-popover/95 backdrop-blur p-1 shadow-sm max-h-24 overflow-y-auto">
+          {value.map((p) => (
+            <span
+              key={p}
+              className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-xs font-mono"
+            >
+              {p}
+              <button
+                type="button"
+                onClick={() => toggle(p)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={`Remove ${p}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -191,26 +211,6 @@ export function PlantMultiSelect({
           </Command>
         </PopoverContent>
       </Popover>
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {value.map((p) => (
-            <span
-              key={p}
-              className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-xs font-mono"
-            >
-              {p}
-              <button
-                type="button"
-                onClick={() => toggle(p)}
-                className="text-muted-foreground hover:text-foreground"
-                aria-label={`Remove ${p}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
