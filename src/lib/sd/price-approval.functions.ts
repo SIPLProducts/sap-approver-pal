@@ -86,7 +86,7 @@ export const fetchPriceApprovals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
-      plant: z.string().min(1, "Plant is required").max(40),
+      plants: z.array(z.string().trim().min(1).max(40)).min(1, "At least one plant required"),
       user_id: z.string().trim().max(40).optional(),
     }).parse(d),
   )
