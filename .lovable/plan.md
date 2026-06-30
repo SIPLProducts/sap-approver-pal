@@ -1,34 +1,44 @@
-## Root cause
+## Diagnosis
 
-The app and Postman receive the **same** SAP payload — confirmed by `sap_api_sync_log` rows showing the raw `DATA[]` returned to the proxy. Postman shows the raw JSON, so it looks "correct". The React table renders `—` because the column-schema keys in `src/routes/_authenticated/sd.bmw-status.tsx` don't match the abbreviated keys SAP actually sends. No payload/request difference exists; this is purely a response-key mismatch on the client.
+The app is not rendering hardcoded dummy rows from the BMW screen. The recent backend logs show SAP/middleware returned those placeholder-looking rows for one request, while another request returned the expected detailed rows.
 
-## Fix
+I found two concrete causes:
 
-Update only the column-key constants in `src/routes/_authenticated/sd.bmw-status.tsx` to match the real SAP keys observed in production sync logs. No hardcoded data, no server-function changes, no admin-config changes.
+1. **Outbound payload mismatch**
+   - The BMW API config maps `CONTRACT_FROM` as `static`, so the value entered in the app is dropped before the middleware calls SAP.
+   - This can make SAP return broad/multiple placeholder records instead of the same filtered response seen in Postman.
 
-### Key remapping
+2. **Response key mismatch across modes**
+   - Customer-wise responses use keys like `BP_SRV_VALID_FROM`, `BP_NO_BEDS_INVOICE`, `CONTRACT_CREATE_DATE`, `NET_VALUE`, `CON_SRV_VALID_FROM`.
+   - Contract/Sales-wise responses use keys like `BP_SERVICE_VALID_FROM`, `BP_NO_BEDS_INV`, `CONTRACT_DATE`, `CONTRACT_NET_VALUE`, `CON_SERVICE_VALID_FRM`.
+   - The table currently only supports one variant for several columns, so valid SAP values can render as blanks/`—`.
 
-Business Partner group (`BP_COLS`):
-- `BP_REGISTRATION_DATE` → `BP_REG_DATE`
-- `BP_NO_BEDS_INVOICED` → `BP_NO_BEDS_INV`
-- `BP_AGREEMENT_VALID_FROM` → `BP_AGR_FROM`
-- `BP_AGREEMENT_VALID_TO` → `BP_AGR_TO`
+## Implementation plan
 
-Contract group (`CONTRACT_COLS`):
-- `CONT_CREATION_DATE` → `CONTRACT_DATE`
-- `CONT_CREATED_BY` → `CONTRACT_CREATED_BY`
-- `CON_SERVICE_VALID_FROM` → `CON_SERVICE_VALID_FRM`
-- `CON_SERVICE_START_DATE` → `CON_SERVICE_START_DT`
-- `CON_REGISTRATION_DATE` → `CON_REG_DATE`
-- `CON_NO_BEDS_INVOICED` → `CON_NO_BEDS_INV`
-- `CON_AGREEMENT_VALID_FROM` → `CON_AGR_FROM`
-- `CON_AGREEMENT_VALID_TO` → `CON_AGR_TO`
+1. **Correct the BMW request mapping**
+   - Update the BMW API request-field config so `CONTRACT_FROM` uses the app input value instead of a static blank.
+   - Keep `CONTRACT_TO`, customer fields, sales-org fields, and radio flags bound from app inputs.
+   - No hardcoded response/data rows will be added.
 
-Other groups (Core, MBD, releases `REL_n_C`/`STATUS_n_C`/`APP_REJ_DATE{n}_C`/`APP_REJ_REASON{n}_C`, PH, Service Cert, PH Sales, Sales Order, sales releases `REL_n`/`STATUS_n`/..., Billing) already match the sync-log keys and stay as-is.
+2. **Make the UI bind actual SAP keys for all three radio modes**
+   - Add column key aliases for known SAP response variants, for example:
+     - `BP_SERVICE_VALID_FROM` or `BP_SRV_VALID_FROM`
+     - `BP_NO_BEDS_INV` or `BP_NO_BEDS_INVOICE`
+     - `BP_AGR_FROM` or `BP_AGR_VALID_FROM`
+     - `CONTRACT_DATE` or `CONTRACT_CREATE_DATE`
+     - `CONTRACT_NET_VALUE` or `NET_VALUE`
+     - `CON_SERVICE_VALID_FRM` or `CON_SRV_VALID_FROM`
+   - Render the first non-empty matching value from the real API row.
 
-### Verification
+3. **Prevent stale/dummy-looking results from surviving a new search**
+   - Clear previous rows when Execute starts.
+   - Keep the table populated only from the latest server response.
 
-1. Re-run a Customer-mode search; BP and Contract columns should populate (e.g. `BP_REG_DATE` = `2024-01-12`, `BP_AGR_TO` = `2024-12-12`).
-2. Switch to Contract mode and confirm `REL_1_C`/`STATUS_1_C` populate when present.
-3. Switch to Sales Order mode and confirm Billing/Accounting docs render.
-4. Inspect `sap_api_sync_log` to confirm no new keys are introduced for sales-mode columns; adjust only if a real sales-mode response reveals further abbreviations.
+4. **Preserve all SAP-returned columns**
+   - Continue using mode-specific grouped headers for Customer, Contract, and Sales Order.
+   - Add a safe fallback for any real response columns not covered by the grouped schema, so newly introduced SAP fields can still be displayed instead of hidden.
+
+5. **Verify against the actual signal**
+   - Re-run Customer, Contract, and Sales Order searches.
+   - Compare the outgoing request fields and row counts in the sync log with what the table displays.
+   - Confirm no hardcoded/mock/dummy data is used anywhere in the BMW report path.
