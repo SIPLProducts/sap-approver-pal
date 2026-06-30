@@ -118,7 +118,7 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
     const custTo = (data.customer_to ?? "").trim() || custFrom;
 
     const inputs = {
-      PLANT: data.plant,
+      PLANT: data.plants.map((p) => ({ plant: p })),
       CUSTOMER_FROM: custFrom,
       CUSTOMER_TO: custTo,
       USER_ID: userId,
