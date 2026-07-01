@@ -171,14 +171,30 @@ function AuthenticatedLayout() {
             <>
               <button
                 type="button"
-                onClick={() => { if (collapsed) setCollapsed(false); setSdExpanded((v) => !v); }}
+                onClick={() => {
+                  if (collapsed) setCollapsed(false);
+                  setSdExpanded(true);
+                  setOpen(false);
+                  nav({ to: "/sd/price" });
+                }}
                 title="SD Approvals"
                 className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}
               >
                 {sdOpen && !collapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
                 <Truck className="h-4 w-4 shrink-0" />
                 {!collapsed && <span className="flex-1 text-left truncate">SD Approvals</span>}
-                {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />}
+                {!collapsed && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setSdExpanded((v) => !v); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setSdExpanded((v) => !v); } }}
+                    className="p-0.5 -mr-1 rounded hover:bg-sidebar-accent/60"
+                    aria-label={sdExpanded ? "Collapse" : "Expand"}
+                  >
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />
+                  </span>
+                )}
               </button>
               {sdExpanded && !collapsed && (
                 <div className="ml-5 pl-3 border-l border-sidebar-border/70 space-y-0.5 mt-0.5 mb-1">
