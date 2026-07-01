@@ -31,6 +31,13 @@ function AuthenticatedLayout() {
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("app.sidebarCollapsed") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("app.sidebarCollapsed", collapsed ? "1" : "0"); } catch {}
+  }, [collapsed]);
   const perms = usePermissions();
   const ctx = useActiveContext();
   const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
