@@ -81,6 +81,8 @@ function PricePage() {
   const [decided, setDecided] = useState<Record<string, "accepted" | "rejected">>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<number | "ALL">(10);
+  const [page, setPage] = useState(1);
 
   type SapMsg = { CUSTOMER?: string; TYPE?: string; MESSAGE?: string };
   const [resultOpen, setResultOpen] = useState(false);
