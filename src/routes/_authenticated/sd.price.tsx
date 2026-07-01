@@ -201,38 +201,20 @@ function PricePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Price Approvals</h1>
-          <p className="text-sm text-muted-foreground">
-            BMW VK11 condition approvals fetched live from SAP via Price_Approval_Fetch.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-mono text-xs">ZBMW_VK11_APP</Badge>
-          <Badge variant="secondary" className="text-xs">Single level</Badge>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Price Approvals</h1>
       </div>
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-        <div className="grid gap-3 md:grid-cols-[200px_220px_1fr_auto] items-end">
+        <div className="grid gap-3 md:grid-cols-[240px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
             <PlantMultiSelect value={plants} onChange={setPlants} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">USER_ID</Label>
-            <Input
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="SAP USER_ID"
-              className="h-9 font-mono"
-            />
           </div>
           <div />
           <div className="flex gap-2">
@@ -251,6 +233,7 @@ function PricePage() {
         </div>
 
       </Card>
+
 
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
