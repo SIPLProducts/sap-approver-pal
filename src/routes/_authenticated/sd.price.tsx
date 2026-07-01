@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Check, X, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Filter, RotateCcw, Check, X, Loader2, CheckCircle2, XCircle, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
   Dialog,
@@ -14,11 +14,10 @@ import {
 } from "@/components/ui/dialog";
 
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
@@ -82,6 +81,8 @@ function PricePage() {
   const [decided, setDecided] = useState<Record<string, "accepted" | "rejected">>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<number | "ALL">(10);
+  const [page, setPage] = useState(1);
 
   type SapMsg = { CUSTOMER?: string; TYPE?: string; MESSAGE?: string };
   const [resultOpen, setResultOpen] = useState(false);
@@ -140,18 +141,25 @@ function PricePage() {
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
   const visible = indexed;
 
-  const allChecked = visible.length > 0 && visible.every(({ k }) => selected.has(k));
-  const someChecked = visible.some(({ k }) => selected.has(k)) && !allChecked;
+  const totalPages = pageSize === "ALL" ? 1 : Math.max(1, Math.ceil(visible.length / pageSize));
+  useEffect(() => { setPage(1); }, [rows, pageSize]);
+  const currentPage = Math.min(page, totalPages);
+  const pagedVisible = pageSize === "ALL"
+    ? visible
+    : visible.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  // Select-all scoped to the currently visible page for predictable UX.
+  const allChecked = pagedVisible.length > 0 && pagedVisible.every(({ k }) => selected.has(k));
 
   function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allChecked) visible.forEach(({ k }) => next.delete(k));
-      else visible.forEach(({ k }) => next.add(k));
+      if (allChecked) pagedVisible.forEach(({ k }) => next.delete(k));
+      else pagedVisible.forEach(({ k }) => next.add(k));
       return next;
     });
   }
+
   function toggleOne(k: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -202,38 +210,20 @@ function PricePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Price Approvals</h1>
-          <p className="text-sm text-muted-foreground">
-            BMW VK11 condition approvals fetched live from SAP via Price_Approval_Fetch.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-mono text-xs">ZBMW_VK11_APP</Badge>
-          <Badge variant="secondary" className="text-xs">Single level</Badge>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Price Approvals</h1>
       </div>
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-        <div className="grid gap-3 md:grid-cols-[200px_220px_1fr_auto] items-end">
+        <div className="grid gap-3 md:grid-cols-[240px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
             <PlantMultiSelect value={plants} onChange={setPlants} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">USER_ID</Label>
-            <Input
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="SAP USER_ID"
-              className="h-9 font-mono"
-            />
           </div>
           <div />
           <div className="flex gap-2">
@@ -252,6 +242,7 @@ function PricePage() {
         </div>
 
       </Card>
+
 
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
@@ -292,13 +283,14 @@ function PricePage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-muted/50 border-b sticky top-0">
+            <thead className="bg-sidebar text-sidebar-foreground border-b sticky top-0">
               <tr>
                 <th className="px-3 py-2 w-10">
                   <Checkbox
+                    className="rounded-none border-sidebar-foreground/60"
                     checked={allChecked}
                     onCheckedChange={toggleAll}
-                    disabled={visible.length === 0}
+                    disabled={pagedVisible.length === 0}
                     aria-label="Select all"
                   />
                 </th>
@@ -324,7 +316,7 @@ function PricePage() {
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
                   </td>
                 </tr>
-              ) : visible.length === 0 ? (
+              ) : pagedVisible.length === 0 ? (
                 <tr>
                   <td colSpan={14} className="py-12 text-center text-muted-foreground">
                     {rows.length === 0
@@ -333,8 +325,9 @@ function PricePage() {
                   </td>
                 </tr>
               ) : (
-                visible.map(({ r, k }, i) => {
+                pagedVisible.map(({ r, k }, i) => {
                   const isSel = selected.has(k);
+                  const rowIndex = pageSize === "ALL" ? i : (currentPage - 1) * (pageSize as number) + i;
                   return (
                     <tr
                       key={k}
@@ -342,12 +335,13 @@ function PricePage() {
                     >
                       <td className="px-3 py-2">
                         <Checkbox
+                          className="rounded-none"
                           checked={isSel}
                           onCheckedChange={() => toggleOne(k)}
                           aria-label="Select row"
                         />
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{rowIndex + 1}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.key_combination ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.condition_type ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.customer ?? "—"}</td>
@@ -367,6 +361,57 @@ function PricePage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination footer */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-t bg-muted/20">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Rows per page</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => setPageSize(v === "ALL" ? "ALL" : Number(v))}
+            >
+              <SelectTrigger className="h-8 w-[84px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["10", "20", "25", "50", "100", "ALL"].map((o) => (
+                  <SelectItem key={o} value={o}>{o}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="ml-2">
+              {visible.length === 0
+                ? "0 of 0"
+                : pageSize === "ALL"
+                  ? `1–${visible.length} of ${visible.length}`
+                  : `${(currentPage - 1) * (pageSize as number) + 1}–${Math.min(currentPage * (pageSize as number), visible.length)} of ${visible.length}`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={pageSize === "ALL" || currentPage <= 1}
+            >
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
+            </Button>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={pageSize === "ALL" || currentPage >= totalPages}
+            >
+              Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
+        </div>
+
       </Card>
 
       <ResultDialog

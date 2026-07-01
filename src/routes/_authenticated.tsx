@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3 } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,13 @@ function AuthenticatedLayout() {
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("app.sidebarCollapsed") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("app.sidebarCollapsed", collapsed ? "1" : "0"); } catch {}
+  }, [collapsed]);
   const perms = usePermissions();
   const ctx = useActiveContext();
   const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
@@ -138,23 +145,25 @@ function AuthenticatedLayout() {
   return (
     <div className="h-screen overflow-hidden bg-background flex">
       {/* Sidebar */}
-      <aside className={`fixed lg:sticky lg:top-0 lg:h-screen z-40 inset-y-0 left-0 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="px-4 py-4 flex items-center gap-3 border-b border-sidebar-border">
+      <aside className={`fixed lg:sticky lg:top-0 lg:h-screen z-40 inset-y-0 left-0 ${collapsed ? "w-16" : "w-64"} bg-sidebar text-sidebar-foreground flex flex-col transition-all ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className={`px-4 py-4 flex items-center gap-3 border-b border-sidebar-border ${collapsed ? "justify-center px-2" : ""}`}>
           <div className="rounded-lg bg-white px-2 py-1.5 shadow-card flex items-center">
             <BrandLogo className="h-7" />
           </div>
-          <div className="min-w-0">
-            <div className="font-display font-semibold leading-tight text-[13px] tracking-tight">Re Sustainability</div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/55">Executive Approvals</div>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="font-display font-semibold leading-tight text-[13px] tracking-tight">Re Sustainability</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/55">Executive Approvals</div>
+            </div>
+          )}
         </div>
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Workspaces</div>
+          {!collapsed && <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Workspaces</div>}
           {showMm && (
-            <Link to="/inbox/mm" onClick={() => setOpen(false)}
-              className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/inbox/mm") ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
-              {pathname.startsWith("/inbox/mm") && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
-              <Package className="h-4 w-4 shrink-0" /> <span className="truncate">MM Approvals</span>
+            <Link to="/inbox/mm" onClick={() => setOpen(false)} title="MM Approvals"
+              className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${pathname.startsWith("/inbox/mm") ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}>
+              {pathname.startsWith("/inbox/mm") && !collapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+              <Package className="h-4 w-4 shrink-0" /> {!collapsed && <span className="truncate">MM Approvals</span>}
             </Link>
           )}
 
@@ -162,15 +171,16 @@ function AuthenticatedLayout() {
             <>
               <button
                 type="button"
-                onClick={() => setSdExpanded((v) => !v)}
-                className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}
+                onClick={() => { if (collapsed) setCollapsed(false); setSdExpanded((v) => !v); }}
+                title="SD Approvals"
+                className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}
               >
-                {sdOpen && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+                {sdOpen && !collapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
                 <Truck className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left truncate">SD Approvals</span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />
+                {!collapsed && <span className="flex-1 text-left truncate">SD Approvals</span>}
+                {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${sdExpanded ? "rotate-0" : "-rotate-90"}`} />}
               </button>
-              {sdExpanded && (
+              {sdExpanded && !collapsed && (
                 <div className="ml-5 pl-3 border-l border-sidebar-border/70 space-y-0.5 mt-0.5 mb-1">
                   {sdChildren.map((it) => {
                     const active = pathname.startsWith(it.to);
@@ -187,33 +197,35 @@ function AuthenticatedLayout() {
             </>
           )}
 
-          {manage_items.length > 0 && (
+          {manage_items.length > 0 && !collapsed && (
             <div className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/40">Manage</div>
           )}
           {manage_items.map((it) => {
             const active = pathname.startsWith(it.to);
             const Icon = it.icon;
             return (
-              <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
-                className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
-                {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
-                <Icon className="h-4 w-4 shrink-0" /> <span className="truncate">{it.label}</span>
+              <Link key={it.to} to={it.to} onClick={() => setOpen(false)} title={it.label}
+                className={`relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}>
+                {active && !collapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+                <Icon className="h-4 w-4 shrink-0" /> {!collapsed && <span className="truncate">{it.label}</span>}
               </Link>
             );
           })}
         </nav>
         <div className="p-3 border-t border-sidebar-border space-y-2">
-          <div className="flex items-center gap-3 px-2 py-1.5 rounded-md bg-sidebar-accent/40">
+          <div className={`flex items-center gap-3 px-2 py-1.5 rounded-md bg-sidebar-accent/40 ${collapsed ? "justify-center" : ""}`}>
             <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-primary text-primary-foreground grid place-items-center text-xs font-semibold">
               {(profile?.full_name || user.email || "?").charAt(0).toUpperCase()}
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[12px] font-medium truncate text-sidebar-foreground">{profile?.full_name || user.email}</div>
-              <div className="text-[10px] text-sidebar-foreground/55 truncate">{perms.activeRoleLabel ?? "No active role"}</div>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-medium truncate text-sidebar-foreground">{profile?.full_name || user.email}</div>
+                <div className="text-[10px] text-sidebar-foreground/55 truncate">{perms.activeRoleLabel ?? "No active role"}</div>
+              </div>
+            )}
           </div>
-          <Button onClick={logout} variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/75 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent">
-            <LogOut className="h-4 w-4 mr-2" /> Sign out
+          <Button onClick={logout} variant="ghost" size="sm" title="Sign out" className={`w-full text-sidebar-foreground/75 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent ${collapsed ? "justify-center px-0" : "justify-start"}`}>
+            <LogOut className={`h-4 w-4 ${collapsed ? "" : "mr-2"}`} /> {!collapsed && "Sign out"}
           </Button>
         </div>
       </aside>
@@ -225,7 +237,16 @@ function AuthenticatedLayout() {
           <button className="lg:hidden text-muted-foreground p-2 -ml-2 rounded-md hover:bg-accent" onClick={() => setOpen(true)} aria-label="Open menu">
             <span className="text-lg leading-none">☰</span>
           </button>
+          <button
+            className="hidden lg:inline-flex text-muted-foreground p-2 -ml-2 rounded-md hover:bg-accent"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
           <div className="lg:hidden flex items-center"><BrandLogo className="h-7" /></div>
+
 
           {/* Plant + Role selectors */}
           {ctx.plants.length > 0 && (
