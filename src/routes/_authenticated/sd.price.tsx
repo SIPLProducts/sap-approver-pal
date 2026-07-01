@@ -283,13 +283,14 @@ function PricePage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-muted/50 border-b sticky top-0">
+            <thead className="bg-sidebar text-sidebar-foreground border-b sticky top-0">
               <tr>
                 <th className="px-3 py-2 w-10">
                   <Checkbox
+                    className="rounded-none border-sidebar-foreground/60"
                     checked={allChecked}
                     onCheckedChange={toggleAll}
-                    disabled={visible.length === 0}
+                    disabled={pagedVisible.length === 0}
                     aria-label="Select all"
                   />
                 </th>
@@ -315,7 +316,7 @@ function PricePage() {
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
                   </td>
                 </tr>
-              ) : visible.length === 0 ? (
+              ) : pagedVisible.length === 0 ? (
                 <tr>
                   <td colSpan={14} className="py-12 text-center text-muted-foreground">
                     {rows.length === 0
@@ -324,8 +325,9 @@ function PricePage() {
                   </td>
                 </tr>
               ) : (
-                visible.map(({ r, k }, i) => {
+                pagedVisible.map(({ r, k }, i) => {
                   const isSel = selected.has(k);
+                  const rowIndex = pageSize === "ALL" ? i : (currentPage - 1) * (pageSize as number) + i;
                   return (
                     <tr
                       key={k}
@@ -333,12 +335,13 @@ function PricePage() {
                     >
                       <td className="px-3 py-2">
                         <Checkbox
+                          className="rounded-none"
                           checked={isSel}
                           onCheckedChange={() => toggleOne(k)}
                           aria-label="Select row"
                         />
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{rowIndex + 1}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.key_combination ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.condition_type ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.customer ?? "—"}</td>
@@ -358,6 +361,57 @@ function PricePage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination footer */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-t bg-muted/20">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Rows per page</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => setPageSize(v === "ALL" ? "ALL" : Number(v))}
+            >
+              <SelectTrigger className="h-8 w-[84px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["10", "20", "25", "50", "100", "ALL"].map((o) => (
+                  <SelectItem key={o} value={o}>{o}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="ml-2">
+              {visible.length === 0
+                ? "0 of 0"
+                : pageSize === "ALL"
+                  ? `1–${visible.length} of ${visible.length}`
+                  : `${(currentPage - 1) * (pageSize as number) + 1}–${Math.min(currentPage * (pageSize as number), visible.length)} of ${visible.length}`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={pageSize === "ALL" || currentPage <= 1}
+            >
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
+            </Button>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={pageSize === "ALL" || currentPage >= totalPages}
+            >
+              Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
+        </div>
+
       </Card>
 
       <ResultDialog
