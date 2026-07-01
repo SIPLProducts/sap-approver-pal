@@ -141,18 +141,25 @@ function PricePage() {
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
   const visible = indexed;
 
-  const allChecked = visible.length > 0 && visible.every(({ k }) => selected.has(k));
-  const someChecked = visible.some(({ k }) => selected.has(k)) && !allChecked;
+  const totalPages = pageSize === "ALL" ? 1 : Math.max(1, Math.ceil(visible.length / pageSize));
+  useEffect(() => { setPage(1); }, [rows, pageSize]);
+  const currentPage = Math.min(page, totalPages);
+  const pagedVisible = pageSize === "ALL"
+    ? visible
+    : visible.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  // Select-all scoped to the currently visible page for predictable UX.
+  const allChecked = pagedVisible.length > 0 && pagedVisible.every(({ k }) => selected.has(k));
 
   function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allChecked) visible.forEach(({ k }) => next.delete(k));
-      else visible.forEach(({ k }) => next.add(k));
+      if (allChecked) pagedVisible.forEach(({ k }) => next.delete(k));
+      else pagedVisible.forEach(({ k }) => next.add(k));
       return next;
     });
   }
+
   function toggleOne(k: string) {
     setSelected((prev) => {
       const next = new Set(prev);
