@@ -38,7 +38,7 @@ export const fetchBmwStatusReport = createServerFn({ method: "POST" })
 
     const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
-      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url, sap_base_url").eq("id", "default").maybeSingle(),
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
@@ -78,7 +78,10 @@ export const fetchBmwStatusReport = createServerFn({ method: "POST" })
       bodyOut = JSON.stringify({ configId: cfg.id, inputs });
       proxied = true;
     } else {
-      target = cfg.endpoint_url.trim();
+      // Resolve relative endpoint paths against the global SAP base URL —
+      // same behavior as the proxy/middleware and Test Connection paths.
+      const { resolveSapUrl } = await import("@/lib/sap/url");
+      target = resolveSapUrl(cfg.endpoint_url.trim(), (globalSettings as any)?.sap_base_url ?? null);
       headers["Content-Type"] = "application/json";
       if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
         headers.Authorization =
@@ -90,6 +93,11 @@ export const fetchBmwStatusReport = createServerFn({ method: "POST" })
     for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
       headers[k] = v;
     }
+
+    // Trace hash of the exact outbound body — compare with the middleware
+    // console trace and a Postman call to prove requests are identical.
+    const { createHash } = await import("node:crypto");
+    const payloadHash = createHash("sha256").update(bodyOut ?? "").digest("hex");
 
     const t0 = Date.now();
     let res: Response;
@@ -122,7 +130,7 @@ export const fetchBmwStatusReport = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms,
-        message: `bmw-status: ${message} ${text.slice(0, 500)}`,
+        message: `bmw-status: ${message} sha256=${payloadHash.slice(0, 16)} ${text.slice(0, 400)}`,
       });
       return {
         rows: [] as BmwStatusRow[],
@@ -155,11 +163,24 @@ export const fetchBmwStatusReport = createServerFn({ method: "POST" })
           ? sapJson
           : [];
 
-    const rows: BmwStatusRow[] = arr.map((r) => {
+    const allRows: BmwStatusRow[] = arr.map((r) => {
       const o: BmwStatusRow = {};
       for (const k of Object.keys(r ?? {})) o[k] = (r as any)[k] ?? null;
       return o;
     });
+
+    // Remove EXACT duplicate rows (full-row identity — no field assumptions).
+    // Raw vs deduped counts are logged so it's provable whether duplicates
+    // originate from SAP's response or from the app.
+    const seen = new Set<string>();
+    const rows: BmwStatusRow[] = [];
+    for (const r of allRows) {
+      const key = JSON.stringify(r);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push(r);
+    }
+    const duplicates_removed = allRows.length - rows.length;
 
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
@@ -168,7 +189,10 @@ export const fetchBmwStatusReport = createServerFn({ method: "POST" })
       status: "ok",
       latency_ms,
       rows_processed: rows.length,
-      message: `bmw-status: ${message}`,
+      message:
+        `bmw-status: ${message} · sha256=${payloadHash.slice(0, 16)} · ` +
+        `raw_rows=${allRows.length} deduped=${rows.length} dup_removed=${duplicates_removed} · ` +
+        `bytes=${text.length}`,
     });
 
     return {
@@ -177,6 +201,8 @@ export const fetchBmwStatusReport = createServerFn({ method: "POST" })
       mode: data.mode,
       fetched_at: new Date().toISOString(),
       count: rows.length,
+      raw_count: allRows.length,
+      duplicates_removed,
       error: null as string | null,
     };
   });

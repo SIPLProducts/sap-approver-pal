@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -260,9 +260,15 @@ function BmwStatusReportPage() {
   const [rows, setRows] = useState<BmwStatusRow[]>([]);
   const [activeMode, setActiveMode] = useState<Mode>("customer");
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+  const [duplicatesRemoved, setDuplicatesRemoved] = useState(0);
+
+  // Monotonic request id — a slower, older response can never overwrite the
+  // result of a newer request (stale responses are dropped).
+  const requestSeq = useRef(0);
 
   const mutation = useMutation({
     mutationFn: async () => {
+      const reqId = ++requestSeq.current;
       const v: any = await fetchFn({
         data: {
           sales_org_from: salesOrgFrom.trim(),
@@ -274,23 +280,32 @@ function BmwStatusReportPage() {
           mode,
         },
       });
-      return v;
+      return { ...v, __reqId: reqId };
     },
     onSuccess: (res: any) => {
+      if (res?.__reqId !== requestSeq.current) return; // stale response — ignore
       const r = Array.isArray(res?.rows) ? (res.rows as BmwStatusRow[]) : [];
+      const dup = typeof res?.duplicates_removed === "number" ? res.duplicates_removed : 0;
       setRows(r);
+      setDuplicatesRemoved(dup);
       setActiveMode((res?.mode as Mode) ?? mode);
       setLastFetchedAt(res?.fetched_at ?? new Date().toISOString());
       if (res?.error) toast.error(res.error);
-      else toast.success(`Loaded ${r.length} record${r.length === 1 ? "" : "s"} from SAP`);
+      else
+        toast.success(
+          `Loaded ${r.length} record${r.length === 1 ? "" : "s"} from SAP` +
+            (dup > 0 ? ` (${dup} exact duplicate row${dup === 1 ? "" : "s"} removed)` : ""),
+        );
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch report"),
   });
 
   function execute() {
+    if (mutation.isPending) return; // guard: no overlapping requests (Enter key path)
     if (!salesOrgFrom.trim()) return toast.error("Select Sales Organization From");
     if (!salesOrgTo.trim()) return toast.error("Select Sales Organization To");
     setRows([]);
+    setDuplicatesRemoved(0);
     setLastFetchedAt(null);
     setActiveMode(mode);
     mutation.mutate();
@@ -305,6 +320,7 @@ function BmwStatusReportPage() {
     setContractTo("");
     setMode("customer");
     setRows([]);
+    setDuplicatesRemoved(0);
     setActiveMode("customer");
     setLastFetchedAt(null);
   }
@@ -435,6 +451,7 @@ function BmwStatusReportPage() {
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Report Output</div>
             <div className="text-xs text-muted-foreground">
               {rows.length} record{rows.length === 1 ? "" : "s"}
+              {duplicatesRemoved > 0 ? ` · ${duplicatesRemoved} exact duplicate${duplicatesRemoved === 1 ? "" : "s"} from SAP removed` : ""}
               {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
               {rows.length > 0 ? ` · ${activeMode}-wise` : ""}
             </div>
