@@ -424,6 +424,15 @@ function repairJsonOutsideStrings(text) {
         continue;
       }
     }
+    if (ch === ",") {
+      // Drop dangling commas before a closing bracket/brace (`[1, ]`, `{...,}`)
+      let j = i + 1;
+      while (j < text.length && /\s/.test(text[j])) j++;
+      if (j < text.length && (text[j] === "}" || text[j] === "]")) {
+        i = j - 1; // skip the comma, resume at the closer
+        continue;
+      }
+    }
     out += ch;
   }
   return out;
