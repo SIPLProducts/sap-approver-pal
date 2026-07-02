@@ -13,6 +13,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 
 // ---------- env ----------
 const PORT = parseInt(process.env.PORT || "3005", 10);
@@ -396,17 +397,47 @@ async function fetchWithTimeout(url, init) {
 
 // SAP sometimes returns malformed JSON with empty values like
 // `"ADV_DOC_NUM": { "ZEILE": , "EBELP": }`. Try strict parse first, then
-// sanitize the empty-value pattern and retry. If both fail, surface the raw
-// text so the app can see what SAP actually sent (instead of silently null).
+// repair ONLY outside string literals (a state machine walks the text and
+// inserts `null` after a bare `:` followed by `,` `}` or `]`). The old blind
+// regex approach also rewrote matches INSIDE string values, corrupting real
+// data. Returns { value, repaired } so callers can log when repair happened.
+function repairJsonOutsideStrings(text) {
+  let out = "";
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      out += ch;
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; out += ch; continue; }
+    if (ch === ":") {
+      let j = i + 1;
+      while (j < text.length && /\s/.test(text[j])) j++;
+      if (j < text.length && (text[j] === "," || text[j] === "}" || text[j] === "]")) {
+        out += ": null";
+        i = j - 1; // resume at the delimiter
+        continue;
+      }
+    }
+    out += ch;
+  }
+  return out;
+}
+
 function safeParseSapJson(text) {
-  if (text == null || text === "") return null;
-  try { return JSON.parse(text); } catch {}
-  const sanitized = text
-    .replace(/:\s*,/g, ": null,")
-    .replace(/:\s*\}/g, ": null}")
-    .replace(/:\s*\]/g, ": null]");
-  try { return JSON.parse(sanitized); } catch (e) {
-    return { __parse_error: e.message, __raw_preview: String(text).slice(0, 1000) };
+  if (text == null || text === "") return { value: null, repaired: false };
+  try { return { value: JSON.parse(text), repaired: false }; } catch {}
+  const sanitized = repairJsonOutsideStrings(text);
+  try { return { value: JSON.parse(sanitized), repaired: true }; } catch (e) {
+    return {
+      value: { __parse_error: e.message, __raw_preview: String(text).slice(0, 1000) },
+      repaired: true,
+    };
   }
 }
 
@@ -453,12 +484,17 @@ async function invokeSap(cfg, inputs) {
   const contentType = res.headers.get("content-type") ?? "";
   const text = await res.text().catch(() => "");
 
+  // Exact-reproduction trace: everything needed to replay this request in
+  // Postman and compare responses byte-for-byte.
+  const payloadSha = createHash("sha256").update(body ?? url.toString()).digest("hex");
+
   // Detect SAP login / error HTML page — SAP returns 200 OK with HTML when
   // the request is unauthenticated or the user is locked. Surface this
   // clearly instead of letting the UI render "0 rows".
   const looksLikeHtml =
     contentType.includes("text/html") || /^\s*<(!doctype|html|head|body)/i.test(text);
   if (looksLikeHtml) {
+    console.log(`[/sap/invoke] trace url=${url.toString()} method=${cfg.http_method} payload_sha256=${payloadSha} response=HTML(${text.length}b)`);
     return {
       ok: false,
       status: res.status,
@@ -472,12 +508,37 @@ async function invokeSap(cfg, inputs) {
     };
   }
 
-  const raw = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
+  const parsed = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
     ? safeParseSapJson(text)
-    : text;
+    : { value: text, repaired: false };
+  const raw = parsed.value;
+
+  const rowCount = raw && typeof raw === "object"
+    ? (Array.isArray(raw.DATA) ? raw.DATA.length
+      : Array.isArray(raw.data) ? raw.data.length
+      : Array.isArray(raw) ? raw.length : null)
+    : null;
+  console.log(
+    `[/sap/invoke] trace url=${url.toString()} method=${cfg.http_method} ` +
+    `payload_sha256=${payloadSha} response_bytes=${text.length} ` +
+    `rows=${rowCount ?? "n/a"} json_repaired=${parsed.repaired}`,
+  );
 
   const data = mapResponse(cfg.responseFields, raw);
-  return { ok: res.ok, status: res.status, latency_ms, data };
+  return {
+    ok: res.ok,
+    status: res.status,
+    latency_ms,
+    data,
+    trace: {
+      url: url.toString(),
+      method: cfg.http_method,
+      payload_sha256: payloadSha,
+      response_bytes: text.length,
+      rows: rowCount,
+      json_repaired: parsed.repaired,
+    },
+  };
 }
 
 
@@ -678,9 +739,13 @@ async function invokeSapRaw(cfg, rawBody) {
   const contentType = res.headers.get("content-type") ?? "";
   const text = await res.text().catch(() => "");
   console.log(`[raw-invoke] ${method} ${url} status=${res.status} raw=`, text.slice(0, 500));
-  const data = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
+  const parsedRaw = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
     ? safeParseSapJson(text)
-    : text;
+    : { value: text, repaired: false };
+  const data = parsedRaw.value;
+  if (parsedRaw.repaired) {
+    console.log(`[raw-invoke] NOTE: SAP JSON was malformed and repaired (string-safe)`);
+  }
   console.log(`[raw-invoke] ${method} ${url} parsed=`,
     typeof data === "string" ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500));
 
