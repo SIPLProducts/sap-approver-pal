@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "@cloudscape-design/global-styles/index.css";
 
 @custom-variant dark (&:is(.dark *));
 
