@@ -339,15 +339,9 @@ function SalesOrderPage() {
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Sales Order Approvals</h1>
-          <p className="text-sm text-muted-foreground">
-            BMW sales order approvals fetched live from SAP via Sales_Approval_Fetch.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-mono text-xs">ZBMW_SO_APP</Badge>
-          <Badge variant="secondary" className="text-xs">Single level</Badge>
         </div>
       </div>
+
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
