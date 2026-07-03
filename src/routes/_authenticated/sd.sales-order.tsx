@@ -509,7 +509,7 @@ function SalesOrderPage() {
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
                   </td>
                 </tr>
-              ) : indexed.length === 0 ? (
+              ) : pageRows.length === 0 ? (
                 <tr>
                   <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
                     {lastFetchedAt
@@ -518,7 +518,7 @@ function SalesOrderPage() {
                   </td>
                 </tr>
               ) : (
-                indexed.map(({ r, k }, i) => {
+                pageRows.map(({ r, k }, i) => {
                   const isSel = selected.has(k);
                   return (
                     <tr
