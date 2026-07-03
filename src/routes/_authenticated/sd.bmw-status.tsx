@@ -338,6 +338,14 @@ function BmwStatusReportPage() {
   const schema = schemaWithSapExtras(SCHEMAS[activeMode], rows);
   const groupSpans = computeGroupSpans(schema);
 
+  const pageSize = 25;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [rows, activeMode]);
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start gap-3">
