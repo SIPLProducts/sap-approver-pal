@@ -468,7 +468,7 @@ function SalesOrderPage() {
         </div>
         <div className="overflow-auto max-h-[60vh]">
           <table className="w-full text-xs">
-            <thead className="bg-muted/50 border-b sticky top-0 z-10">
+            <thead className="bg-sidebar text-sidebar-foreground border-b border-sidebar-border sticky top-0 z-20">
               <tr>
                 {showSelect && (
                   <th className="px-3 py-2 w-10">
