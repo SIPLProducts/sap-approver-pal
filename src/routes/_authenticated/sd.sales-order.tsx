@@ -578,7 +578,17 @@ function SalesOrderPage() {
             </tbody>
           </table>
         </div>
+        {indexed.length > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
+            <div className="text-xs text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}
+              –{Math.min(currentPage * pageSize, indexed.length)} of {indexed.length}
+            </div>
+            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
+          </div>
+        )}
       </Card>
+
 
       <ResultDialog
         open={resultOpen}
