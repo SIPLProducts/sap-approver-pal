@@ -390,171 +390,49 @@ function SalesOrderPage() {
         </div>
       </Card>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Output — {status}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {rows.length} record{rows.length === 1 ? "" : "s"}
-              {showSelect && selected.size > 0 ? ` · ${selected.size} selected` : ""}
-              {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
-            </div>
-          </div>
-          {showSelect && (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={() => decide("accepted")}
-                disabled={!canAct || decisionMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                title={selected.size === 0 ? "Select at least one row" : undefined}
-              >
-                {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 mr-1" />
-                )}
-                Accept
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => decide("rejected")}
-                disabled={!canAct || decisionMutation.isPending}
-              >
-                {decisionMutation.isPending && decisionMutation.variables?.action === "rejected" ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                ) : (
-                  <X className="h-3.5 w-3.5 mr-1" />
-                )}
-                Reject
-              </Button>
-            </div>
-          )}
-        </div>
-        <div className="overflow-auto max-h-[60vh]">
-          <table className="w-full text-xs">
-            <thead className="bg-sidebar text-sidebar-foreground border-b border-sidebar-border sticky top-0 z-20">
-              <tr>
-                {showSelect && (
-                  <th className="px-3 py-2 w-10">
-                    <Checkbox
-                      checked={allChecked}
-                      onCheckedChange={toggleAll}
-                      disabled={rows.length === 0}
-                      aria-label="Select all"
-                    />
-                  </th>
-                )}
-                <th className="text-left font-semibold px-3 py-2 w-10">#</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Name</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Group</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Price Group</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Material</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Qty</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Net Value</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Document No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">SO Creation Date</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Item No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract Item</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Dis Chanel</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Division</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Year</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Org</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Company Code</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Tax Value</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mutation.isPending ? (
-                <tr>
-                  <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
-                  </td>
-                </tr>
-              ) : pageRows.length === 0 ? (
-                <tr>
-                  <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
-                    {lastFetchedAt
-                      ? `No ${status} records.`
-                      : "Enter Plant and click Execute to load sales orders from SAP."}
-                  </td>
-                </tr>
-              ) : (
-                pageRows.map(({ r, k }, i) => {
-                  const isSel = selected.has(k);
-                  return (
-                    <tr
-                      key={k}
-                      className={`border-b last:border-0 hover:bg-accent/40 ${showSelect && isSel ? "bg-accent/30" : ""}`}
-                    >
-                      {showSelect && (
-                        <td className="px-3 py-2">
-                          <Checkbox
-                            checked={isSel}
-                            onCheckedChange={() => toggleOne(k)}
-                            aria-label="Select row"
-                          />
-                        </td>
-                      )}
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer_group ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer_price_group ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.qty)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.net_value)}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no || "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_document_no ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.so_creation_date)}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_item_no ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_item ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.dis_chanel ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.division ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.year ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.tax_value)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {status === "pending" ? (
-                          <Input
-                            value={reasons.get(k) ?? ""}
-                            onChange={(e) => setReasonFor(k, e.target.value)}
-                            placeholder="Required"
-                            maxLength={50}
-                            aria-invalid={isSel && !(reasons.get(k) ?? "").trim()}
-                            className={`h-8 w-44 font-mono text-xs ${
-                              isSel && !(reasons.get(k) ?? "").trim()
-                                ? "border-destructive focus-visible:ring-destructive"
-                                : ""
-                            }`}
-                          />
-                        ) : (
-                          r.reason ?? "—"
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-        {indexed.length > 0 && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
-            <div className="text-xs text-muted-foreground">
-              Showing {(currentPage - 1) * pageSize + 1}
-              –{Math.min(currentPage * pageSize, indexed.length)} of {indexed.length}
-            </div>
-            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
-          </div>
-        )}
+      <CloudscapeApprovalTable
+        title={`Sales Order Approvals — ${status}`}
+        countLabel={`(${rows.length})`}
+        rows={rows}
+        rowKey={rowKey}
+        loading={mutation.isPending}
+        showSelect={showSelect}
+        selectedKeys={selected}
+        onSelectionChange={setSelected}
+        onAccept={() => decide("accepted")}
+        onReject={() => decide("rejected")}
+        acceptDisabled={!canAct || decisionMutation.isPending}
+        rejectDisabled={!canAct || decisionMutation.isPending}
+        acceptLoading={decisionMutation.isPending && decisionMutation.variables?.action === "accepted"}
+        rejectLoading={decisionMutation.isPending && decisionMutation.variables?.action === "rejected"}
+        showReason={showSelect}
+        reasonValue={(k) => reasons.get(k) ?? ""}
+        onReasonChange={setReasonFor}
+        reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
+        readonlyReason={(r) => r.reason ?? "—"}
+        emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute to load sales orders from SAP."}
+        columns={[
+          { id: "customer", header: "Customer", sortingField: "customer", cell: (r) => r.customer ?? "—" },
+          { id: "customer_name", header: "Customer Name", sortingField: "customer_name", cell: (r) => r.customer_name ?? "—" },
+          { id: "customer_group", header: "Customer Group", cell: (r) => r.customer_group ?? "—" },
+          { id: "customer_price_group", header: "Price Group", cell: (r) => r.customer_price_group ?? "—" },
+          { id: "material", header: "Material", cell: (r) => r.material ?? "—" },
+          { id: "qty", header: "Qty", align: "right", cell: (r) => fmtNum(r.qty) },
+          { id: "net_value", header: "Net Value", align: "right", cell: (r) => fmtNum(r.net_value) },
+          { id: "contract_no", header: "Contract No", cell: (r) => r.contract_no || "—" },
+          { id: "sales_document_no", header: "Sales Document No", cell: (r) => r.sales_document_no ?? "—" },
+          { id: "so_creation_date", header: "SO Creation", cell: (r) => fmtDate(r.so_creation_date) },
+          { id: "sales_item_no", header: "Sales Item No", cell: (r) => r.sales_item_no ?? "—" },
+          { id: "contract_item", header: "Contract Item", cell: (r) => r.contract_item ?? "—" },
+          { id: "dis_chanel", header: "Dis Chanel", cell: (r) => r.dis_chanel ?? "—" },
+          { id: "division", header: "Division", cell: (r) => r.division ?? "—" },
+          { id: "year", header: "Year", cell: (r) => r.year ?? "—" },
+          { id: "sales_org", header: "Sales Org", cell: (r) => r.sales_org ?? "—" },
+          { id: "company_code", header: "Company Code", cell: (r) => r.company_code ?? "—" },
+          { id: "tax_value", header: "Tax Value", align: "right", cell: (r) => fmtNum(r.tax_value) },
+        ] as CloudscapeColumn<SalesOrderRow>[]}
+      />
+
       </Card>
 
 
