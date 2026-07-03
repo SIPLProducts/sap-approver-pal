@@ -563,7 +563,78 @@ function BmwStatusReportPage() {
             </table>
           )}
         </div>
+        {rows.length > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
+            <div className="text-xs text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}
+              –{Math.min(currentPage * pageSize, rows.length)} of {rows.length}
+            </div>
+            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
+          </div>
+        )}
       </Card>
     </div>
   );
 }
+
+function PagerNav({
+  page,
+  pageCount,
+  onChange,
+}: {
+  page: number;
+  pageCount: number;
+  onChange: (p: number) => void;
+}) {
+  const pages: (number | "ellipsis")[] = [];
+  const push = (v: number | "ellipsis") => pages.push(v);
+  if (pageCount <= 7) {
+    for (let i = 1; i <= pageCount; i++) push(i);
+  } else {
+    push(1);
+    if (page > 3) push("ellipsis");
+    const start = Math.max(2, page - 1);
+    const end = Math.min(pageCount - 1, page + 1);
+    for (let i = start; i <= end; i++) push(i);
+    if (page < pageCount - 2) push("ellipsis");
+    push(pageCount);
+  }
+  return (
+    <Pagination className="mx-0 w-auto justify-end">
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (page > 1) onChange(page - 1); }}
+            aria-disabled={page <= 1}
+            className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+        {pages.map((p, i) =>
+          p === "ellipsis" ? (
+            <PaginationItem key={`e-${i}`}><PaginationEllipsis /></PaginationItem>
+          ) : (
+            <PaginationItem key={p}>
+              <PaginationLink
+                href="#"
+                isActive={p === page}
+                onClick={(e) => { e.preventDefault(); onChange(p); }}
+              >
+                {p}
+              </PaginationLink>
+            </PaginationItem>
+          ),
+        )}
+        <PaginationItem>
+          <PaginationNext
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (page < pageCount) onChange(page + 1); }}
+            aria-disabled={page >= pageCount}
+            className={page >= pageCount ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
+
