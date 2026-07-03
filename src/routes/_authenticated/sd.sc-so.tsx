@@ -252,13 +252,21 @@ function ScSoPage() {
   const canExecute = plants.length > 0 && !mutation.isPending;
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
   const showSelect = status === "pending";
-  const allChecked = indexed.length > 0 && indexed.every(({ k }) => selected.has(k));
+
+  const pageSize = 25;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [rows, status, approvalType]);
+  const pageCount = Math.max(1, Math.ceil(indexed.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = indexed.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const allChecked = pageRows.length > 0 && pageRows.every(({ k }) => selected.has(k));
 
   function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allChecked) indexed.forEach(({ k }) => next.delete(k));
-      else indexed.forEach(({ k }) => next.add(k));
+      if (allChecked) pageRows.forEach(({ k }) => next.delete(k));
+      else pageRows.forEach(({ k }) => next.add(k));
       return next;
     });
   }
