@@ -1,31 +1,38 @@
-## BMW Status Report: fix duplicate/incorrect results vs Postman
+## Scope
+File: `src/routes/_authenticated/sd.contract.tsx`
 
-### Root causes identified
-1. **Overlapping requests + stale response overwrite** — Enter key triggers `execute()` without an in-flight guard; sync log shows identical requests fired twice within seconds. Whichever response arrives last wins, so the screen can show stale/mixed data for the payload you tested in Postman.
-2. **Middleware JSON "repair" corrupts values** — `safeParseSapJson` in `middleware/server.js` applies regex fixes for SAP's malformed JSON but also rewrites matches *inside string values*, altering real data.
-3. **No exact request/response trace** — impossible to diff app vs Postman byte-for-byte.
-4. **Direct-mode URL bug** — non-proxy branch sends the raw relative path instead of resolving it against the global SAP base URL.
+## Changes
 
-### Changes
+1. **Remove header clutter**
+   - Delete the subtitle line "BMW contract approvals fetched live from SAP via Contract_Approval_Fetch."
+   - Delete the two badges: `ZBMW_CONTRACT_APP` and `2 levels`.
+   - Keep the `Contract Approvals` H1.
 
-**1. `src/routes/_authenticated/sd.bmw-status.tsx` — request guard + stale-response protection**
-- `execute()` returns early when `mutation.isPending` (covers Enter key path).
-- Tag each request with an incrementing id; `onSuccess` ignores responses that aren't from the latest request — a slow older response can never overwrite a newer one.
-- Show raw vs displayed row counts (e.g. "524 records · 12 exact duplicates from SAP") when duplicates exist.
+2. **Sidebar background on table header**
+   - Replace `<thead className="bg-muted/50 border-b sticky top-0 z-10">` with `bg-sidebar text-sidebar-foreground` so the header uses the semantic sidebar token (matches app sidebar). Keep `sticky top-0 z-20 border-b`.
+   - Update `th` cells to remove any conflicting muted colors (they inherit foreground from thead).
 
-**2. `middleware/server.js` — string-safe JSON repair + full trace**
-- Replace the blind regex sanitizer with a state-machine repair that only patches empty values *outside* string literals, so real data is never rewritten.
-- Log per invoke: exact outbound URL, method, payload SHA-256, response length, parsed row count, and whether repair was needed — everything needed to reproduce the identical request in Postman.
+3. **Sticky column filter row**
+   - Add a second header row directly under the column titles containing per-column text `Input`s (small `h-7`) for the main visible columns: Customer, Customer Name, Contract No, Item, Material, Sales Org, Co. Code. Numeric/date columns get empty `<th>` placeholders to preserve alignment; Select and # columns also empty.
+   - Wrap the row in `<tr>` with `sticky top-[36px] z-10 bg-sidebar/95 backdrop-blur` so filters also stick while data scrolls.
+   - Filter state: `const [filters, setFilters] = useState<Record<string, string>>({})`. A `filteredIndexed` memo applies case-insensitive `includes` per field before pagination. All existing `indexed`/`allChecked`/`toggleAll` logic switches to operate on the paginated slice's keys (select-all toggles current page's visible rows).
 
-**3. `src/lib/sd/bmw-status-report.functions.ts` — trace + generic dedupe**
-- Resolve the endpoint via `resolveSapUrl` in the direct (non-proxy) branch (same as the test-connection path).
-- Detect exact duplicate rows (full-row JSON identity — no hardcoded fields), report `duplicates_removed` in the response, and record raw vs deduped counts in the sync log so we can prove whether duplicates come from SAP or the app.
-- Store the outbound payload hash + row count in `sap_api_sync_log` for direct comparison with the middleware's log and Postman.
+4. **Pagination (client-side)**
+   - Add `pageSize = 25` and `page` state. Compute `pageCount = Math.max(1, Math.ceil(filteredIndexed.length / pageSize))`, `pageRows = filteredIndexed.slice((page-1)*pageSize, page*pageSize)`.
+   - Reset `page` to 1 when `rows`, `status`, or `filters` change.
+   - Below the table (inside the Card, outside the scroll container) render a footer bar with:
+     - Left: "Showing X–Y of N" text.
+     - Right: shadcn `Pagination` (`PaginationPrevious`, up to 5 numeric `PaginationLink`s with ellipsis, `PaginationNext`). Handlers call `setPage`.
 
-### Verification
-- Run the report from the app, then compare the logged URL/payload hash/row count against a Postman call — they must match.
-- Confirm rapid Enter+click no longer fires two requests (sync log shows one entry per execute).
+5. **Scroll only the body**
+   - Keep the scroll container `<div className="overflow-auto max-h-[60vh]">` — sticky `thead` (title + filter rows) inside it means only tbody scrolls, exactly as requested.
+   - Ensure `<table>` keeps `w-full text-xs` and no `overflow` on parent Card interferes (Card already `overflow-hidden`; the pagination footer sits below the scroll div, both inside Card).
 
-### Out of scope
-- No changes to SAP field mappings, column schemas, or Admin screens.
-- No hardcoded data or filters anywhere.
+## Out of scope
+- No changes to server functions, data shape, decision/approve/reject logic, or the ResultDialog.
+- No changes to sidebar or global styles.
+
+## Technical notes
+- Semantic tokens only (`bg-sidebar`, `text-sidebar-foreground`, `border-sidebar-border` where needed) — no hardcoded colors.
+- Row `key`s and `rowKey()` unchanged so selection/reason maps continue to work across pages.
+- `allChecked` and `toggleAll` scoped to `pageRows` so select-all is per page (standard behavior with pagination).
