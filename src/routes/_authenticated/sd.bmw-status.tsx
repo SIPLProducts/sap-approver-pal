@@ -334,19 +334,9 @@ function BmwStatusReportPage() {
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">BMW Status Report</h1>
-          <p className="text-sm text-muted-foreground">
-            Customer / Contract / Sales-wise BMW status report fetched live from SAP.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-mono text-xs">
-            BMW_STATUS
-          </Badge>
-          <Badge variant="secondary" className="text-xs">
-            Read-only
-          </Badge>
         </div>
       </div>
+
 
       <Card className="p-4 space-y-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
