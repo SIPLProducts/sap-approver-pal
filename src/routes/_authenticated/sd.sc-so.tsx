@@ -442,155 +442,41 @@ function ScSoPage() {
         </div>
       </Card>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Output — {status} · {approvalType === "service" ? "Service Certificate" : "Sales Order"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {rows.length} record{rows.length === 1 ? "" : "s"}
-              {showSelect && selected.size > 0 ? ` · ${selected.size} selected` : ""}
-              {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
-            </div>
-          </div>
-          {showSelect && (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={() => decide("accepted")}
-                disabled={!canAct || decisionMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                title={selected.size === 0 ? "Select at least one row" : undefined}
-              >
-                {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 mr-1" />
-                )}
-                Accept
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => decide("rejected")}
-                disabled={!canAct || decisionMutation.isPending}
-              >
-                {decisionMutation.isPending && decisionMutation.variables?.action === "rejected" ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                ) : (
-                  <X className="h-3.5 w-3.5 mr-1" />
-                )}
-                Reject
-              </Button>
-            </div>
-          )}
-        </div>
-        <div className="overflow-auto max-h-[60vh]">
-          <table className="w-full text-xs">
-            <thead className="bg-sidebar text-sidebar-foreground border-b border-sidebar-border sticky top-0 z-20">
-              <tr>
-                {showSelect && (
-                  <th className="px-3 py-2 w-10">
-                    <Checkbox
-                      checked={allChecked}
-                      onCheckedChange={toggleAll}
-                      disabled={rows.length === 0}
-                      aria-label="Select all"
-                    />
-                  </th>
-                )}
-                <th className="text-left font-semibold px-3 py-2 w-10">#</th>
-                {COLS.map((c) => (
-                  <th
-                    key={c.key}
-                    className={`${c.align === "right" ? "text-right" : "text-left"} font-semibold px-3 py-2 whitespace-nowrap`}
-                  >
-                    {c.label}
-                  </th>
-                ))}
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mutation.isPending ? (
-                <tr><td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading from SAP…
-                </td></tr>
-              ) : pageRows.length === 0 ? (
-                <tr><td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
-                  {lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute."}
-                </td></tr>
-              ) : pageRows.map(({ r, k }, i) => {
-                const isSel = selected.has(k);
-                const absIdx = (currentPage - 1) * pageSize + i + 1;
-                return (
-                  <tr
-                    key={k}
-                    className={`border-b last:border-0 hover:bg-accent/40 ${showSelect && isSel ? "bg-accent/30" : ""}`}
-                  >
-                    {showSelect && (
-                      <td className="px-3 py-2">
-                        <Checkbox
-                          checked={isSel}
-                          onCheckedChange={() => toggleOne(k)}
-                          aria-label="Select row"
-                        />
-                      </td>
-                    )}
-                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{absIdx}</td>
-                    {COLS.map((c) => {
-                      const v = (r as any)[c.key] as string | number | null;
-                      const display = c.date
-                        ? fmtDate(v as string | null)
-                        : c.num
-                          ? fmtNum(v)
-                          : v == null || v === ""
-                            ? "—"
-                            : String(v);
-                      return (
-                        <td
-                          key={c.key}
-                          className={`px-3 py-2 whitespace-nowrap ${c.align === "right" ? "text-right tabular-nums" : ""} ${c.mono ? "font-mono" : ""}`}
-                        >
-                          {display}
-                        </td>
-                      );
-                    })}
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      {showSelect ? (
-                        <Input
-                          value={reasons.get(k) ?? ""}
-                          onChange={(e) => setReasonFor(k, e.target.value)}
-                          placeholder="Required if selected"
-                          maxLength={50}
-                          aria-invalid={isSel && !(reasons.get(k) ?? "").trim()}
-                          className={`h-8 w-44 font-mono text-xs ${
-                            isSel && !(reasons.get(k) ?? "").trim()
-                              ? "border-destructive focus-visible:ring-destructive"
-                              : ""
-                          }`}
-                        />
-                      ) : (
-                        r.reason ?? "—"
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {indexed.length > 0 && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
-            <div className="text-xs text-muted-foreground">
-              Showing {(currentPage - 1) * pageSize + 1}
-              –{Math.min(currentPage * pageSize, indexed.length)} of {indexed.length}
-            </div>
-            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
-          </div>
-        )}
-      </Card>
+      <CloudscapeApprovalTable
+        title={`Service Cert & SO — ${status} · ${approvalType === "service" ? "Service Certificate" : "Sales Order"}`}
+        countLabel={`(${rows.length})`}
+        rows={rows}
+        rowKey={rowKey}
+        loading={mutation.isPending}
+        showSelect={showSelect}
+        selectedKeys={selected}
+        onSelectionChange={setSelected}
+        onAccept={() => decide("accepted")}
+        onReject={() => decide("rejected")}
+        acceptDisabled={!canAct || decisionMutation.isPending}
+        rejectDisabled={!canAct || decisionMutation.isPending}
+        acceptLoading={decisionMutation.isPending && decisionMutation.variables?.action === "accepted"}
+        rejectLoading={decisionMutation.isPending && decisionMutation.variables?.action === "rejected"}
+        showReason={showSelect}
+        reasonValue={(k) => reasons.get(k) ?? ""}
+        onReasonChange={setReasonFor}
+        reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
+        readonlyReason={(r) => r.reason ?? "—"}
+        emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute."}
+        columns={COLS.map((c) => ({
+          id: c.key,
+          header: c.label,
+          align: c.align,
+          sortingField: c.key,
+          cell: (r: ScSoRow) => {
+            const v = (r as any)[c.key] as string | number | null;
+            if (c.date) return fmtDate(v as string | null);
+            if (c.num) return fmtNum(v);
+            return v == null || v === "" ? "—" : String(v);
+          },
+        })) as CloudscapeColumn<ScSoRow>[]}
+      />
+
 
 
       <ResultDialog
