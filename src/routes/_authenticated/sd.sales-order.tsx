@@ -433,7 +433,7 @@ function SalesOrderPage() {
         ] as CloudscapeColumn<SalesOrderRow>[]}
       />
 
-      </Card>
+
 
 
       <ResultDialog
