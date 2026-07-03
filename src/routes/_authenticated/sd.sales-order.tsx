@@ -205,31 +205,8 @@ function SalesOrderPage() {
 
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
 
-  const pageSize = 25;
-  const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [rows, status]);
-  const pageCount = Math.max(1, Math.ceil(indexed.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  const pageRows = indexed.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const allChecked = pageRows.length > 0 && pageRows.every(({ k }) => selected.has(k));
 
-  function toggleAll() {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allChecked) pageRows.forEach(({ k }) => next.delete(k));
-      else pageRows.forEach(({ k }) => next.add(k));
-      return next;
-    });
-  }
-  function toggleOne(k: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
-  }
 
   const decisionMutation = useMutation({
     mutationFn: (vars: { action: "accepted" | "rejected"; user_id: string; rows: SalesOrderRow[] }) =>
