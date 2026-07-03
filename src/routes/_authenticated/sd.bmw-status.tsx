@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -11,6 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
 
@@ -329,24 +338,22 @@ function BmwStatusReportPage() {
   const schema = schemaWithSapExtras(SCHEMAS[activeMode], rows);
   const groupSpans = computeGroupSpans(schema);
 
+  const pageSize = 25;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [rows, activeMode]);
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">BMW Status Report</h1>
-          <p className="text-sm text-muted-foreground">
-            Customer / Contract / Sales-wise BMW status report fetched live from SAP.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-mono text-xs">
-            BMW_STATUS
-          </Badge>
-          <Badge variant="secondary" className="text-xs">
-            Read-only
-          </Badge>
         </div>
       </div>
+
 
       <Card className="p-4 space-y-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
@@ -464,9 +471,9 @@ function BmwStatusReportPage() {
             </div>
           ) : (
             <table className="w-full min-w-max text-xs border-collapse">
-              <thead className="sticky top-0 z-10">
+              <thead className="sticky top-0 z-20 bg-sidebar text-sidebar-foreground">
                 <tr>
-                  <th rowSpan={2} className="text-left font-semibold px-3 py-2 w-10 bg-muted/70 border-b align-bottom">
+                  <th rowSpan={2} className="text-left font-semibold px-3 py-2 w-10 border-b border-sidebar-border align-bottom">
                     #
                   </th>
                   {groupSpans.map((g, i) => {
@@ -475,14 +482,14 @@ function BmwStatusReportPage() {
                       <th
                         key={`${g.group}-${i}`}
                         colSpan={g.span}
-                        className={`text-center font-semibold px-3 py-1.5 border-b border-l text-[11px] uppercase tracking-wide ${meta.className}`}
+                        className={`text-center font-semibold px-3 py-1.5 border-b border-l border-sidebar-border text-[11px] uppercase tracking-wide`}
                       >
                         {meta.label}
                       </th>
                     );
                   })}
                 </tr>
-                <tr className="bg-muted/50">
+                <tr>
                   {schema.map((c, idx) => {
                     const prev = schema[idx - 1];
                     const groupBoundary = !prev || prev.group !== c.group;
@@ -491,7 +498,7 @@ function BmwStatusReportPage() {
                     return (
                       <th
                         key={c.key}
-                        className={`${align} font-semibold px-3 py-2 whitespace-nowrap border-b ${groupBoundary ? "border-l" : ""}`}
+                        className={`${align} font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border ${groupBoundary ? "border-l" : ""}`}
                         title={[c.key, ...(c.aliases ?? [])].join(" / ")}
                       >
                         {c.label}
@@ -501,9 +508,10 @@ function BmwStatusReportPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-accent/40">
-                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                {pageRows.map((r, i) => (
+                  <tr key={(currentPage - 1) * pageSize + i} className="border-b last:border-0 hover:bg-accent/40">
+                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
+
                     {schema.map((c, idx) => {
                       const prev = schema[idx - 1];
                       const groupBoundary = !prev || prev.group !== c.group;
@@ -555,7 +563,78 @@ function BmwStatusReportPage() {
             </table>
           )}
         </div>
+        {rows.length > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
+            <div className="text-xs text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}
+              –{Math.min(currentPage * pageSize, rows.length)} of {rows.length}
+            </div>
+            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
+          </div>
+        )}
       </Card>
     </div>
   );
 }
+
+function PagerNav({
+  page,
+  pageCount,
+  onChange,
+}: {
+  page: number;
+  pageCount: number;
+  onChange: (p: number) => void;
+}) {
+  const pages: (number | "ellipsis")[] = [];
+  const push = (v: number | "ellipsis") => pages.push(v);
+  if (pageCount <= 7) {
+    for (let i = 1; i <= pageCount; i++) push(i);
+  } else {
+    push(1);
+    if (page > 3) push("ellipsis");
+    const start = Math.max(2, page - 1);
+    const end = Math.min(pageCount - 1, page + 1);
+    for (let i = start; i <= end; i++) push(i);
+    if (page < pageCount - 2) push("ellipsis");
+    push(pageCount);
+  }
+  return (
+    <Pagination className="mx-0 w-auto justify-end">
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (page > 1) onChange(page - 1); }}
+            aria-disabled={page <= 1}
+            className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+        {pages.map((p, i) =>
+          p === "ellipsis" ? (
+            <PaginationItem key={`e-${i}`}><PaginationEllipsis /></PaginationItem>
+          ) : (
+            <PaginationItem key={p}>
+              <PaginationLink
+                href="#"
+                isActive={p === page}
+                onClick={(e) => { e.preventDefault(); onChange(p); }}
+              >
+                {p}
+              </PaginationLink>
+            </PaginationItem>
+          ),
+        )}
+        <PaginationItem>
+          <PaginationNext
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (page < pageCount) onChange(page + 1); }}
+            aria-disabled={page >= pageCount}
+            className={page >= pageCount ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
+

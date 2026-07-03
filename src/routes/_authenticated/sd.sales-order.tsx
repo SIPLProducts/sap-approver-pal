@@ -15,12 +15,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
@@ -205,13 +213,21 @@ function SalesOrderPage() {
   const canExecute = plants.length > 0 && !mutation.isPending;
 
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
-  const allChecked = indexed.length > 0 && indexed.every(({ k }) => selected.has(k));
+
+  const pageSize = 25;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [rows, status]);
+  const pageCount = Math.max(1, Math.ceil(indexed.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = indexed.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const allChecked = pageRows.length > 0 && pageRows.every(({ k }) => selected.has(k));
 
   function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allChecked) indexed.forEach(({ k }) => next.delete(k));
-      else indexed.forEach(({ k }) => next.add(k));
+      if (allChecked) pageRows.forEach(({ k }) => next.delete(k));
+      else pageRows.forEach(({ k }) => next.add(k));
       return next;
     });
   }
@@ -331,15 +347,9 @@ function SalesOrderPage() {
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Sales Order Approvals</h1>
-          <p className="text-sm text-muted-foreground">
-            BMW sales order approvals fetched live from SAP via Sales_Approval_Fetch.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-mono text-xs">ZBMW_SO_APP</Badge>
-          <Badge variant="secondary" className="text-xs">Single level</Badge>
         </div>
       </div>
+
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -458,7 +468,7 @@ function SalesOrderPage() {
         </div>
         <div className="overflow-auto max-h-[60vh]">
           <table className="w-full text-xs">
-            <thead className="bg-muted/50 border-b sticky top-0 z-10">
+            <thead className="bg-sidebar text-sidebar-foreground border-b border-sidebar-border sticky top-0 z-20">
               <tr>
                 {showSelect && (
                   <th className="px-3 py-2 w-10">
@@ -499,7 +509,7 @@ function SalesOrderPage() {
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
                   </td>
                 </tr>
-              ) : indexed.length === 0 ? (
+              ) : pageRows.length === 0 ? (
                 <tr>
                   <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
                     {lastFetchedAt
@@ -508,7 +518,7 @@ function SalesOrderPage() {
                   </td>
                 </tr>
               ) : (
-                indexed.map(({ r, k }, i) => {
+                pageRows.map(({ r, k }, i) => {
                   const isSel = selected.has(k);
                   return (
                     <tr
@@ -524,7 +534,7 @@ function SalesOrderPage() {
                           />
                         </td>
                       )}
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer_group ?? "—"}</td>
@@ -568,7 +578,17 @@ function SalesOrderPage() {
             </tbody>
           </table>
         </div>
+        {indexed.length > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
+            <div className="text-xs text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}
+              –{Math.min(currentPage * pageSize, indexed.length)} of {indexed.length}
+            </div>
+            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
+          </div>
+        )}
       </Card>
+
 
       <ResultDialog
         open={resultOpen}
@@ -581,7 +601,69 @@ function SalesOrderPage() {
   );
 }
 
+function PagerNav({
+  page,
+  pageCount,
+  onChange,
+}: {
+  page: number;
+  pageCount: number;
+  onChange: (p: number) => void;
+}) {
+  const pages: (number | "ellipsis")[] = [];
+  const push = (v: number | "ellipsis") => pages.push(v);
+  if (pageCount <= 7) {
+    for (let i = 1; i <= pageCount; i++) push(i);
+  } else {
+    push(1);
+    if (page > 3) push("ellipsis");
+    const start = Math.max(2, page - 1);
+    const end = Math.min(pageCount - 1, page + 1);
+    for (let i = start; i <= end; i++) push(i);
+    if (page < pageCount - 2) push("ellipsis");
+    push(pageCount);
+  }
+  return (
+    <Pagination className="mx-0 w-auto justify-end">
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (page > 1) onChange(page - 1); }}
+            aria-disabled={page <= 1}
+            className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+        {pages.map((p, i) =>
+          p === "ellipsis" ? (
+            <PaginationItem key={`e-${i}`}><PaginationEllipsis /></PaginationItem>
+          ) : (
+            <PaginationItem key={p}>
+              <PaginationLink
+                href="#"
+                isActive={p === page}
+                onClick={(e) => { e.preventDefault(); onChange(p); }}
+              >
+                {p}
+              </PaginationLink>
+            </PaginationItem>
+          ),
+        )}
+        <PaginationItem>
+          <PaginationNext
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (page < pageCount) onChange(page + 1); }}
+            aria-disabled={page >= pageCount}
+            className={page >= pageCount ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
+
 function ResultDialog({
+
   open,
   onOpenChange,
   action,
