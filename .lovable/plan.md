@@ -1,39 +1,88 @@
-## Scope
+# AWS Cloudscape UI for Approval Screens
 
-Apply the same treatment done for `sd.contract.tsx` to three additional screens:
-- `src/routes/_authenticated/sd.sc-so.tsx` (Service Certificate & SO Approvals)
-- `src/routes/_authenticated/sd.sales-order.tsx` (Sales Order Approvals)
-- `src/routes/_authenticated/sd.bmw-status.tsx` (BMW Status Report)
+Restyle the five approval screens to match AWS Console (Cloudscape Design System, Light theme) by installing the official Cloudscape component library and swapping current shadcn primitives on those screens for their Cloudscape equivalents.
 
-## Changes (identical pattern per file)
+## Scope (screens)
 
-1. **Header cleanup** — Keep only the H1 tab name. Remove:
-   - `sd.sc-so.tsx`: subtitle "BMW Service Certificate / Sales Order PH approvals fetched live from SAP." + badges `ZBMW_SC_ISSUE_PH`, `Single level`.
-   - `sd.sales-order.tsx`: subtitle "BMW sales order approvals fetched live from SAP via Sales_Approval_Fetch." + badges `ZBMW_SO_APP`, `Single level`.
-   - `sd.bmw-status.tsx`: subtitle "Customer / Contract / Sales-wise BMW status report fetched live from SAP." + badges `BMW_STATUS`, `Read-only`.
-   - Remove now-unused `Badge` import in each file.
+- `src/routes/_authenticated/sd.contract.tsx` — BMW Contract Approvals
+- `src/routes/_authenticated/sd.sc-so.tsx` — Service Cert & SO
+- `src/routes/_authenticated/sd.sales-order.tsx` — Sales Order Approvals
+- `src/routes/_authenticated/sd.bmw-status.tsx` — BMW Status Report
+- `src/routes/_authenticated/sd.price.tsx` — Price Approvals (for consistency)
 
-2. **Sticky header with sidebar background**
-   - Replace `<thead className="bg-muted/50 border-b sticky top-0 z-10">` with `bg-sidebar text-sidebar-foreground sticky top-0 z-20 border-b`.
-   - For `sd.bmw-status.tsx` (which has a two-row header: group row + column row), apply `bg-sidebar text-sidebar-foreground` to `thead`; the group row stays at `top-0 z-20`, the column row stays sticky at `top-[height] z-20` (keep existing structure, only swap colors).
-   - Remove muted color overrides on `th` cells that would conflict with the sidebar foreground.
+Out of scope: sidebar, top nav, login, admin/*, inbox/*, approval/$id, history, settings, notifications, global theme tokens, server functions.
 
-3. **Client-side pagination (25 rows/page)**
-   - Add `pageSize = 25` + `page` state. Compute `pageCount`, `pageRows = indexed.slice((page-1)*pageSize, page*pageSize)`. Reset `page` to 1 whenever `rows` (or `status`/`mode`) changes.
-   - Table body renders `pageRows` instead of `indexed`/`rows`. Row `#` uses absolute index (`(page-1)*pageSize + i + 1`).
-   - For sc-so and sales-order: `allChecked` / `toggleAll` scope switches to `pageRows` (per-page select-all — standard pagination behavior). Selection Map/Set keyed by `rowKey` is preserved across pages, so decision submit still gathers all selected rows across all pages.
-   - Below the scroll container (inside the Card) add a footer bar:
-     - Left: "Showing X–Y of N".
-     - Right: reusable inline `PagerNav` (shadcn `Pagination` primitives, up to 5 numeric links with ellipsis, Prev/Next) — same component shape used in `sd.contract.tsx`.
+## Visual pattern (per screen)
 
-4. **Scroll only the body** — Keep the existing `overflow-auto max-h-[60vh]` scroll container; sticky `thead` inside it means only tbody scrolls. Pagination footer sits outside the scroll div but inside the Card.
+Each screen adopts the Cloudscape "Table view" pattern:
 
-## Out of scope
-- No changes to server functions, filter/selection screens, decision/approve/reject logic, ResultDialog, or column definitions.
-- No per-column filter row (bmw-status has a huge dynamic schema; contract's filter row was the request there — user did not ask for filters on these three).
-- No sidebar or global styles changes. Semantic tokens only.
+```text
+┌─ ContentLayout ────────────────────────────────┐
+│  Header (h1 + counter "(N)")                   │
+│  ┌─ Table ─────────────────────────────────┐   │
+│  │ Header slot: filter input + Refresh +   │   │
+│  │              Approve/Reject actions     │   │
+│  ├─────────────────────────────────────────┤   │
+│  │ Sticky column header (Cloudscape navy)  │   │
+│  │ Selectable rows, zebra, compact density │   │
+│  ├─────────────────────────────────────────┤   │
+│  │ Pagination footer (Cloudscape)          │   │
+│  └─────────────────────────────────────────┘   │
+└────────────────────────────────────────────────┘
+```
 
-## Technical notes
-- Selection state (`selected` Set + `reasons` Map) is keyed by `rowKey(r, i)` — unchanged, so selections persist across page changes.
-- `PagerNav` helper duplicated inline in each file (matches existing pattern from `sd.contract.tsx`); no shared component extracted to keep the change minimal and localized.
-- All colors via semantic tokens (`bg-sidebar`, `text-sidebar-foreground`) — no hardcoded hex.
+- Cloudscape `<Table>` with `stickyHeader`, `selectionType="multi"`, `variant="full-page"`, `resizableColumns`, `stripedRows`.
+- Cloudscape `<Pagination>` replaces the local `PagerNav`.
+- Cloudscape `<TextFilter>` replaces the per-column filter inputs (single global filter, matching AWS convention). Column-level filtering stays available via `filteringFunction`.
+- Cloudscape `<Button variant="primary|normal">` replaces shadcn `<Button>` in the table toolbar and decision dialog footer.
+- Cloudscape `<StatusIndicator>` replaces the current pending/accepted/rejected badges.
+- Dialogs remain shadcn (they aren't part of Cloudscape's table pattern in use here) — only their action buttons switch to Cloudscape buttons for consistency.
+
+## Technical details
+
+### Package install
+
+```bash
+bun add @cloudscape-design/components @cloudscape-design/global-styles
+```
+
+Import Cloudscape's global CSS once in `src/main.tsx`:
+
+```ts
+import "@cloudscape-design/global-styles/index.css";
+```
+
+Light theme is default — no theme override needed.
+
+### Isolation from Tailwind
+
+Cloudscape ships its own reset and CSS variables. To prevent bleed into non-approval pages, wrap only the five approval screens in a `<div className="awsui">` container and scope any custom overrides to that class. No changes to `src/styles.css` beyond ensuring Cloudscape's CSS import order (Cloudscape after Tailwind base so its component styles win inside the wrapper).
+
+### Per-file changes (identical pattern)
+
+For each of the 5 route files:
+
+1. Replace the outer `<Card>` + custom table markup with:
+   - `<AppLayout>`-less `<ContentLayout header={<Header variant="h1" counter={\`(\${total})\`}>Title</Header>}>`
+   - `<Table>` with `columnDefinitions`, `items={pageRows}`, `selectedItems`, `onSelectionChange`, `header={<Header actions={...}>…</Header>}`, `filter={<TextFilter…/>}`, `pagination={<Pagination…/>}`, `empty={…}`, `loading={pending}`.
+2. Map existing column config → Cloudscape `columnDefinitions` (`id`, `header`, `cell`, `sortingField`, `minWidth`).
+3. Replace the current `page`/`pageSize`/`PagerNav` state with Cloudscape's `useCollection` hook from `@cloudscape-design/collection-hooks` (install alongside) for pagination + filtering + sorting.
+4. Replace decision-dialog action buttons with Cloudscape `<Button variant="primary">Approve</Button>` / `<Button>Reject</Button>`.
+5. Replace status pills with `<StatusIndicator type="success|error|pending">`.
+6. Remove now-unused imports (`Pagination*` from shadcn, `PagerNav`, `FilterInput`).
+
+`bmw-status.tsx` keeps its multi-row grouped header via Cloudscape's `columnDisplay` + header groups (Cloudscape doesn't natively support grouped headers, so grouped labels move into a header caption row above the `<Table>`).
+
+### Data / logic
+
+No changes to server functions, `useMutation` flows, `submit*Decision` wiring, filter query shapes, or selection semantics. Pagination becomes client-side via `useCollection` (currently manual slicing).
+
+### Risk / notes
+
+- Cloudscape adds ~350 KB gzipped to the bundle for these routes.
+- Cloudscape uses its own font (Open Sans / Amazon Ember fallback). This will look different from the rest of the app inside the wrapper — intentional per the AWS Light choice.
+- Grouped headers in BMW Status Report degrade to a caption row (Cloudscape limitation).
+
+## Deliverable
+
+Five approval screens render as AWS Console tables (sticky navy header, striped rows, native Cloudscape pagination + filter + selection), while the rest of the app is untouched.
