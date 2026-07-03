@@ -465,37 +465,77 @@ function ContractPage() {
           )}
         </div>
         <div className="overflow-auto max-h-[60vh]">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/50 border-b sticky top-0 z-10">
-              <tr>
+          <table className="w-full text-xs border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20">
+              <tr className="bg-sidebar text-sidebar-foreground">
                 {showSelect && (
-                  <th className="px-3 py-2 w-10">
+                  <th className="px-3 py-2 w-10 border-b border-sidebar-border">
                     <Checkbox
                       checked={allChecked}
                       onCheckedChange={toggleAll}
-                      disabled={rows.length === 0}
+                      disabled={pageRows.length === 0}
                       aria-label="Select all"
                     />
                   </th>
                 )}
-                <th className="text-left font-semibold px-3 py-2 w-10">#</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer Name</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Contract No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Item</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Con. Creation</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Material</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Qty</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Net Value</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Tax Value</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Total</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Agr. From</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Agr. To</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Svc Valid From</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Svc Valid To</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Sales Org</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Co. Code</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Reason</th>
+                <th className="text-left font-semibold px-3 py-2 w-10 border-b border-sidebar-border">#</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Customer</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Customer Name</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Contract No</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Item</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Con. Creation</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Material</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Qty</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Net Value</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Tax Value</th>
+                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Total</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Agr. From</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Agr. To</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Svc Valid From</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Svc Valid To</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Sales Org</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Co. Code</th>
+                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Reason</th>
+              </tr>
+              <tr className="bg-sidebar/95 text-sidebar-foreground backdrop-blur">
+                {showSelect && <th className="px-2 py-1 border-b border-sidebar-border" />}
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                {FILTER_KEYS.slice(0, 2).map((fk) => (
+                  <th key={fk} className="px-2 py-1 border-b border-sidebar-border">
+                    <FilterInput value={filters[fk] ?? ""} onChange={(v) => setFilters((p) => ({ ...p, [fk]: v }))} />
+                  </th>
+                ))}
+                {/* Contract No, Item */}
+                {(["contract_no", "contract_item"] as FilterKey[]).map((fk) => (
+                  <th key={fk} className="px-2 py-1 border-b border-sidebar-border">
+                    <FilterInput value={filters[fk] ?? ""} onChange={(v) => setFilters((p) => ({ ...p, [fk]: v }))} />
+                  </th>
+                ))}
+                {/* Con. Creation */}
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                {/* Material */}
+                <th className="px-2 py-1 border-b border-sidebar-border">
+                  <FilterInput value={filters.material ?? ""} onChange={(v) => setFilters((p) => ({ ...p, material: v }))} />
+                </th>
+                {/* Qty, Net, Tax, Total, dates x4 */}
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                <th className="px-2 py-1 border-b border-sidebar-border" />
+                {/* Sales Org */}
+                <th className="px-2 py-1 border-b border-sidebar-border">
+                  <FilterInput value={filters.sales_org ?? ""} onChange={(v) => setFilters((p) => ({ ...p, sales_org: v }))} />
+                </th>
+                {/* Co. Code */}
+                <th className="px-2 py-1 border-b border-sidebar-border">
+                  <FilterInput value={filters.company_code ?? ""} onChange={(v) => setFilters((p) => ({ ...p, company_code: v }))} />
+                </th>
+                {/* Reason */}
+                <th className="px-2 py-1 border-b border-sidebar-border" />
               </tr>
             </thead>
             <tbody>
@@ -505,17 +545,20 @@ function ContractPage() {
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
                   </td>
                 </tr>
-              ) : indexed.length === 0 ? (
+              ) : pageRows.length === 0 ? (
                 <tr>
                   <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
                     {lastFetchedAt
-                      ? `No ${status} records.`
+                      ? indexed.length === 0
+                        ? `No ${status} records.`
+                        : "No records match filters."
                       : "Enter Plant and click Execute to load contracts from SAP."}
                   </td>
                 </tr>
               ) : (
-                indexed.map(({ r, k }, i) => {
+                pageRows.map(({ r, k }, i) => {
                   const isSel = selected.has(k);
+                  const absIdx = (currentPage - 1) * pageSize + i + 1;
                   return (
                     <tr
                       key={k}
@@ -530,7 +573,7 @@ function ContractPage() {
                           />
                         </td>
                       )}
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{absIdx}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no ?? "—"}</td>
@@ -572,7 +615,17 @@ function ContractPage() {
             </tbody>
           </table>
         </div>
+        {filteredIndexed.length > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
+            <div className="text-xs text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}
+              –{Math.min(currentPage * pageSize, filteredIndexed.length)} of {filteredIndexed.length}
+            </div>
+            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
+          </div>
+        )}
       </Card>
+
 
       <ResultDialog
         open={resultOpen}
