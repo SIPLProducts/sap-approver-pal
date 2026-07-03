@@ -204,173 +204,39 @@ function PricePage() {
       </Card>
 
 
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Output
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {visible.length} record{visible.length === 1 ? "" : "s"}
-              {selected.size > 0 ? ` · ${selected.size} selected` : ""}
-              {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => decide("accepted")}
-              disabled={!canAct || decisionMutation.isPending}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              title={selected.size === 0 ? "Select at least one row" : undefined}
-            >
-              {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-              ) : (
-                <Check className="h-3.5 w-3.5 mr-1" />
-              )}
-              Accept
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => decide("rejected")} disabled={!canAct || decisionMutation.isPending}>
-              {decisionMutation.isPending && decisionMutation.variables?.action === "rejected" ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-              ) : (
-                <X className="h-3.5 w-3.5 mr-1" />
-              )}
-              Reject
-            </Button>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-sidebar text-sidebar-foreground border-b sticky top-0">
-              <tr>
-                <th className="px-3 py-2 w-10">
-                  <Checkbox
-                    className="rounded-none border-sidebar-foreground/60"
-                    checked={allChecked}
-                    onCheckedChange={toggleAll}
-                    disabled={pagedVisible.length === 0}
-                    aria-label="Select all"
-                  />
-                </th>
-                <th className="text-left font-semibold px-3 py-2 w-10">#</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Key Comb.</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Cond. Type</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Customer</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Price Grp</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Plant</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Material</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">New Price</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Curr</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">UOM</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Valid From</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Valid To</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Old Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mutation.isPending ? (
-                <tr>
-                  <td colSpan={14} className="py-12 text-center text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
-                  </td>
-                </tr>
-              ) : pagedVisible.length === 0 ? (
-                <tr>
-                  <td colSpan={14} className="py-12 text-center text-muted-foreground">
-                    {rows.length === 0
-                      ? "Enter a Plant and click Execute to load price approvals from SAP."
-                      : "No records."}
-                  </td>
-                </tr>
-              ) : (
-                pagedVisible.map(({ r, k }, i) => {
-                  const isSel = selected.has(k);
-                  const rowIndex = pageSize === "ALL" ? i : (currentPage - 1) * (pageSize as number) + i;
-                  return (
-                    <tr
-                      key={k}
-                      className={`border-b last:border-0 hover:bg-accent/40 ${isSel ? "bg-accent/30" : ""}`}
-                    >
-                      <td className="px-3 py-2">
-                        <Checkbox
-                          className="rounded-none"
-                          checked={isSel}
-                          onCheckedChange={() => toggleOne(k)}
-                          aria-label="Select row"
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{rowIndex + 1}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.key_combination ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.condition_type ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.customer ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.price_group ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.plant ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(r.new_price)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.currency ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.uom ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.valid_from_sc)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.valid_to_sc)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.old_price)}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+      <CloudscapeApprovalTable
+        title="Price Approvals"
+        countLabel={`(${rows.length})`}
+        rows={rows}
+        rowKey={rowKey}
+        loading={mutation.isPending}
+        showSelect
+        selectedKeys={selected}
+        onSelectionChange={setSelected}
+        onAccept={() => decide("accepted")}
+        onReject={() => decide("rejected")}
+        acceptDisabled={!canAct || decisionMutation.isPending}
+        rejectDisabled={!canAct || decisionMutation.isPending}
+        acceptLoading={decisionMutation.isPending && decisionMutation.variables?.action === "accepted"}
+        rejectLoading={decisionMutation.isPending && decisionMutation.variables?.action === "rejected"}
+        emptyMessage={rows.length === 0 ? "Enter a Plant and click Execute to load price approvals from SAP." : "No records."}
+        columns={[
+          { id: "key_combination", header: "Key Comb.", sortingField: "key_combination", cell: (r) => r.key_combination ?? "—" },
+          { id: "condition_type", header: "Cond. Type", cell: (r) => r.condition_type ?? "—" },
+          { id: "customer", header: "Customer", cell: (r) => r.customer ?? "—" },
+          { id: "price_group", header: "Price Grp", cell: (r) => r.price_group ?? "—" },
+          { id: "plant", header: "Plant", cell: (r) => r.plant ?? "—" },
+          { id: "material", header: "Material", cell: (r) => r.material ?? "—" },
+          { id: "new_price", header: "New Price", align: "right", cell: (r) => <strong>{fmtNum(r.new_price)}</strong> },
+          { id: "currency", header: "Curr", cell: (r) => r.currency ?? "—" },
+          { id: "uom", header: "UOM", cell: (r) => r.uom ?? "—" },
+          { id: "valid_from_sc", header: "Valid From", cell: (r) => fmtDate(r.valid_from_sc) },
+          { id: "valid_to_sc", header: "Valid To", cell: (r) => fmtDate(r.valid_to_sc) },
+          { id: "old_price", header: "Old Price", align: "right", cell: (r) => fmtNum(r.old_price) },
+        ] as CloudscapeColumn<PriceRow>[]}
+      />
 
-        {/* Pagination footer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-t bg-muted/20">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Rows per page</span>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(v) => setPageSize(v === "ALL" ? "ALL" : Number(v))}
-            >
-              <SelectTrigger className="h-8 w-[84px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {["10", "20", "25", "50", "100", "ALL"].map((o) => (
-                  <SelectItem key={o} value={o}>{o}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="ml-2">
-              {visible.length === 0
-                ? "0 of 0"
-                : pageSize === "ALL"
-                  ? `1–${visible.length} of ${visible.length}`
-                  : `${(currentPage - 1) * (pageSize as number) + 1}–${Math.min(currentPage * (pageSize as number), visible.length)} of ${visible.length}`}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={pageSize === "ALL" || currentPage <= 1}
-            >
-              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
-            </Button>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={pageSize === "ALL" || currentPage >= totalPages}
-            >
-              Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
-          </div>
-        </div>
+
 
       </Card>
 
