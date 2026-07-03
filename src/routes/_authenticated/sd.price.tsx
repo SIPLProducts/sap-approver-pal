@@ -238,8 +238,6 @@ function PricePage() {
 
 
 
-      </Card>
-
       <ResultDialog
         open={resultOpen}
         onOpenChange={setResultOpen}
