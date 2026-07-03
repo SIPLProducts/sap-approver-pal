@@ -471,9 +471,9 @@ function BmwStatusReportPage() {
             </div>
           ) : (
             <table className="w-full min-w-max text-xs border-collapse">
-              <thead className="sticky top-0 z-10">
+              <thead className="sticky top-0 z-20 bg-sidebar text-sidebar-foreground">
                 <tr>
-                  <th rowSpan={2} className="text-left font-semibold px-3 py-2 w-10 bg-muted/70 border-b align-bottom">
+                  <th rowSpan={2} className="text-left font-semibold px-3 py-2 w-10 border-b border-sidebar-border align-bottom">
                     #
                   </th>
                   {groupSpans.map((g, i) => {
@@ -482,14 +482,14 @@ function BmwStatusReportPage() {
                       <th
                         key={`${g.group}-${i}`}
                         colSpan={g.span}
-                        className={`text-center font-semibold px-3 py-1.5 border-b border-l text-[11px] uppercase tracking-wide ${meta.className}`}
+                        className={`text-center font-semibold px-3 py-1.5 border-b border-l border-sidebar-border text-[11px] uppercase tracking-wide`}
                       >
                         {meta.label}
                       </th>
                     );
                   })}
                 </tr>
-                <tr className="bg-muted/50">
+                <tr>
                   {schema.map((c, idx) => {
                     const prev = schema[idx - 1];
                     const groupBoundary = !prev || prev.group !== c.group;
@@ -498,7 +498,7 @@ function BmwStatusReportPage() {
                     return (
                       <th
                         key={c.key}
-                        className={`${align} font-semibold px-3 py-2 whitespace-nowrap border-b ${groupBoundary ? "border-l" : ""}`}
+                        className={`${align} font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border ${groupBoundary ? "border-l" : ""}`}
                         title={[c.key, ...(c.aliases ?? [])].join(" / ")}
                       >
                         {c.label}
@@ -508,9 +508,10 @@ function BmwStatusReportPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-accent/40">
-                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                {pageRows.map((r, i) => (
+                  <tr key={(currentPage - 1) * pageSize + i} className="border-b last:border-0 hover:bg-accent/40">
+                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
+
                     {schema.map((c, idx) => {
                       const prev = schema[idx - 1];
                       const groupBoundary = !prev || prev.group !== c.group;
