@@ -362,211 +362,47 @@ function ContractPage() {
         </div>
       </Card>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Output — {status}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {rows.length} record{rows.length === 1 ? "" : "s"}
-              {showSelect && selected.size > 0 ? ` · ${selected.size} selected` : ""}
-              {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
-            </div>
-          </div>
-          {showSelect && (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={() => decide("accepted")}
-                disabled={!canAct || decisionMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                title={selected.size === 0 ? "Select at least one row" : undefined}
-              >
-                {decisionMutation.isPending && decisionMutation.variables?.action === "accepted" ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 mr-1" />
-                )}
-                Accept
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => decide("rejected")}
-                disabled={!canAct || decisionMutation.isPending}
-              >
-                {decisionMutation.isPending && decisionMutation.variables?.action === "rejected" ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                ) : (
-                  <X className="h-3.5 w-3.5 mr-1" />
-                )}
-                Reject
-              </Button>
-            </div>
-          )}
-        </div>
-        <div className="overflow-auto max-h-[60vh]">
-          <table className="w-full text-xs border-separate border-spacing-0">
-            <thead className="sticky top-0 z-20">
-              <tr className="bg-sidebar text-sidebar-foreground">
-                {showSelect && (
-                  <th className="px-3 py-2 w-10 border-b border-sidebar-border">
-                    <Checkbox
-                      checked={allChecked}
-                      onCheckedChange={toggleAll}
-                      disabled={pageRows.length === 0}
-                      aria-label="Select all"
-                    />
-                  </th>
-                )}
-                <th className="text-left font-semibold px-3 py-2 w-10 border-b border-sidebar-border">#</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Customer</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Customer Name</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Contract No</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Item</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Con. Creation</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Material</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Qty</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Net Value</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Tax Value</th>
-                <th className="text-right font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Total</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Agr. From</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Agr. To</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Svc Valid From</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Svc Valid To</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Sales Org</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Co. Code</th>
-                <th className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border">Reason</th>
-              </tr>
-              <tr className="bg-sidebar/95 text-sidebar-foreground backdrop-blur">
-                {showSelect && <th className="px-2 py-1 border-b border-sidebar-border" />}
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                {FILTER_KEYS.slice(0, 2).map((fk) => (
-                  <th key={fk} className="px-2 py-1 border-b border-sidebar-border">
-                    <FilterInput value={filters[fk] ?? ""} onChange={(v) => setFilters((p) => ({ ...p, [fk]: v }))} />
-                  </th>
-                ))}
-                {/* Contract No, Item */}
-                {(["contract_no", "contract_item"] as FilterKey[]).map((fk) => (
-                  <th key={fk} className="px-2 py-1 border-b border-sidebar-border">
-                    <FilterInput value={filters[fk] ?? ""} onChange={(v) => setFilters((p) => ({ ...p, [fk]: v }))} />
-                  </th>
-                ))}
-                {/* Con. Creation */}
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                {/* Material */}
-                <th className="px-2 py-1 border-b border-sidebar-border">
-                  <FilterInput value={filters.material ?? ""} onChange={(v) => setFilters((p) => ({ ...p, material: v }))} />
-                </th>
-                {/* Qty, Net, Tax, Total, dates x4 */}
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-                {/* Sales Org */}
-                <th className="px-2 py-1 border-b border-sidebar-border">
-                  <FilterInput value={filters.sales_org ?? ""} onChange={(v) => setFilters((p) => ({ ...p, sales_org: v }))} />
-                </th>
-                {/* Co. Code */}
-                <th className="px-2 py-1 border-b border-sidebar-border">
-                  <FilterInput value={filters.company_code ?? ""} onChange={(v) => setFilters((p) => ({ ...p, company_code: v }))} />
-                </th>
-                {/* Reason */}
-                <th className="px-2 py-1 border-b border-sidebar-border" />
-              </tr>
-            </thead>
-            <tbody>
-              {mutation.isPending ? (
-                <tr>
-                  <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Fetching from SAP…
-                  </td>
-                </tr>
-              ) : pageRows.length === 0 ? (
-                <tr>
-                  <td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
-                    {lastFetchedAt
-                      ? indexed.length === 0
-                        ? `No ${status} records.`
-                        : "No records match filters."
-                      : "Enter Plant and click Execute to load contracts from SAP."}
-                  </td>
-                </tr>
-              ) : (
-                pageRows.map(({ r, k }, i) => {
-                  const isSel = selected.has(k);
-                  const absIdx = (currentPage - 1) * pageSize + i + 1;
-                  return (
-                    <tr
-                      key={k}
-                      className={`border-b last:border-0 hover:bg-accent/40 ${showSelect && isSel ? "bg-accent/30" : ""}`}
-                    >
-                      {showSelect && (
-                        <td className="px-3 py-2">
-                          <Checkbox
-                            checked={isSel}
-                            onCheckedChange={() => toggleOne(k)}
-                            aria-label="Select row"
-                          />
-                        </td>
-                      )}
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{absIdx}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_no ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.contract_item ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.con_creation_date)}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.material ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.qty)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.net_value)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.tax_value)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNum(r.total)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.agreement_from)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.agreement_to)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_from)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.service_valid_to)}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.sales_org ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{r.company_code ?? "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {status === "pending" ? (
-                          <Input
-                            value={reasons.get(k) ?? ""}
-                            onChange={(e) => setReasonFor(k, e.target.value)}
-                            placeholder="Required"
-                            maxLength={50}
-                            aria-invalid={isSel && !(reasons.get(k) ?? "").trim()}
-                            className={`h-8 w-44 font-mono text-xs ${
-                              isSel && !(reasons.get(k) ?? "").trim()
-                                ? "border-destructive focus-visible:ring-destructive"
-                                : ""
-                            }`}
-                          />
-                        ) : (
-                          r.reason ?? "—"
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-        {filteredIndexed.length > 0 && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
-            <div className="text-xs text-muted-foreground">
-              Showing {(currentPage - 1) * pageSize + 1}
-              –{Math.min(currentPage * pageSize, filteredIndexed.length)} of {filteredIndexed.length}
-            </div>
-            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
-          </div>
-        )}
-      </Card>
+      <CloudscapeApprovalTable
+        title={`Contract Approvals — ${status}`}
+        countLabel={`(${rows.length})`}
+        rows={rows}
+        rowKey={rowKey}
+        loading={mutation.isPending}
+        showSelect={showSelect}
+        selectedKeys={selected}
+        onSelectionChange={setSelected}
+        onAccept={() => decide("accepted")}
+        onReject={() => decide("rejected")}
+        acceptDisabled={!canAct || decisionMutation.isPending}
+        rejectDisabled={!canAct || decisionMutation.isPending}
+        acceptLoading={decisionMutation.isPending && decisionMutation.variables?.action === "accepted"}
+        rejectLoading={decisionMutation.isPending && decisionMutation.variables?.action === "rejected"}
+        showReason={showSelect}
+        reasonValue={(k) => reasons.get(k) ?? ""}
+        onReasonChange={setReasonFor}
+        reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
+        readonlyReason={(r) => r.reason ?? "—"}
+        emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute to load contracts from SAP."}
+        columns={[
+          { id: "customer", header: "Customer", sortingField: "customer", cell: (r) => r.customer ?? "—" },
+          { id: "customer_name", header: "Customer Name", sortingField: "customer_name", cell: (r) => r.customer_name ?? "—" },
+          { id: "contract_no", header: "Contract No", sortingField: "contract_no", cell: (r) => r.contract_no ?? "—" },
+          { id: "contract_item", header: "Item", sortingField: "contract_item", cell: (r) => r.contract_item ?? "—" },
+          { id: "con_creation_date", header: "Con. Creation", cell: (r) => fmtDate(r.con_creation_date) },
+          { id: "material", header: "Material", sortingField: "material", cell: (r) => r.material ?? "—" },
+          { id: "qty", header: "Qty", align: "right", cell: (r) => fmtNum(r.qty) },
+          { id: "net_value", header: "Net Value", align: "right", cell: (r) => fmtNum(r.net_value) },
+          { id: "tax_value", header: "Tax Value", align: "right", cell: (r) => fmtNum(r.tax_value) },
+          { id: "total", header: "Total", align: "right", cell: (r) => <strong>{fmtNum(r.total)}</strong> },
+          { id: "agreement_from", header: "Agr. From", cell: (r) => fmtDate(r.agreement_from) },
+          { id: "agreement_to", header: "Agr. To", cell: (r) => fmtDate(r.agreement_to) },
+          { id: "service_valid_from", header: "Svc Valid From", cell: (r) => fmtDate(r.service_valid_from) },
+          { id: "service_valid_to", header: "Svc Valid To", cell: (r) => fmtDate(r.service_valid_to) },
+          { id: "sales_org", header: "Sales Org", sortingField: "sales_org", cell: (r) => r.sales_org ?? "—" },
+          { id: "company_code", header: "Co. Code", sortingField: "company_code", cell: (r) => r.company_code ?? "—" },
+        ] as CloudscapeColumn<ContractRow>[]}
+      />
+
 
 
       <ResultDialog
