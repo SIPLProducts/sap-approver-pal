@@ -534,7 +534,7 @@ function SalesOrderPage() {
                           />
                         </td>
                       )}
-                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.customer_name ?? "—"}</td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{r.customer_group ?? "—"}</td>
