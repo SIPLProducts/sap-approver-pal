@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
+    "@cloudscape-design/collection-hooks": "^1.0.99",
+    "@cloudscape-design/components": "^3.0.1322",
+    "@cloudscape-design/global-styles": "^1.0.62",
     "@hookform/resolvers": "^5.2.2",
     "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@radix-ui/react-accordion": "^1.2.12",

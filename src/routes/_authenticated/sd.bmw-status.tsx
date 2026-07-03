@@ -11,15 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
 
@@ -336,14 +328,7 @@ function BmwStatusReportPage() {
 
   const canExecute = !!salesOrgFrom && !!salesOrgTo && !mutation.isPending;
   const schema = schemaWithSapExtras(SCHEMAS[activeMode], rows);
-  const groupSpans = computeGroupSpans(schema);
 
-  const pageSize = 25;
-  const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [rows, activeMode]);
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
 
   return (
@@ -452,189 +437,44 @@ function BmwStatusReportPage() {
         </div>
       </Card>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Report Output</div>
-            <div className="text-xs text-muted-foreground">
-              {rows.length} record{rows.length === 1 ? "" : "s"}
-              {duplicatesRemoved > 0 ? ` · ${duplicatesRemoved} exact duplicate${duplicatesRemoved === 1 ? "" : "s"} from SAP removed` : ""}
-              {lastFetchedAt ? ` · fetched ${new Date(lastFetchedAt).toLocaleTimeString()}` : ""}
-              {rows.length > 0 ? ` · ${activeMode}-wise` : ""}
-            </div>
-          </div>
-        </div>
-        <div className="overflow-auto max-h-[60vh]">
-          {rows.length === 0 ? (
-            <div className="py-12 text-center text-xs text-muted-foreground">
-              {mutation.isPending ? "Fetching…" : "No data. Set filters and click Execute."}
-            </div>
-          ) : (
-            <table className="w-full min-w-max text-xs border-collapse">
-              <thead className="sticky top-0 z-20 bg-sidebar text-sidebar-foreground">
-                <tr>
-                  <th rowSpan={2} className="text-left font-semibold px-3 py-2 w-10 border-b border-sidebar-border align-bottom">
-                    #
-                  </th>
-                  {groupSpans.map((g, i) => {
-                    const meta = GROUP_META[g.group];
-                    return (
-                      <th
-                        key={`${g.group}-${i}`}
-                        colSpan={g.span}
-                        className={`text-center font-semibold px-3 py-1.5 border-b border-l border-sidebar-border text-[11px] uppercase tracking-wide`}
-                      >
-                        {meta.label}
-                      </th>
-                    );
-                  })}
-                </tr>
-                <tr>
-                  {schema.map((c, idx) => {
-                    const prev = schema[idx - 1];
-                    const groupBoundary = !prev || prev.group !== c.group;
-                    const align =
-                      c.type === "decimal3" || c.type === "currency2" || c.type === "int" ? "text-right" : "text-left";
-                    return (
-                      <th
-                        key={c.key}
-                        className={`${align} font-semibold px-3 py-2 whitespace-nowrap border-b border-sidebar-border ${groupBoundary ? "border-l" : ""}`}
-                        title={[c.key, ...(c.aliases ?? [])].join(" / ")}
-                      >
-                        {c.label}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {pageRows.map((r, i) => (
-                  <tr key={(currentPage - 1) * pageSize + i} className="border-b last:border-0 hover:bg-accent/40">
-                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
-
-                    {schema.map((c, idx) => {
-                      const prev = schema[idx - 1];
-                      const groupBoundary = !prev || prev.group !== c.group;
-                      const raw = valueForColumn(r, c);
-                      let content: React.ReactNode = "—";
-                      let align = "text-left";
-                      if (c.type === "date") {
-                        const f = formatDate(raw);
-                        if (f) content = f;
-                      } else if (c.type === "decimal3") {
-                        align = "text-right tabular-nums";
-                        const f = formatNumber(raw, 3);
-                        if (f) content = f;
-                      } else if (c.type === "currency2") {
-                        align = "text-right tabular-nums";
-                        const f = formatNumber(raw, 2);
-                        if (f) content = f;
-                      } else if (c.type === "int") {
-                        align = "text-right tabular-nums";
-                        if (!isEmpty(raw)) {
-                          const n = parseInt(String(raw).trim(), 10);
-                          if (Number.isFinite(n)) content = String(n);
-                        }
-                      } else if (c.type === "status") {
-                        if (!isEmpty(raw)) {
-                          const s = String(raw).trim();
-                          const active = s === "01";
-                          content = (
-                            <Badge variant={active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                              {active ? "Active" : "Inactive"}
-                            </Badge>
-                          );
-                        }
-                      } else {
-                        if (!isEmpty(raw)) content = String(raw).trim();
-                      }
-                      return (
-                        <td
-                          key={c.key}
-                          className={`px-3 py-2 whitespace-nowrap ${align} ${groupBoundary ? "border-l" : ""}`}
-                        >
-                          {content}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        {rows.length > 0 && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
-            <div className="text-xs text-muted-foreground">
-              Showing {(currentPage - 1) * pageSize + 1}
-              –{Math.min(currentPage * pageSize, rows.length)} of {rows.length}
-            </div>
-            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
-          </div>
-        )}
-      </Card>
+      <CloudscapeApprovalTable
+        title={`BMW Status Report${rows.length > 0 ? ` — ${activeMode}-wise` : ""}`}
+        countLabel={`(${rows.length}${duplicatesRemoved > 0 ? ` · ${duplicatesRemoved} dup removed` : ""})`}
+        rows={rows}
+        rowKey={(_r, i) => String(i)}
+        loading={mutation.isPending}
+        emptyMessage={mutation.isPending ? "Fetching…" : "No data. Set filters and click Execute."}
+        columns={schema.map((c) => ({
+          id: c.key,
+          header: c.label,
+          align: (c.type === "decimal3" || c.type === "currency2" || c.type === "int") ? "right" : undefined,
+          sortingField: c.key,
+          minWidth: 140,
+          cell: (r: BmwStatusRow) => {
+            const raw = valueForColumn(r, c);
+            if (c.type === "date") return formatDate(raw) ?? "—";
+            if (c.type === "decimal3") return formatNumber(raw, 3) ?? "—";
+            if (c.type === "currency2") return formatNumber(raw, 2) ?? "—";
+            if (c.type === "int") {
+              if (isEmpty(raw)) return "—";
+              const n = parseInt(String(raw).trim(), 10);
+              return Number.isFinite(n) ? String(n) : "—";
+            }
+            if (c.type === "status") {
+              if (isEmpty(raw)) return "—";
+              const active = String(raw).trim() === "01";
+              return (
+                <Badge variant={active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                  {active ? "Active" : "Inactive"}
+                </Badge>
+              );
+            }
+            return isEmpty(raw) ? "—" : String(raw).trim();
+          },
+        })) as CloudscapeColumn<BmwStatusRow>[]}
+      />
     </div>
   );
 }
 
-function PagerNav({
-  page,
-  pageCount,
-  onChange,
-}: {
-  page: number;
-  pageCount: number;
-  onChange: (p: number) => void;
-}) {
-  const pages: (number | "ellipsis")[] = [];
-  const push = (v: number | "ellipsis") => pages.push(v);
-  if (pageCount <= 7) {
-    for (let i = 1; i <= pageCount; i++) push(i);
-  } else {
-    push(1);
-    if (page > 3) push("ellipsis");
-    const start = Math.max(2, page - 1);
-    const end = Math.min(pageCount - 1, page + 1);
-    for (let i = start; i <= end; i++) push(i);
-    if (page < pageCount - 2) push("ellipsis");
-    push(pageCount);
-  }
-  return (
-    <Pagination className="mx-0 w-auto justify-end">
-      <PaginationContent>
-        <PaginationItem>
-          <PaginationPrevious
-            href="#"
-            onClick={(e) => { e.preventDefault(); if (page > 1) onChange(page - 1); }}
-            aria-disabled={page <= 1}
-            className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-          />
-        </PaginationItem>
-        {pages.map((p, i) =>
-          p === "ellipsis" ? (
-            <PaginationItem key={`e-${i}`}><PaginationEllipsis /></PaginationItem>
-          ) : (
-            <PaginationItem key={p}>
-              <PaginationLink
-                href="#"
-                isActive={p === page}
-                onClick={(e) => { e.preventDefault(); onChange(p); }}
-              >
-                {p}
-              </PaginationLink>
-            </PaginationItem>
-          ),
-        )}
-        <PaginationItem>
-          <PaginationNext
-            href="#"
-            onClick={(e) => { e.preventDefault(); if (page < pageCount) onChange(page + 1); }}
-            aria-disabled={page >= pageCount}
-            className={page >= pageCount ? "pointer-events-none opacity-50" : ""}
-          />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
-  );
-}
 
