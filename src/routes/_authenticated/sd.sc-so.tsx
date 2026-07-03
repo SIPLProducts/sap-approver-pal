@@ -549,12 +549,13 @@ function ScSoPage() {
                 <tr><td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading from SAP…
                 </td></tr>
-              ) : indexed.length === 0 ? (
+              ) : pageRows.length === 0 ? (
                 <tr><td colSpan={colSpan} className="py-12 text-center text-muted-foreground">
                   {lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute."}
                 </td></tr>
-              ) : indexed.map(({ r, k }, i) => {
+              ) : pageRows.map(({ r, k }, i) => {
                 const isSel = selected.has(k);
+                const absIdx = (currentPage - 1) * pageSize + i + 1;
                 return (
                   <tr
                     key={k}
@@ -569,7 +570,7 @@ function ScSoPage() {
                         />
                       </td>
                     )}
-                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{absIdx}</td>
                     {COLS.map((c) => {
                       const v = (r as any)[c.key] as string | number | null;
                       const display = c.date
@@ -612,7 +613,17 @@ function ScSoPage() {
             </tbody>
           </table>
         </div>
+        {indexed.length > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-t bg-muted/20 flex-wrap">
+            <div className="text-xs text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}
+              –{Math.min(currentPage * pageSize, indexed.length)} of {indexed.length}
+            </div>
+            <PagerNav page={currentPage} pageCount={pageCount} onChange={setPage} />
+          </div>
+        )}
       </Card>
+
 
       <ResultDialog
         open={resultOpen}
