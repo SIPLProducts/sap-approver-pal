@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
+import { CustomerSelect } from "@/components/sap/customer-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   fetchSalesOrderApprovals,
@@ -342,12 +343,11 @@ function SalesOrderPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Customer</Label>
-            <Input
+            <CustomerSelect
               value={customerFrom}
-              onChange={(e) => setCustomerFrom(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="optional"
-              className="h-9 font-mono"
+              onChange={setCustomerFrom}
+              plants={plants}
+              onEnter={execute}
             />
           </div>
           <div className="flex gap-2">
