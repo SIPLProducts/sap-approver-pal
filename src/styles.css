@@ -203,3 +203,19 @@
     background-size: 22px 22px;
   }
 }
+
+/* Cloudscape table header: match sidebar background */
+.awsui table thead th,
+.awsui [class*="awsui_header-cell"] {
+  background-color: var(--sidebar) !important;
+  color: var(--sidebar-foreground) !important;
+  border-color: var(--sidebar-border) !important;
+}
+.awsui [class*="awsui_header-cell"] *,
+.awsui [class*="awsui_header-cell-text"],
+.awsui [class*="awsui_sorting-icon"] {
+  color: var(--sidebar-foreground) !important;
+}
+.awsui [class*="awsui_resizer"] {
+  background-color: var(--sidebar-border) !important;
+}
