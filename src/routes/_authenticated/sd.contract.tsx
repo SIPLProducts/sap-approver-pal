@@ -3,16 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2, Check, X, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { Filter, RotateCcw, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 
 import {
   Dialog,
