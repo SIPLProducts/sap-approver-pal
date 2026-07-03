@@ -182,56 +182,6 @@ function ContractPage() {
 
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
 
-  const FILTER_KEYS = [
-    "customer",
-    "customer_name",
-    "contract_no",
-    "contract_item",
-    "material",
-    "sales_org",
-    "company_code",
-  ] as const;
-  type FilterKey = (typeof FILTER_KEYS)[number];
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [page, setPage] = useState(1);
-  const pageSize = 25;
-
-  const filteredIndexed = useMemo(() => {
-    const active = Object.entries(filters).filter(([, v]) => v.trim() !== "");
-    if (active.length === 0) return indexed;
-    return indexed.filter(({ r }) =>
-      active.every(([k, v]) => {
-        const cell = (r as any)[k];
-        return cell != null && String(cell).toLowerCase().includes(v.toLowerCase());
-      }),
-    );
-  }, [indexed, filters]);
-
-  useEffect(() => { setPage(1); }, [rows, status, filters]);
-
-  const pageCount = Math.max(1, Math.ceil(filteredIndexed.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  const pageRows = filteredIndexed.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  const allChecked = pageRows.length > 0 && pageRows.every(({ k }) => selected.has(k));
-
-  function toggleAll() {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allChecked) pageRows.forEach(({ k }) => next.delete(k));
-      else pageRows.forEach(({ k }) => next.add(k));
-      return next;
-    });
-  }
-
-  function toggleOne(k: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
-  }
 
   const decisionMutation = useMutation({
     mutationFn: (vars: { action: "accepted" | "rejected"; user_id: string; rows: ContractRow[] }) =>
