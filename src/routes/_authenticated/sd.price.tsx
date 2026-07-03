@@ -104,7 +104,6 @@ function PricePage() {
     },
     onSuccess: (res) => {
       setRows(res.rows);
-      setDecided({});
       setSelected(new Set());
       setLastFetchedAt(res.fetched_at);
       if (res.error) {
@@ -129,42 +128,11 @@ function PricePage() {
     setPlants([]);
     setUserId(userIdData?.sap_user_id ?? "");
     setRows([]);
-    setDecided({});
     setSelected(new Set());
     setLastFetchedAt(null);
   }
 
-  // Show all fetched rows (no tab filtering)
   const indexed = useMemo(() => rows.map((r, i) => ({ r, k: rowKey(r, i) })), [rows]);
-  const visible = indexed;
-
-  const totalPages = pageSize === "ALL" ? 1 : Math.max(1, Math.ceil(visible.length / pageSize));
-  useEffect(() => { setPage(1); }, [rows, pageSize]);
-  const currentPage = Math.min(page, totalPages);
-  const pagedVisible = pageSize === "ALL"
-    ? visible
-    : visible.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  // Select-all scoped to the currently visible page for predictable UX.
-  const allChecked = pagedVisible.length > 0 && pagedVisible.every(({ k }) => selected.has(k));
-
-  function toggleAll() {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allChecked) pagedVisible.forEach(({ k }) => next.delete(k));
-      else pagedVisible.forEach(({ k }) => next.add(k));
-      return next;
-    });
-  }
-
-  function toggleOne(k: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
-  }
 
   const decisionMutation = useMutation({
     mutationFn: (vars: { action: "accepted" | "rejected"; rows: PriceRow[]; user_id: string }) => {
@@ -173,12 +141,6 @@ function PricePage() {
     },
     onSuccess: (res, vars) => {
       console.log("[price-decision] response", res);
-      const keys = Array.from(selected);
-      setDecided((prev) => {
-        const next = { ...prev };
-        keys.forEach((k) => (next[k] = vars.action));
-        return next;
-      });
       setSelected(new Set());
 
       const sap: any = (res as any)?.sap_response ?? {};
@@ -190,6 +152,7 @@ function PricePage() {
       setResultData({ action: vars.action, messages: msgs, total: vars.rows.length });
       setResultOpen(true);
     },
+
     onError: (e: Error) => {
       console.error("[price-decision] failed", e);
       toast.error(e.message ?? "SAP submission failed");
