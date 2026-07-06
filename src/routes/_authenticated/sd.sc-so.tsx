@@ -126,9 +126,17 @@ function ScSoPage() {
   const fetchFn = useServerFn(fetchScSoApprovals);
   const decisionFn = useServerFn(submitScSoDecision);
 
-  const { activePlant: __ap } = useActiveContext();
-  const [plants, setPlants] = useState<string[]>(__ap ? [__ap] : []);
-  useEffect(() => { if (__ap && plants.length === 0) setPlants([__ap]); /* eslint-disable-next-line */ }, [__ap]);
+  const { activePlants: __aps } = useActiveContext();
+  const [plants, setPlants] = useState<string[]>(__aps);
+  useEffect(() => {
+    setPlants((prev) => {
+      if (__aps.length === 0) return [];
+      const allowed = new Set(__aps);
+      const kept = prev.filter((c) => allowed.has(c));
+      return kept.length === 0 ? __aps : kept;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
   const [status, setStatus] = useState<Status>(urlStatus);
