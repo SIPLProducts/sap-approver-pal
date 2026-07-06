@@ -111,7 +111,10 @@ function PriceReportsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="icon" onClick={() => navigate({ to: "/sd/price" })} aria-label="Back to Price Approvals">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
         <h1 className="text-2xl font-bold tracking-tight">Price Approval Reports</h1>
       </div>
 
