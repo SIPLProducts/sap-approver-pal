@@ -213,7 +213,7 @@
 }
 
 /* Sticky table header: rows scroll inside the table, single real <thead> pinned */
-.awsui-app-scope [class*="awsui_wrapper"]:has(> table) {
+.awsui-app-scope [class*="awsui_wrapper"]:has(table) {
   max-height: calc(100vh - 220px);
   overflow: auto;
 }
