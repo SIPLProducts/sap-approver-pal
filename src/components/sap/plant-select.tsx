@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getPlantConfig } from "@/lib/sap/plant.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
+import { useActiveContext } from "@/hooks/use-active-context";
 
 interface Props {
   value: string;
@@ -27,7 +28,10 @@ interface Props {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** When true (default), restrict the option list to the plants selected in the top bar. */
+  restrictToActive?: boolean;
 }
+
 
 export interface PlantOption {
   code: string;
