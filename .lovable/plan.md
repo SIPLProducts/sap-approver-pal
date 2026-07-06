@@ -1,50 +1,30 @@
+## Goal
 
-## Scope
+Make the Customer F4 help behave exactly like the Plant F4 (single combobox with searchable dropdown showing `code — name`, check mark on selected), and add it to the BMW Status Report screen for both Customer From and Customer To.
 
-Add a Customer F4 (value help) picker to the **Customer** input on the SD Approvals screens, driven by the SAP config named `Customer_Fetch_API` from Admin → SAP API Settings.
+## Changes
 
-**In scope (3 screens):**
-- `src/routes/_authenticated/sd.contract.tsx`
-- `src/routes/_authenticated/sd.sales-order.tsx`
-- `src/routes/_authenticated/sd.sc-so.tsx`
+### 1. Rewrite `src/components/sap/customer-select.tsx` to mirror `PlantSelect`
 
-**Out of scope:** `sd.price.tsx` (explicitly excluded) and `sd.bmw-status.tsx` (it's a report, not an approval screen — happy to include if you want, just say so).
+Replace the current Input + search-button pattern with the same Popover/Command combobox used by `PlantSelect`:
 
-## What the user sees
+- Trigger: a single `<Button variant="outline" role="combobox">` showing `"{code} - {name}"` when a value is selected, or the placeholder otherwise, with a `ChevronsUpDown` icon.
+- Popover content: `<Command>` with built-in `<CommandInput>` search (client-side filtering, `shouldFilter` left to default like PlantSelect — no debounced server refetch on keystroke).
+- Items: `<Check>` marker + monospace code + muted `— name` text; selecting the same value clears it (toggle), matching PlantSelect.
+- Loading / error / empty states identical in look to PlantSelect (Loader2 spinner, destructive error block with Retry, "No customers returned by Customer_Fetch_API" empty state).
+- Fetch behavior: one call to `Customer_Fetch_API` via `runSapApi`, keyed by `[configId, plants]`, cached (5 min stale). Send `{ PLANT: plants[0], PLANTS: plants, VKORG: plants[0] }` when plants are supplied, otherwise no plant filter. Drop the per-keystroke `SEARCH` input — search is client-side.
+- Fallback to plain `<Input>` when `Customer_Fetch_API` config is missing/inactive (same as today, same as PlantSelect).
+- Keep the `plants` and `onEnter` props so existing SD Contract / Sales Order / SC-SO usages keep working unchanged.
 
-The Customer field becomes a searchable combobox (same UX as `PlantSelect`): a text input with a small F4/lookup button on the right. Clicking it (or typing → Search) opens a popover listing customers returned by SAP with columns Customer Code + Name, filterable by keyword. Selecting a row fills the input with the customer code. Free typing is still allowed (so existing behavior of typing a code is preserved).
+### 2. Wire Customer F4 into `src/routes/_authenticated/sd.bmw-status.tsx`
 
-The picker calls `Customer_Fetch_API` (configured in SAP API Settings) via the existing `runSapApi` server function — same path already used by `PlantSelect` for `Get_Plant`. No new server function, no new secrets.
+- Import `CustomerSelect`.
+- Replace the plain `<Input>` for **Customer From** with `<CustomerSelect value={customerFrom} onChange={setCustomerFrom} plants={salesOrgFrom ? [salesOrgFrom] : []} onEnter={execute} placeholder="Select customer…" />`.
+- Replace the plain `<Input>` for **Customer To** the same way, bound to `customerTo` / `setCustomerTo`.
+- No changes to payload wiring, mode radios, table, or report fetch — `customer_from` / `customer_to` continue to flow into `fetchBmwStatusReport` unchanged.
 
-## Payload sent to Customer_Fetch_API
+## Out of Scope
 
-The plant(s) selected on the screen are sent as inputs so SAP can scope results:
-
-```json
-{ "PLANT": "<active plant>", "PLANTS": ["…"], "SEARCH": "<typed text>" }
-```
-
-The exact input field names depend on how the config's Request Fields are set up in Admin → SAP API Settings. The client sends the common variants above; unused ones are ignored by SAP. If the config expects different names, they can be adjusted in one place.
-
-## Technical plan
-
-1. **New helper server fn** `getCustomerConfig` in `src/lib/sap/customer.functions.ts` — mirrors `getPlantConfig`: looks up `sap_api_configs` by `name = 'Customer_Fetch_API'` and returns `{ configId, codeField, textField }` (defaults: `KUNNR`, `NAME1`). Returns `configId: null` if not configured/inactive so the UI can fall back to a plain input.
-
-2. **New component** `src/components/sap/customer-select.tsx` — Popover + Command combobox modeled on `PlantSelect`:
-   - Props: `value`, `onChange`, `plants?: string[]` (for payload scoping), `placeholder`, `disabled`.
-   - Uses `useQuery` to call `runSapApi({ configId, inputs: { PLANT, PLANTS, SEARCH } })`.
-   - Response parser tolerant of shapes (`DATA`, `data`, top-level array); reads code from `KUNNR`/`CUSTOMER`/`Customer` and text from `NAME1`/`NAME`/`CUSTOMER_NAME`.
-   - If config missing → renders the existing plain `<Input>` (no regression).
-   - Debounced re-fetch on search term (300 ms), keyed by `[configId, plants, search]`.
-
-3. **Wire into 3 screens** — replace the current `<Input value={customerFrom} … />` in the SELECTION SCREEN with `<CustomerSelect value={customerFrom} onChange={setCustomerFrom} plants={plants} />`. No other logic changes: existing `customer_from` / `customer_to` payload wiring to fetch functions is untouched.
-
-## Prerequisite (user action, one-time)
-
-An admin must create/verify an SAP API config named exactly `Customer_Fetch_API` in Admin → SAP API Settings, pointing to the SAP customer-lookup endpoint, with Request Fields for whichever inputs SAP needs (PLANT/SEARCH). Until then the field silently falls back to a plain text input.
-
-## Non-goals
-
-- No changes to how `customer_from` / `customer_to` are sent to the existing fetch functions.
-- No new columns, RLS, or migrations.
-- Price screen and any non-SD screens are untouched.
+- No changes to `Customer_Fetch_API` server config, `getCustomerConfig`, `runSapApi`, or any migrations.
+- No changes to Contract / Sales Order / SC-SO screens beyond what they already have (they pick up the new combobox behavior automatically via the rewritten `CustomerSelect`).
+- Price Approval screen remains excluded per prior scope.
