@@ -221,33 +221,36 @@
 }
 
 /* Cloudscape Accept (primary) / Reject (normal) buttons in table header actions */
-.awsui-app-scope [class*="awsui_variant-primary"] button {
+.awsui-app-scope button[class*="awsui_variant-primary"] {
   background-color: oklch(0.62 0.17 145) !important;
   border-color: oklch(0.55 0.17 145) !important;
   color: #fff !important;
 }
-.awsui-app-scope [class*="awsui_variant-primary"] button:hover:not(:disabled),
-.awsui-app-scope [class*="awsui_variant-primary"] button:focus:not(:disabled) {
+.awsui-app-scope button[class*="awsui_variant-primary"]:hover:not(:disabled),
+.awsui-app-scope button[class*="awsui_variant-primary"]:focus:not(:disabled) {
   background-color: oklch(0.55 0.17 145) !important;
   border-color: oklch(0.48 0.17 145) !important;
 }
-.awsui-app-scope [class*="awsui_variant-normal"] button {
+.awsui-app-scope button[class*="awsui_variant-normal"] {
   background-color: var(--destructive) !important;
   border-color: var(--destructive) !important;
   color: var(--destructive-foreground) !important;
 }
-.awsui-app-scope [class*="awsui_variant-normal"] button:hover:not(:disabled),
-.awsui-app-scope [class*="awsui_variant-normal"] button:focus:not(:disabled) {
+.awsui-app-scope button[class*="awsui_variant-normal"]:hover:not(:disabled),
+.awsui-app-scope button[class*="awsui_variant-normal"]:focus:not(:disabled) {
   background-color: color-mix(in oklab, var(--destructive) 85%, black) !important;
   border-color: color-mix(in oklab, var(--destructive) 85%, black) !important;
 }
-.awsui-app-scope [class*="awsui_variant-primary"] button *,
-.awsui-app-scope [class*="awsui_variant-normal"] button * {
+.awsui-app-scope button[class*="awsui_variant-primary"] *,
+.awsui-app-scope button[class*="awsui_variant-normal"] * {
   color: inherit !important;
   fill: currentColor !important;
 }
-.awsui-app-scope [class*="awsui_variant-primary"] button:disabled,
-.awsui-app-scope [class*="awsui_variant-normal"] button:disabled {
+.awsui-app-scope button[class*="awsui_variant-primary"]:disabled,
+.awsui-app-scope button[class*="awsui_variant-primary"][class*="awsui_disabled"],
+.awsui-app-scope button[class*="awsui_variant-normal"]:disabled,
+.awsui-app-scope button[class*="awsui_variant-normal"][class*="awsui_disabled"] {
   opacity: 0.55 !important;
 }
+
 
