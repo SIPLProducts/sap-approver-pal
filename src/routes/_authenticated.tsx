@@ -269,18 +269,11 @@ function AuthenticatedLayout() {
 
           {/* Plant + Role selectors */}
           {ctx.plants.length > 0 && (
-            <Select value={ctx.activePlant ?? ""} onValueChange={(v) => { ctx.setActivePlant(v || null); qc.invalidateQueries(); router.invalidate(); }}>
-              <SelectTrigger className="h-9 w-[150px] text-sm">
-                <SelectValue placeholder="Select plant" />
-              </SelectTrigger>
-              <SelectContent>
-                {ctx.plants.map((p) => (
-                  <SelectItem key={p.code} value={p.code}>
-                    Plant {p.code}{p.name ? ` — ${p.name}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <TopBarPlantSelect
+              plants={ctx.plants}
+              value={ctx.activePlants}
+              onChange={(next) => { ctx.setActivePlants(next); qc.invalidateQueries(); router.invalidate(); }}
+            />
           )}
           {ctx.roles.length > 0 && (
             <Select value={roleSelectValue} onValueChange={onRoleChange}>
