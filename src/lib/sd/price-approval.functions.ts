@@ -51,6 +51,8 @@ function mapRow(raw: any): PriceRow {
     valid_from_sc: pick(raw, "VALID_FROM_SC"),
     valid_to_sc: pick(raw, "VALID_TO_SC"),
     old_price: pick(raw, "OLD_PRICE"),
+    release_code1: pick(raw, "RELEASE_CODE1"),
+    approval_status: pick(raw, "APPROVAL_STATUS"),
   };
 }
 
