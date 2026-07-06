@@ -47,9 +47,20 @@ export function SdApprovalShell({
   title, subtitle, tCode, levels, docType, columns, extraFilters, defaultExtra,
   status, onStatusChange,
 }: Props) {
-  const [plants, setPlants] = useState<string[]>([]);
+  const { activePlants } = useActiveContext();
+  const [plants, setPlants] = useState<string[]>(activePlants);
   const [customer, setCustomer] = useState("");
   const [extra, setExtra] = useState<string[]>(defaultExtra ?? (extraFilters?.[0] ? [extraFilters[0].id] : []));
+
+  useEffect(() => {
+    setPlants((prev) => {
+      if (activePlants.length === 0) return [];
+      const allowed = new Set(activePlants);
+      const kept = prev.filter((c) => allowed.has(c));
+      return kept.length === 0 ? activePlants : kept;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlants.join(",")]);
 
   const { data: rows = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["sd", docType, status],
