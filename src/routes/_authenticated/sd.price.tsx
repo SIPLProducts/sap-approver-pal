@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Filter, RotateCcw, Loader2, CheckCircle2, XCircle, AlertTriangle, FileText } from "lucide-react";
 
 import {
   Dialog,
@@ -57,6 +57,7 @@ function PricePage() {
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
   const decisionFn = useServerFn(submitPriceDecision);
+  const navigate = useNavigate();
 
   const { data: userIdData } = useQuery({
     queryKey: ["sd-price", "sap-user-id"],
@@ -199,6 +200,14 @@ function PricePage() {
                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               )}
               Execute
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/sd/price-reports" })}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              Reports
             </Button>
             <Button variant="ghost" size="sm" onClick={reset}>
               Reset

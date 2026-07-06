@@ -22,6 +22,8 @@ export type PriceRow = {
   valid_from_sc: string | null;
   valid_to_sc: string | null;
   old_price: string | number | null;
+  release_code1: string | null;
+  approval_status: string | null;
 };
 
 const CONFIG_NAME = "Price_Approval_Fetch";
@@ -49,6 +51,8 @@ function mapRow(raw: any): PriceRow {
     valid_from_sc: pick(raw, "VALID_FROM_SC"),
     valid_to_sc: pick(raw, "VALID_TO_SC"),
     old_price: pick(raw, "OLD_PRICE"),
+    release_code1: pick(raw, "RELEASE_CODE1"),
+    approval_status: pick(raw, "APPROVAL_STATUS"),
   };
 }
 
@@ -293,6 +297,8 @@ const PriceRowSchema = z.object({
   valid_from_sc: z.string().nullable().optional(),
   valid_to_sc: z.string().nullable().optional(),
   old_price: z.union([z.string(), z.number()]).nullable().optional(),
+  release_code1: z.string().nullable().optional(),
+  approval_status: z.string().nullable().optional(),
 });
 
 function toSapRow(r: z.infer<typeof PriceRowSchema>) {
