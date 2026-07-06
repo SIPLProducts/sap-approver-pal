@@ -361,24 +361,25 @@ function BmwStatusReportPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Customer From</Label>
-            <Input
+            <CustomerSelect
               value={customerFrom}
-              onChange={(e) => setCustomerFrom(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="e.g. 1060002"
-              className="h-9 font-mono"
+              onChange={setCustomerFrom}
+              plants={salesOrgFrom ? [salesOrgFrom] : []}
+              onEnter={execute}
+              placeholder="Select customer…"
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Customer To</Label>
-            <Input
+            <CustomerSelect
               value={customerTo}
-              onChange={(e) => setCustomerTo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="optional"
-              className="h-9 font-mono"
+              onChange={setCustomerTo}
+              plants={salesOrgFrom ? [salesOrgFrom] : []}
+              onEnter={execute}
+              placeholder="Select customer…"
             />
           </div>
+
 
           <div className="space-y-1.5">
             <Label className="text-xs">Contract/sales created from</Label>
