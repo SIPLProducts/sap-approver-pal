@@ -308,3 +308,96 @@ function AuthenticatedLayout() {
     </div>
   );
 }
+
+function TopBarPlantSelect({
+  plants,
+  value,
+  onChange,
+}: {
+  plants: AssignedPlant[];
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = useMemo(() => new Set(value), [value]);
+  const allCodes = useMemo(() => plants.map((p) => p.code), [plants]);
+  const label = useMemo(() => {
+    if (value.length === 0) return "Select plants";
+    if (value.length === plants.length) return `All plants (${plants.length})`;
+    if (value.length === 1) {
+      const p = plants.find((x) => x.code === value[0]);
+      return p ? `Plant ${p.code}${p.name ? ` — ${p.name}` : ""}` : `Plant ${value[0]}`;
+    }
+    return `${value.length} plants`;
+  }, [value, plants]);
+
+  function toggle(code: string) {
+    if (selected.has(code)) onChange(value.filter((v) => v !== code));
+    else onChange([...value, code]);
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-9 w-[180px] justify-between gap-2 px-3 text-sm font-normal"
+        >
+          <span className="truncate text-left">{label}</span>
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="z-[1000] w-[260px] p-0" align="start" sideOffset={6}>
+        <Command>
+          <CommandInput placeholder="Search plant…" className="h-9" />
+          <CommandList className="max-h-[50vh]">
+            <CommandEmpty>No plant found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="__select_all__"
+                onSelect={() => {
+                  if (value.length === allCodes.length) return; // keep at least all; disallow empty via all-selected click
+                  onChange(allCodes);
+                }}
+                className="font-medium border-b rounded-none"
+              >
+                <Checkbox
+                  checked={value.length === allCodes.length}
+                  tabIndex={-1}
+                  className="pointer-events-none mr-2"
+                />
+                Select all ({allCodes.length})
+              </CommandItem>
+              {plants.map((p) => {
+                const isSel = selected.has(p.code);
+                return (
+                  <CommandItem
+                    key={p.code}
+                    value={`${p.code} ${p.name ?? ""}`}
+                    onSelect={() => {
+                      // Prevent deselecting the last remaining plant
+                      if (isSel && value.length === 1) return;
+                      toggle(p.code);
+                    }}
+                  >
+                    <Checkbox
+                      checked={isSel}
+                      tabIndex={-1}
+                      className="pointer-events-none mr-2"
+                    />
+                    <span className="font-mono">{p.code}</span>
+                    {p.name && (
+                      <span className="ml-2 text-muted-foreground truncate">— {p.name}</span>
+                    )}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
