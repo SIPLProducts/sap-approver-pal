@@ -205,17 +205,49 @@
 }
 
 /* Cloudscape table header: match sidebar background */
-.awsui table thead th,
-.awsui [class*="awsui_header-cell"] {
+.awsui-app-scope table thead th,
+.awsui-app-scope [class*="awsui_header-cell"] {
   background-color: var(--sidebar) !important;
   color: var(--sidebar-foreground) !important;
   border-color: var(--sidebar-border) !important;
 }
-.awsui [class*="awsui_header-cell"] *,
-.awsui [class*="awsui_header-cell-text"],
-.awsui [class*="awsui_sorting-icon"] {
+.awsui-app-scope [class*="awsui_header-cell"] *,
+.awsui-app-scope [class*="awsui_header-cell-text"],
+.awsui-app-scope [class*="awsui_sorting-icon"] {
   color: var(--sidebar-foreground) !important;
 }
-.awsui [class*="awsui_resizer"] {
+.awsui-app-scope [class*="awsui_resizer"] {
   background-color: var(--sidebar-border) !important;
 }
+
+/* Cloudscape Accept (primary) / Reject (normal) buttons in table header actions */
+.awsui-app-scope [class*="awsui_variant-primary"] button {
+  background-color: oklch(0.62 0.17 145) !important;
+  border-color: oklch(0.55 0.17 145) !important;
+  color: #fff !important;
+}
+.awsui-app-scope [class*="awsui_variant-primary"] button:hover:not(:disabled),
+.awsui-app-scope [class*="awsui_variant-primary"] button:focus:not(:disabled) {
+  background-color: oklch(0.55 0.17 145) !important;
+  border-color: oklch(0.48 0.17 145) !important;
+}
+.awsui-app-scope [class*="awsui_variant-normal"] button {
+  background-color: var(--destructive) !important;
+  border-color: var(--destructive) !important;
+  color: var(--destructive-foreground) !important;
+}
+.awsui-app-scope [class*="awsui_variant-normal"] button:hover:not(:disabled),
+.awsui-app-scope [class*="awsui_variant-normal"] button:focus:not(:disabled) {
+  background-color: color-mix(in oklab, var(--destructive) 85%, black) !important;
+  border-color: color-mix(in oklab, var(--destructive) 85%, black) !important;
+}
+.awsui-app-scope [class*="awsui_variant-primary"] button *,
+.awsui-app-scope [class*="awsui_variant-normal"] button * {
+  color: inherit !important;
+  fill: currentColor !important;
+}
+.awsui-app-scope [class*="awsui_variant-primary"] button:disabled,
+.awsui-app-scope [class*="awsui_variant-normal"] button:disabled {
+  opacity: 0.55 !important;
+}
+
