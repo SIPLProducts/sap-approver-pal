@@ -18,6 +18,7 @@ import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
 import { Route as AuthenticatedSdScSoReportsRouteImport } from './routes/_authenticated/sd.sc-so-reports'
 import { Route as AuthenticatedSdScSoRouteImport } from './routes/_authenticated/sd.sc-so'
+import { Route as AuthenticatedSdSalesOrderReportsRouteImport } from './routes/_authenticated/sd.sales-order-reports'
 import { Route as AuthenticatedSdSalesOrderRouteImport } from './routes/_authenticated/sd.sales-order'
 import { Route as AuthenticatedSdPriceReportsRouteImport } from './routes/_authenticated/sd.price-reports'
 import { Route as AuthenticatedSdPriceRouteImport } from './routes/_authenticated/sd.price'
@@ -81,6 +82,12 @@ const AuthenticatedSdScSoRoute = AuthenticatedSdScSoRouteImport.update({
   path: '/sd/sc-so',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSdSalesOrderReportsRoute =
+  AuthenticatedSdSalesOrderReportsRouteImport.update({
+    id: '/sd/sales-order-reports',
+    path: '/sd/sales-order-reports',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSdSalesOrderRoute =
   AuthenticatedSdSalesOrderRouteImport.update({
     id: '/sd/sales-order',
@@ -189,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/sd/price': typeof AuthenticatedSdPriceRoute
   '/sd/price-reports': typeof AuthenticatedSdPriceReportsRoute
   '/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
+  '/sd/sales-order-reports': typeof AuthenticatedSdSalesOrderReportsRoute
   '/sd/sc-so': typeof AuthenticatedSdScSoRoute
   '/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
   '/inbox/': typeof AuthenticatedInboxIndexRoute
@@ -215,6 +223,7 @@ export interface FileRoutesByTo {
   '/sd/price': typeof AuthenticatedSdPriceRoute
   '/sd/price-reports': typeof AuthenticatedSdPriceReportsRoute
   '/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
+  '/sd/sales-order-reports': typeof AuthenticatedSdSalesOrderReportsRoute
   '/sd/sc-so': typeof AuthenticatedSdScSoRoute
   '/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
   '/inbox': typeof AuthenticatedInboxIndexRoute
@@ -243,6 +252,7 @@ export interface FileRoutesById {
   '/_authenticated/sd/price': typeof AuthenticatedSdPriceRoute
   '/_authenticated/sd/price-reports': typeof AuthenticatedSdPriceReportsRoute
   '/_authenticated/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
+  '/_authenticated/sd/sales-order-reports': typeof AuthenticatedSdSalesOrderReportsRoute
   '/_authenticated/sd/sc-so': typeof AuthenticatedSdScSoRoute
   '/_authenticated/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
   '/_authenticated/inbox/': typeof AuthenticatedInboxIndexRoute
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/sd/price'
     | '/sd/price-reports'
     | '/sd/sales-order'
+    | '/sd/sales-order-reports'
     | '/sd/sc-so'
     | '/sd/sc-so-reports'
     | '/inbox/'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/sd/price'
     | '/sd/price-reports'
     | '/sd/sales-order'
+    | '/sd/sales-order-reports'
     | '/sd/sc-so'
     | '/sd/sc-so-reports'
     | '/inbox'
@@ -324,6 +336,7 @@ export interface FileRouteTypes {
     | '/_authenticated/sd/price'
     | '/_authenticated/sd/price-reports'
     | '/_authenticated/sd/sales-order'
+    | '/_authenticated/sd/sales-order-reports'
     | '/_authenticated/sd/sc-so'
     | '/_authenticated/sd/sc-so-reports'
     | '/_authenticated/inbox/'
@@ -406,6 +419,13 @@ declare module '@tanstack/react-router' {
       path: '/sd/sc-so'
       fullPath: '/sd/sc-so'
       preLoaderRoute: typeof AuthenticatedSdScSoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/sales-order-reports': {
+      id: '/_authenticated/sd/sales-order-reports'
+      path: '/sd/sales-order-reports'
+      fullPath: '/sd/sales-order-reports'
+      preLoaderRoute: typeof AuthenticatedSdSalesOrderReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/sd/sales-order': {
@@ -538,6 +558,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSdPriceRoute: typeof AuthenticatedSdPriceRoute
   AuthenticatedSdPriceReportsRoute: typeof AuthenticatedSdPriceReportsRoute
   AuthenticatedSdSalesOrderRoute: typeof AuthenticatedSdSalesOrderRoute
+  AuthenticatedSdSalesOrderReportsRoute: typeof AuthenticatedSdSalesOrderReportsRoute
   AuthenticatedSdScSoRoute: typeof AuthenticatedSdScSoRoute
   AuthenticatedSdScSoReportsRoute: typeof AuthenticatedSdScSoReportsRoute
   AuthenticatedInboxIndexRoute: typeof AuthenticatedInboxIndexRoute
@@ -560,6 +581,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSdPriceRoute: AuthenticatedSdPriceRoute,
   AuthenticatedSdPriceReportsRoute: AuthenticatedSdPriceReportsRoute,
   AuthenticatedSdSalesOrderRoute: AuthenticatedSdSalesOrderRoute,
+  AuthenticatedSdSalesOrderReportsRoute: AuthenticatedSdSalesOrderReportsRoute,
   AuthenticatedSdScSoRoute: AuthenticatedSdScSoRoute,
   AuthenticatedSdScSoReportsRoute: AuthenticatedSdScSoReportsRoute,
   AuthenticatedInboxIndexRoute: AuthenticatedInboxIndexRoute,
@@ -582,3 +604,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
