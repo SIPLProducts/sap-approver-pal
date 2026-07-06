@@ -123,6 +123,7 @@ const COLS: Array<{ key: string; label: string; align?: "right"; date?: boolean;
 
 function ScSoPage() {
   const { status: urlStatus } = Route.useSearch();
+  const navigate = useNavigate();
   const fetchFn = useServerFn(fetchScSoApprovals);
   const decisionFn = useServerFn(submitScSoDecision);
 
