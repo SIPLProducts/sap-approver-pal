@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2 } from "lucide-react";
+import { Filter, RotateCcw, Loader2, ArrowLeft } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -50,6 +50,7 @@ function fmtDate(v: string | null) {
 }
 
 function PriceReportsPage() {
+  const navigate = useNavigate();
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
 
@@ -110,7 +111,10 @@ function PriceReportsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="icon" onClick={() => navigate({ to: "/sd/price" })} aria-label="Back to Price Approvals">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
         <h1 className="text-2xl font-bold tracking-tight">Price Approval Reports</h1>
       </div>
 
