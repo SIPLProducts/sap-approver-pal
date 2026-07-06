@@ -93,6 +93,7 @@ function totalOf(r: SalesOrderRow): number {
 
 function SalesOrderPage() {
   const { status: urlStatus } = Route.useSearch();
+  const navigate = useNavigate();
   // status is local UI state only; we don't write back to the URL to avoid
   // navigating into the route-ID path in the preview (which 404s).
 
