@@ -1,18 +1,21 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft, ChevronsUpDown } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { syncFromSAP } from "@/lib/sap/sap.functions";
 import { usePermissions } from "@/hooks/use-permissions";
-import { ActiveContextProvider, useActiveContext } from "@/hooks/use-active-context";
+import { ActiveContextProvider, useActiveContext, type AssignedPlant } from "@/hooks/use-active-context";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthenticatedRoot });
 
