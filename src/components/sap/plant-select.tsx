@@ -153,10 +153,16 @@ export function PlantSelect({
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
+      <PopoverContent
+        className="z-[1000] w-[320px] p-0 max-h-[60vh]"
+        align="start"
+        side="bottom"
+        sideOffset={6}
+        avoidCollisions={false}
+      >
         <Command>
           <CommandInput placeholder="Search plant…" className="h-9" />
-          <CommandList>
+          <CommandList className="max-h-[calc(60vh-3rem)]">
             {plantsQuery.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching plants…
