@@ -1,30 +1,34 @@
-## Goal
+## Fix 1 — Table header background
 
-Make the Customer F4 help behave exactly like the Plant F4 (single combobox with searchable dropdown showing `code — name`, check mark on selected), and add it to the BMW Status Report screen for both Customer From and Customer To.
+The existing header-color rules in `src/styles.css` (~lines 207–221) target `.awsui …`, but the Cloudscape wrapper renders as `<div className="awsui-app-scope">`, so the selectors never match and headers stay white.
 
-## Changes
+Rescope the same rules under `.awsui-app-scope`, keeping the tokens (`var(--sidebar)` / `var(--sidebar-foreground)` / `var(--sidebar-border)`):
 
-### 1. Rewrite `src/components/sap/customer-select.tsx` to mirror `PlantSelect`
+- Header cells: `.awsui-app-scope table thead th`, `.awsui-app-scope [class*="awsui_header-cell"]` — sidebar background + sidebar-foreground text + sidebar-border border.
+- Header text / sort icons: descendants under `[class*="awsui_header-cell"]`, plus `[class*="awsui_header-cell-text"]` and `[class*="awsui_sorting-icon"]` — sidebar-foreground color.
+- Column resizer handles: `[class*="awsui_resizer"]` — sidebar-border background.
 
-Replace the current Input + search-button pattern with the same Popover/Command combobox used by `PlantSelect`:
+Applies to every screen using `CloudscapeApprovalTable` (Price, Contract, Sales Order, SC/SO, BMW Status).
 
-- Trigger: a single `<Button variant="outline" role="combobox">` showing `"{code} - {name}"` when a value is selected, or the placeholder otherwise, with a `ChevronsUpDown` icon.
-- Popover content: `<Command>` with built-in `<CommandInput>` search (client-side filtering, `shouldFilter` left to default like PlantSelect — no debounced server refetch on keystroke).
-- Items: `<Check>` marker + monospace code + muted `— name` text; selecting the same value clears it (toggle), matching PlantSelect.
-- Loading / error / empty states identical in look to PlantSelect (Loader2 spinner, destructive error block with Retry, "No customers returned by Customer_Fetch_API" empty state).
-- Fetch behavior: one call to `Customer_Fetch_API` via `runSapApi`, keyed by `[configId, plants]`, cached (5 min stale). Send `{ PLANT: plants[0], PLANTS: plants, VKORG: plants[0] }` when plants are supplied, otherwise no plant filter. Drop the per-keystroke `SEARCH` input — search is client-side.
-- Fallback to plain `<Input>` when `Customer_Fetch_API` config is missing/inactive (same as today, same as PlantSelect).
-- Keep the `plants` and `onEnter` props so existing SD Contract / Sales Order / SC-SO usages keep working unchanged.
+## Fix 2 — Approve / Reject button colors
 
-### 2. Wire Customer F4 into `src/routes/_authenticated/sd.bmw-status.tsx`
+`CloudscapeApprovalTable` renders the header Accept/Reject Cloudscape `<Button>`s. Cloudscape ignores Tailwind classes, so color them via CSS scoped to the table header actions:
 
-- Import `CustomerSelect`.
-- Replace the plain `<Input>` for **Customer From** with `<CustomerSelect value={customerFrom} onChange={setCustomerFrom} plants={salesOrgFrom ? [salesOrgFrom] : []} onEnter={execute} placeholder="Select customer…" />`.
-- Replace the plain `<Input>` for **Customer To** the same way, bound to `customerTo` / `setCustomerTo`.
-- No changes to payload wiring, mode radios, table, or report fetch — `customer_from` / `customer_to` continue to flow into `fetchBmwStatusReport` unchanged.
+Add to `src/styles.css`:
+
+- **Accept (primary, positive):** target Cloudscape's primary button inside the table header actions — `.awsui-app-scope [class*="awsui_header"] [class*="awsui_variant-primary"] button` — with a success-green background and white text; darker green on `:hover`/`:focus`; keep the disabled state muted (reduced opacity, no color override).
+- **Reject (normal, destructive):** target the "normal" variant sibling — `.awsui-app-scope [class*="awsui_header"] [class*="awsui_variant-normal"] button` — with `var(--destructive)` background and `var(--destructive-foreground)` text; darker on `:hover`/`:focus`; muted disabled state.
+- Keep the existing `iconName="check"` / `iconName="close"` icons; force icon color to inherit so it matches the button text.
+
+Use existing tokens where they exist (`--destructive`, `--destructive-foreground`); introduce `--success` / `--success-foreground` values already used elsewhere in `styles.css` if present, otherwise inline a green OKLCH pair in the same block.
+
+## Verification
+
+After edits, refresh the SD Price screen (currently open) and one selection-enabled screen (e.g. Contract) and confirm:
+- Table header row uses the dark sidebar color with light text.
+- Accept button is green, Reject button is red, both readable, hover states visible, disabled states dimmed.
 
 ## Out of Scope
 
-- No changes to `Customer_Fetch_API` server config, `getCustomerConfig`, `runSapApi`, or any migrations.
-- No changes to Contract / Sales Order / SC-SO screens beyond what they already have (they pick up the new combobox behavior automatically via the rewritten `CustomerSelect`).
-- Price Approval screen remains excluded per prior scope.
+- No changes to route files, `CloudscapeApprovalTable` JSX, or button variants/props.
+- No changes to non-header table body styling, sidebar tokens, or other screens outside SD.
