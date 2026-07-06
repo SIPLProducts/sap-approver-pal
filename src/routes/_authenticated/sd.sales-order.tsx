@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Filter, RotateCcw, Loader2, CheckCircle2, XCircle, AlertTriangle, FileText } from "lucide-react";
 
 import {
   Dialog,
@@ -93,6 +93,7 @@ function totalOf(r: SalesOrderRow): number {
 
 function SalesOrderPage() {
   const { status: urlStatus } = Route.useSearch();
+  const navigate = useNavigate();
   // status is local UI state only; we don't write back to the URL to avoid
   // navigating into the route-ID path in the preview (which 404s).
 
@@ -366,6 +367,10 @@ function SalesOrderPage() {
                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               )}
               Execute
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate({ to: "/sd/sales-order-reports" })}>
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              Reports
             </Button>
             <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
           </div>
