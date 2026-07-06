@@ -16,6 +16,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
+import { Route as AuthenticatedSdScSoReportsRouteImport } from './routes/_authenticated/sd.sc-so-reports'
 import { Route as AuthenticatedSdScSoRouteImport } from './routes/_authenticated/sd.sc-so'
 import { Route as AuthenticatedSdSalesOrderRouteImport } from './routes/_authenticated/sd.sales-order'
 import { Route as AuthenticatedSdPriceReportsRouteImport } from './routes/_authenticated/sd.price-reports'
@@ -69,6 +70,12 @@ const AuthenticatedInboxIndexRoute = AuthenticatedInboxIndexRouteImport.update({
   path: '/inbox/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSdScSoReportsRoute =
+  AuthenticatedSdScSoReportsRouteImport.update({
+    id: '/sd/sc-so-reports',
+    path: '/sd/sc-so-reports',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSdScSoRoute = AuthenticatedSdScSoRouteImport.update({
   id: '/sd/sc-so',
   path: '/sd/sc-so',
@@ -183,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/sd/price-reports': typeof AuthenticatedSdPriceReportsRoute
   '/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
   '/sd/sc-so': typeof AuthenticatedSdScSoRoute
+  '/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
   '/inbox/': typeof AuthenticatedInboxIndexRoute
   '/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
@@ -208,6 +216,7 @@ export interface FileRoutesByTo {
   '/sd/price-reports': typeof AuthenticatedSdPriceReportsRoute
   '/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
   '/sd/sc-so': typeof AuthenticatedSdScSoRoute
+  '/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
   '/inbox': typeof AuthenticatedInboxIndexRoute
   '/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
@@ -235,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated/sd/price-reports': typeof AuthenticatedSdPriceReportsRoute
   '/_authenticated/sd/sales-order': typeof AuthenticatedSdSalesOrderRoute
   '/_authenticated/sd/sc-so': typeof AuthenticatedSdScSoRoute
+  '/_authenticated/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
   '/_authenticated/inbox/': typeof AuthenticatedInboxIndexRoute
   '/_authenticated/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/sd/price-reports'
     | '/sd/sales-order'
     | '/sd/sc-so'
+    | '/sd/sc-so-reports'
     | '/inbox/'
     | '/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/sd/price-reports'
     | '/sd/sales-order'
     | '/sd/sc-so'
+    | '/sd/sc-so-reports'
     | '/inbox'
     | '/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
@@ -313,6 +325,7 @@ export interface FileRouteTypes {
     | '/_authenticated/sd/price-reports'
     | '/_authenticated/sd/sales-order'
     | '/_authenticated/sd/sc-so'
+    | '/_authenticated/sd/sc-so-reports'
     | '/_authenticated/inbox/'
     | '/_authenticated/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
@@ -379,6 +392,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox/'
       preLoaderRoute: typeof AuthenticatedInboxIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/sc-so-reports': {
+      id: '/_authenticated/sd/sc-so-reports'
+      path: '/sd/sc-so-reports'
+      fullPath: '/sd/sc-so-reports'
+      preLoaderRoute: typeof AuthenticatedSdScSoReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/sd/sc-so': {
@@ -519,6 +539,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSdPriceReportsRoute: typeof AuthenticatedSdPriceReportsRoute
   AuthenticatedSdSalesOrderRoute: typeof AuthenticatedSdSalesOrderRoute
   AuthenticatedSdScSoRoute: typeof AuthenticatedSdScSoRoute
+  AuthenticatedSdScSoReportsRoute: typeof AuthenticatedSdScSoReportsRoute
   AuthenticatedInboxIndexRoute: typeof AuthenticatedInboxIndexRoute
   AuthenticatedAdminSapApiIdRoute: typeof AuthenticatedAdminSapApiIdRoute
   AuthenticatedAdminSapApiIndexRoute: typeof AuthenticatedAdminSapApiIndexRoute
@@ -540,6 +561,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSdPriceReportsRoute: AuthenticatedSdPriceReportsRoute,
   AuthenticatedSdSalesOrderRoute: AuthenticatedSdSalesOrderRoute,
   AuthenticatedSdScSoRoute: AuthenticatedSdScSoRoute,
+  AuthenticatedSdScSoReportsRoute: AuthenticatedSdScSoReportsRoute,
   AuthenticatedInboxIndexRoute: AuthenticatedInboxIndexRoute,
   AuthenticatedAdminSapApiIdRoute: AuthenticatedAdminSapApiIdRoute,
   AuthenticatedAdminSapApiIndexRoute: AuthenticatedAdminSapApiIndexRoute,
