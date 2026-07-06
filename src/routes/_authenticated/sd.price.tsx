@@ -201,6 +201,14 @@ function PricePage() {
               )}
               Execute
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/sd/price-reports" })}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              Reports
+            </Button>
             <Button variant="ghost" size="sm" onClick={reset}>
               Reset
             </Button>
