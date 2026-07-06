@@ -297,6 +297,8 @@ const PriceRowSchema = z.object({
   valid_from_sc: z.string().nullable().optional(),
   valid_to_sc: z.string().nullable().optional(),
   old_price: z.union([z.string(), z.number()]).nullable().optional(),
+  release_code1: z.string().nullable().optional(),
+  approval_status: z.string().nullable().optional(),
 });
 
 function toSapRow(r: z.infer<typeof PriceRowSchema>) {
