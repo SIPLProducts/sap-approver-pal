@@ -22,6 +22,8 @@ export type PriceRow = {
   valid_from_sc: string | null;
   valid_to_sc: string | null;
   old_price: string | number | null;
+  release_code1: string | null;
+  approval_status: string | null;
 };
 
 const CONFIG_NAME = "Price_Approval_Fetch";
