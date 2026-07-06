@@ -80,6 +80,7 @@ function mapSeverity(raw: string | undefined): Severity {
 
 
 function ContractPage() {
+  const navigate = useNavigate();
   const fetchFn = useServerFn(fetchContractApprovals);
   const decisionFn = useServerFn(submitContractDecision);
 
