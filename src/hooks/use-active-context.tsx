@@ -12,16 +12,19 @@ type ActiveCtx = {
   loading: boolean;
   plants: AssignedPlant[];
   roles: AssignedRole[];
-  activePlant: string | null;
+  activePlants: string[];
+  activePlant: string | null; // derived: first of activePlants (for role resolution / legacy callers)
   activeRole: ActiveRole | null;
   activeActivities: string[];
-  setActivePlant: (code: string | null) => void;
+  setActivePlants: (codes: string[]) => void;
+  setActivePlant: (code: string | null) => void; // legacy: sets a single-element list
   setActiveRole: (role: ActiveRole | null) => void;
 };
 
 const Ctx = createContext<ActiveCtx | null>(null);
 
-const PLANT_KEY = "app.activePlant";
+const PLANTS_KEY = "app.activePlants";
+const LEGACY_PLANT_KEY = "app.activePlant";
 const ROLE_KEY = "app.activeRole";
 
 function readStoredRole(): ActiveRole | null {
@@ -38,10 +41,27 @@ function readStoredRole(): ActiveRole | null {
   }
 }
 
-function writeStoredPlant(code: string | null) {
+function readStoredPlants(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(PLANTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.filter((v) => typeof v === "string");
+    }
+    // migrate legacy single-plant key
+    const legacy = localStorage.getItem(LEGACY_PLANT_KEY);
+    if (legacy) return [legacy];
+  } catch {}
+  return [];
+}
+
+function writeStoredPlants(codes: string[]) {
   if (typeof window === "undefined") return;
-  if (code) localStorage.setItem(PLANT_KEY, code);
-  else localStorage.removeItem(PLANT_KEY);
+  try {
+    localStorage.setItem(PLANTS_KEY, JSON.stringify(codes));
+    localStorage.removeItem(LEGACY_PLANT_KEY);
+  } catch {}
 }
 
 function writeStoredRole(role: ActiveRole | null) {
@@ -77,6 +97,13 @@ function buildBuiltInAdminProfile(): SapProfile {
   };
 }
 
+function sameSet(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  const s = new Set(a);
+  for (const x of b) if (!s.has(x)) return false;
+  return true;
+}
+
 export function ActiveContextProvider({ children }: { children: ReactNode }) {
   const sapProfile = useSapProfile();
   const { isAdmin: builtInAdmin } = useIsBuiltInAdmin();
@@ -92,36 +119,41 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
     [profile],
   );
 
-  const [activePlant, setActivePlantState] = useState<string | null>(null);
+  const [activePlants, setActivePlantsState] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<ActiveRole | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setActivePlantState(localStorage.getItem(PLANT_KEY));
+    setActivePlantsState(readStoredPlants());
     setActiveRoleState(readStoredRole());
     setHydrated(true);
   }, []);
 
-  // Default / repair active plant
+  // Default / repair active plants against the assigned set
   useEffect(() => {
     if (!hydrated) return;
-    if (plants.length === 0) {
-      if (activePlant !== null) {
-        setActivePlantState(null);
-        writeStoredPlant(null);
+    const assignedCodes = plants.map((p) => p.code);
+    if (assignedCodes.length === 0) {
+      if (activePlants.length > 0) {
+        setActivePlantsState([]);
+        writeStoredPlants([]);
       }
       return;
     }
-    if (!activePlant || !plants.some((p) => p.code === activePlant)) {
-      setActivePlantState(plants[0].code);
-      writeStoredPlant(plants[0].code);
-    } else {
-      writeStoredPlant(activePlant);
+    const allowed = new Set(assignedCodes);
+    const pruned = activePlants.filter((c) => allowed.has(c));
+    // If nothing (or nothing valid) is stored, default to ALL assigned plants
+    const next = pruned.length === 0 ? assignedCodes : pruned;
+    if (!sameSet(next, activePlants)) {
+      setActivePlantsState(next);
     }
-  }, [hydrated, plants, activePlant]);
+    writeStoredPlants(next);
+  }, [hydrated, plants, activePlants]);
 
-  // Roles available under the active plant
+  const activePlant = activePlants[0] ?? null;
+
+  // Roles available under the (primary) active plant
   const roles: AssignedRole[] = useMemo(() => {
     if (!profile || !activePlant) return [];
     const plant = profile.plants.find((p) => p.code === activePlant);
@@ -163,9 +195,15 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
     return roles.find((r) => normRole(r.value) === normRole(activeRole.value))?.activities ?? [];
   }, [roles, activeRole]);
 
+  const setActivePlants = (codes: string[]) => {
+    setActivePlantsState(codes);
+    writeStoredPlants(codes);
+  };
+
   const setActivePlant = (code: string | null) => {
-    setActivePlantState(code);
-    writeStoredPlant(code);
+    const next = code ? [code] : [];
+    setActivePlantsState(next);
+    writeStoredPlants(next);
   };
 
   const setActiveRole = (role: ActiveRole | null) => {
@@ -177,9 +215,11 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
     loading: !hydrated,
     plants,
     roles,
+    activePlants,
     activePlant,
     activeRole,
     activeActivities,
+    setActivePlants,
     setActivePlant,
     setActiveRole,
   };
@@ -194,9 +234,11 @@ export function useActiveContext(): ActiveCtx {
       loading: false,
       plants: [],
       roles: [],
+      activePlants: [],
       activePlant: null,
       activeRole: null,
       activeActivities: [],
+      setActivePlants: () => {},
       setActivePlant: () => {},
       setActiveRole: () => {},
     };
