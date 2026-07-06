@@ -63,14 +63,19 @@ function PricePage() {
     queryFn: () => userIdFn(),
   });
 
-  const { activePlant } = useActiveContext();
-  const [plants, setPlants] = useState<string[]>(activePlant ? [activePlant] : []);
+  const { activePlants } = useActiveContext();
+  const [plants, setPlants] = useState<string[]>(activePlants);
   const [userId, setUserId] = useState("");
 
   useEffect(() => {
-    if (activePlant && plants.length === 0) setPlants([activePlant]);
+    setPlants((prev) => {
+      if (activePlants.length === 0) return [];
+      const allowed = new Set(activePlants);
+      const kept = prev.filter((c) => allowed.has(c));
+      return kept.length === 0 ? activePlants : kept;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlant]);
+  }, [activePlants.join(",")]);
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getPlantConfig } from "@/lib/sap/plant.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
+import { useActiveContext } from "@/hooks/use-active-context";
 
 interface Props {
   value: string;
@@ -27,7 +28,10 @@ interface Props {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** When true (default), restrict the option list to the plants selected in the top bar. */
+  restrictToActive?: boolean;
 }
+
 
 export interface PlantOption {
   code: string;
@@ -81,10 +85,12 @@ export function PlantSelect({
   placeholder = "Select plant…",
   disabled,
   className,
+  restrictToActive = true,
 }: Props) {
   const [open, setOpen] = useState(false);
   const getCfg = useServerFn(getPlantConfig);
   const runApi = useServerFn(runSapApi);
+  const { activePlants } = useActiveContext();
 
   const cfgQuery = useQuery({
     queryKey: ["sap-plant-config"],
@@ -105,11 +111,25 @@ export function PlantSelect({
     },
   });
 
-  const plants = useMemo(() => plantsQuery.data ?? [], [plantsQuery.data]);
+  const allowedSet = useMemo(
+    () => (restrictToActive && activePlants.length > 0 ? new Set(activePlants) : null),
+    [restrictToActive, activePlants],
+  );
+  const plants = useMemo(() => {
+    const list = plantsQuery.data ?? [];
+    return allowedSet ? list.filter((p) => allowedSet.has(p.code)) : list;
+  }, [plantsQuery.data, allowedSet]);
   const selectedOption = useMemo(
     () => plants.find((p) => p.code === value),
     [plants, value],
   );
+
+  // Clear the selected value if it's no longer allowed
+  useEffect(() => {
+    if (!allowedSet) return;
+    if (value && !allowedSet.has(value)) onChange("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedSet]);
   const triggerLabel = value
     ? selectedOption && selectedOption.text
       ? `${selectedOption.code} - ${selectedOption.text}`

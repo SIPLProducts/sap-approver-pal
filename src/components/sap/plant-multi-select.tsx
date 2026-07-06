@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronsUpDown, Loader2 } from "lucide-react";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { getPlantConfig } from "@/lib/sap/plant.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractPlantOptions } from "@/components/sap/plant-select";
+import { useActiveContext } from "@/hooks/use-active-context";
 
 interface Props {
   value: string[];
@@ -29,6 +30,8 @@ interface Props {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** When true (default), restrict the option list to the plants selected in the top bar. */
+  restrictToActive?: boolean;
 }
 
 export function PlantMultiSelect({
@@ -37,10 +40,12 @@ export function PlantMultiSelect({
   placeholder = "Select plants…",
   disabled,
   className,
+  restrictToActive = true,
 }: Props) {
   const [open, setOpen] = useState(false);
   const getCfg = useServerFn(getPlantConfig);
   const runApi = useServerFn(runSapApi);
+  const { activePlants } = useActiveContext();
 
   const cfgQuery = useQuery({
     queryKey: ["sap-plant-config"],
@@ -61,8 +66,24 @@ export function PlantMultiSelect({
     },
   });
 
-  const plants = useMemo(() => plantsQuery.data ?? [], [plantsQuery.data]);
+  const allowedSet = useMemo(
+    () => (restrictToActive && activePlants.length > 0 ? new Set(activePlants) : null),
+    [restrictToActive, activePlants],
+  );
+  const plants = useMemo(() => {
+    const list = plantsQuery.data ?? [];
+    return allowedSet ? list.filter((p) => allowedSet.has(p.code)) : list;
+  }, [plantsQuery.data, allowedSet]);
   const selected = useMemo(() => new Set(value), [value]);
+
+  // Drop any selected codes that fall outside the allowed set when it changes.
+  useEffect(() => {
+    if (!allowedSet) return;
+    const pruned = value.filter((c) => allowedSet.has(c));
+    if (pruned.length !== value.length) onChange(pruned);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedSet]);
+
 
   function toggle(code: string) {
     if (selected.has(code)) onChange(value.filter((v) => v !== code));

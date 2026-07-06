@@ -399,7 +399,9 @@ function UsersTab() {
                   value={plantFilter === "all" ? "" : plantFilter}
                   onChange={(v) => setPlantFilter(v ? v : "all")}
                   placeholder="All plants"
+                  restrictToActive={false}
                 />
+
               </div>
               {plantFilter !== "all" && (
                 <Button variant="ghost" size="sm" onClick={() => setPlantFilter("all")}>
@@ -962,7 +964,9 @@ function CreateUserDialog({
               value={plants}
               onChange={setPlants}
               placeholder="— Select Plants —"
+              restrictToActive={false}
             />
+
             {plants.length === 0 && (
               <p className="text-[11px] text-muted-foreground mt-1">Please select at least one plant</p>
             )}

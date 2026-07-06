@@ -1,27 +1,37 @@
-## Problem
+## Goal
+Turn the top-bar Plant selector into a multi-select, and make every Plant field in the SD Approvals screens show only the plants selected up there.
 
-Cloudscape's `stickyHeader` works by rendering a **duplicate copy** of the header row and pinning it. Because this app scrolls inside `<main className="overflow-y-auto">` (not the browser window), the pinned copy mis-docks — so while scrolling you see two headers: the original one scrolling away plus the floating clone.
+## Changes
 
-## Fix — one real sticky header, scrolling inside the table
+### 1. `src/hooks/use-active-context.tsx` — store multiple active plants
+- Replace `activePlant: string | null` with `activePlants: string[]` on the context (kept in localStorage as JSON under `app.activePlants`).
+- Keep a derived `activePlant` (= `activePlants[0] ?? null`) so role resolution (roles come from one plant) and any legacy consumers keep working.
+- Default: on first hydration, select all assigned plants. If the stored list contains codes no longer assigned, prune them; if it becomes empty, fall back to all assigned plants.
+- Expose `setActivePlants(codes: string[])`; retain a thin `setActivePlant` for compatibility.
 
-Stop using Cloudscape's clone-based sticky header entirely. Instead, make the table body scroll inside its own container with the actual `<thead>` pinned via CSS `position: sticky`. Since it's the same single header element, there is no duplicate, and column alignment stays perfect during both vertical and horizontal scrolling.
+### 2. `src/routes/_authenticated.tsx` — top-bar multi-select
+Replace the current `<Select>` for plant with a small popover multi-select limited to `ctx.plants` (the user's assigned plants — not the full SAP list). Reuse the existing shadcn `Popover + Command + Checkbox` styling used by `PlantMultiSelect` so it looks identical. Trigger label:
+- 0 selected → "Select plants"
+- 1 → "Plant XXXX — Name"
+- n → "n plants"
+Include "Select all / Clear all". On change: `ctx.setActivePlants(next)`, then `qc.invalidateQueries()` + `router.invalidate()` (same as today).
 
-### Changes
+### 3. `src/components/sap/plant-multi-select.tsx` and `plant-select.tsx` — restrict options
+Both components currently fetch the full SAP plant list. Add a new prop `restrictToActive?: boolean` (default **true**). When true and `useActiveContext().activePlants.length > 0`, filter the fetched options down to that set before rendering. This automatically confines every Plant field on the SD screens to the top-bar selection.
 
-1. **`src/components/aws/cloudscape-approval-table.tsx`**
-   - Remove `stickyHeader` and `stickyHeaderVerticalOffset={56}` from the `<Table>` (this eliminates the cloned second header).
+Also: if `value` contains codes no longer in the restricted set, drop them via `onChange` in an effect so state stays consistent when the top-bar selection shrinks.
 
-2. **`src/styles.css`** — add to the existing `.awsui-app-scope` overrides:
-   - Cap the table's internal scroll wrapper (the element Cloudscape uses for horizontal scrolling) with a max height (`max-height: calc(100vh - 220px)`, leaving room for top nav + container header/filter) and `overflow: auto`, so rows scroll vertically inside the table itself.
-   - Pin the real header: `thead th { position: sticky; top: 0; z-index: 10; }` with a solid background so rows never show through, keeping the existing header styling.
+### 4. SD screen local state — follow the top-bar selection
+In `sd.price.tsx`, `sd.contract.tsx`, `sd.sc-so.tsx`, `sd.sales-order.tsx`, and `components/sd/sd-approval-shell.tsx`:
+- Initialize local `plants` state from `activePlants` (not just `activePlant`).
+- In the existing `useEffect` that syncs with the top bar, replace it with: whenever `activePlants` changes, set local `plants` to the intersection of previous local `plants` and `activePlants`; if that becomes empty, default to all `activePlants`.
 
-### Why this works for all requirements
+`sd.bmw-status.tsx` uses two single `PlantSelect`s (From/To sales org). Same rule applies via the `restrictToActive` default; if the currently selected value is no longer allowed, clear it.
 
-- **One header only** — no cloned row, just the real `<thead>` pinned.
-- **Vertical scroll** — rows scroll under the pinned header inside the table; the container title, Reject/Accept buttons, and filter stay visible above it.
-- **Horizontal scroll** — header and body are the same `<table>` element sharing one scroll wrapper, so column widths and alignment can never drift, including with `resizableColumns`.
-- **All SD screens fixed at once** — Price, Contract, SC-SO, Sales Order, and BMW Status all render through this single component.
+### 5. Admin screens keep the full plant list
+`src/routes/_authenticated/admin.users.tsx` assigns plants to users, so it must still show all SAP plants. Pass `restrictToActive={false}` to both `PlantSelect` (line 398) and `PlantMultiSelect` (line 961) there.
 
-### Verification
-
-Load an SD Approvals screen with enough rows, scroll vertically and horizontally, and confirm via a Playwright screenshot that exactly one header row is visible and pinned.
+## Out of scope
+- Role selector behavior (still tied to one plant — the first of `activePlants`).
+- Server-side approvals functions (they already accept a `plants: string[]` array).
+- No DB or schema changes.
