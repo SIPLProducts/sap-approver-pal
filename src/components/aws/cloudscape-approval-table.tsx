@@ -145,6 +145,7 @@ export function CloudscapeApprovalTable<T>({
         {...collectionProps}
         variant="container"
         stickyHeader
+        stickyHeaderVerticalOffset={56}
         stripedRows
         resizableColumns
         loading={loading}

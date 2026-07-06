@@ -1,27 +1,19 @@
 ## Goal
 
-In the SD Approvals screens (BMW Status Report, Price/Contract/Sales Order/SC-SO), the Plant and Customer dropdowns currently size to the space inside the Selection Screen card, so opening them makes the card feel cramped and never covers the results table underneath. The reference screenshot shows a full-height dropdown that floats over the table.
+In the SD Approvals screens, the Cloudscape table already sets `stickyHeader`, but the column-header row visually detaches from the container header and overlaps the first data rows on scroll (as shown in the screenshot). The fix is to tell Cloudscape where the top of the scroll viewport actually is so the sticky header docks cleanly under the app's top nav.
 
 ## Change
 
-Make the Radix Popover content in the three SAP F4 pickers render taller and always overlay downward, so the option list floats over the table below instead of squeezing inside the Selection Screen row.
+Edit `src/components/aws/cloudscape-approval-table.tsx`:
 
-Files to edit:
+- On the `<Table>` (line 144-210), add `stickyHeaderVerticalOffset={56}` alongside the existing `stickyHeader` prop.
+  - `56` matches the `h-14` sticky app top bar in `src/routes/_authenticated.tsx` (line 252), so the sticky header lands flush beneath it instead of behind it.
+- Keep `resizableColumns`, `stripedRows`, `variant="container"` unchanged — Cloudscape's built-in sticky-header machinery already keeps column widths aligned during horizontal scroll and re-renders selection/row heights correctly.
 
-1. `src/components/sap/plant-select.tsx` — `<PopoverContent>` (currently `className="z-[1000] w-[320px] p-0"`).
-2. `src/components/sap/customer-select.tsx` — `<PopoverContent>` (currently `className="z-[1000] w-[380px] p-0"`).
-3. `src/components/sap/plant-multi-select.tsx` — `<PopoverContent>` (currently `className="w-[320px] p-0 max-h-[340px] overflow-hidden"`).
-
-For each, update the `<PopoverContent>` to:
-
-- Add `side="bottom"`, `align="start"`, `sideOffset={6}`, `avoidCollisions={false}` so the panel always opens downward over the table instead of flipping up or resizing to fit the card.
-- Keep `z-[1000]` (multi-select gains it) so it sits above the Cloudscape sticky header.
-- Give it a taller floating panel: `max-h-[60vh]` on `PopoverContent` and `max-h-[calc(60vh-3rem)]` on the inner `<CommandList>` (subtracting the search input row) so the list scrolls internally instead of pushing layout.
-
-No other component, route, or styling changes. Behavior for keyboard nav, selection, and search stays identical.
+No route-level changes needed — every SD Approvals screen (`sd.price`, `sd.contract`, `sd.sc-so`, `sd.sales-order`, `sd.bmw-status`) renders through this single table component, so the fix applies to all of them.
 
 ## Technical notes
 
-- `PopoverContent` already portals to `document.body`, so raising `max-h` and disabling collision-flip is enough to make it overlay the Cloudscape table without affecting the Selection Screen card height.
-- `CommandList` in shadcn defaults to `max-h-[300px]`; overriding via `className` on the rendered `CommandList` is required, otherwise the outer `max-h` on `PopoverContent` has no visible effect.
-- No changes to `src/components/ui/popover.tsx` — the fix is scoped to the three SAP pickers so other popovers in the app are untouched.
+- `stickyHeader` on Cloudscape's `Table` uses the nearest scrollable ancestor (the `<main className="overflow-y-auto">` in `_authenticated.tsx`). Without `stickyHeaderVerticalOffset`, it pins to the top of that scroll container — which sits under the sticky top nav — so the header row visually overlaps content.
+- Horizontal scrolling: Cloudscape's sticky header is internally width-synced with the body table, so column alignment stays consistent when the user scrolls horizontally. No custom CSS or duplicate-header hacks needed.
+- Container title + Reject/Accept buttons continue to scroll away naturally; only the column headers pin.
