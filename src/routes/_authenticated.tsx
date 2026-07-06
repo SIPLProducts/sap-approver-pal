@@ -101,7 +101,7 @@ function AuthenticatedLayout() {
   async function logout() {
     const { setSapProfile } = await import("@/hooks/use-sap-profile");
     setSapProfile(null);
-    try { localStorage.removeItem("app.activePlant"); localStorage.removeItem("app.activeRole"); } catch {}
+    try { localStorage.removeItem("app.activePlants"); localStorage.removeItem("app.activePlant"); localStorage.removeItem("app.activeRole"); } catch {}
     await supabase.auth.signOut();
     nav({ to: "/login" });
   }
