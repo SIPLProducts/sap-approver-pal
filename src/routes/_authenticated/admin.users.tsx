@@ -964,7 +964,9 @@ function CreateUserDialog({
               value={plants}
               onChange={setPlants}
               placeholder="— Select Plants —"
+              restrictToActive={false}
             />
+
             {plants.length === 0 && (
               <p className="text-[11px] text-muted-foreground mt-1">Please select at least one plant</p>
             )}
