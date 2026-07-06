@@ -85,10 +85,12 @@ export function PlantSelect({
   placeholder = "Select plant…",
   disabled,
   className,
+  restrictToActive = true,
 }: Props) {
   const [open, setOpen] = useState(false);
   const getCfg = useServerFn(getPlantConfig);
   const runApi = useServerFn(runSapApi);
+  const { activePlants } = useActiveContext();
 
   const cfgQuery = useQuery({
     queryKey: ["sap-plant-config"],
@@ -109,11 +111,25 @@ export function PlantSelect({
     },
   });
 
-  const plants = useMemo(() => plantsQuery.data ?? [], [plantsQuery.data]);
+  const allowedSet = useMemo(
+    () => (restrictToActive && activePlants.length > 0 ? new Set(activePlants) : null),
+    [restrictToActive, activePlants],
+  );
+  const plants = useMemo(() => {
+    const list = plantsQuery.data ?? [];
+    return allowedSet ? list.filter((p) => allowedSet.has(p.code)) : list;
+  }, [plantsQuery.data, allowedSet]);
   const selectedOption = useMemo(
     () => plants.find((p) => p.code === value),
     [plants, value],
   );
+
+  // Clear the selected value if it's no longer allowed
+  useEffect(() => {
+    if (!allowedSet) return;
+    if (value && !allowedSet.has(value)) onChange("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedSet]);
   const triggerLabel = value
     ? selectedOption && selectedOption.text
       ? `${selectedOption.code} - ${selectedOption.text}`
