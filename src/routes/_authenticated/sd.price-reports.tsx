@@ -50,6 +50,7 @@ function fmtDate(v: string | null) {
 }
 
 function PriceReportsPage() {
+  const navigate = useNavigate();
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
 
