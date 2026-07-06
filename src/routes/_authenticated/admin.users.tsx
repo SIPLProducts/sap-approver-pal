@@ -399,7 +399,9 @@ function UsersTab() {
                   value={plantFilter === "all" ? "" : plantFilter}
                   onChange={(v) => setPlantFilter(v ? v : "all")}
                   placeholder="All plants"
+                  restrictToActive={false}
                 />
+
               </div>
               {plantFilter !== "all" && (
                 <Button variant="ghost" size="sm" onClick={() => setPlantFilter("all")}>
