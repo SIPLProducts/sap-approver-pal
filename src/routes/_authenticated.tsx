@@ -175,11 +175,22 @@ function AuthenticatedLayout() {
             <>
               <button
                 type="button"
+                onMouseEnter={() => {
+                  if (!from || !to) return;
+                  qc.prefetchQuery({
+                    queryKey: ["sd-dashboard-bmw", from, to],
+                    staleTime: 5 * 60_000,
+                    queryFn: async () => {
+                      const res: any = await sync as any; // no-op placeholder to preserve types
+                      return res;
+                    },
+                  }).catch(() => {});
+                }}
                 onClick={() => {
                   if (collapsed) setCollapsed(false);
                   setSdExpanded(true);
                   setOpen(false);
-                  nav({ to: "/sd/price" });
+                  nav({ to: "/sd/dashboard" });
                 }}
                 title="SD Approvals"
                 className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}
