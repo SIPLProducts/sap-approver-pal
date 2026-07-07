@@ -107,7 +107,7 @@ function ScSoReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
-  const [status, setStatus] = useState<Status>("pending");
+  const status: Status = "pending";
   const [approvalType, setApprovalType] = useState<ApprovalType>("service");
   const [rows, setRows] = useState<ScSoRow[]>([]);
 
@@ -148,7 +148,7 @@ function ScSoReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
-    setStatus("pending");
+    
     setApprovalType("service");
     setRows([]);
   }
@@ -189,14 +189,6 @@ function ScSoReportsPage() {
         </div>
 
         <div className="mt-4 -mx-4 px-4 pt-3 border-t space-y-3">
-          <div className="flex items-center gap-6 flex-wrap">
-            <Label className="text-xs text-muted-foreground min-w-[100px]">Status <span className="text-destructive">*</span></Label>
-            <RadioGroup value={status} onValueChange={(v) => setStatus(v as Status)} className="flex items-center gap-5">
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="pending" id="scsor-st-pending" />Pending</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="accepted" id="scsor-st-accepted" />Accepted</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="rejected" id="scsor-st-rejected" />Rejected</label>
-            </RadioGroup>
-          </div>
           <div className="flex items-center gap-6 flex-wrap">
             <Label className="text-xs text-muted-foreground min-w-[100px]">Approval Type</Label>
             <RadioGroup value={approvalType} onValueChange={(v) => setApprovalType(v as ApprovalType)} className="flex items-center gap-5">
