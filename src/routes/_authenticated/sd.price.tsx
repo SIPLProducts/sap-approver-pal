@@ -16,7 +16,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
