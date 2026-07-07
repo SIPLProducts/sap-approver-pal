@@ -201,17 +201,8 @@ function AuthenticatedLayout() {
             <>
               <button
                 type="button"
-                onMouseEnter={() => {
-                  if (!from || !to) return;
-                  qc.prefetchQuery({
-                    queryKey: ["sd-dashboard-bmw", from, to],
-                    staleTime: 5 * 60_000,
-                    queryFn: async () => {
-                      const res: any = await sync as any; // no-op placeholder to preserve types
-                      return res;
-                    },
-                  }).catch(() => {});
-                }}
+                onMouseEnter={prefetchSdDashboard}
+                onFocus={prefetchSdDashboard}
                 onClick={() => {
                   if (collapsed) setCollapsed(false);
                   setSdExpanded(true);
