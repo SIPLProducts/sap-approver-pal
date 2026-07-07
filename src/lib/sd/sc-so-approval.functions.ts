@@ -105,8 +105,8 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
       user_id: z.string().trim().max(40).optional(),
       customer_from: z.string().trim().max(40).optional(),
       customer_to: z.string().trim().max(40).optional(),
-      status: z.enum(["pending", "accepted", "rejected"]).default("pending"),
-      approval_type: z.enum(["service", "sales"]).default("service"),
+      status: z.enum(["pending", "accepted", "rejected", "all"]).default("pending"),
+      approval_type: z.enum(["service", "sales", "all"]).default("service"),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -131,16 +131,18 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
     const custFrom = (data.customer_from ?? "").trim();
     const custTo = (data.customer_to ?? "").trim() || custFrom;
 
+    const isAllStatus = data.status === "all";
+    const isAllType = data.approval_type === "all";
     const inputs = {
       PLANT: data.plants.map((p) => ({ plant: p })),
       CUSTOMER_FROM: custFrom,
       CUSTOMER_TO: custTo,
       USER_ID: (data.user_id ?? "").trim(),
-      R_PEND: data.status === "pending" ? "X" : "",
-      R_ACCP: data.status === "accepted" ? "X" : "",
-      R_REJ: data.status === "rejected" ? "X" : "",
-      service: data.approval_type === "service" ? "X" : "",
-      Sales: data.approval_type === "sales" ? "X" : "",
+      R_PEND: isAllStatus || data.status === "pending" ? "X" : "",
+      R_ACCP: isAllStatus || data.status === "accepted" ? "X" : "",
+      R_REJ: isAllStatus || data.status === "rejected" ? "X" : "",
+      service: isAllType || data.approval_type === "service" ? "X" : "",
+      Sales: isAllType || data.approval_type === "sales" ? "X" : "",
     };
 
     const globalProxy =

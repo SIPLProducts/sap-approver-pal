@@ -18,8 +18,6 @@ import {
   type ContractRow,
 } from "@/lib/sd/contract-approval.functions";
 
-type Status = "pending" | "accepted" | "rejected";
-
 export const Route = createFileRoute("/_authenticated/sd/contract-reports")({
   head: () => ({
     meta: [
@@ -67,7 +65,6 @@ function ContractReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
-  const status: Status = "pending";
   const [rows, setRows] = useState<ContractRow[]>([]);
 
   const mutation = useMutation({
@@ -76,9 +73,8 @@ function ContractReportsPage() {
       user_id: string;
       customer_from: string;
       customer_to: string;
-      status: Status;
     }) => {
-      const v: any = await fetchFn({ data: vars });
+      const v: any = await fetchFn({ data: { ...vars, status: "all" } });
       const rows = Array.isArray(v?.rows) ? (v.rows as ContractRow[]) : [];
       return { rows, count: rows.length, error: v?.error ?? null };
     },
@@ -97,7 +93,6 @@ function ContractReportsPage() {
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerFrom.trim(),
-      status,
     });
   }
 
@@ -105,7 +100,6 @@ function ContractReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
-    
     setRows([]);
   }
 
@@ -146,7 +140,7 @@ function ContractReportsPage() {
       </Card>
 
       <CloudscapeApprovalTable
-        title={`Contract Approval Reports — ${status}`}
+        title="Contract Approval Reports"
         countLabel={`(${rows.length})`}
         rows={rows}
         rowKey={rowKey}

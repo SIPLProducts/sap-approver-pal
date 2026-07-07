@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
@@ -18,8 +17,6 @@ import {
   fetchSalesOrderApprovals,
   type SalesOrderRow,
 } from "@/lib/sd/sales-order-approval.functions";
-
-type Status = "pending" | "accepted" | "rejected";
 
 export const Route = createFileRoute("/_authenticated/sd/sales-order-reports")({
   head: () => ({
@@ -68,7 +65,6 @@ function SalesOrderReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
-  const status: Status = "pending";
   const [rows, setRows] = useState<SalesOrderRow[]>([]);
 
   const mutation = useMutation({
@@ -77,9 +73,8 @@ function SalesOrderReportsPage() {
       user_id: string;
       customer_from: string;
       customer_to: string;
-      status: Status;
     }) => {
-      const v: any = await fetchFn({ data: vars });
+      const v: any = await fetchFn({ data: { ...vars, status: "all" } });
       const rows = Array.isArray(v?.rows) ? (v.rows as SalesOrderRow[]) : [];
       return { rows, count: rows.length, error: v?.error ?? null };
     },
@@ -98,7 +93,6 @@ function SalesOrderReportsPage() {
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerFrom.trim(),
-      status,
     });
   }
 
@@ -106,7 +100,6 @@ function SalesOrderReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
-    
     setRows([]);
   }
 
@@ -147,7 +140,7 @@ function SalesOrderReportsPage() {
       </Card>
 
       <CloudscapeApprovalTable
-        title={`Sales Order Approval Reports — ${status}`}
+        title="Sales Order Approval Reports"
         countLabel={`(${rows.length})`}
         rows={rows}
         rowKey={rowKey}
