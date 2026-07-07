@@ -19,7 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import {
   fetchScSoApprovals,
   submitScSoDecision,
@@ -476,18 +477,7 @@ function ScSoPage() {
         reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
         readonlyReason={(r) => r.reason ?? "—"}
         emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute."}
-        columns={COLS.map((c) => ({
-          id: c.key,
-          header: c.label,
-          align: c.align,
-          sortingField: c.key,
-          cell: (r: ScSoRow) => {
-            const v = (r as any)[c.key] as string | number | null;
-            if (c.date) return fmtDate(v as string | null);
-            if (c.num) return fmtNum(v);
-            return v == null || v === "" ? "—" : String(v);
-          },
-        })) as CloudscapeColumn<ScSoRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
 
 

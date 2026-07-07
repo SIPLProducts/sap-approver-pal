@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -209,18 +210,7 @@ function ScSoReportsPage() {
         rowKey={rowKey}
         loading={mutation.isPending}
         emptyMessage={rows.length === 0 ? "Enter Plant and click Execute." : "No records."}
-        columns={COLS.map((c) => ({
-          id: c.key,
-          header: c.label,
-          align: c.align,
-          sortingField: c.key,
-          cell: (r: ScSoRow) => {
-            const v = (r as any)[c.key] as string | number | null;
-            if (c.date) return fmtDate(v as string | null);
-            if (c.num) return fmtNum(v);
-            return v == null || v === "" ? "—" : String(v);
-          },
-        })) as CloudscapeColumn<ScSoRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
     </div>
   );

@@ -8,7 +8,8 @@ import { Filter, RotateCcw, Loader2, ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
@@ -153,22 +154,7 @@ function PriceReportsPage() {
         rowKey={rowKey}
         loading={mutation.isPending}
         emptyMessage={rows.length === 0 ? "Enter a Plant and click Execute to load price approval reports from SAP." : "No records."}
-        columns={[
-          { id: "key_combination", header: "Key Comb.", sortingField: "key_combination", cell: (r) => r.key_combination ?? "—" },
-          { id: "condition_type", header: "Cond. Type", cell: (r) => r.condition_type ?? "—" },
-          { id: "customer", header: "Customer", cell: (r) => r.customer ?? "—" },
-          { id: "price_group", header: "Price Grp", cell: (r) => r.price_group ?? "—" },
-          { id: "plant", header: "Plant", cell: (r) => r.plant ?? "—" },
-          { id: "material", header: "Material", cell: (r) => r.material ?? "—" },
-          { id: "new_price", header: "New Price", align: "right", cell: (r) => <strong>{fmtNum(r.new_price)}</strong> },
-          { id: "currency", header: "Curr", cell: (r) => r.currency ?? "—" },
-          { id: "uom", header: "UOM", cell: (r) => r.uom ?? "—" },
-          { id: "valid_from_sc", header: "Valid From", cell: (r) => fmtDate(r.valid_from_sc) },
-          { id: "valid_to_sc", header: "Valid To", cell: (r) => fmtDate(r.valid_to_sc) },
-          { id: "old_price", header: "Old Price", align: "right", cell: (r) => fmtNum(r.old_price) },
-          { id: "release_code1", header: "Release Code 1", cell: (r) => r.release_code1 ?? "—" },
-          { id: "approval_status", header: "Approval Status", cell: (r) => r.approval_status ?? "—" },
-        ] as CloudscapeColumn<PriceRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
     </div>
   );

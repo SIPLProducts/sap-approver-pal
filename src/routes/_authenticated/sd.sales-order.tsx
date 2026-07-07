@@ -19,7 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -424,26 +425,7 @@ function SalesOrderPage() {
         reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
         readonlyReason={(r) => r.reason ?? "—"}
         emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute to load sales orders from SAP."}
-        columns={[
-          { id: "customer", header: "Customer", sortingField: "customer", cell: (r) => r.customer ?? "—" },
-          { id: "customer_name", header: "Customer Name", sortingField: "customer_name", cell: (r) => r.customer_name ?? "—" },
-          { id: "customer_group", header: "Customer Group", cell: (r) => r.customer_group ?? "—" },
-          { id: "customer_price_group", header: "Price Group", cell: (r) => r.customer_price_group ?? "—" },
-          { id: "material", header: "Material", cell: (r) => r.material ?? "—" },
-          { id: "qty", header: "Qty", align: "right", cell: (r) => fmtNum(r.qty) },
-          { id: "net_value", header: "Net Value", align: "right", cell: (r) => fmtNum(r.net_value) },
-          { id: "contract_no", header: "Contract No", cell: (r) => r.contract_no || "—" },
-          { id: "sales_document_no", header: "Sales Document No", cell: (r) => r.sales_document_no ?? "—" },
-          { id: "so_creation_date", header: "SO Creation", cell: (r) => fmtDate(r.so_creation_date) },
-          { id: "sales_item_no", header: "Sales Item No", cell: (r) => r.sales_item_no ?? "—" },
-          { id: "contract_item", header: "Contract Item", cell: (r) => r.contract_item ?? "—" },
-          { id: "dis_chanel", header: "Dis Chanel", cell: (r) => r.dis_chanel ?? "—" },
-          { id: "division", header: "Division", cell: (r) => r.division ?? "—" },
-          { id: "year", header: "Year", cell: (r) => r.year ?? "—" },
-          { id: "sales_org", header: "Sales Org", cell: (r) => r.sales_org ?? "—" },
-          { id: "company_code", header: "Company Code", cell: (r) => r.company_code ?? "—" },
-          { id: "tax_value", header: "Tax Value", align: "right", cell: (r) => fmtNum(r.tax_value) },
-        ] as CloudscapeColumn<SalesOrderRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
 
 
