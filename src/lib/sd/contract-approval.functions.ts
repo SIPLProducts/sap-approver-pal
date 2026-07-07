@@ -36,6 +36,10 @@ export type ContractRow = {
   per_bed_rate: string | number | null;
   excess_qty_rate: string | number | null;
   reason: string | null;
+  rel_1: string | null;
+  status_1: string | null;
+  rel_2: string | null;
+  status_2: string | null;
 };
 
 const CONFIG_NAME = "Contract_Approval_Fetch";
