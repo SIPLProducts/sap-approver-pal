@@ -342,16 +342,6 @@ function SalesOrderPage() {
             <PlantMultiSelect value={plants} onChange={setPlants} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">User ID</Label>
-            <Input
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="optional"
-              className="h-9 font-mono"
-            />
-          </div>
-          <div className="space-y-1.5">
             <Label className="text-xs">Customer</Label>
             <CustomerSelect
               value={customerFrom}

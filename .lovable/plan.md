@@ -1,36 +1,37 @@
 ## Goal
 
-1. In **Service Certificate & SO Approval Reports**, show two extra columns straight from the SAP response:
-   - `DATA[].RELEASE_CODE1` → column "Release Code 1"
-   - `DATA[].APPROVAL_STATUS` → column "Status"
-2. Ensure the logged-in user's SAP user id is sent as `USER_ID` in the `Sevice_Certificate_Fetch` payload.
+Hide the "User ID" input field on the three approval screens and their three report screens. The logged-in user's SAP id must continue to be sent as `USER_ID` in every SAP payload (both fetch and approve/reject).
 
-## Changes
+## Why this is safe
 
-### `src/lib/sd/sc-so-approval.functions.ts`
-- Extend `ScSoRow` with two fields:
-  - `release_code_1: string | null`
-  - `approval_status: string | null`
-- In `mapRow()`, populate them via `pick(raw, "RELEASE_CODE1")` and `pick(raw, "APPROVAL_STATUS")`.
-- Extend `ScSoRowSchema` and `toSapScSoRow()` to round-trip these fields on the accept/reject submit (as `RELEASE_CODE1` / `APPROVAL_STATUS`) so nothing is lost when the row is echoed back to SAP.
-- USER_ID handling: already resolved from `data.user_id → profiles.sap_user_id (login user) → field default`. Keep the fallback but make it explicit that the authenticated profile's `sap_user_id` is used whenever the caller does not provide one. No API shape change — payload key stays `USER_ID`.
+All six server functions already resolve `USER_ID` with this precedence:
+`data.user_id (if non-empty) → profiles.sap_user_id (from the authenticated session) → config default`.
 
-### `src/routes/_authenticated/sd.sc-so-reports.tsx`
-- Pass options to `buildDynamicColumns(rows, …)`:
-  - `alwaysInclude: ["release_code_1", "approval_status"]` so the columns render even when the first page has empty values.
-  - `headerLabels: { release_code_1: "Release Code 1", approval_status: "Status" }`.
-- The values render verbatim (existing `FORCE_TEXT_KEYS` / text-first logic already prevents date/number reformatting for identifier-like strings; `release_code_1` will be added to `FORCE_TEXT_KEYS` in `src/lib/sd/dynamic-columns.tsx` alongside the existing `rel_1…rel_8` entries so 8-digit codes like `22011840` display exactly as returned).
+So by simply removing the UI input and passing an empty `user_id` from the client, the payload will automatically use the logged-in profile's `sap_user_id`. No server-side changes needed.
 
-### `src/lib/sd/dynamic-columns.tsx`
-- Add `"release_code_1"` and `"approval_status"` to `FORCE_TEXT_KEYS` so both columns are treated as raw text (no date/number formatting).
+## Changes (UI only)
+
+For each file below: remove the `User ID` `<Label>` + `<Input>` block from the filters grid, remove the `userId` `useState`, and pass `user_id: ""` (or drop the property where the type allows) so the server fallback kicks in.
+
+1. `src/routes/_authenticated/sd.contract.tsx` — Contract Approvals
+2. `src/routes/_authenticated/sd.contract-reports.tsx` — Contract Approval Reports
+3. `src/routes/_authenticated/sd.sc-so.tsx` — Service Certificate & SO Approvals
+4. `src/routes/_authenticated/sd.sc-so-reports.tsx` — Service Certificate & SO Approval Reports
+5. `src/routes/_authenticated/sd.sales-order.tsx` — Sales Order Approvals
+6. `src/routes/_authenticated/sd.sales-order-reports.tsx` — Sales Order Approval Reports
+
+On approval screens (sd.contract, sd.sc-so, sd.sales-order), both the Fetch call and the Approve/Reject decision call currently pass `userId.trim()` — both will be replaced with `""` so the server uses the profile's SAP id.
+
+Grid column count (`grid-cols-…`) will be adjusted where needed after removing the User ID cell so remaining filters stay aligned.
 
 ## Out of scope
 
-- No changes to the main `/sd/sc-so` approvals screen columns.
-- No changes to Contract or Sales Order reports.
-- No change to the SAP API config, endpoint, or auth.
+- No changes to server functions (`*.functions.ts`) — fallback already exists.
+- No changes to SAP API config, endpoints, or auth.
+- No changes to reports column rendering.
 
 ## Verification
 
 - `tsgo` typecheck.
-- Open Service Certificate & SO Approval Reports, run Execute; confirm two new columns "Release Code 1" and "Status" appear with the exact SAP values, and network payload shows `USER_ID` populated with the logged-in user's SAP id.
+- Open each of the 6 screens: User ID field is gone.
+- Run Execute / Approve / Reject; network payload shows `USER_ID` populated with the logged-in user's SAP id.
