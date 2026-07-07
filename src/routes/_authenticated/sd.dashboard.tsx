@@ -1,20 +1,26 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   Activity,
   Building2,
+  CalendarRange,
   FileCheck2,
   FileText,
+  Filter,
   Landmark,
   Layers,
   Loader2,
   Package,
   PieChart as PieIcon,
+  Play,
   Receipt,
   RefreshCw,
+  RotateCcw,
   ShoppingCart,
+  Tag,
   TrendingUp,
   Users,
   Wallet,
@@ -39,11 +45,19 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KpiTile } from "@/components/exec/kpi-tile";
+import { PlantSelect } from "@/components/sap/plant-select";
+import { CustomerSelect } from "@/components/sap/customer-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
 import { cn } from "@/lib/utils";
+
+type Mode = "customer" | "contract" | "sales";
+
 
 export const Route = createFileRoute("/_authenticated/sd/dashboard")({
   component: SdDashboardPage,
