@@ -143,17 +143,6 @@ function ContractReportsPage() {
             <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
           </div>
         </div>
-
-        <div className="mt-4 -mx-4 px-4 pt-3 border-t">
-          <div className="flex items-center gap-6 flex-wrap">
-            <Label className="text-xs text-muted-foreground">Status <span className="text-destructive">*</span></Label>
-            <RadioGroup value={status} onValueChange={(v) => setStatus(v as Status)} className="flex items-center gap-5">
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="pending" id="cr-st-pending" />Pending</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="accepted" id="cr-st-accepted" />Accepted</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="rejected" id="cr-st-rejected" />Rejected</label>
-            </RadioGroup>
-          </div>
-        </div>
       </Card>
 
       <CloudscapeApprovalTable
