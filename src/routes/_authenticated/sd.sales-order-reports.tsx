@@ -147,30 +147,7 @@ function SalesOrderReportsPage() {
         rowKey={rowKey}
         loading={mutation.isPending}
         emptyMessage={rows.length === 0 ? "Enter Plant and click Execute to load sales order approval reports from SAP." : "No records."}
-        columns={[
-          { id: "customer", header: "Customer", sortingField: "customer", cell: (r) => r.customer ?? "—" },
-          { id: "customer_name", header: "Customer Name", sortingField: "customer_name", cell: (r) => r.customer_name ?? "—" },
-          { id: "customer_group", header: "Customer Group", cell: (r) => r.customer_group ?? "—" },
-          { id: "customer_price_group", header: "Price Group", cell: (r) => r.customer_price_group ?? "—" },
-          { id: "material", header: "Material", cell: (r) => r.material ?? "—" },
-          { id: "qty", header: "Qty", align: "right", cell: (r) => fmtNum(r.qty) },
-          { id: "net_value", header: "Net Value", align: "right", cell: (r) => fmtNum(r.net_value) },
-          { id: "contract_no", header: "Contract No", cell: (r) => r.contract_no || "—" },
-          { id: "sales_document_no", header: "Sales Document No", cell: (r) => r.sales_document_no ?? "—" },
-          { id: "so_creation_date", header: "SO Creation", cell: (r) => fmtDate(r.so_creation_date) },
-          { id: "sales_item_no", header: "Sales Item No", cell: (r) => r.sales_item_no ?? "—" },
-          { id: "contract_item", header: "Contract Item", cell: (r) => r.contract_item ?? "—" },
-          { id: "dis_chanel", header: "Dis Chanel", cell: (r) => r.dis_chanel ?? "—" },
-          { id: "division", header: "Division", cell: (r) => r.division ?? "—" },
-          { id: "year", header: "Year", cell: (r) => r.year ?? "—" },
-          { id: "sales_org", header: "Sales Org", cell: (r) => r.sales_org ?? "—" },
-          { id: "company_code", header: "Company Code", cell: (r) => r.company_code ?? "—" },
-          { id: "tax_value", header: "Tax Value", align: "right", cell: (r) => fmtNum(r.tax_value) },
-          { id: "rel_1", header: "Rel. Code 1", sortingField: "rel_1", cell: (r) => r.rel_1 ?? "—" },
-          { id: "status_1", header: "Status 1", sortingField: "status_1", cell: (r) => r.status_1 ?? "—" },
-          { id: "rel_2", header: "Rel. Code 2", sortingField: "rel_2", cell: (r) => r.rel_2 ?? "—" },
-          { id: "status_2", header: "Status 2", sortingField: "status_2", cell: (r) => r.status_2 ?? "—" },
-        ] as CloudscapeColumn<SalesOrderRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
     </div>
   );
