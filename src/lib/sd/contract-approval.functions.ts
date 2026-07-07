@@ -360,6 +360,10 @@ function toSapContractRow(r: z.infer<typeof ContractRowSchema>) {
     PER_BED_RATE: s(r.per_bed_rate),
     EXCESS_QTY_RATE: s(r.excess_qty_rate),
     REASON: s(r.reason),
+    REL_1: s(r.rel_1),
+    STATUS_1: s(r.status_1),
+    REL_2: s(r.rel_2),
+    STATUS_2: s(r.status_2),
   };
 }
 
