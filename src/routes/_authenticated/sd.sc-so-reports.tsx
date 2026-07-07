@@ -180,6 +180,26 @@ function ScSoReportsPage() {
             <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
           </div>
         </div>
+
+        <div className="mt-4 -mx-4 px-4 pt-3 border-t">
+          <div className="flex items-center gap-6 flex-wrap">
+            <Label className="text-xs text-muted-foreground min-w-[100px]">Approval Type</Label>
+            <RadioGroup
+              value={approvalType}
+              onValueChange={(v) => setApprovalType(v as "service" | "sales")}
+              className="flex items-center gap-5"
+            >
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="service" id="scso-rpt-t-service" />
+                Service Certificate Approvals
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="sales" id="scso-rpt-t-sales" />
+                Sales Order Approvals
+              </label>
+            </RadioGroup>
+          </div>
+        </div>
       </Card>
 
       <CloudscapeApprovalTable
