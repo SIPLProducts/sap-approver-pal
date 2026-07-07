@@ -102,7 +102,7 @@ export function CloudscapeApprovalTable<T>({
       header: c.header,
       cell: (item: T) => c.cell(item),
       minWidth: c.minWidth ?? 120,
-      sortingField: c.sortingField as string | undefined,
+      sortingField: undefined as string | undefined,
     }));
     if (showReason) {
       cols.push({
