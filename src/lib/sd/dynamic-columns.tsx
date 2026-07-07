@@ -144,7 +144,7 @@ export function buildDynamicColumns<T extends Record<string, any>>(
 
     // Sniff sample values.
     const samples = rows.map((r) => r?.[key]).filter((v) => !isEmpty(v));
-    const looksDate = !forcedNumeric && samples.length > 0 && samples.every(isDateLike);
+    const looksDate = !forcedNumeric && !forcedText && samples.length > 0 && samples.every(isDateLike);
 
     let looksNumeric = false;
     if (forcedNumeric) {
