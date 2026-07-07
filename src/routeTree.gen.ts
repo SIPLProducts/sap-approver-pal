@@ -24,7 +24,6 @@ import { Route as AuthenticatedSdPriceReportsRouteImport } from './routes/_authe
 import { Route as AuthenticatedSdPriceRouteImport } from './routes/_authenticated/sd.price'
 import { Route as AuthenticatedSdContractReportsRouteImport } from './routes/_authenticated/sd.contract-reports'
 import { Route as AuthenticatedSdContractRouteImport } from './routes/_authenticated/sd.contract'
-import { Route as AuthenticatedSdBmwStatusDashboardRouteImport } from './routes/_authenticated/sd.bmw-status-dashboard'
 import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
 import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
 import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
@@ -117,12 +116,6 @@ const AuthenticatedSdContractRoute = AuthenticatedSdContractRouteImport.update({
   path: '/sd/contract',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSdBmwStatusDashboardRoute =
-  AuthenticatedSdBmwStatusDashboardRouteImport.update({
-    id: '/sd/bmw-status-dashboard',
-    path: '/sd/bmw-status-dashboard',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedSdBmwStatusRoute =
   AuthenticatedSdBmwStatusRouteImport.update({
     id: '/sd/bmw-status',
@@ -198,7 +191,6 @@ export interface FileRoutesByFullPath {
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
-  '/sd/bmw-status-dashboard': typeof AuthenticatedSdBmwStatusDashboardRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
   '/sd/contract-reports': typeof AuthenticatedSdContractReportsRoute
   '/sd/price': typeof AuthenticatedSdPriceRoute
@@ -226,7 +218,6 @@ export interface FileRoutesByTo {
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
-  '/sd/bmw-status-dashboard': typeof AuthenticatedSdBmwStatusDashboardRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
   '/sd/contract-reports': typeof AuthenticatedSdContractReportsRoute
   '/sd/price': typeof AuthenticatedSdPriceRoute
@@ -256,7 +247,6 @@ export interface FileRoutesById {
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/_authenticated/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
-  '/_authenticated/sd/bmw-status-dashboard': typeof AuthenticatedSdBmwStatusDashboardRoute
   '/_authenticated/sd/contract': typeof AuthenticatedSdContractRoute
   '/_authenticated/sd/contract-reports': typeof AuthenticatedSdContractReportsRoute
   '/_authenticated/sd/price': typeof AuthenticatedSdPriceRoute
@@ -286,7 +276,6 @@ export interface FileRouteTypes {
     | '/approval/$id'
     | '/inbox/$module'
     | '/sd/bmw-status'
-    | '/sd/bmw-status-dashboard'
     | '/sd/contract'
     | '/sd/contract-reports'
     | '/sd/price'
@@ -314,7 +303,6 @@ export interface FileRouteTypes {
     | '/approval/$id'
     | '/inbox/$module'
     | '/sd/bmw-status'
-    | '/sd/bmw-status-dashboard'
     | '/sd/contract'
     | '/sd/contract-reports'
     | '/sd/price'
@@ -343,7 +331,6 @@ export interface FileRouteTypes {
     | '/_authenticated/approval/$id'
     | '/_authenticated/inbox/$module'
     | '/_authenticated/sd/bmw-status'
-    | '/_authenticated/sd/bmw-status-dashboard'
     | '/_authenticated/sd/contract'
     | '/_authenticated/sd/contract-reports'
     | '/_authenticated/sd/price'
@@ -476,13 +463,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSdContractRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/sd/bmw-status-dashboard': {
-      id: '/_authenticated/sd/bmw-status-dashboard'
-      path: '/sd/bmw-status-dashboard'
-      fullPath: '/sd/bmw-status-dashboard'
-      preLoaderRoute: typeof AuthenticatedSdBmwStatusDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/sd/bmw-status': {
       id: '/_authenticated/sd/bmw-status'
       path: '/sd/bmw-status'
@@ -573,7 +553,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
   AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
   AuthenticatedSdBmwStatusRoute: typeof AuthenticatedSdBmwStatusRoute
-  AuthenticatedSdBmwStatusDashboardRoute: typeof AuthenticatedSdBmwStatusDashboardRoute
   AuthenticatedSdContractRoute: typeof AuthenticatedSdContractRoute
   AuthenticatedSdContractReportsRoute: typeof AuthenticatedSdContractReportsRoute
   AuthenticatedSdPriceRoute: typeof AuthenticatedSdPriceRoute
@@ -597,8 +576,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
   AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
   AuthenticatedSdBmwStatusRoute: AuthenticatedSdBmwStatusRoute,
-  AuthenticatedSdBmwStatusDashboardRoute:
-    AuthenticatedSdBmwStatusDashboardRoute,
   AuthenticatedSdContractRoute: AuthenticatedSdContractRoute,
   AuthenticatedSdContractReportsRoute: AuthenticatedSdContractReportsRoute,
   AuthenticatedSdPriceRoute: AuthenticatedSdPriceRoute,
