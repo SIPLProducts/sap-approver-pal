@@ -1,37 +1,59 @@
 ## Goal
 
-Hide the "User ID" input field on the three approval screens and their three report screens. The logged-in user's SAP id must continue to be sent as `USER_ID` in every SAP payload (both fetch and approve/reject).
+Apply a clean, enterprise data-app look globally without changing layout, structure, logic, or existing colors. All work is in one file: `src/styles.css` (plus one tiny tweak to the sticky top bar height in `src/routes/_authenticated.tsx` to hit the 56-64px spec).
 
-## Why this is safe
+## Typography
 
-All six server functions already resolve `USER_ID` with this precedence:
-`data.user_id (if non-empty) → profiles.sap_user_id (from the authenticated session) → config default`.
+In `src/styles.css`:
+- Switch `--font-sans` to `"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` and `--font-display` to the same stack so no display serif/italic sneaks in.
+- Load Inter via a `<link>` in `src/routes/__root.tsx` `head()` (per Tailwind v4 rule — no remote `@import` in styles.css).
+- Add base rules in `@layer base`:
+  - `html, body { font-size: 14px; font-weight: 400; }`
+  - `h1 { font-size: 20px; font-weight: 600; }`, `h2 { font-size: 18px; font-weight: 600; }`, both non-italic.
+  - `em, i, cite, address { font-style: normal; }` to enforce no-italics.
+  - `.text-xs { font-size: 12px; }` unchanged; column-header helper below sets 12-13px 600 uppercase.
 
-So by simply removing the UI input and passing an empty `user_id` from the client, the payload will automatically use the logged-in profile's `sap_user_id`. No server-side changes needed.
+## Top bar
 
-## Changes (UI only)
+- Bump sticky header height from `h-14` (56px) to `h-15` equivalent: change the `<header>` class in `src/routes/_authenticated.tsx` from `h-14` to `h-[60px]` and keep `border-b` (already 1px). No other layout changes. Breadcrumb-left / user-info-right structure is already present.
+- Style active nav/tab indicator via CSS (styling only, no JSX change): add a rule targeting the existing active tab class used in the app tabs (`[data-state="active"]` on Radix Tabs) to draw a `2px` bottom border in `--primary` instead of the current pill style — scoped so it does not affect sidebar links.
 
-For each file below: remove the `User ID` `<Label>` + `<Input>` block from the filters grid, remove the `userId` `useState`, and pass `user_id: ""` (or drop the property where the type allows) so the server fallback kicks in.
+## Tables (Cloudscape + shadcn)
 
-1. `src/routes/_authenticated/sd.contract.tsx` — Contract Approvals
-2. `src/routes/_authenticated/sd.contract-reports.tsx` — Contract Approval Reports
-3. `src/routes/_authenticated/sd.sc-so.tsx` — Service Certificate & SO Approvals
-4. `src/routes/_authenticated/sd.sc-so-reports.tsx` — Service Certificate & SO Approval Reports
-5. `src/routes/_authenticated/sd.sales-order.tsx` — Sales Order Approvals
-6. `src/routes/_authenticated/sd.sales-order-reports.tsx` — Sales Order Approval Reports
+Extend the existing Cloudscape overrides in `src/styles.css`:
+- Row height: `.awsui-app-scope table tbody td { height: 40px; padding-top: 8px; padding-bottom: 8px; font-size: 13px; }`.
+- Header cells: `font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;` (keeps existing sidebar-colored bg).
+- Horizontal dividers only: `table { border-collapse: separate; } td, th { border-right: 0 !important; } tbody tr { border-bottom: 1px solid var(--border); }` scoped under `.awsui-app-scope` and also for plain `<table>` under a new `.data-table` utility for the few non-Cloudscape tables.
+- Hover: `.awsui-app-scope tbody tr:hover td { background: color-mix(in oklab, var(--muted) 60%, transparent); }`.
+- Sticky first column: `.awsui-app-scope tbody td:first-child, .awsui-app-scope thead th:first-child { position: sticky; left: 0; z-index: 5; background: var(--card); } .awsui-app-scope thead th:first-child { z-index: 11; background: var(--sidebar); }`.
+- Right-align numbers: `.awsui-app-scope td.num, .awsui-app-scope td[data-type="number"], td.tabular-nums { text-align: right; font-variant-numeric: tabular-nums; }` (uses classes already emitted by existing components).
+- Sticky header already handled; keep as-is.
 
-On approval screens (sd.contract, sd.sc-so, sd.sales-order), both the Fetch call and the Approve/Reject decision call currently pass `userId.trim()` — both will be replaced with `""` so the server uses the profile's SAP id.
+## Scroll + spacing + radius
 
-Grid column count (`grid-cols-…`) will be adjusted where needed after removing the User ID cell so remaining filters stay aligned.
+- `main` already scrolls; header and filter cards are already sticky/fixed within the shell — no layout change.
+- Add a thin-scrollbar utility applied globally to scroll containers:
+  ```css
+  * { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--muted-foreground) 40%, transparent) transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--muted-foreground) 35%, transparent); border-radius: 6px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  ```
+- Border-radius consistency: change `--radius` from `0.75rem` (12px) to `0.5rem` (8px) so shadcn `rounded-lg`/`md`/`sm` land in the 6-8px band. Kept as a token change so no component code touches.
+- Spacing: not enforced globally (would break existing layout). The 8/12/16/24 rhythm is already the Tailwind default (`gap-2/3/4/6`) the app uses — no changes.
+
+## Colors
+
+Untouched. All `oklch` tokens in `:root` / `.dark` stay exactly as they are.
 
 ## Out of scope
 
-- No changes to server functions (`*.functions.ts`) — fallback already exists.
-- No changes to SAP API config, endpoints, or auth.
-- No changes to reports column rendering.
+- No JSX/layout restructuring beyond the single `h-14 → h-[60px]` on the header.
+- No component logic changes.
+- No color token changes.
+- No new dependencies (Inter loaded via `<link>` tag).
 
 ## Verification
 
 - `tsgo` typecheck.
-- Open each of the 6 screens: User ID field is gone.
-- Run Execute / Approve / Reject; network payload shows `USER_ID` populated with the logged-in user's SAP id.
+- Visual pass on Contract Approvals, SC & SO Approvals, Sales Order Approvals and their Reports: font is Inter, header is ~60px, table rows ~40px with only horizontal lines, headers are 12px uppercase 600, first column sticky on horizontal scroll, hover highlight visible, scrollbars are thin, colors unchanged.
