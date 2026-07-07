@@ -103,6 +103,7 @@ function ScSoReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
+  const [approvalType, setApprovalType] = useState<"service" | "sales">("service");
   const [rows, setRows] = useState<ScSoRow[]>([]);
 
   const mutation = useMutation({
@@ -111,8 +112,9 @@ function ScSoReportsPage() {
       user_id: string;
       customer_from: string;
       customer_to: string;
+      approval_type: "service" | "sales";
     }) => {
-      const v: any = await fetchFn({ data: { ...vars, status: "all", approval_type: "all" } });
+      const v: any = await fetchFn({ data: { ...vars, status: "pending" } });
       const rows = Array.isArray(v?.rows) ? (v.rows as ScSoRow[]) : [];
       return { rows, count: rows.length, error: v?.error ?? null };
     },
