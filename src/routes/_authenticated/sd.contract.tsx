@@ -4,7 +4,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Filter, RotateCcw, Loader2, CheckCircle2, XCircle, AlertTriangle, FileText } from "lucide-react";
-import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 
 import {
   Dialog,
