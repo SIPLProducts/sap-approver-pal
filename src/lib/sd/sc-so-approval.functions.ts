@@ -95,6 +95,8 @@ function mapRow(raw: any): ScSoRow {
     code_land_qty: pick(raw, "CODE_LAND_QTY"),
     total_balance: pick(raw, "TOTAL_BALANCE"),
     ph_reason_code: pick(raw, "PH_REASON_CODE"),
+    release_code_1: pick(raw, "RELEASE_CODE1"),
+    approval_status: pick(raw, "APPROVAL_STATUS"),
     reason: pick(raw, "REASON"),
   };
 }
@@ -373,6 +375,8 @@ const ScSoRowSchema = z.object({
   code_land_qty: z.union([z.string(), z.number()]).nullable().optional(),
   total_balance: z.union([z.string(), z.number()]).nullable().optional(),
   ph_reason_code: z.string().nullable().optional(),
+  release_code_1: z.string().nullable().optional(),
+  approval_status: z.string().nullable().optional(),
   reason: z.string().nullable().optional(),
 });
 
@@ -416,6 +420,8 @@ function toSapScSoRow(r: z.infer<typeof ScSoRowSchema>) {
     CODE_LAND_QTY: numOrEmpty(r.code_land_qty),
     TOTAL_BALANCE: numOrEmpty(r.total_balance),
     PH_REASON_CODE: s(r.ph_reason_code),
+    RELEASE_CODE1: s(r.release_code_1),
+    APPROVAL_STATUS: s(r.approval_status),
     REASON: s(r.reason),
   };
 }
