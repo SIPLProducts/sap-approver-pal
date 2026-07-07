@@ -93,6 +93,10 @@ type DynamicOptions = {
   textKeys?: string[];
   /** Keys forced to display as formatted numbers (right aligned). */
   numericKeys?: string[];
+  /** Keys that must always appear, even when every row is empty. */
+  alwaysInclude?: string[];
+  /** Per-key header label overrides (bypasses auto-prettify). */
+  headerLabels?: Record<string, string>;
 };
 
 export function buildDynamicColumns<T extends Record<string, any>>(
@@ -104,6 +108,9 @@ export function buildDynamicColumns<T extends Record<string, any>>(
   const exclude = new Set([...(options.exclude ?? [])]);
   const forceText = new Set([...(options.textKeys ?? [])]);
   const forceNum = new Set([...(options.numericKeys ?? [])]);
+  const alwaysInclude = options.alwaysInclude ?? [];
+  const alwaysSet = new Set(alwaysInclude);
+  const headerLabels = options.headerLabels ?? {};
 
   // Union of keys, preserving order of first appearance.
   const keys: string[] = [];
@@ -117,9 +124,18 @@ export function buildDynamicColumns<T extends Record<string, any>>(
       keys.push(k);
     }
   }
+  // Append alwaysInclude keys that weren't observed in the data.
+  for (const k of alwaysInclude) {
+    if (RESERVED.has(k) || exclude.has(k)) continue;
+    if (!seen.has(k)) {
+      seen.add(k);
+      keys.push(k);
+    }
+  }
 
-  // Drop keys where every row is empty.
-  const nonEmpty = keys.filter((k) => rows.some((r) => !isEmpty(r?.[k])));
+  // Drop keys where every row is empty, unless whitelisted via alwaysInclude.
+  const nonEmpty = keys.filter((k) => alwaysSet.has(k) || rows.some((r) => !isEmpty(r?.[k])));
+
 
   return nonEmpty.map((key) => {
     // Decide render mode.
@@ -143,7 +159,7 @@ export function buildDynamicColumns<T extends Record<string, any>>(
           /(value|amount|price|rate|qty|quantity|total|tax|net|amt)/i.test(key));
     }
 
-    const header = prettify(key);
+    const header = headerLabels[key] ?? prettify(key);
     const render = (v: unknown) => {
       if (isEmpty(v)) return "—";
       if (looksDate) return fmtDate(String(v));

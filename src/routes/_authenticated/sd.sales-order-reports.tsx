@@ -147,7 +147,15 @@ function SalesOrderReportsPage() {
         rowKey={rowKey}
         loading={mutation.isPending}
         emptyMessage={rows.length === 0 ? "Enter Plant and click Execute to load sales order approval reports from SAP." : "No records."}
-        columns={buildDynamicColumns(rows)}
+        columns={buildDynamicColumns(rows, {
+          alwaysInclude: ["rel_1", "status_1", "rel_2", "status_2"],
+          headerLabels: {
+            rel_1: "Release Code 1",
+            status_1: "Status 1",
+            rel_2: "Release Code 2",
+            status_2: "Status 2",
+          },
+        })}
       />
     </div>
   );
