@@ -447,34 +447,7 @@ function BmwStatusReportPage() {
         rowKey={(_r, i) => String(i)}
         loading={mutation.isPending}
         emptyMessage={mutation.isPending ? "Fetching…" : "No data. Set filters and click Execute."}
-        columns={schema.map((c) => ({
-          id: c.key,
-          header: c.label,
-          align: (c.type === "decimal3" || c.type === "currency2" || c.type === "int") ? "right" : undefined,
-          sortingField: c.key,
-          minWidth: 140,
-          cell: (r: BmwStatusRow) => {
-            const raw = valueForColumn(r, c);
-            if (c.type === "date") return formatDate(raw) ?? "—";
-            if (c.type === "decimal3") return formatNumber(raw, 3) ?? "—";
-            if (c.type === "currency2") return formatNumber(raw, 2) ?? "—";
-            if (c.type === "int") {
-              if (isEmpty(raw)) return "—";
-              const n = parseInt(String(raw).trim(), 10);
-              return Number.isFinite(n) ? String(n) : "—";
-            }
-            if (c.type === "status") {
-              if (isEmpty(raw)) return "—";
-              const active = String(raw).trim() === "01";
-              return (
-                <Badge variant={active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                  {active ? "Active" : "Inactive"}
-                </Badge>
-              );
-            }
-            return isEmpty(raw) ? "—" : String(raw).trim();
-          },
-        })) as CloudscapeColumn<BmwStatusRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
     </div>
   );
