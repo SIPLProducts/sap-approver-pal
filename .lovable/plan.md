@@ -1,23 +1,25 @@
 ## Goal
 
-Change the three "Reports" screens so they request `status: "pending"` by default (instead of `"all"`), and add a working Approval Type control to the SC/SO Reports screen.
+Bind the logged-in user's SAP user ID into the USER_ID field of the Contract Approvals payload by default (both interactive and reports screens), so the fetch payload carries the correct user without the operator typing it. User remains free to edit or clear the field.
 
 ## Changes
 
-### 1. `src/routes/_authenticated/sd.contract-reports.tsx`
-- In the mutation `fetchFn` call, change `status: "all"` → `status: "pending"`.
+### 1. `src/routes/_authenticated/sd.contract.tsx`
+- Import `useSapProfile` from `@/hooks/use-sap-profile`.
+- Read `profile?.user` and seed `userId` state from it via a `useEffect` (only when the input is still empty, so we don't stomp what the user types).
 
-### 2. `src/routes/_authenticated/sd.sales-order-reports.tsx`
-- In the mutation `fetchFn` call, change `status: "all"` → `status: "pending"`.
-
-### 3. `src/routes/_authenticated/sd.sc-so-reports.tsx`
-- Change default backend `status` from `"all"` to `"pending"`.
-- Add an `approvalType` state (`"service" | "sales"`, default `"service"`).
-- Pass `approval_type: approvalType` to the backend instead of the hardcoded `"all"` (matches the shape used by `sd.sc-so.tsx`, which is the interactive screen this Reports view mirrors).
-- Render an Approval Type radio group inside the Selection Screen card (below the existing filter grid, using the same pattern as `sd.sc-so.tsx`: `RadioGroup` + `RadioGroupItem` with options **Service Certificate Approvals** / **Sales Order Approvals**).
-- Include `approvalType` in `reset()` (reset back to `"service"`).
-- Re-fetch is triggered manually via the existing Execute button (no auto-fetch on change, keeping the Reports-screen behavior consistent with the other two report screens).
+### 2. `src/routes/_authenticated/sd.contract-reports.tsx`
+- Same treatment: seed the `userId` state from `useSapProfile().user` on mount / when it becomes available, only if the field is empty.
+- Update the placeholder from `"optional"` to `"defaults to your SAP user"`.
 
 ## Out of scope
-- No changes to server functions (`*.functions.ts`), backend payload shape, columns, or the interactive approval screens.
-- No new UI beyond the single Approval Type radio group on the SC/SO Reports screen.
+
+- No changes to `fetchContractApprovals` server function; payload shape stays exactly as it is today (the payload the user pasted is already correct — USER_ID is being sent). The only change is client-side auto-population so operators don't have to type it.
+- No changes to Reports for other modules (SO, SC/SO, Price) — this request is scoped to Contract Approvals.
+- No change to how SAP filters records; if SAP returns 0 rows for a specific USER_ID that's a SAP-side data/authorization matter and is not addressed here.
+
+## Verification
+
+- Load `/sd/contract` and `/sd/contract-reports` with a logged-in SAP profile → USER_ID input pre-fills with the profile's SAP user; clicking Execute sends that value.
+- Manually typing a different USER_ID overrides the default and is preserved.
+- Clearing the input and executing sends `USER_ID: ""`.
