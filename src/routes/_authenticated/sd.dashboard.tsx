@@ -411,7 +411,7 @@ function SdDashboardPage() {
     });
 
     return {
-      totalRecords: rows.length,
+      totalRecords: filteredRows.length,
       customers: customers.size,
       contracts: contracts.size,
       salesOrders: salesOrders.size,
@@ -433,7 +433,8 @@ function SdDashboardPage() {
       divChannelData,
       topChannels,
     };
-  }, [rows]);
+  }, [filteredRows]);
+
 
   const hasContext = !!from && !!to;
   const loading = query.isFetching;
