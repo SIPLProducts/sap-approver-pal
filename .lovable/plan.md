@@ -1,81 +1,37 @@
-## Objective
-Redesign `src/routes/_authenticated/sd/dashboard.tsx` into a visually polished, modern analytics dashboard that draws exclusively from the live BMW Status Report API (`fetchBmwStatusReport`, mode `"sales"` — the widest schema). No dummy data, no selection form, no Execute button. Uses the active plants from the top bar (unchanged behavior).
+### Add Reports button and report pages to three more SD approval screens
 
-## Data source
-Same server fn `fetchBmwStatusReport` already wired. Mode = `sales` gives the full schema (Core + BP + MBD + Contract + Contract Releases `_C` + PH + Service Cert + PH Sales + Sales + Sales Releases + Billing), so every KPI/chart below reads real SAP fields.
+Mirror the Price Approval / Price Approval Reports pattern for the three remaining SD approval screens.
 
-## Visual direction
-- Gradient hero header with plant-range chip, last-refreshed time, manual Refresh button (icon only), and live record count pill.
-- Semantic tokens only (no hardcoded colors). Add a small gradient token set locally via inline `style={{ background: "var(--gradient-primary)" }}` where a KPI card needs a hero surface — no `styles.css` edits required (existing `--gradient-primary`, `--gradient-gold`, `--shadow-elegant` are already defined per `KpiTile`).
-- Cards use `shadow-card`/`shadow-elegant`, rounded-xl, subtle border, hover lift.
-- Consistent chart palette using `CHART_COLORS` (already themed via HSL tokens).
-- Tooltip + legend styled to match card surface.
-- Skeleton loaders (shimmer) for KPIs and charts instead of a bare spinner.
-- Fully responsive: 2-col KPI on mobile, 4-col on lg, 6-col hero row on xl; charts stack to 1-col on mobile.
+**Screens affected**
+- Contract Approvals (`/sd/contract` → new `/sd/contract-reports`)
+- Service Certificate & SO Approvals (`/sd/sc-so` → new `/sd/sc-so-reports`)
+- Sales Order Approvals (`/sd/sales-order` → new `/sd/sales-order-reports`)
 
-## Layout
-```
-[ Hero header: title · plant chip · refreshed · Refresh btn ]
+**Changes**
 
-[ KPI row  (6 tiles, xl) ]
- Records | Customers | Contracts | Sales Orders | Contract Net Value | Sales Net Value
-  (lead)   (info)      (gold)      (success)      (primary gradient)   (warning)
+1. **Add a `Reports` button on each source screen** (`sd.contract.tsx`, `sd.sc-so.tsx`, `sd.sales-order.tsx`)
+   - Import `FileText` from `lucide-react` and `useNavigate` from `@tanstack/react-router` (if not already imported).
+   - Add an outline `Reports` button next to `Execute` / `Reset` in the selection action row.
+   - On click: `navigate({ to: "/sd/contract-reports" | "/sd/sc-so-reports" | "/sd/sales-order-reports" })`.
 
-[ Row A  (lg: 2 + 1) ]
- Top 10 Customers by Contract Value  (horizontal bar, gradient bars)
- BP Status donut (Active vs Inactive) with center total
+2. **Create three new report route files** — one per screen, using the exact same design as `sd.price-reports.tsx`:
+   - `src/routes/_authenticated/sd.contract-reports.tsx` — title `Contract Approval Reports`, back arrow → `/sd/contract`
+   - `src/routes/_authenticated/sd.sc-so-reports.tsx` — title `Service Certificate & SO Approval Reports`, back arrow → `/sd/sc-so`
+   - `src/routes/_authenticated/sd.sales-order-reports.tsx` — title `Sales Order Approval Reports`, back arrow → `/sd/sales-order`
 
-[ Row B  (lg: 1 + 1) ]
- Contracts vs Sales Orders — last 12 months  (stacked/area line combo)
- Records by Sales Org (colored bar)
+   Each report page:
+   - Reuses the same fetch server function and `getMySapUserId` used by its source screen.
+   - Reuses the same selection screen (Plant multi-select, Execute, Reset) and `CloudscapeApprovalTable`.
+   - Displays the **same columns** as the source screen — read-only (no accept/reject, no selection).
+   - Has a back-arrow icon button beside the title that navigates back to the source screen.
+   - Uses `useActiveContext()` for default plants, same as the price report.
 
-[ Row C  (lg: 2 + 1) ]
- Contract Release Pipeline — stacked bar of STATUS_1_C…STATUS_8_C
-   (counts of Pending / Approved / Rejected per release level)
- Approval Throughput donut — PH_STATUS distribution (Pending / Approved / Rejected / Other)
+**Out of scope**
+- No new columns are added for these three screens (unlike Price where `RELEASE_CODE1` / `APPROVAL_STATUS` were added — the user did not ask for extra columns here).
+- No changes to server functions, row types, or the source approval screens' data logic.
 
-[ Row D  (lg: 1 + 1) ]
- Top 8 Materials by Contract Net Value (vertical bar)
- Division / Distribution Channel split (grouped bar or treemap-style bar)
-
-[ Footer strip: small tiles — Billing Docs count · Accounting Docs count · Service Certs count · Avg Contract Value ]
-```
-
-## KPIs (all derived from live rows)
-- Records — `rows.length`
-- Customers — unique `CUSTOMER`
-- Contracts — unique `CONTRACT_NO`
-- Sales Orders — unique `SALES_ORDER_NO`
-- Contract Net Value — Σ `CONTRACT_NET_VALUE || NET_VALUE`
-- Sales Net Value — Σ `SALES_NET_VALUE`
-
-Footer micro-KPIs:
-- Billing Docs — unique non-empty `BILLING_DOC`
-- Accounting Docs — unique non-empty `ACCOUNTING_DOC`
-- Service Certs — unique non-empty `SERVICE_CERT_NO`
-- Avg Contract Value — Σ contract net / unique contracts
-
-## Charts (all real SAP fields)
-1. Top 10 Customers by Contract Value — aggregate `CONTRACT_NET_VALUE` grouped by `CUSTOMER`, label from `CUSTOMER_NAME`.
-2. BP Status donut — `BP_ACTIVE_INACTIVE` per unique customer (`"01"` = Active, else Inactive).
-3. Contracts vs Sales Orders by month — parse `CONTRACT_DATE` / `CONTRACT_CREATE_DATE` and `SALES_CREATE_DATE`, count unique contracts / sales orders per YYYY-MM, last 12 months.
-4. Records by Sales Org — count rows per `SALES_ORG`.
-5. Contract Release Pipeline — for each `n` in 1..8, count STATUS_n_C values bucketed as Pending / Approved / Rejected / Other, rendered as stacked bar (x = Release level, stacks = status). Skips release levels with zero rows to keep it clean.
-6. Approval Throughput donut — `PH_STATUS` bucketed the same way.
-7. Top 8 Materials — aggregate `CONTRACT_NET_VALUE` by `MATERIAL_CODE`.
-8. Division / Dist Channel split — grouped bar: for each `DIVISION`, count rows per `DIS_CHANNEL` (or vice versa, whichever has fewer distinct keys, capped at top 6 × top 4).
-
-## Interaction & polish
-- Manual "Refresh" button calls `query.refetch()`; disabled while fetching.
-- `query.dataUpdatedAt` → formatted "Updated 2m ago" chip.
-- Empty state per card: friendly icon + one-line message (unchanged pattern).
-- No selection screen, no radio buttons, no execute button — active plants from top bar remain the only input, exactly like the current dashboard.
-- Preserve existing route path and nav entry — no changes needed in `_authenticated.tsx` or `routeTree.gen.ts`.
-
-## Files to change
-- `src/routes/_authenticated/sd.dashboard.tsx` — full rewrite of the component (single-file change). All aggregation happens client-side in one `useMemo` over the fetched rows.
-
-## Out of scope
-- No changes to `fetchBmwStatusReport` (server fn stays as-is).
-- No changes to BMW Status Report screen, nav, or any other route.
-- No new global CSS tokens — uses existing semantic tokens and `KpiTile` accents.
+**Verification**
+- `/sd/contract`, `/sd/sc-so`, `/sd/sales-order` each show a `Reports` button.
+- Clicking it navigates to the corresponding new report page with matching layout and column set.
+- Back arrow on each report page returns to its source screen.
+- `bun run build` passes.

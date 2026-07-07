@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
@@ -17,6 +18,9 @@ import {
   fetchScSoApprovals,
   type ScSoRow,
 } from "@/lib/sd/sc-so-approval.functions";
+
+type Status = "pending" | "accepted" | "rejected";
+type ApprovalType = "service" | "sales";
 
 export const Route = createFileRoute("/_authenticated/sd/sc-so-reports")({
   head: () => ({
@@ -103,6 +107,8 @@ function ScSoReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
+  const [status, setStatus] = useState<Status>("pending");
+  const [approvalType, setApprovalType] = useState<ApprovalType>("service");
   const [rows, setRows] = useState<ScSoRow[]>([]);
 
   const mutation = useMutation({
@@ -111,8 +117,10 @@ function ScSoReportsPage() {
       user_id: string;
       customer_from: string;
       customer_to: string;
+      status: Status;
+      approval_type: ApprovalType;
     }) => {
-      const v: any = await fetchFn({ data: { ...vars, status: "all", approval_type: "all" } });
+      const v: any = await fetchFn({ data: vars });
       const rows = Array.isArray(v?.rows) ? (v.rows as ScSoRow[]) : [];
       return { rows, count: rows.length, error: v?.error ?? null };
     },
@@ -131,6 +139,8 @@ function ScSoReportsPage() {
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerFrom.trim(),
+      status,
+      approval_type: approvalType,
     });
   }
 
@@ -138,6 +148,8 @@ function ScSoReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
+    setStatus("pending");
+    setApprovalType("service");
     setRows([]);
   }
 
@@ -175,10 +187,28 @@ function ScSoReportsPage() {
             <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
           </div>
         </div>
+
+        <div className="mt-4 -mx-4 px-4 pt-3 border-t space-y-3">
+          <div className="flex items-center gap-6 flex-wrap">
+            <Label className="text-xs text-muted-foreground min-w-[100px]">Status <span className="text-destructive">*</span></Label>
+            <RadioGroup value={status} onValueChange={(v) => setStatus(v as Status)} className="flex items-center gap-5">
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="pending" id="scsor-st-pending" />Pending</label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="accepted" id="scsor-st-accepted" />Accepted</label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="rejected" id="scsor-st-rejected" />Rejected</label>
+            </RadioGroup>
+          </div>
+          <div className="flex items-center gap-6 flex-wrap">
+            <Label className="text-xs text-muted-foreground min-w-[100px]">Approval Type</Label>
+            <RadioGroup value={approvalType} onValueChange={(v) => setApprovalType(v as ApprovalType)} className="flex items-center gap-5">
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="service" id="scsor-t-service" />Service Certificate Approvals</label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="sales" id="scsor-t-sales" />Sales Order Approvals</label>
+            </RadioGroup>
+          </div>
+        </div>
       </Card>
 
       <CloudscapeApprovalTable
-        title="Service Cert & SO Approval Reports"
+        title={`Service Cert & SO Reports — ${status} · ${approvalType === "service" ? "Service Certificate" : "Sales Order"}`}
         countLabel={`(${rows.length})`}
         rows={rows}
         rowKey={rowKey}

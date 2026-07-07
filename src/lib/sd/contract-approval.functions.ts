@@ -36,10 +36,6 @@ export type ContractRow = {
   per_bed_rate: string | number | null;
   excess_qty_rate: string | number | null;
   reason: string | null;
-  rel_1: string | null;
-  status_1: string | null;
-  rel_2: string | null;
-  status_2: string | null;
 };
 
 const CONFIG_NAME = "Contract_Approval_Fetch";
@@ -82,10 +78,6 @@ function mapRow(raw: any): ContractRow {
     per_bed_rate: pick(raw, "PER_BED_RATE"),
     excess_qty_rate: pick(raw, "EXCESS_QTY_RATE"),
     reason: pick(raw, "REASON"),
-    rel_1: pick(raw, "REL_1"),
-    status_1: pick(raw, "STATUS_1"),
-    rel_2: pick(raw, "REL_2"),
-    status_2: pick(raw, "STATUS_2"),
   };
 }
 
@@ -97,7 +89,7 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
       user_id: z.string().trim().max(40).optional(),
       customer_from: z.string().trim().max(40).optional(),
       customer_to: z.string().trim().max(40).optional(),
-      status: z.enum(["pending", "accepted", "rejected", "all"]).default("pending"),
+      status: z.enum(["pending", "accepted", "rejected"]).default("pending"),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -118,11 +110,9 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
     ]);
 
     const userId = (data.user_id ?? "").trim();
-    const isAll = data.status === "all";
-    const R_PEND = isAll || data.status === "pending" ? "X" : "";
-    const R_ACCP = isAll || data.status === "accepted" ? "X" : "";
-    const R_REJ = isAll || data.status === "rejected" ? "X" : "";
-
+    const R_PEND = data.status === "pending" ? "X" : "";
+    const R_ACCP = data.status === "accepted" ? "X" : "";
+    const R_REJ = data.status === "rejected" ? "X" : "";
 
     const custFrom = (data.customer_from ?? "").trim();
     const custTo = (data.customer_to ?? "").trim() || custFrom;
@@ -322,10 +312,6 @@ const ContractRowSchema = z.object({
   per_bed_rate: z.union([z.string(), z.number()]).nullable().optional(),
   excess_qty_rate: z.union([z.string(), z.number()]).nullable().optional(),
   reason: z.string().nullable().optional(),
-  rel_1: z.string().nullable().optional(),
-  status_1: z.string().nullable().optional(),
-  rel_2: z.string().nullable().optional(),
-  status_2: z.string().nullable().optional(),
 });
 
 function toSapContractRow(r: z.infer<typeof ContractRowSchema>) {
@@ -360,10 +346,6 @@ function toSapContractRow(r: z.infer<typeof ContractRowSchema>) {
     PER_BED_RATE: s(r.per_bed_rate),
     EXCESS_QTY_RATE: s(r.excess_qty_rate),
     REASON: s(r.reason),
-    REL_1: s(r.rel_1),
-    STATUS_1: s(r.status_1),
-    REL_2: s(r.rel_2),
-    STATUS_2: s(r.status_2),
   };
 }
 
