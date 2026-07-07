@@ -322,6 +322,10 @@ const ContractRowSchema = z.object({
   per_bed_rate: z.union([z.string(), z.number()]).nullable().optional(),
   excess_qty_rate: z.union([z.string(), z.number()]).nullable().optional(),
   reason: z.string().nullable().optional(),
+  rel_1: z.string().nullable().optional(),
+  status_1: z.string().nullable().optional(),
+  rel_2: z.string().nullable().optional(),
+  status_2: z.string().nullable().optional(),
 });
 
 function toSapContractRow(r: z.infer<typeof ContractRowSchema>) {
