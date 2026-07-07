@@ -210,18 +210,7 @@ function ScSoReportsPage() {
         rowKey={rowKey}
         loading={mutation.isPending}
         emptyMessage={rows.length === 0 ? "Enter Plant and click Execute." : "No records."}
-        columns={COLS.map((c) => ({
-          id: c.key,
-          header: c.label,
-          align: c.align,
-          sortingField: c.key,
-          cell: (r: ScSoRow) => {
-            const v = (r as any)[c.key] as string | number | null;
-            if (c.date) return fmtDate(v as string | null);
-            if (c.num) return fmtNum(v);
-            return v == null || v === "" ? "—" : String(v);
-          },
-        })) as CloudscapeColumn<ScSoRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
     </div>
   );
