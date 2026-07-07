@@ -28,6 +28,8 @@ const FORCE_TEXT_KEYS = new Set([
   "rel_6",
   "rel_7",
   "rel_8",
+  "release_code_1",
+  "approval_status",
   "status_1",
   "status_2",
   "status_3",

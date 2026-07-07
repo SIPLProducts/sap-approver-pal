@@ -210,7 +210,10 @@ function ScSoReportsPage() {
         rowKey={rowKey}
         loading={mutation.isPending}
         emptyMessage={rows.length === 0 ? "Enter Plant and click Execute." : "No records."}
-        columns={buildDynamicColumns(rows)}
+        columns={buildDynamicColumns(rows, {
+          alwaysInclude: ["release_code_1", "approval_status"],
+          headerLabels: { release_code_1: "Release Code 1", approval_status: "Status" },
+        })}
       />
     </div>
   );
