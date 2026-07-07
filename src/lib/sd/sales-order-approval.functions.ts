@@ -291,6 +291,10 @@ const SalesOrderRowSchema = z.object({
   net_value: z.union([z.string(), z.number()]).nullable().optional(),
   tax_value: z.union([z.string(), z.number()]).nullable().optional(),
   reason: z.string().nullable().optional(),
+  rel_1: z.string().nullable().optional(),
+  status_1: z.string().nullable().optional(),
+  rel_2: z.string().nullable().optional(),
+  status_2: z.string().nullable().optional(),
 });
 
 function toSapSoRow(r: z.infer<typeof SalesOrderRowSchema>) {
