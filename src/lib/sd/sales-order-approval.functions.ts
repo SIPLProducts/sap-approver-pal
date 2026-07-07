@@ -27,6 +27,10 @@ export type SalesOrderRow = {
   net_value: string | number | null;
   tax_value: string | number | null;
   reason: string | null;
+  rel_1: string | null;
+  status_1: string | null;
+  rel_2: string | null;
+  status_2: string | null;
 };
 
 const CONFIG_NAME = "Sales_Approval_Fetch";
@@ -60,6 +64,10 @@ function mapRow(raw: any): SalesOrderRow {
     net_value: pick(raw, "NET_VALUE"),
     tax_value: pick(raw, "TAX_VALUE"),
     reason: pick(raw, "REASON"),
+    rel_1: pick(raw, "REL_1"),
+    status_1: pick(raw, "STATUS_1"),
+    rel_2: pick(raw, "REL_2"),
+    status_2: pick(raw, "STATUS_2"),
   };
 }
 
@@ -283,6 +291,10 @@ const SalesOrderRowSchema = z.object({
   net_value: z.union([z.string(), z.number()]).nullable().optional(),
   tax_value: z.union([z.string(), z.number()]).nullable().optional(),
   reason: z.string().nullable().optional(),
+  rel_1: z.string().nullable().optional(),
+  status_1: z.string().nullable().optional(),
+  rel_2: z.string().nullable().optional(),
+  status_2: z.string().nullable().optional(),
 });
 
 function toSapSoRow(r: z.infer<typeof SalesOrderRowSchema>) {
@@ -307,6 +319,10 @@ function toSapSoRow(r: z.infer<typeof SalesOrderRowSchema>) {
     NET_VALUE: s(r.net_value),
     TAX_VALUE: s(r.tax_value),
     REASON: s(r.reason),
+    REL_1: s(r.rel_1),
+    STATUS_1: s(r.status_1),
+    REL_2: s(r.rel_2),
+    STATUS_2: s(r.status_2),
   };
 }
 
