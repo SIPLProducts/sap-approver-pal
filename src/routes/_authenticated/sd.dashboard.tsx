@@ -263,7 +263,7 @@ function SdDashboardPage() {
     const seenContractForValue = new Set<string>();
     const seenPhContract = new Set<string>();
 
-    for (const r of rows) {
+    for (const r of filteredRows) {
       const cust = nonEmpty(r.CUSTOMER);
       if (cust) customers.add(cust);
       const contract = nonEmpty(r.CONTRACT_NO);
