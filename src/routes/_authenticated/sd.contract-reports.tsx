@@ -129,7 +129,7 @@ function ContractReportsPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">User ID</Label>
-            <Input value={userId} onChange={(e) => setUserId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && execute()} placeholder="optional" className="h-9 font-mono" />
+            <Input value={userId} onChange={(e) => setUserId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && execute()} placeholder="defaults to your SAP user" className="h-9 font-mono" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Customer</Label>
