@@ -82,6 +82,10 @@ function mapRow(raw: any): ContractRow {
     per_bed_rate: pick(raw, "PER_BED_RATE"),
     excess_qty_rate: pick(raw, "EXCESS_QTY_RATE"),
     reason: pick(raw, "REASON"),
+    rel_1: pick(raw, "REL_1"),
+    status_1: pick(raw, "STATUS_1"),
+    rel_2: pick(raw, "REL_2"),
+    status_2: pick(raw, "STATUS_2"),
   };
 }
 
