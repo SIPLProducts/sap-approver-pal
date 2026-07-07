@@ -1,66 +1,35 @@
 ## Goal
 
-On **Contract Approval Reports** and **Sales Order Approval Reports**, always show four SAP fields as columns with the exact API keys and user-specified labels, even when the values are empty:
+Release code columns (`REL_1`, `REL_2`, and any future `REL_*`) must render the raw SAP value verbatim — e.g. `22011840` — not reformatted as a date (`18.11.2201`).
 
-| API key (DATA[].KEY) | Column label      |
-| -------------------- | ----------------- |
-| `REL_1`              | Release Code 1    |
-| `STATUS_1`           | Status 1          |
-| `REL_2`              | Release Code 2    |
-| `STATUS_2`           | Status 2          |
+## Cause
 
-Today `buildDynamicColumns()` drops any column whose value is empty across every row, so these fields disappear whenever SAP returns blanks. They also get generic auto-prettified headers ("Rel 1"). Both need to be overridable per screen.
+`buildDynamicColumns()` in `src/lib/sd/dynamic-columns.tsx` runs date detection before it consults the text-forced list. `REL_1`/`REL_2` are already in `FORCE_TEXT_KEYS`, but any 8-digit value passes `isDateLike`, so `looksDate` wins and the cell gets `fmtDate()` applied.
 
-## Changes
+## Change
 
-### 1. `src/lib/sd/dynamic-columns.tsx`
+`src/lib/sd/dynamic-columns.tsx`: make text-forced keys short-circuit date detection too.
 
-Extend `DynamicOptions`:
+Replace:
 
-- `alwaysInclude?: string[]` — keys that must appear as columns even when every row is empty. They render `"—"` for empty cells like other columns.
-- `headerLabels?: Record<string, string>` — override the auto-prettified header per key.
-
-Implementation:
-
-- Build the key union as today. Then merge in `alwaysInclude` keys that aren't already present (appended at the end, order preserved).
-- Skip the "drop empty" filter for keys in `alwaysInclude`.
-- When computing each column's `header`, use `headerLabels[key] ?? prettify(key)`.
-- `REL_1`/`STATUS_1`/`REL_2`/`STATUS_2` are already in `FORCE_TEXT_KEYS`, so alignment/width logic is unchanged.
-
-### 2. `src/routes/_authenticated/sd.contract-reports.tsx`
-
-Change the single call:
-
-```tsx
-columns={buildDynamicColumns(rows)}
+```ts
+const looksDate = !forcedNumeric && samples.length > 0 && samples.every(isDateLike);
 ```
 
-to:
+with:
 
-```tsx
-columns={buildDynamicColumns(rows, {
-  alwaysInclude: ["rel_1", "status_1", "rel_2", "status_2"],
-  headerLabels: {
-    rel_1: "Release Code 1",
-    status_1: "Status 1",
-    rel_2: "Release Code 2",
-    status_2: "Status 2",
-  },
-})}
+```ts
+const looksDate = !forcedNumeric && !forcedText && samples.length > 0 && samples.every(isDateLike);
 ```
 
-Row mapping already lowercases `REL_1`→`rel_1` etc. via the existing `mapRow` in `contract-approval.functions.ts`, so no server changes.
-
-### 3. `src/routes/_authenticated/sd.sales-order-reports.tsx`
-
-Same change as above. `sales-order-approval.functions.ts` already maps these four SAP fields into the row, so no server changes.
+No other logic changes — numeric-detection already respects `forcedText`, and the render path already falls through to `String(v)` when neither `looksDate` nor `looksNumeric` is true.
 
 ## Out of scope
 
-- No changes to the approval (non-reports) screens, other SD tables, server functions, filters, or row shapes.
-- No sort/filter behavior changes.
+- No changes to the column set, headers, or any other screen.
+- No changes to genuine date columns (`so_creation_date`, etc.) — they remain formatted.
 
 ## Verification
 
 - `tsgo` typecheck.
-- Load Contract Reports and Sales Order Reports with a payload where SAP returns blank REL/STATUS fields — the four columns must still appear with the specified labels and `"—"` cells. When SAP returns values, they must render verbatim.
+- Load a Contract or Sales Order report where `REL_1`/`REL_2` contain an 8-digit value; the cell must show the exact digits (`22011840`), not a date.
