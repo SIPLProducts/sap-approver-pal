@@ -67,7 +67,7 @@ function ContractReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
-  const [status, setStatus] = useState<Status>("pending");
+  const status: Status = "pending";
   const [rows, setRows] = useState<ContractRow[]>([]);
 
   const mutation = useMutation({
