@@ -143,17 +143,31 @@ export function buildDynamicColumns<T extends Record<string, any>>(
           /(value|amount|price|rate|qty|quantity|total|tax|net|amt)/i.test(key));
     }
 
+    const header = prettify(key);
+    const render = (v: unknown) => {
+      if (isEmpty(v)) return "—";
+      if (looksDate) return fmtDate(String(v));
+      if (looksNumeric) return fmtNum(v as string | number);
+      return String(v);
+    };
+
+    // Content-aware min width: fit the header and the widest rendered cell.
+    let maxCellLen = 0;
+    for (const r of rows) {
+      const s = render(r?.[key]);
+      if (s && s.length > maxCellLen) maxCellLen = s.length;
+    }
+    const chars = Math.max(header.length, maxCellLen);
+    const padding = looksNumeric ? 44 : 32;
+    const minWidth = Math.min(360, Math.max(96, chars * 8 + padding));
+
     return {
       id: key,
-      header: prettify(key),
+      header,
       align: looksNumeric ? "right" : undefined,
-      cell: (r: T) => {
-        const v = r?.[key];
-        if (isEmpty(v)) return "—";
-        if (looksDate) return fmtDate(String(v));
-        if (looksNumeric) return fmtNum(v as string | number);
-        return String(v);
-      },
+      minWidth,
+      cell: (r: T) => render(r?.[key]),
     } satisfies CloudscapeColumn<T>;
   });
 }
+

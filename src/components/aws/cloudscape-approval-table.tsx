@@ -146,6 +146,7 @@ export function CloudscapeApprovalTable<T>({
         variant="container"
         stripedRows
         resizableColumns
+        wrapLines
         loading={loading}
         loadingText="Fetching from SAP…"
         items={pagedItems}
