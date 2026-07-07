@@ -319,6 +319,10 @@ function toSapSoRow(r: z.infer<typeof SalesOrderRowSchema>) {
     NET_VALUE: s(r.net_value),
     TAX_VALUE: s(r.tax_value),
     REASON: s(r.reason),
+    REL_1: s(r.rel_1),
+    STATUS_1: s(r.status_1),
+    REL_2: s(r.rel_2),
+    STATUS_2: s(r.status_2),
   };
 }
 
