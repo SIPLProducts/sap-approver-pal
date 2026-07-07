@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
@@ -18,8 +17,6 @@ import {
   fetchContractApprovals,
   type ContractRow,
 } from "@/lib/sd/contract-approval.functions";
-
-type Status = "pending" | "accepted" | "rejected";
 
 export const Route = createFileRoute("/_authenticated/sd/contract-reports")({
   head: () => ({
@@ -68,7 +65,6 @@ function ContractReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
-  const [status, setStatus] = useState<Status>("pending");
   const [rows, setRows] = useState<ContractRow[]>([]);
 
   const mutation = useMutation({
@@ -77,9 +73,8 @@ function ContractReportsPage() {
       user_id: string;
       customer_from: string;
       customer_to: string;
-      status: Status;
     }) => {
-      const v: any = await fetchFn({ data: vars });
+      const v: any = await fetchFn({ data: { ...vars, status: "all" } });
       const rows = Array.isArray(v?.rows) ? (v.rows as ContractRow[]) : [];
       return { rows, count: rows.length, error: v?.error ?? null };
     },
@@ -98,7 +93,6 @@ function ContractReportsPage() {
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerFrom.trim(),
-      status,
     });
   }
 
@@ -106,7 +100,6 @@ function ContractReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
-    setStatus("pending");
     setRows([]);
   }
 
@@ -144,21 +137,10 @@ function ContractReportsPage() {
             <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
           </div>
         </div>
-
-        <div className="mt-4 -mx-4 px-4 pt-3 border-t">
-          <div className="flex items-center gap-6 flex-wrap">
-            <Label className="text-xs text-muted-foreground">Status <span className="text-destructive">*</span></Label>
-            <RadioGroup value={status} onValueChange={(v) => setStatus(v as Status)} className="flex items-center gap-5">
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="pending" id="cr-st-pending" />Pending</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="accepted" id="cr-st-accepted" />Accepted</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><RadioGroupItem value="rejected" id="cr-st-rejected" />Rejected</label>
-            </RadioGroup>
-          </div>
-        </div>
       </Card>
 
       <CloudscapeApprovalTable
-        title={`Contract Approval Reports — ${status}`}
+        title="Contract Approval Reports"
         countLabel={`(${rows.length})`}
         rows={rows}
         rowKey={rowKey}
