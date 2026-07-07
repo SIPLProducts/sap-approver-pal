@@ -133,6 +133,7 @@ function ScSoReportsPage() {
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerFrom.trim(),
+      approval_type: approvalType,
     });
   }
 
@@ -140,6 +141,7 @@ function ScSoReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
+    setApprovalType("service");
     setRows([]);
   }
 
