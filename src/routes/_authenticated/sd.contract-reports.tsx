@@ -152,28 +152,7 @@ function ContractReportsPage() {
         rowKey={rowKey}
         loading={mutation.isPending}
         emptyMessage={rows.length === 0 ? "Enter Plant and click Execute to load contract approval reports from SAP." : "No records."}
-        columns={[
-          { id: "customer", header: "Customer", sortingField: "customer", cell: (r) => r.customer ?? "—" },
-          { id: "customer_name", header: "Customer Name", sortingField: "customer_name", cell: (r) => r.customer_name ?? "—" },
-          { id: "contract_no", header: "Contract No", sortingField: "contract_no", cell: (r) => r.contract_no ?? "—" },
-          { id: "contract_item", header: "Item", sortingField: "contract_item", cell: (r) => r.contract_item ?? "—" },
-          { id: "con_creation_date", header: "Con. Creation", cell: (r) => fmtDate(r.con_creation_date) },
-          { id: "material", header: "Material", sortingField: "material", cell: (r) => r.material ?? "—" },
-          { id: "qty", header: "Qty", align: "right", cell: (r) => fmtNum(r.qty) },
-          { id: "net_value", header: "Net Value", align: "right", cell: (r) => fmtNum(r.net_value) },
-          { id: "tax_value", header: "Tax Value", align: "right", cell: (r) => fmtNum(r.tax_value) },
-          { id: "total", header: "Total", align: "right", cell: (r) => <strong>{fmtNum(r.total)}</strong> },
-          { id: "agreement_from", header: "Agr. From", cell: (r) => fmtDate(r.agreement_from) },
-          { id: "agreement_to", header: "Agr. To", cell: (r) => fmtDate(r.agreement_to) },
-          { id: "service_valid_from", header: "Svc Valid From", cell: (r) => fmtDate(r.service_valid_from) },
-          { id: "service_valid_to", header: "Svc Valid To", cell: (r) => fmtDate(r.service_valid_to) },
-          { id: "sales_org", header: "Sales Org", sortingField: "sales_org", cell: (r) => r.sales_org ?? "—" },
-          { id: "company_code", header: "Co. Code", sortingField: "company_code", cell: (r) => r.company_code ?? "—" },
-          { id: "rel_1", header: "Rel. Code 1", sortingField: "rel_1", cell: (r) => r.rel_1 ?? "—" },
-          { id: "status_1", header: "Status 1", sortingField: "status_1", cell: (r) => r.status_1 ?? "—" },
-          { id: "rel_2", header: "Rel. Code 2", sortingField: "rel_2", cell: (r) => r.rel_2 ?? "—" },
-          { id: "status_2", header: "Status 2", sortingField: "status_2", cell: (r) => r.status_2 ?? "—" },
-        ] as CloudscapeColumn<ContractRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
     </div>
   );
