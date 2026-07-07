@@ -27,6 +27,10 @@ export type SalesOrderRow = {
   net_value: string | number | null;
   tax_value: string | number | null;
   reason: string | null;
+  rel_1: string | null;
+  status_1: string | null;
+  rel_2: string | null;
+  status_2: string | null;
 };
 
 const CONFIG_NAME = "Sales_Approval_Fetch";
