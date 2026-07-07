@@ -1,37 +1,39 @@
-### Add Reports button and report pages to three more SD approval screens
+## Objective
+Remove the Status and Approval Type radio button filters from the Contract Approvals Reports, Service Certificate & SO Approvals Reports, and Sales Order Approvals Reports pages. When Execute is clicked, each report should return records of all statuses (and both approval types for SC-SO) combined in a single list.
 
-Mirror the Price Approval / Price Approval Reports pattern for the three remaining SD approval screens.
+## Affected Files
 
-**Screens affected**
-- Contract Approvals (`/sd/contract` → new `/sd/contract-reports`)
-- Service Certificate & SO Approvals (`/sd/sc-so` → new `/sd/sc-so-reports`)
-- Sales Order Approvals (`/sd/sales-order` → new `/sd/sales-order-reports`)
+### Report Route Files (UI removal)
+- `src/routes/_authenticated/sd.contract-reports.tsx`
+- `src/routes/_authenticated/sd.sc-so-reports.tsx`
+- `src/routes/_authenticated/sd.sales-order-reports.tsx`
 
-**Changes**
+### Server Functions (backend "all" support)
+- `src/lib/sd/contract-approval.functions.ts`
+- `src/lib/sd/sc-so-approval.functions.ts`
+- `src/lib/sd/sales-order-approval.functions.ts`
 
-1. **Add a `Reports` button on each source screen** (`sd.contract.tsx`, `sd.sc-so.tsx`, `sd.sales-order.tsx`)
-   - Import `FileText` from `lucide-react` and `useNavigate` from `@tanstack/react-router` (if not already imported).
-   - Add an outline `Reports` button next to `Execute` / `Reset` in the selection action row.
-   - On click: `navigate({ to: "/sd/contract-reports" | "/sd/sc-so-reports" | "/sd/sales-order-reports" })`.
+## Changes
 
-2. **Create three new report route files** — one per screen, using the exact same design as `sd.price-reports.tsx`:
-   - `src/routes/_authenticated/sd.contract-reports.tsx` — title `Contract Approval Reports`, back arrow → `/sd/contract`
-   - `src/routes/_authenticated/sd.sc-so-reports.tsx` — title `Service Certificate & SO Approval Reports`, back arrow → `/sd/sc-so`
-   - `src/routes/_authenticated/sd.sales-order-reports.tsx` — title `Sales Order Approval Reports`, back arrow → `/sd/sales-order`
+### 1. Server Functions — add "all" option
+For `fetchContractApprovals`, `fetchSalesOrderApprovals`, and `fetchScSoApprovals`:
+- Extend the `status` enum to include `"all"` (e.g. `z.enum(["pending", "accepted", "rejected", "all"])`).
+- In the handler, when `data.status === "all"`, set `R_PEND`, `R_ACCP`, and `R_REJ` all to `"X"` so SAP returns pending, accepted, and rejected records together.
+- For `fetchScSoApprovals`, also extend `approval_type` to include `"all"`. When `data.approval_type === "all"`, set both `service` and `Sales` flags to `"X"`.
 
-   Each report page:
-   - Reuses the same fetch server function and `getMySapUserId` used by its source screen.
-   - Reuses the same selection screen (Plant multi-select, Execute, Reset) and `CloudscapeApprovalTable`.
-   - Displays the **same columns** as the source screen — read-only (no accept/reject, no selection).
-   - Has a back-arrow icon button beside the title that navigates back to the source screen.
-   - Uses `useActiveContext()` for default plants, same as the price report.
+### 2. Report Pages — remove radio buttons and default to "all"
+For each report page:
+- Remove the entire `RadioGroup` JSX block for Status (all three pages).
+- On `sd.sc-so-reports.tsx`, also remove the Approval Type `RadioGroup` block.
+- Remove related `useState` for `status` (and `approvalType` on SC-SO), plus any `Label` / `RadioGroupItem` imports that become unused.
+- Hard-code `status: "all"` (and `approval_type: "all"` on SC-SO) in the `execute()` mutation payload.
+- Update the `CloudscapeApprovalTable` title to remove the status suffix (e.g. change `title={`Contract Approval Reports — ${status}`}` to just `"Contract Approval Reports"`).
+- Adjust the `reset()` function to no longer reset `status` / `approvalType`.
 
-**Out of scope**
-- No new columns are added for these three screens (unlike Price where `RELEASE_CODE1` / `APPROVAL_STATUS` were added — the user did not ask for extra columns here).
-- No changes to server functions, row types, or the source approval screens' data logic.
+### 3. Validation
+- Run `bun run build` to confirm TypeScript compiles and route tree generates cleanly.
+- Optionally use Playwright to verify the radio buttons are no longer rendered on each report page.
 
-**Verification**
-- `/sd/contract`, `/sd/sc-so`, `/sd/sales-order` each show a `Reports` button.
-- Clicking it navigates to the corresponding new report page with matching layout and column set.
-- Back arrow on each report page returns to its source screen.
-- `bun run build` passes.
+## Out of Scope
+- No changes to the source approval screens (`sd.contract.tsx`, `sd.sc-so.tsx`, `sd.sales-order.tsx`) — those keep their existing Status / Approval Type radio buttons.
+- No new columns or table layout changes.

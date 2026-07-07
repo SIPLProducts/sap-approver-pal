@@ -71,7 +71,7 @@ export const fetchSalesOrderApprovals = createServerFn({ method: "POST" })
       user_id: z.string().trim().max(40).optional(),
       customer_from: z.string().trim().max(40).optional(),
       customer_to: z.string().trim().max(40).optional(),
-      status: z.enum(["pending", "accepted", "rejected"]).default("pending"),
+      status: z.enum(["pending", "accepted", "rejected", "all"]).default("pending"),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -92,9 +92,11 @@ export const fetchSalesOrderApprovals = createServerFn({ method: "POST" })
     ]);
 
     const userId = (data.user_id ?? "").trim();
-    const R_PEND = data.status === "pending" ? "X" : "";
-    const R_ACCP = data.status === "accepted" ? "X" : "";
-    const R_REJ = data.status === "rejected" ? "X" : "";
+    const isAll = data.status === "all";
+    const R_PEND = isAll || data.status === "pending" ? "X" : "";
+    const R_ACCP = isAll || data.status === "accepted" ? "X" : "";
+    const R_REJ = isAll || data.status === "rejected" ? "X" : "";
+
 
     const custFrom = (data.customer_from ?? "").trim();
     const custTo = (data.customer_to ?? "").trim() || custFrom;
