@@ -107,7 +107,7 @@ function ScSoReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
-  const [status, setStatus] = useState<Status>("pending");
+  const status: Status = "pending";
   const [approvalType, setApprovalType] = useState<ApprovalType>("service");
   const [rows, setRows] = useState<ScSoRow[]>([]);
 
