@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2 } from "lucide-react";
+import { Filter, RotateCcw, Loader2, LayoutDashboard } from "lucide-react";
+
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -338,7 +339,14 @@ function BmwStatusReportPage() {
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">BMW Status Report</h1>
         </div>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/sd/bmw-status-dashboard">
+            <LayoutDashboard className="h-3.5 w-3.5 mr-1.5" />
+            Dashboard
+          </Link>
+        </Button>
       </div>
+
 
 
       <Card className="p-4 space-y-4">
