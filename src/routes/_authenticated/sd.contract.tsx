@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { useSapProfile } from "@/hooks/use-sap-profile";
 import {
   fetchContractApprovals,
   submitContractDecision,
@@ -95,7 +96,12 @@ function ContractPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [__aps.join(",")]);
+  const sapProfile = useSapProfile();
   const [userId, setUserId] = useState("");
+  useEffect(() => {
+    const u = sapProfile?.user?.trim();
+    if (u) setUserId((prev) => (prev ? prev : u));
+  }, [sapProfile?.user]);
   const [customerFrom, setCustomerFrom] = useState("");
   const [status, setStatusState] = useState<Status>("pending");
   const [rows, setRows] = useState<ContractRow[]>([]);
