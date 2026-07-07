@@ -68,7 +68,7 @@ function SalesOrderReportsPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
-  const [status, setStatus] = useState<Status>("pending");
+  const status: Status = "pending";
   const [rows, setRows] = useState<SalesOrderRow[]>([]);
 
   const mutation = useMutation({
