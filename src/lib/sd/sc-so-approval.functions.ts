@@ -45,6 +45,8 @@ export type ScSoRow = {
   code_land_qty: string | number | null;
   total_balance: string | number | null;
   ph_reason_code: string | null;
+  release_code_1: string | null;
+  approval_status: string | null;
   reason: string | null;
 };
 
