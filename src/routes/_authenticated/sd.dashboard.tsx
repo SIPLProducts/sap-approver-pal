@@ -131,7 +131,11 @@ function SdDashboardPage() {
   const query = useQuery({
     queryKey: ["sd-dashboard-bmw", from, to],
     enabled: !!from && !!to,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const res: any = await fetchFn({
         data: {

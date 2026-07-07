@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { syncFromSAP } from "@/lib/sap/sap.functions";
+import { fetchBmwStatusReport } from "@/lib/sd/bmw-status-report.functions";
 import { usePermissions } from "@/hooks/use-permissions";
 import { ActiveContextProvider, useActiveContext, type AssignedPlant } from "@/hooks/use-active-context";
 
@@ -86,6 +87,31 @@ function AuthenticatedLayout() {
   }, [user, qc]);
 
   const sync = useServerFn(syncFromSAP);
+  const bmwFetch = useServerFn(fetchBmwStatusReport);
+  const sortedPlants = useMemo(() => [...ctx.activePlants].sort(), [ctx.activePlants]);
+  const bmwFrom = sortedPlants[0] ?? "";
+  const bmwTo = sortedPlants[sortedPlants.length - 1] ?? "";
+  function prefetchSdDashboard() {
+    if (!bmwFrom || !bmwTo) return;
+    qc.prefetchQuery({
+      queryKey: ["sd-dashboard-bmw", bmwFrom, bmwTo],
+      staleTime: 5 * 60_000,
+      queryFn: async () => {
+        const res: any = await bmwFetch({
+          data: {
+            sales_org_from: bmwFrom,
+            sales_org_to: bmwTo,
+            customer_from: "",
+            customer_to: "",
+            contract_from: "",
+            contract_to: "",
+            mode: "sales" as const,
+          },
+        });
+        return res?.rows ?? [];
+      },
+    }).catch(() => {});
+  }
 
   async function pullSap() {
     const t = toast.loading("Syncing from SAP…");
@@ -175,11 +201,13 @@ function AuthenticatedLayout() {
             <>
               <button
                 type="button"
+                onMouseEnter={prefetchSdDashboard}
+                onFocus={prefetchSdDashboard}
                 onClick={() => {
                   if (collapsed) setCollapsed(false);
                   setSdExpanded(true);
                   setOpen(false);
-                  nav({ to: "/sd/price" });
+                  nav({ to: "/sd/dashboard" });
                 }}
                 title="SD Approvals"
                 className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}
