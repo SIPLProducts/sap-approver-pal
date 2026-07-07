@@ -148,7 +148,7 @@ function ScSoReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
-    setStatus("pending");
+    
     setApprovalType("service");
     setRows([]);
   }
