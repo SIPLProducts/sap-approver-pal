@@ -1,81 +1,40 @@
+
 ## Objective
-Redesign `src/routes/_authenticated/sd/dashboard.tsx` into a visually polished, modern analytics dashboard that draws exclusively from the live BMW Status Report API (`fetchBmwStatusReport`, mode `"sales"` — the widest schema). No dummy data, no selection form, no Execute button. Uses the active plants from the top bar (unchanged behavior).
+Bring the BMW Status Report selection screen into the **SD Dashboard** so users can pick a Selection Type + ranges + date range, press **Execute**, and see the KPI cards / charts / graphs recompute from that exact API response. No dummy data — everything is derived from `fetchBmwStatusReport` output.
 
-## Data source
-Same server fn `fetchBmwStatusReport` already wired. Mode = `sales` gives the full schema (Core + BP + MBD + Contract + Contract Releases `_C` + PH + Service Cert + PH Sales + Sales + Sales Releases + Billing), so every KPI/chart below reads real SAP fields.
+## Scope (single file)
+- `src/routes/_authenticated/sd.dashboard.tsx` — add a filter panel above the current dashboard body and switch data loading from auto-run `useQuery` to Execute-driven `useMutation`, then feed the resulting rows into the existing aggregation `useMemo` unchanged.
 
-## Visual direction
-- Gradient hero header with plant-range chip, last-refreshed time, manual Refresh button (icon only), and live record count pill.
-- Semantic tokens only (no hardcoded colors). Add a small gradient token set locally via inline `style={{ background: "var(--gradient-primary)" }}` where a KPI card needs a hero surface — no `styles.css` edits required (existing `--gradient-primary`, `--gradient-gold`, `--shadow-elegant` are already defined per `KpiTile`).
-- Cards use `shadow-card`/`shadow-elegant`, rounded-xl, subtle border, hover lift.
-- Consistent chart palette using `CHART_COLORS` (already themed via HSL tokens).
-- Tooltip + legend styled to match card surface.
-- Skeleton loaders (shimmer) for KPIs and charts instead of a bare spinner.
-- Fully responsive: 2-col KPI on mobile, 4-col on lg, 6-col hero row on xl; charts stack to 1-col on mobile.
+No other files change. Route, nav entry, server function, and BMW Status Report screen stay as-is.
 
-## Layout
-```
-[ Hero header: title · plant chip · refreshed · Refresh btn ]
+## Filter panel (matches BMW Status Report)
+Rendered in a `Card` at the top of the dashboard:
 
-[ KPI row  (6 tiles, xl) ]
- Records | Customers | Contracts | Sales Orders | Contract Net Value | Sales Net Value
-  (lead)   (info)      (gold)      (success)      (primary gradient)   (warning)
+- **Sales Organization From / To** — `PlantSelect` (required, defaulted from active plants like today)
+- **Customer From / To** — `CustomerSelect`, scoped to Sales Org From
+- **Contract/Sales Created From / To** — date inputs (kept in state; used as a client-side row filter — see note below)
+- **Selection Type** — `RadioGroup` for Customer / Contract / Sales Order (drives `mode` sent to the API; default `sales` so the widest schema is available for KPIs/charts)
+- **Execute** button (primary) + **Reset** button
+  - Execute disabled while pending or when Sales Org From/To empty
+  - Shows spinner + "Loading…" while fetching
+  - On success: toast "Loaded N records"; on error: toast the message
 
-[ Row A  (lg: 2 + 1) ]
- Top 10 Customers by Contract Value  (horizontal bar, gradient bars)
- BP Status donut (Active vs Inactive) with center total
+Dashboard body below the panel is unchanged in structure — only its data source swaps from `query.data` to the mutation's last successful response.
 
-[ Row B  (lg: 1 + 1) ]
- Contracts vs Sales Orders — last 12 months  (stacked/area line combo)
- Records by Sales Org (colored bar)
+## Data flow
+- Replace `useQuery({ queryFn: fetchBmwStatusReport, … })` with `useMutation` calling the same server fn (identical shape to BMW Status Report page).
+- Store `rows`, `fetched_at`, and `mode` from the response in local state.
+- `useMemo` aggregation (KPIs, top-10 customers, BP status donut, monthly trend, sales-org bars, release pipeline, PH throughput, top materials, division×channel) reads from these rows — no logic change.
+- **Date range filter** (`contract_from` / `contract_to`) is passed to the server fn as today; additionally applied client-side against `CONTRACT_DATE || CONTRACT_CREATE_DATE || SALES_CREATE_DATE` before aggregation so the KPIs/charts always reflect the selected window even if SAP ignores the date range in the payload.
+- Empty state (before first Execute): friendly card that says "Choose filters and click Execute to load the dashboard."
+- Loading state: existing skeleton loaders reused.
+- Refresh button in hero header re-runs the last Execute (same params); disabled until first Execute.
 
-[ Row C  (lg: 2 + 1) ]
- Contract Release Pipeline — stacked bar of STATUS_1_C…STATUS_8_C
-   (counts of Pending / Approved / Rejected per release level)
- Approval Throughput donut — PH_STATUS distribution (Pending / Approved / Rejected / Other)
-
-[ Row D  (lg: 1 + 1) ]
- Top 8 Materials by Contract Net Value (vertical bar)
- Division / Distribution Channel split (grouped bar or treemap-style bar)
-
-[ Footer strip: small tiles — Billing Docs count · Accounting Docs count · Service Certs count · Avg Contract Value ]
-```
-
-## KPIs (all derived from live rows)
-- Records — `rows.length`
-- Customers — unique `CUSTOMER`
-- Contracts — unique `CONTRACT_NO`
-- Sales Orders — unique `SALES_ORDER_NO`
-- Contract Net Value — Σ `CONTRACT_NET_VALUE || NET_VALUE`
-- Sales Net Value — Σ `SALES_NET_VALUE`
-
-Footer micro-KPIs:
-- Billing Docs — unique non-empty `BILLING_DOC`
-- Accounting Docs — unique non-empty `ACCOUNTING_DOC`
-- Service Certs — unique non-empty `SERVICE_CERT_NO`
-- Avg Contract Value — Σ contract net / unique contracts
-
-## Charts (all real SAP fields)
-1. Top 10 Customers by Contract Value — aggregate `CONTRACT_NET_VALUE` grouped by `CUSTOMER`, label from `CUSTOMER_NAME`.
-2. BP Status donut — `BP_ACTIVE_INACTIVE` per unique customer (`"01"` = Active, else Inactive).
-3. Contracts vs Sales Orders by month — parse `CONTRACT_DATE` / `CONTRACT_CREATE_DATE` and `SALES_CREATE_DATE`, count unique contracts / sales orders per YYYY-MM, last 12 months.
-4. Records by Sales Org — count rows per `SALES_ORG`.
-5. Contract Release Pipeline — for each `n` in 1..8, count STATUS_n_C values bucketed as Pending / Approved / Rejected / Other, rendered as stacked bar (x = Release level, stacks = status). Skips release levels with zero rows to keep it clean.
-6. Approval Throughput donut — `PH_STATUS` bucketed the same way.
-7. Top 8 Materials — aggregate `CONTRACT_NET_VALUE` by `MATERIAL_CODE`.
-8. Division / Dist Channel split — grouped bar: for each `DIVISION`, count rows per `DIS_CHANNEL` (or vice versa, whichever has fewer distinct keys, capped at top 6 × top 4).
-
-## Interaction & polish
-- Manual "Refresh" button calls `query.refetch()`; disabled while fetching.
-- `query.dataUpdatedAt` → formatted "Updated 2m ago" chip.
-- Empty state per card: friendly icon + one-line message (unchanged pattern).
-- No selection screen, no radio buttons, no execute button — active plants from top bar remain the only input, exactly like the current dashboard.
-- Preserve existing route path and nav entry — no changes needed in `_authenticated.tsx` or `routeTree.gen.ts`.
-
-## Files to change
-- `src/routes/_authenticated/sd.dashboard.tsx` — full rewrite of the component (single-file change). All aggregation happens client-side in one `useMemo` over the fetched rows.
+## Hero header updates
+- Keep gradient header, plant-range chip, record count pill, last-refreshed time.
+- Add small chips showing the active Selection Type and date range (when set) so the user can see what the numbers reflect.
 
 ## Out of scope
-- No changes to `fetchBmwStatusReport` (server fn stays as-is).
-- No changes to BMW Status Report screen, nav, or any other route.
-- No new global CSS tokens — uses existing semantic tokens and `KpiTile` accents.
+- No changes to `fetchBmwStatusReport`, BMW Status Report page, nav, routes, styles.css, or any other route.
+- No new global tokens; keep using existing semantic tokens and `KpiTile` accents.
+- No auto-refetch on filter change — Execute is the trigger, per the request.

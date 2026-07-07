@@ -1,20 +1,26 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   Activity,
   Building2,
+  CalendarRange,
   FileCheck2,
   FileText,
+  Filter,
   Landmark,
   Layers,
   Loader2,
   Package,
   PieChart as PieIcon,
+  Play,
   Receipt,
   RefreshCw,
+  RotateCcw,
   ShoppingCart,
+  Tag,
   TrendingUp,
   Users,
   Wallet,
@@ -39,11 +45,19 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KpiTile } from "@/components/exec/kpi-tile";
+import { PlantSelect } from "@/components/sap/plant-select";
+import { CustomerSelect } from "@/components/sap/customer-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
 import { cn } from "@/lib/utils";
+
+type Mode = "customer" | "contract" | "sales";
+
 
 export const Route = createFileRoute("/_authenticated/sd/dashboard")({
   component: SdDashboardPage,
@@ -124,31 +138,106 @@ function SdDashboardPage() {
   const fetchFn = useServerFn(fetchBmwStatusReport);
   const { activePlants } = useActiveContext();
 
-  const sorted = useMemo(() => [...activePlants].sort(), [activePlants]);
-  const from = sorted[0] ?? "";
-  const to = sorted[sorted.length - 1] ?? "";
+  const sortedPlants = useMemo(() => [...activePlants].sort(), [activePlants]);
+  const defaultFrom = sortedPlants[0] ?? "";
+  const defaultTo = sortedPlants[sortedPlants.length - 1] ?? "";
 
-  const query = useQuery({
-    queryKey: ["sd-dashboard-bmw", from, to],
-    enabled: !!from && !!to,
-    staleTime: 60_000,
-    queryFn: async () => {
+  // Filter state — mirrors BMW Status Report selection screen.
+  const [salesOrgFrom, setSalesOrgFrom] = useState("");
+  const [salesOrgTo, setSalesOrgTo] = useState("");
+  const [customerFrom, setCustomerFrom] = useState("");
+  const [customerTo, setCustomerTo] = useState("");
+  const [contractFrom, setContractFrom] = useState("");
+  const [contractTo, setContractTo] = useState("");
+  const [mode, setMode] = useState<Mode>("sales");
+
+  // Default sales-org range from active plants once available.
+  useEffect(() => {
+    if (!salesOrgFrom && defaultFrom) setSalesOrgFrom(defaultFrom);
+    if (!salesOrgTo && defaultTo) setSalesOrgTo(defaultTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultFrom, defaultTo]);
+
+  const [rows, setRows] = useState<BmwStatusRow[]>([]);
+  const [fetchedAt, setFetchedAt] = useState<number | undefined>(undefined);
+  const [appliedMode, setAppliedMode] = useState<Mode>("sales");
+  const [appliedFrom, setAppliedFrom] = useState("");
+  const [appliedTo, setAppliedTo] = useState("");
+  const [appliedDateFrom, setAppliedDateFrom] = useState("");
+  const [appliedDateTo, setAppliedDateTo] = useState("");
+  const [hasExecuted, setHasExecuted] = useState(false);
+
+  const requestSeq = useRef(0);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const reqId = ++requestSeq.current;
       const res: any = await fetchFn({
         data: {
-          sales_org_from: from,
-          sales_org_to: to,
-          customer_from: "",
-          customer_to: "",
-          contract_from: "",
-          contract_to: "",
-          mode: "sales" as const,
+          sales_org_from: salesOrgFrom.trim(),
+          sales_org_to: (salesOrgTo || salesOrgFrom).trim(),
+          customer_from: customerFrom.trim(),
+          customer_to: customerTo.trim(),
+          contract_from: contractFrom.trim(),
+          contract_to: contractTo.trim(),
+          mode,
         },
       });
-      return (res?.rows ?? []) as BmwStatusRow[];
+      return { ...res, __reqId: reqId };
     },
+    onSuccess: (res: any) => {
+      if (res?.__reqId !== requestSeq.current) return;
+      const r = Array.isArray(res?.rows) ? (res.rows as BmwStatusRow[]) : [];
+      setRows(r);
+      setFetchedAt(Date.now());
+      setAppliedMode((res?.mode as Mode) ?? mode);
+      setAppliedFrom(salesOrgFrom);
+      setAppliedTo(salesOrgTo || salesOrgFrom);
+      setAppliedDateFrom(contractFrom);
+      setAppliedDateTo(contractTo);
+      setHasExecuted(true);
+      if (res?.error) toast.error(res.error);
+      else toast.success(`Loaded ${r.length} record${r.length === 1 ? "" : "s"} from SAP`);
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Failed to fetch report"),
   });
 
-  const rows = query.data ?? [];
+  function execute() {
+    if (mutation.isPending) return;
+    if (!salesOrgFrom.trim()) return toast.error("Select Sales Organization From");
+    if (!salesOrgTo.trim()) return toast.error("Select Sales Organization To");
+    mutation.mutate();
+  }
+
+  function reset() {
+    setSalesOrgFrom(defaultFrom);
+    setSalesOrgTo(defaultTo);
+    setCustomerFrom("");
+    setCustomerTo("");
+    setContractFrom("");
+    setContractTo("");
+    setMode("sales");
+  }
+
+  // Client-side date range filter — applies against contract/sales create dates
+  // so the KPIs and charts always reflect the selected window even if the SAP
+  // payload does not itself filter on the range.
+  const filteredRows = useMemo(() => {
+    if (!appliedDateFrom && !appliedDateTo) return rows;
+    const lo = appliedDateFrom || "0000-00-00";
+    const hi = appliedDateTo || "9999-99-99";
+    return rows.filter((r) => {
+      const d =
+        nonEmpty(r.CONTRACT_DATE) ??
+        nonEmpty(r.CONTRACT_CREATE_DATE) ??
+        nonEmpty(r.SALES_CREATE_DATE);
+      if (!d) return false;
+      const key = d.slice(0, 10);
+      return key >= lo && key <= hi;
+    });
+  }, [rows, appliedDateFrom, appliedDateTo]);
+
+
 
   const stats = useMemo(() => {
     const customers = new Set<string>();
@@ -174,7 +263,7 @@ function SdDashboardPage() {
     const seenContractForValue = new Set<string>();
     const seenPhContract = new Set<string>();
 
-    for (const r of rows) {
+    for (const r of filteredRows) {
       const cust = nonEmpty(r.CUSTOMER);
       if (cust) customers.add(cust);
       const contract = nonEmpty(r.CONTRACT_NO);
@@ -322,7 +411,7 @@ function SdDashboardPage() {
     });
 
     return {
-      totalRecords: rows.length,
+      totalRecords: filteredRows.length,
       customers: customers.size,
       contracts: contracts.size,
       salesOrders: salesOrders.size,
@@ -344,11 +433,19 @@ function SdDashboardPage() {
       divChannelData,
       topChannels,
     };
-  }, [rows]);
+  }, [filteredRows]);
 
-  const hasContext = !!from && !!to;
-  const loading = query.isFetching;
-  const empty = !loading && hasContext && rows.length === 0;
+
+  const loading = mutation.isPending;
+  const hasResult = hasExecuted && rows.length > 0;
+  const hasContext = !!appliedFrom && !!appliedTo;
+  const empty = hasExecuted && !loading && filteredRows.length === 0;
+  const canExecute = !!salesOrgFrom && !!salesOrgTo && !loading;
+  const modeLabel = appliedMode === "customer" ? "Customer" : appliedMode === "contract" ? "Contract" : "Sales Order";
+  const dateChip =
+    appliedDateFrom || appliedDateTo
+      ? `${appliedDateFrom || "…"} → ${appliedDateTo || "…"}`
+      : null;
 
   return (
     <div className="space-y-6">
@@ -370,30 +467,36 @@ function SdDashboardPage() {
               SD Dashboard
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
-              Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report.
+              Choose your filters and Execute — KPIs, charts and graphs recompute from the live BMW Status Report response.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {hasContext ? (
+            {hasContext && (
               <Badge variant="outline" className="font-mono text-xs h-7 px-2.5">
                 <Building2 className="h-3 w-3 mr-1.5" />
-                {from === to ? `Sales Org ${from}` : `${from} → ${to}`}
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="text-xs h-7">
-                Select a plant in the top bar
+                {appliedFrom === appliedTo ? `Sales Org ${appliedFrom}` : `${appliedFrom} → ${appliedTo}`}
               </Badge>
             )}
-            {hasContext && !loading && (
+            {hasExecuted && (
+              <Badge variant="secondary" className="text-xs h-7">
+                <Tag className="h-3 w-3 mr-1.5" /> {modeLabel}
+              </Badge>
+            )}
+            {dateChip && (
               <Badge variant="secondary" className="text-xs h-7 font-mono">
-                {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
+                <CalendarRange className="h-3 w-3 mr-1.5" /> {dateChip}
+              </Badge>
+            )}
+            {hasResult && !loading && (
+              <Badge variant="secondary" className="text-xs h-7 font-mono">
+                {fmtInt(stats.totalRecords)} rows · updated {relTime(fetchedAt)}
               </Badge>
             )}
             <Button
               size="sm"
               variant="outline"
-              onClick={() => query.refetch()}
-              disabled={loading || !hasContext}
+              onClick={() => mutation.mutate()}
+              disabled={loading || !hasExecuted}
               className="h-8"
             >
               {loading ? (
@@ -407,18 +510,115 @@ function SdDashboardPage() {
         </div>
       </header>
 
-      {!hasContext ? (
+      {/* Selection screen */}
+      <Card className="p-4 space-y-4 shadow-card">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 items-end">
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Sales Organization From <span className="text-destructive">*</span>
+            </Label>
+            <PlantSelect value={salesOrgFrom} onChange={setSalesOrgFrom} placeholder="Select…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Sales Organization To <span className="text-destructive">*</span>
+            </Label>
+            <PlantSelect value={salesOrgTo} onChange={setSalesOrgTo} placeholder="Select…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer From</Label>
+            <CustomerSelect
+              value={customerFrom}
+              onChange={setCustomerFrom}
+              plants={salesOrgFrom ? [salesOrgFrom] : []}
+              onEnter={execute}
+              placeholder="Select customer…"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer To</Label>
+            <CustomerSelect
+              value={customerTo}
+              onChange={setCustomerTo}
+              plants={salesOrgFrom ? [salesOrgFrom] : []}
+              onEnter={execute}
+              placeholder="Select customer…"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Contract/sales created from</Label>
+            <Input
+              value={contractFrom}
+              type="date"
+              onChange={(e) => setContractFrom(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              className="h-9 font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Contract/sales created to</Label>
+            <Input
+              value={contractTo}
+              type="date"
+              onChange={(e) => setContractTo(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              className="h-9 font-mono"
+            />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="text-xs">
+              Selection Type <span className="text-destructive">*</span>
+            </Label>
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as Mode)}
+              className="flex flex-wrap items-center gap-4 h-9"
+            >
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="customer" id="mode-customer" />
+                <span>Customer</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="contract" id="mode-contract" />
+                <span>Contract</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="sales" id="mode-sales" />
+                <span>Sales Order</span>
+              </label>
+            </RadioGroup>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+          <Button variant="outline" size="sm" onClick={reset} disabled={loading} className="h-9">
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset
+          </Button>
+          <Button size="sm" onClick={execute} disabled={!canExecute} className="h-9">
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            Execute
+          </Button>
+        </div>
+      </Card>
+
+      {!hasExecuted ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">
-          Select at least one plant from the top-bar plant selector to load the dashboard.
-        </Card>
-      ) : query.isError ? (
-        <Card className="p-8 text-center text-sm text-destructive">
-          Failed to load dashboard data. {(query.error as Error)?.message}
+          Choose your filters above and click <span className="font-semibold text-foreground">Execute</span> to load the dashboard.
         </Card>
       ) : loading && rows.length === 0 ? (
         <DashboardSkeleton />
       ) : (
         <>
+
           {/* KPI row */}
           <section className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <KpiTile
