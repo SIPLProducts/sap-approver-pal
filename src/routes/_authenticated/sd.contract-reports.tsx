@@ -163,6 +163,10 @@ function ContractReportsPage() {
           { id: "service_valid_to", header: "Svc Valid To", cell: (r) => fmtDate(r.service_valid_to) },
           { id: "sales_org", header: "Sales Org", sortingField: "sales_org", cell: (r) => r.sales_org ?? "—" },
           { id: "company_code", header: "Co. Code", sortingField: "company_code", cell: (r) => r.company_code ?? "—" },
+          { id: "rel_1", header: "Rel. Code 1", sortingField: "rel_1", cell: (r) => r.rel_1 ?? "—" },
+          { id: "status_1", header: "Status 1", sortingField: "status_1", cell: (r) => r.status_1 ?? "—" },
+          { id: "rel_2", header: "Rel. Code 2", sortingField: "rel_2", cell: (r) => r.rel_2 ?? "—" },
+          { id: "status_2", header: "Status 2", sortingField: "status_2", cell: (r) => r.status_2 ?? "—" },
         ] as CloudscapeColumn<ContractRow>[]}
       />
     </div>
