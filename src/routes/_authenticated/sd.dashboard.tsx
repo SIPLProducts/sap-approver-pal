@@ -138,31 +138,106 @@ function SdDashboardPage() {
   const fetchFn = useServerFn(fetchBmwStatusReport);
   const { activePlants } = useActiveContext();
 
-  const sorted = useMemo(() => [...activePlants].sort(), [activePlants]);
-  const from = sorted[0] ?? "";
-  const to = sorted[sorted.length - 1] ?? "";
+  const sortedPlants = useMemo(() => [...activePlants].sort(), [activePlants]);
+  const defaultFrom = sortedPlants[0] ?? "";
+  const defaultTo = sortedPlants[sortedPlants.length - 1] ?? "";
 
-  const query = useQuery({
-    queryKey: ["sd-dashboard-bmw", from, to],
-    enabled: !!from && !!to,
-    staleTime: 60_000,
-    queryFn: async () => {
+  // Filter state — mirrors BMW Status Report selection screen.
+  const [salesOrgFrom, setSalesOrgFrom] = useState("");
+  const [salesOrgTo, setSalesOrgTo] = useState("");
+  const [customerFrom, setCustomerFrom] = useState("");
+  const [customerTo, setCustomerTo] = useState("");
+  const [contractFrom, setContractFrom] = useState("");
+  const [contractTo, setContractTo] = useState("");
+  const [mode, setMode] = useState<Mode>("sales");
+
+  // Default sales-org range from active plants once available.
+  useEffect(() => {
+    if (!salesOrgFrom && defaultFrom) setSalesOrgFrom(defaultFrom);
+    if (!salesOrgTo && defaultTo) setSalesOrgTo(defaultTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultFrom, defaultTo]);
+
+  const [rows, setRows] = useState<BmwStatusRow[]>([]);
+  const [fetchedAt, setFetchedAt] = useState<number | undefined>(undefined);
+  const [appliedMode, setAppliedMode] = useState<Mode>("sales");
+  const [appliedFrom, setAppliedFrom] = useState("");
+  const [appliedTo, setAppliedTo] = useState("");
+  const [appliedDateFrom, setAppliedDateFrom] = useState("");
+  const [appliedDateTo, setAppliedDateTo] = useState("");
+  const [hasExecuted, setHasExecuted] = useState(false);
+
+  const requestSeq = useRef(0);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const reqId = ++requestSeq.current;
       const res: any = await fetchFn({
         data: {
-          sales_org_from: from,
-          sales_org_to: to,
-          customer_from: "",
-          customer_to: "",
-          contract_from: "",
-          contract_to: "",
-          mode: "sales" as const,
+          sales_org_from: salesOrgFrom.trim(),
+          sales_org_to: (salesOrgTo || salesOrgFrom).trim(),
+          customer_from: customerFrom.trim(),
+          customer_to: customerTo.trim(),
+          contract_from: contractFrom.trim(),
+          contract_to: contractTo.trim(),
+          mode,
         },
       });
-      return (res?.rows ?? []) as BmwStatusRow[];
+      return { ...res, __reqId: reqId };
     },
+    onSuccess: (res: any) => {
+      if (res?.__reqId !== requestSeq.current) return;
+      const r = Array.isArray(res?.rows) ? (res.rows as BmwStatusRow[]) : [];
+      setRows(r);
+      setFetchedAt(Date.now());
+      setAppliedMode((res?.mode as Mode) ?? mode);
+      setAppliedFrom(salesOrgFrom);
+      setAppliedTo(salesOrgTo || salesOrgFrom);
+      setAppliedDateFrom(contractFrom);
+      setAppliedDateTo(contractTo);
+      setHasExecuted(true);
+      if (res?.error) toast.error(res.error);
+      else toast.success(`Loaded ${r.length} record${r.length === 1 ? "" : "s"} from SAP`);
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Failed to fetch report"),
   });
 
-  const rows = query.data ?? [];
+  function execute() {
+    if (mutation.isPending) return;
+    if (!salesOrgFrom.trim()) return toast.error("Select Sales Organization From");
+    if (!salesOrgTo.trim()) return toast.error("Select Sales Organization To");
+    mutation.mutate();
+  }
+
+  function reset() {
+    setSalesOrgFrom(defaultFrom);
+    setSalesOrgTo(defaultTo);
+    setCustomerFrom("");
+    setCustomerTo("");
+    setContractFrom("");
+    setContractTo("");
+    setMode("sales");
+  }
+
+  // Client-side date range filter — applies against contract/sales create dates
+  // so the KPIs and charts always reflect the selected window even if the SAP
+  // payload does not itself filter on the range.
+  const filteredRows = useMemo(() => {
+    if (!appliedDateFrom && !appliedDateTo) return rows;
+    const lo = appliedDateFrom || "0000-00-00";
+    const hi = appliedDateTo || "9999-99-99";
+    return rows.filter((r) => {
+      const d =
+        nonEmpty(r.CONTRACT_DATE) ??
+        nonEmpty(r.CONTRACT_CREATE_DATE) ??
+        nonEmpty(r.SALES_CREATE_DATE);
+      if (!d) return false;
+      const key = d.slice(0, 10);
+      return key >= lo && key <= hi;
+    });
+  }, [rows, appliedDateFrom, appliedDateTo]);
+
+
 
   const stats = useMemo(() => {
     const customers = new Set<string>();
