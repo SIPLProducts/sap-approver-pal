@@ -106,7 +106,7 @@ function SalesOrderReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
-    setStatus("pending");
+    
     setRows([]);
   }
 
