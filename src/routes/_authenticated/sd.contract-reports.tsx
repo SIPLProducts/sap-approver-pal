@@ -74,7 +74,7 @@ function ContractReportsPage() {
       customer_from: string;
       customer_to: string;
     }) => {
-      const v: any = await fetchFn({ data: { ...vars, status: "all" } });
+      const v: any = await fetchFn({ data: { ...vars, status: "pending" } });
       const rows = Array.isArray(v?.rows) ? (v.rows as ContractRow[]) : [];
       return { rows, count: rows.length, error: v?.error ?? null };
     },
