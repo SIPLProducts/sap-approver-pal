@@ -64,6 +64,10 @@ function mapRow(raw: any): SalesOrderRow {
     net_value: pick(raw, "NET_VALUE"),
     tax_value: pick(raw, "TAX_VALUE"),
     reason: pick(raw, "REASON"),
+    rel_1: pick(raw, "REL_1"),
+    status_1: pick(raw, "STATUS_1"),
+    rel_2: pick(raw, "REL_2"),
+    status_2: pick(raw, "STATUS_2"),
   };
 }
 
