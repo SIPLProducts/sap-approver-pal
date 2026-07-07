@@ -436,9 +436,16 @@ function SdDashboardPage() {
   }, [filteredRows]);
 
 
-  const hasContext = !!from && !!to;
-  const loading = query.isFetching;
-  const empty = !loading && hasContext && rows.length === 0;
+  const loading = mutation.isPending;
+  const hasResult = hasExecuted && rows.length > 0;
+  const hasContext = !!appliedFrom && !!appliedTo;
+  const empty = hasExecuted && !loading && filteredRows.length === 0;
+  const canExecute = !!salesOrgFrom && !!salesOrgTo && !loading;
+  const modeLabel = appliedMode === "customer" ? "Customer" : appliedMode === "contract" ? "Contract" : "Sales Order";
+  const dateChip =
+    appliedDateFrom || appliedDateTo
+      ? `${appliedDateFrom || "…"} → ${appliedDateTo || "…"}`
+      : null;
 
   return (
     <div className="space-y-6">
@@ -460,30 +467,36 @@ function SdDashboardPage() {
               SD Dashboard
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
-              Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report.
+              Choose your filters and Execute — KPIs, charts and graphs recompute from the live BMW Status Report response.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {hasContext ? (
+            {hasContext && (
               <Badge variant="outline" className="font-mono text-xs h-7 px-2.5">
                 <Building2 className="h-3 w-3 mr-1.5" />
-                {from === to ? `Sales Org ${from}` : `${from} → ${to}`}
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="text-xs h-7">
-                Select a plant in the top bar
+                {appliedFrom === appliedTo ? `Sales Org ${appliedFrom}` : `${appliedFrom} → ${appliedTo}`}
               </Badge>
             )}
-            {hasContext && !loading && (
+            {hasExecuted && (
+              <Badge variant="secondary" className="text-xs h-7">
+                <Tag className="h-3 w-3 mr-1.5" /> {modeLabel}
+              </Badge>
+            )}
+            {dateChip && (
               <Badge variant="secondary" className="text-xs h-7 font-mono">
-                {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
+                <CalendarRange className="h-3 w-3 mr-1.5" /> {dateChip}
+              </Badge>
+            )}
+            {hasResult && !loading && (
+              <Badge variant="secondary" className="text-xs h-7 font-mono">
+                {fmtInt(stats.totalRecords)} rows · updated {relTime(fetchedAt)}
               </Badge>
             )}
             <Button
               size="sm"
               variant="outline"
-              onClick={() => query.refetch()}
-              disabled={loading || !hasContext}
+              onClick={() => mutation.mutate()}
+              disabled={loading || !hasExecuted}
               className="h-8"
             >
               {loading ? (
@@ -497,18 +510,115 @@ function SdDashboardPage() {
         </div>
       </header>
 
-      {!hasContext ? (
+      {/* Selection screen */}
+      <Card className="p-4 space-y-4 shadow-card">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 items-end">
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Sales Organization From <span className="text-destructive">*</span>
+            </Label>
+            <PlantSelect value={salesOrgFrom} onChange={setSalesOrgFrom} placeholder="Select…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Sales Organization To <span className="text-destructive">*</span>
+            </Label>
+            <PlantSelect value={salesOrgTo} onChange={setSalesOrgTo} placeholder="Select…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer From</Label>
+            <CustomerSelect
+              value={customerFrom}
+              onChange={setCustomerFrom}
+              plants={salesOrgFrom ? [salesOrgFrom] : []}
+              onEnter={execute}
+              placeholder="Select customer…"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Customer To</Label>
+            <CustomerSelect
+              value={customerTo}
+              onChange={setCustomerTo}
+              plants={salesOrgFrom ? [salesOrgFrom] : []}
+              onEnter={execute}
+              placeholder="Select customer…"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Contract/sales created from</Label>
+            <Input
+              value={contractFrom}
+              type="date"
+              onChange={(e) => setContractFrom(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              className="h-9 font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Contract/sales created to</Label>
+            <Input
+              value={contractTo}
+              type="date"
+              onChange={(e) => setContractTo(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && execute()}
+              className="h-9 font-mono"
+            />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="text-xs">
+              Selection Type <span className="text-destructive">*</span>
+            </Label>
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as Mode)}
+              className="flex flex-wrap items-center gap-4 h-9"
+            >
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="customer" id="mode-customer" />
+                <span>Customer</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="contract" id="mode-contract" />
+                <span>Contract</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="sales" id="mode-sales" />
+                <span>Sales Order</span>
+              </label>
+            </RadioGroup>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+          <Button variant="outline" size="sm" onClick={reset} disabled={loading} className="h-9">
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset
+          </Button>
+          <Button size="sm" onClick={execute} disabled={!canExecute} className="h-9">
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            Execute
+          </Button>
+        </div>
+      </Card>
+
+      {!hasExecuted ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">
-          Select at least one plant from the top-bar plant selector to load the dashboard.
-        </Card>
-      ) : query.isError ? (
-        <Card className="p-8 text-center text-sm text-destructive">
-          Failed to load dashboard data. {(query.error as Error)?.message}
+          Choose your filters above and click <span className="font-semibold text-foreground">Execute</span> to load the dashboard.
         </Card>
       ) : loading && rows.length === 0 ? (
         <DashboardSkeleton />
       ) : (
         <>
+
           {/* KPI row */}
           <section className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <KpiTile
