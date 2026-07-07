@@ -109,7 +109,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
       approval_type: z.enum(["service", "sales", "all"]).default("service"),
     }).parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const CONFIG_NAME = "Sevice_Certificate_Fetch";
@@ -122,8 +122,15 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
     if (!cfg) throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
     if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
 
-    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+    const [{ data: creds }, { data: prof }, { data: userIdField }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("profiles").select("sap_user_id").eq("id", context.userId).maybeSingle(),
+      supabaseAdmin
+        .from("sap_api_request_fields")
+        .select("default_value")
+        .eq("config_id", cfg.id)
+        .eq("field_name", "USER_ID")
+        .maybeSingle(),
       supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
@@ -131,13 +138,19 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
     const custFrom = (data.customer_from ?? "").trim();
     const custTo = (data.customer_to ?? "").trim() || custFrom;
 
+    const resolvedUserId =
+      (data.user_id && data.user_id.trim()) ||
+      (prof?.sap_user_id && prof.sap_user_id.trim()) ||
+      (userIdField?.default_value as string | null) ||
+      "";
+
     const isAllStatus = data.status === "all";
     const isAllType = data.approval_type === "all";
     const inputs = {
       PLANT: data.plants.map((p) => ({ plant: p })),
       CUSTOMER_FROM: custFrom,
       CUSTOMER_TO: custTo,
-      USER_ID: (data.user_id ?? "").trim(),
+      USER_ID: resolvedUserId,
       R_PEND: isAllStatus || data.status === "pending" ? "X" : "",
       R_ACCP: isAllStatus || data.status === "accepted" ? "X" : "",
       R_REJ: isAllStatus || data.status === "rejected" ? "X" : "",

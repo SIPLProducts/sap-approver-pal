@@ -100,7 +100,7 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
       status: z.enum(["pending", "accepted", "rejected", "all"]).default("pending"),
     }).parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: cfg } = await supabaseAdmin
@@ -111,13 +111,24 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
     if (!cfg) throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
     if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
 
-    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+    const [{ data: creds }, { data: prof }, { data: userIdField }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("profiles").select("sap_user_id").eq("id", context.userId).maybeSingle(),
+      supabaseAdmin
+        .from("sap_api_request_fields")
+        .select("default_value")
+        .eq("config_id", cfg.id)
+        .eq("field_name", "USER_ID")
+        .maybeSingle(),
       supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const userId = (data.user_id ?? "").trim();
+    const userId =
+      (data.user_id && data.user_id.trim()) ||
+      (prof?.sap_user_id && prof.sap_user_id.trim()) ||
+      (userIdField?.default_value as string | null) ||
+      "";
     const isAll = data.status === "all";
     const R_PEND = isAll || data.status === "pending" ? "X" : "";
     const R_ACCP = isAll || data.status === "accepted" ? "X" : "";
