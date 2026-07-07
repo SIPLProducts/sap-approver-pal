@@ -477,18 +477,7 @@ function ScSoPage() {
         reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
         readonlyReason={(r) => r.reason ?? "—"}
         emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute."}
-        columns={COLS.map((c) => ({
-          id: c.key,
-          header: c.label,
-          align: c.align,
-          sortingField: c.key,
-          cell: (r: ScSoRow) => {
-            const v = (r as any)[c.key] as string | number | null;
-            if (c.date) return fmtDate(v as string | null);
-            if (c.num) return fmtNum(v);
-            return v == null || v === "" ? "—" : String(v);
-          },
-        })) as CloudscapeColumn<ScSoRow>[]}
+        columns={buildDynamicColumns(rows)}
       />
 
 
