@@ -165,6 +165,10 @@ function SalesOrderReportsPage() {
           { id: "sales_org", header: "Sales Org", cell: (r) => r.sales_org ?? "—" },
           { id: "company_code", header: "Company Code", cell: (r) => r.company_code ?? "—" },
           { id: "tax_value", header: "Tax Value", align: "right", cell: (r) => fmtNum(r.tax_value) },
+          { id: "rel_1", header: "Rel. Code 1", sortingField: "rel_1", cell: (r) => r.rel_1 ?? "—" },
+          { id: "status_1", header: "Status 1", sortingField: "status_1", cell: (r) => r.status_1 ?? "—" },
+          { id: "rel_2", header: "Rel. Code 2", sortingField: "rel_2", cell: (r) => r.rel_2 ?? "—" },
+          { id: "status_2", header: "Status 2", sortingField: "status_2", cell: (r) => r.status_2 ?? "—" },
         ] as CloudscapeColumn<SalesOrderRow>[]}
       />
     </div>
