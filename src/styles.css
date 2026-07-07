@@ -167,15 +167,23 @@
     font-family: var(--font-sans);
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-size: 14px;
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     font-feature-settings: "ss01", "cv11";
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.018em;
+    letter-spacing: -0.01em;
     font-weight: 600;
+    font-style: normal;
   }
+  h1 { font-size: 20px; }
+  h2 { font-size: 18px; }
+  h3 { font-size: 16px; }
+  h4 { font-size: 14px; }
+  em, i, cite, address, dfn, var { font-style: normal; }
   .tabular, .tabular-nums, td.num, .num {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
