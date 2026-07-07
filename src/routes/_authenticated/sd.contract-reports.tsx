@@ -105,7 +105,7 @@ function ContractReportsPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
-    setStatus("pending");
+    
     setRows([]);
   }
 
