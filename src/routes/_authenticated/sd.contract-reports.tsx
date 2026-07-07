@@ -13,6 +13,7 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { useSapProfile } from "@/hooks/use-sap-profile";
 import {
   fetchContractApprovals,
   type ContractRow,
