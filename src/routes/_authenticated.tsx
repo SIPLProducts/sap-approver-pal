@@ -87,6 +87,31 @@ function AuthenticatedLayout() {
   }, [user, qc]);
 
   const sync = useServerFn(syncFromSAP);
+  const bmwFetch = useServerFn(fetchBmwStatusReport);
+  const sortedPlants = useMemo(() => [...ctx.activePlants].sort(), [ctx.activePlants]);
+  const bmwFrom = sortedPlants[0] ?? "";
+  const bmwTo = sortedPlants[sortedPlants.length - 1] ?? "";
+  function prefetchSdDashboard() {
+    if (!bmwFrom || !bmwTo) return;
+    qc.prefetchQuery({
+      queryKey: ["sd-dashboard-bmw", bmwFrom, bmwTo],
+      staleTime: 5 * 60_000,
+      queryFn: async () => {
+        const res: any = await bmwFetch({
+          data: {
+            sales_org_from: bmwFrom,
+            sales_org_to: bmwTo,
+            customer_from: "",
+            customer_to: "",
+            contract_from: "",
+            contract_to: "",
+            mode: "sales" as const,
+          },
+        });
+        return res?.rows ?? [];
+      },
+    }).catch(() => {});
+  }
 
   async function pullSap() {
     const t = toast.loading("Syncing from SAP…");
