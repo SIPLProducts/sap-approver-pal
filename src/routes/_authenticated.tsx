@@ -112,6 +112,7 @@ function AuthenticatedLayout() {
 
   const can = perms.can;
   const sdChildren = [
+    { to: "/sd/dashboard", label: "SD Dashboard", icon: BarChart3, screen: "approvals.inbox.sd" },
     { to: "/sd/price", label: "Price Approvals", icon: Tag, screen: "approvals.inbox.sd" },
     { to: "/sd/contract", label: "Contract Approvals", icon: FileText, screen: "approvals.inbox.sd" },
     { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2, screen: "approvals.inbox.sd" },
