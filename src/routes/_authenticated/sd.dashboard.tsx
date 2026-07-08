@@ -297,25 +297,6 @@ function SdDashboardPage() {
       { name: "Inactive", value: inactiveBp },
     ].filter((d) => d.value > 0);
 
-    // Division × Channel: pick top 6 divisions, top 4 channels
-    const divTotals = Array.from(divChannel.entries())
-      .map(([d, m]) => ({ d, total: Array.from(m.values()).reduce((s, v) => s + v, 0) }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 6);
-    const channelTotals = new Map<string, number>();
-    for (const [, inner] of divChannel) {
-      for (const [ch, v] of inner) channelTotals.set(ch, (channelTotals.get(ch) ?? 0) + v);
-    }
-    const topChannels = Array.from(channelTotals.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([ch]) => ch);
-    const divChannelData = divTotals.map(({ d }) => {
-      const inner = divChannel.get(d)!;
-      const o: Record<string, string | number> = { name: `Div ${d}` };
-      for (const ch of topChannels) o[ch] = inner.get(ch) ?? 0;
-      return o;
-    });
 
     return {
       totalRecords: rows.length,
