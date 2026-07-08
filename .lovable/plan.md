@@ -1,16 +1,11 @@
-The previous exclude list used `release_code_1` / `approval_status`, but Contract and Sales Order rows actually expose these fields as `rel_1` / `status_1`. Because the keys do not match, the columns are still rendered.
+1. Remove the “Division × Distribution Channel” card from `src/routes/_authenticated/sd.dashboard.tsx`.
+   - Delete the entire `ChartCard` block (title, subtitle, BarChart, etc.).
+   - Remove the `Layers` import from `lucide-react` if it is no longer used elsewhere in the file.
+   - Clean up the now-unused `divChannel` aggregation logic inside the `stats` `useMemo` (the Map creation, the row loop, and the derived `divChannelData`/`topChannels` return values).
 
-Changes
--------
-1. `src/routes/_authenticated/sd.contract.tsx`
-   - Update the `buildDynamicColumns` `exclude` array from `["release_code_1", "approval_status"]` to `["rel_1", "status_1"]` so the REL 1 and Status 1 columns disappear from the Contract Approvals table.
+2. Fix the black fill color in the “Records by Sales Org” card.
+   - The first entry of `CHART_COLORS` is `hsl(var(--primary))`, which can fall back to black when the CSS variable is not resolved in that SVG context.
+   - Replace that first entry with a solid, theme-aligned blue (e.g. `hsl(221 83% 53%)`) so the first sales-org bar renders clearly. This also corrects any other chart in the same file that uses the first `CHART_COLORS` entry.
+   - Keep the rest of the palette unchanged so the bars remain colorful.
 
-2. `src/routes/_authenticated/sd.sales-order.tsx`
-   - Apply the same key fix to the `exclude` array so the same columns are hidden on the Sales Order Approvals screen.
-
-Reports screens remain unchanged; these columns will still be visible there.
-
-Verification
-------------
-- Run `tsgo` typecheck after the edits.
-- Confirm in the preview that Contract Approvals and Sales Order Approvals no longer show REL 1 / Status 1.
+3. Verify with `tsgo` typecheck and confirm the dashboard still compiles without errors.
