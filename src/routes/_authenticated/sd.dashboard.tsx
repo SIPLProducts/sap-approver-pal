@@ -238,14 +238,6 @@ function SdDashboardPage() {
         phBuckets[bucketStatus(nonEmpty(r.PH_STATUS))]++;
       }
 
-      // Division × Distribution channel
-      const div = nonEmpty(r.DIVISION);
-      const ch = nonEmpty(r.DIS_CHANNEL);
-      if (div && ch) {
-        const inner = divChannel.get(div) ?? new Map<string, number>();
-        inner.set(ch, (inner.get(ch) ?? 0) + 1);
-        divChannel.set(div, inner);
-      }
 
       if (cust && !seenBp.has(cust)) {
         seenBp.add(cust);
