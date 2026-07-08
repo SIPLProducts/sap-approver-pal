@@ -104,42 +104,40 @@ function LoginPage() {
 
         <div className="relative max-w-xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/75">
-            <span className="h-1.5 w-1.5 rounded-full bg-gold" /> SAP-integrated · Live
+            <span className="h-1.5 w-1.5 rounded-full bg-gold" /> Secure SAP Approvals
           </div>
           <h1 className="mt-5 font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.02] tracking-tight">
-            Approvals,
+            Approve with
             <br />
-            <span className="text-white/55">decided.</span>
+            <span className="text-white/55">confidence.</span>
           </h1>
           <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/70">
-            One executive console for sales orders, contracts, pricing and service certificates —
-            synced live with SAP, audited end-to-end.
+            A secure, single sign-on gateway to review and approve your SAP
+            transactions — protected end-to-end and fully audit-ready.
           </p>
 
-          <dl className="mt-10 grid grid-cols-3 gap-4 max-w-lg">
-            {[
-              { k: "Pending today", v: "12", sub: "across 4 modules" },
-              { k: "Median decision", v: "1.8h", sub: "vs 9.4h SLA" },
-              { k: "Approved · 7d", v: "184", sub: "₹42.6Cr value" },
-            ].map((s) => (
-              <div key={s.k} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
-                <dt className="text-[10px] uppercase tracking-[0.18em] text-white/55">{s.k}</dt>
-                <dd className="mt-2 font-display text-2xl font-semibold tabular-nums">{s.v}</dd>
-                <dd className="mt-0.5 text-[10px] text-white/45">{s.sub}</dd>
-              </div>
-            ))}
-          </dl>
+          <ul className="mt-10 space-y-3 max-w-md text-sm text-white/75">
+            <li className="flex items-start gap-3">
+              <Lock className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Enterprise-grade authentication with encrypted sessions.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Role-based access aligned to your SAP authorizations.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <FileCheck2 className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Every approval signed, timestamped and audit-logged.</span>
+            </li>
+          </ul>
         </div>
 
-        <div className="relative flex flex-wrap items-center justify-between gap-4 text-[11px] text-white/55">
-          <div className="flex items-center gap-5">
-            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> SSO · MFA</span>
-            <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" /> 99.95% uptime</span>
-            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> SAP-certified</span>
-          </div>
+        <div className="relative flex items-center justify-between gap-4 text-[11px] text-white/55">
+          <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> SSO · MFA · SAP-certified</span>
           <p>© {new Date().getFullYear()} Re Sustainability Limited</p>
         </div>
       </div>
+
 
       {/* Sign-in column */}
       <div className="flex items-center justify-center p-6 sm:p-10 bg-background">
