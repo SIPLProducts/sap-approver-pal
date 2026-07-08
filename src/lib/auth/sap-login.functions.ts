@@ -193,8 +193,8 @@ function sapLoginSucceeded(body: unknown): boolean {
     const status = values.find(([key]) => /^(status|code|returncode|responsecode|type|result)$/.test(key))?.[1];
     const message = values.find(([key]) => /^(message|msg|text|description|remarks|returnmessage)$/.test(key))?.[1] ?? "";
 
-    if (["s", "success", "successful", "ok", "true", "1", "200"].includes(status ?? "")) return true;
-    if (message && /\b(success|successful|valid|authenticated|welcome|logged in|login ok)\b/i.test(message)) return true;
+    if (["s", "success", "successful", "ok", "true", "200"].includes(status ?? "")) return true;
+    if (message && /\b(login\s*success|authenticated|welcome)\b/i.test(message)) return true;
     return false;
   });
 }
