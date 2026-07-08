@@ -1,8 +1,16 @@
-## Fix
+The previous exclude list used `release_code_1` / `approval_status`, but Contract and Sales Order rows actually expose these fields as `rel_1` / `status_1`. Because the keys do not match, the columns are still rendered.
 
-The Price Approvals row shape uses the key `release_code1` (no underscore before `1`), while the current exclude list passes `release_code_1`. Since keys don't match, the column is still rendered.
+Changes
+-------
+1. `src/routes/_authenticated/sd.contract.tsx`
+   - Update the `buildDynamicColumns` `exclude` array from `["release_code_1", "approval_status"]` to `["rel_1", "status_1"]` so the REL 1 and Status 1 columns disappear from the Contract Approvals table.
 
-### Change
-- **`src/routes/_authenticated/sd.price.tsx`** (line 238): update exclude to `["release_code1", "release_code_1", "approval_status"]` so the Price screen hides `RELEASE CODE1` regardless of key spelling.
+2. `src/routes/_authenticated/sd.sales-order.tsx`
+   - Apply the same key fix to the `exclude` array so the same columns are hidden on the Sales Order Approvals screen.
 
-No other screens or server code change. Reports untouched.
+Reports screens remain unchanged; these columns will still be visible there.
+
+Verification
+------------
+- Run `tsgo` typecheck after the edits.
+- Confirm in the preview that Contract Approvals and Sales Order Approvals no longer show REL 1 / Status 1.
