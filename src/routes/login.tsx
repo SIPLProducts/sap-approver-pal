@@ -2,14 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { sapLogin } from "@/lib/auth/sap-login.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
-import { ShieldCheck, Clock3, CheckCircle2, ArrowRight } from "lucide-react";
+import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
