@@ -8,7 +8,6 @@ import {
   FileCheck2,
   FileText,
   Landmark,
-  Layers,
   Loader2,
   Package,
   PieChart as PieIcon,
@@ -50,7 +49,7 @@ export const Route = createFileRoute("/_authenticated/sd/dashboard")({
 });
 
 const CHART_COLORS = [
-  "hsl(var(--primary))",
+  "hsl(221 83% 53%)",
   "hsl(210 90% 55%)",
   "hsl(145 65% 45%)",
   "hsl(38 92% 55%)",
@@ -168,7 +167,7 @@ function SdDashboardPage() {
     const releaseBuckets: Record<number, Record<StatusBucket, number>> = {};
     for (let n = 1; n <= 8; n++) releaseBuckets[n] = { Approved: 0, Pending: 0, Rejected: 0, Other: 0 };
     const phBuckets: Record<StatusBucket, number> = { Approved: 0, Pending: 0, Rejected: 0, Other: 0 };
-    const divChannel = new Map<string, Map<string, number>>();
+    
 
     let contractValue = 0;
     let salesValue = 0;
@@ -238,14 +237,6 @@ function SdDashboardPage() {
         phBuckets[bucketStatus(nonEmpty(r.PH_STATUS))]++;
       }
 
-      // Division × Distribution channel
-      const div = nonEmpty(r.DIVISION);
-      const ch = nonEmpty(r.DIS_CHANNEL);
-      if (div && ch) {
-        const inner = divChannel.get(div) ?? new Map<string, number>();
-        inner.set(ch, (inner.get(ch) ?? 0) + 1);
-        divChannel.set(div, inner);
-      }
 
       if (cust && !seenBp.has(cust)) {
         seenBp.add(cust);
@@ -305,25 +296,6 @@ function SdDashboardPage() {
       { name: "Inactive", value: inactiveBp },
     ].filter((d) => d.value > 0);
 
-    // Division × Channel: pick top 6 divisions, top 4 channels
-    const divTotals = Array.from(divChannel.entries())
-      .map(([d, m]) => ({ d, total: Array.from(m.values()).reduce((s, v) => s + v, 0) }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 6);
-    const channelTotals = new Map<string, number>();
-    for (const [, inner] of divChannel) {
-      for (const [ch, v] of inner) channelTotals.set(ch, (channelTotals.get(ch) ?? 0) + v);
-    }
-    const topChannels = Array.from(channelTotals.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([ch]) => ch);
-    const divChannelData = divTotals.map(({ d }) => {
-      const inner = divChannel.get(d)!;
-      const o: Record<string, string | number> = { name: `Div ${d}` };
-      for (const ch of topChannels) o[ch] = inner.get(ch) ?? 0;
-      return o;
-    });
 
     return {
       totalRecords: rows.length,
@@ -345,8 +317,6 @@ function SdDashboardPage() {
       releaseData,
       phData,
       bpStatus,
-      divChannelData,
-      topChannels,
     };
   }, [rows]);
 
@@ -655,26 +625,6 @@ function SdDashboardPage() {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard
-              title="Division × Distribution Channel"
-              subtitle="Rows per division, split by channel"
-              icon={<Layers className="h-4 w-4" />}
-              empty={empty || stats.divChannelData.length === 0 || stats.topChannels.length === 0}
-              height={300}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.divChannelData} margin={{ left: 0, right: 12 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {stats.topChannels.map((ch, i) => (
-                    <Bar key={ch} dataKey={ch} name={`Ch ${ch}`} fill={CHART_COLORS[(i + 3) % CHART_COLORS.length]} radius={[6, 6, 0, 0]} />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
           </section>
 
           {/* Footer micro-KPIs */}
