@@ -77,11 +77,6 @@ function LoginPage() {
     }
   }
 
-  async function google() {
-    const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (res.error) toast.error("Google sign-in failed");
-    else if (!res.redirected) nav({ to: "/inbox" });
-  }
 
   return (
     <div className="min-h-dvh grid lg:grid-cols-[1.15fr_1fr] bg-background">
