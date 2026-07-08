@@ -467,7 +467,7 @@ function ScSoPage() {
         reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
         readonlyReason={(r) => r.reason ?? "—"}
         emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute."}
-        columns={buildDynamicColumns(rows)}
+        columns={buildDynamicColumns(rows, { exclude: ["release_code_1", "approval_status"] })}
       />
 
 
