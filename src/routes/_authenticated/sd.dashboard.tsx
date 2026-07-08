@@ -168,7 +168,7 @@ function SdDashboardPage() {
     const releaseBuckets: Record<number, Record<StatusBucket, number>> = {};
     for (let n = 1; n <= 8; n++) releaseBuckets[n] = { Approved: 0, Pending: 0, Rejected: 0, Other: 0 };
     const phBuckets: Record<StatusBucket, number> = { Approved: 0, Pending: 0, Rejected: 0, Other: 0 };
-    const divChannel = new Map<string, Map<string, number>>();
+    
 
     let contractValue = 0;
     let salesValue = 0;
