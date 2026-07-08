@@ -393,7 +393,7 @@ function ContractPage() {
         reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
         readonlyReason={(r) => r.reason ?? "—"}
         emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute to load contracts from SAP."}
-        columns={buildDynamicColumns(rows, { exclude: ["rel_1", "status_1"] })}
+        columns={buildDynamicColumns(rows, { exclude: ["rel_1", "status_1", "rel_2", "status_2"] })}
       />
 
 
