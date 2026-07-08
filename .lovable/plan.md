@@ -1,11 +1,11 @@
-1. Remove the “Division × Distribution Channel” card from `src/routes/_authenticated/sd.dashboard.tsx`.
-   - Delete the entire `ChartCard` block (title, subtitle, BarChart, etc.).
-   - Remove the `Layers` import from `lucide-react` if it is no longer used elsewhere in the file.
-   - Clean up the now-unused `divChannel` aggregation logic inside the `stats` `useMemo` (the Map creation, the row loop, and the derived `divChannelData`/`topChannels` return values).
+1. Redesign `src/routes/login.tsx` while keeping the existing two-column layout and the current color palette (RESL red, ivory, gold, white).
+   - Remove the “Continue with Google” button and the `google` sign-in handler.
+   - Remove the unused `lovable` import and any other imports that become unused.
+   - Remove the KPI/statistic cards (the `dl` grid showing “Pending today”, “Median decision”, “Approved · 7d”).
+   - Replace the hero marketing headline/subtitle with concise, secure SAP-approvals focused copy (e.g., emphasizing secure SAP workflow approvals, auditability, and single console).
+   - Simplify the right-hand form to only essential sign-in fields: User ID, Password, and the Sign in button.
+   - Remove the sign-up toggle and the full-name field so the page is login-only.
+   - Remove the demo-accounts panel to keep the page professional and minimal.
+   - Keep the brand logo, gradient/blur hero styling, and the trust badges at the bottom (SSO · MFA, uptime, SAP-certified) because they reinforce the secure-approvals message.
 
-2. Fix the black fill color in the “Records by Sales Org” card.
-   - The first entry of `CHART_COLORS` is `hsl(var(--primary))`, which can fall back to black when the CSS variable is not resolved in that SVG context.
-   - Replace that first entry with a solid, theme-aligned blue (e.g. `hsl(221 83% 53%)`) so the first sales-org bar renders clearly. This also corrects any other chart in the same file that uses the first `CHART_COLORS` entry.
-   - Keep the rest of the palette unchanged so the bars remain colorful.
-
-3. Verify with `tsgo` typecheck and confirm the dashboard still compiles without errors.
+2. Verify with `tsgo` typecheck and a quick visual check in the preview to ensure the page is clean and the two-column layout remains intact.
