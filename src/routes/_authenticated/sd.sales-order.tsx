@@ -415,7 +415,7 @@ function SalesOrderPage() {
         reasonInvalid={(k) => selected.has(k) && !(reasons.get(k) ?? "").trim()}
         readonlyReason={(r) => r.reason ?? "—"}
         emptyMessage={lastFetchedAt ? `No ${status} records.` : "Enter Plant and click Execute to load sales orders from SAP."}
-        columns={buildDynamicColumns(rows, { exclude: ["release_code_1", "approval_status"] })}
+        columns={buildDynamicColumns(rows, { exclude: ["rel_1", "status_1"] })}
       />
 
 
