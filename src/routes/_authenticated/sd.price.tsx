@@ -235,7 +235,7 @@ function PricePage() {
         acceptLoading={decisionMutation.isPending && decisionMutation.variables?.action === "accepted"}
         rejectLoading={decisionMutation.isPending && decisionMutation.variables?.action === "rejected"}
         emptyMessage={rows.length === 0 ? "Enter a Plant and click Execute to load price approvals from SAP." : "No records."}
-        columns={buildDynamicColumns(rows, { exclude: ["release_code_1", "approval_status"] })}
+        columns={buildDynamicColumns(rows, { exclude: ["release_code1", "release_code_1", "approval_status"] })}
       />
 
 

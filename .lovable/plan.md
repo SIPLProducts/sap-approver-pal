@@ -1,23 +1,8 @@
-Hide the `release_code_1` and `approval_status` columns on the four SD approval screens. Reports screens remain unchanged.
+## Fix
 
-## Changes
+The Price Approvals row shape uses the key `release_code1` (no underscore before `1`), while the current exclude list passes `release_code_1`. Since keys don't match, the column is still rendered.
 
-In each of these files, pass `exclude: ["release_code_1", "approval_status"]` to `buildDynamicColumns(rows, { ... })`:
+### Change
+- **`src/routes/_authenticated/sd.price.tsx`** (line 238): update exclude to `["release_code1", "release_code_1", "approval_status"]` so the Price screen hides `RELEASE CODE1` regardless of key spelling.
 
-- `src/routes/_authenticated/sd.contract.tsx`
-- `src/routes/_authenticated/sd.sc-so.tsx`
-- `src/routes/_authenticated/sd.sales-order.tsx`
-- `src/routes/_authenticated/sd.price.tsx`
-
-`buildDynamicColumns` in `src/lib/sd/dynamic-columns.tsx` already supports an `exclude` option, so no library change is needed.
-
-## Out of scope
-
-- Reports screens (`sd.contract-reports.tsx`, `sd.sc-so-reports.tsx`, `sd.sales-order-reports.tsx`, `sd.price-reports.tsx`) — untouched, columns still visible.
-- No changes to server functions, payloads, or SAP calls.
-
-## Verification
-
-- Open each of the four approval screens → RELEASE_CODE1 and APPROVAL_STATUS columns are not shown.
-- Open the corresponding Reports screens → both columns still shown.
-- `tsgo` passes.
+No other screens or server code change. Reports untouched.
