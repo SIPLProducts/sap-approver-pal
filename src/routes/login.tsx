@@ -2,14 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { sapLogin } from "@/lib/auth/sap-login.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
-import { ShieldCheck, Clock3, CheckCircle2, ArrowRight } from "lucide-react";
+import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -78,11 +77,6 @@ function LoginPage() {
     }
   }
 
-  async function google() {
-    const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (res.error) toast.error("Google sign-in failed");
-    else if (!res.redirected) nav({ to: "/inbox" });
-  }
 
   return (
     <div className="min-h-dvh grid lg:grid-cols-[1.15fr_1fr] bg-background">
@@ -110,42 +104,40 @@ function LoginPage() {
 
         <div className="relative max-w-xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/75">
-            <span className="h-1.5 w-1.5 rounded-full bg-gold" /> SAP-integrated · Live
+            <span className="h-1.5 w-1.5 rounded-full bg-gold" /> Secure SAP Approvals
           </div>
           <h1 className="mt-5 font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.02] tracking-tight">
-            Approvals,
+            Approve with
             <br />
-            <span className="text-white/55">decided.</span>
+            <span className="text-white/55">confidence.</span>
           </h1>
           <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/70">
-            One executive console for sales orders, contracts, pricing and service certificates —
-            synced live with SAP, audited end-to-end.
+            A secure, single sign-on gateway to review and approve your SAP
+            transactions — protected end-to-end and fully audit-ready.
           </p>
 
-          <dl className="mt-10 grid grid-cols-3 gap-4 max-w-lg">
-            {[
-              { k: "Pending today", v: "12", sub: "across 4 modules" },
-              { k: "Median decision", v: "1.8h", sub: "vs 9.4h SLA" },
-              { k: "Approved · 7d", v: "184", sub: "₹42.6Cr value" },
-            ].map((s) => (
-              <div key={s.k} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
-                <dt className="text-[10px] uppercase tracking-[0.18em] text-white/55">{s.k}</dt>
-                <dd className="mt-2 font-display text-2xl font-semibold tabular-nums">{s.v}</dd>
-                <dd className="mt-0.5 text-[10px] text-white/45">{s.sub}</dd>
-              </div>
-            ))}
-          </dl>
+          <ul className="mt-10 space-y-3 max-w-md text-sm text-white/75">
+            <li className="flex items-start gap-3">
+              <Lock className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Enterprise-grade authentication with encrypted sessions.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Role-based access aligned to your SAP authorizations.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <FileCheck2 className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Every approval signed, timestamped and audit-logged.</span>
+            </li>
+          </ul>
         </div>
 
-        <div className="relative flex flex-wrap items-center justify-between gap-4 text-[11px] text-white/55">
-          <div className="flex items-center gap-5">
-            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> SSO · MFA</span>
-            <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" /> 99.95% uptime</span>
-            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> SAP-certified</span>
-          </div>
+        <div className="relative flex items-center justify-between gap-4 text-[11px] text-white/55">
+          <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> SSO · MFA · SAP-certified</span>
           <p>© {new Date().getFullYear()} Re Sustainability Limited</p>
         </div>
       </div>
+
 
       {/* Sign-in column */}
       <div className="flex items-center justify-center p-6 sm:p-10 bg-background">
@@ -164,18 +156,6 @@ function LoginPage() {
             </p>
           </div>
 
-          <Button onClick={google} variant="outline" className="w-full h-11 font-medium">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" aria-hidden>
-              <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.31 0-6-2.74-6-6.1s2.69-6.1 6-6.1c1.88 0 3.15.8 3.87 1.49l2.64-2.55C16.9 3.4 14.66 2.4 12 2.4 6.92 2.4 2.8 6.5 2.8 12s4.12 9.6 9.2 9.6c5.31 0 8.83-3.73 8.83-8.98 0-.6-.07-1.05-.16-1.52H12z"/>
-            </svg>
-            Continue with Google
-          </Button>
-
-          <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            <span>or with user ID</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
 
           <form onSubmit={submit} className="space-y-4">
             {mode === "signup" && (
