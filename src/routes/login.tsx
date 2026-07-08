@@ -156,18 +156,6 @@ function LoginPage() {
             </p>
           </div>
 
-          <Button onClick={google} variant="outline" className="w-full h-11 font-medium">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" aria-hidden>
-              <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.31 0-6-2.74-6-6.1s2.69-6.1 6-6.1c1.88 0 3.15.8 3.87 1.49l2.64-2.55C16.9 3.4 14.66 2.4 12 2.4 6.92 2.4 2.8 6.5 2.8 12s4.12 9.6 9.2 9.6c5.31 0 8.83-3.73 8.83-8.98 0-.6-.07-1.05-.16-1.52H12z"/>
-            </svg>
-            Continue with Google
-          </Button>
-
-          <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            <span>or with user ID</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
 
           <form onSubmit={submit} className="space-y-4">
             {mode === "signup" && (
