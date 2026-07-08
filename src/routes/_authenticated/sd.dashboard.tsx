@@ -318,8 +318,6 @@ function SdDashboardPage() {
       releaseData,
       phData,
       bpStatus,
-      divChannelData,
-      topChannels,
     };
   }, [rows]);
 
