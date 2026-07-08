@@ -50,7 +50,7 @@ export const Route = createFileRoute("/_authenticated/sd/dashboard")({
 });
 
 const CHART_COLORS = [
-  "hsl(var(--primary))",
+  "hsl(221 83% 53%)",
   "hsl(210 90% 55%)",
   "hsl(145 65% 45%)",
   "hsl(38 92% 55%)",
