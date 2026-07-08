@@ -626,26 +626,6 @@ function SdDashboardPage() {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard
-              title="Division × Distribution Channel"
-              subtitle="Rows per division, split by channel"
-              icon={<Layers className="h-4 w-4" />}
-              empty={empty || stats.divChannelData.length === 0 || stats.topChannels.length === 0}
-              height={300}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.divChannelData} margin={{ left: 0, right: 12 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {stats.topChannels.map((ch, i) => (
-                    <Bar key={ch} dataKey={ch} name={`Ch ${ch}`} fill={CHART_COLORS[(i + 3) % CHART_COLORS.length]} radius={[6, 6, 0, 0]} />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
           </section>
 
           {/* Footer micro-KPIs */}
