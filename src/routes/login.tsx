@@ -176,14 +176,63 @@ function LoginPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-xs font-medium">Password</Label>
-                {mode === "signin" && <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground">Forgot?</button>}
+                {mode === "signin" && (
+                  <button
+                    type="button"
+                    onClick={() => { setForgotEmail(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId) ? userId : ""); setForgotOpen((v) => !v); }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    Forgot?
+                  </button>
+                )}
               </div>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="h-11" />
             </div>
+            {forgotOpen && mode === "signin" && (
+              <div className="rounded-xl border bg-secondary/40 p-4 space-y-2">
+                <Label htmlFor="forgotEmail" className="text-xs font-medium">Reset password</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="forgotEmail"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="h-10 flex-1"
+                  />
+                  <Button
+                    type="button"
+                    disabled={forgotBusy || !forgotEmail.trim()}
+                    className="h-10"
+                    onClick={async () => {
+                      setForgotBusy(true);
+                      try {
+                        const result = await sapForgotFn({ data: { email: forgotEmail.trim() } });
+                        if (result.ok) {
+                          toast.success("Password reset request sent");
+                          setForgotOpen(false);
+                          setForgotEmail("");
+                        } else {
+                          toast.error(result.error ?? "Could not send reset request");
+                        }
+                      } catch (err: any) {
+                        toast.error(err?.message ?? "Could not send reset request");
+                      } finally {
+                        setForgotBusy(false);
+                      }
+                    }}
+                  >
+                    {forgotBusy ? "Sending…" : "Send"}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">We'll trigger the SAP password reset for this email.</p>
+              </div>
+            )}
             <Button type="submit" disabled={busy} className="w-full h-11 font-medium group">
               {busy ? "Please wait…" : <>{mode === "signin" ? "Sign in" : "Create account"} <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-0.5" /></>}
             </Button>
           </form>
+
 
           <button
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
