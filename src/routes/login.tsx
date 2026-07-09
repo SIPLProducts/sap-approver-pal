@@ -16,11 +16,15 @@ export const Route = createFileRoute("/login")({ component: LoginPage });
 function LoginPage() {
   const nav = useNavigate();
   const sapLoginFn = useServerFn(sapLogin);
+  const sapForgotFn = useServerFn(sapForgot);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotBusy, setForgotBusy] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { if (data.session) nav({ to: "/inbox" }); });
