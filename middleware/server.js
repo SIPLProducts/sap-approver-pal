@@ -812,6 +812,7 @@ namedRawInvokeRoute("/service_certificate/Service_Certificate_Approve_Reject", "
 
 // Auth — Login (raw passthrough; sends { LOGIN: { USER, PASSWORD } } verbatim)
 namedRawInvokeRoute("/login/Login_API", "Login_API");
+namedRawInvokeRoute("/login/Forgot_API", "Forgot_API");
 
 
 
