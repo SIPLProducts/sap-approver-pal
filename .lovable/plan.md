@@ -1,59 +1,32 @@
-## Email Configuration screen (UI only)
+## Move Email Configuration out of Settings
 
-Build a new authenticated screen matching the reference mockup, styled with the existing app's tokens (ivory canvas, red primary, graphite sidebar) — no persistence, no send. Local component state only.
+Turn Email Configuration into a top-level standalone screen at the bottom of the left sidebar, alongside `Settings`. Remove the entry card that was added to the Settings page.
 
-### Route
+### Route change
 
-- New file: `src/routes/_authenticated/settings.email-config.tsx`
-  - `createFileRoute("/_authenticated/settings/email-config")`
-  - `head()` with title "Email Configuration" + matching og/description
-  - Accessible to any authenticated user (route sits under `_authenticated`, no extra screen-key gate)
+- Rename file: `src/routes/_authenticated/settings.email-config.tsx` → `src/routes/_authenticated/email-config.tsx`
+- Update `createFileRoute("/_authenticated/settings/email-config")` → `createFileRoute("/_authenticated/email-config")`
+- Component/head unchanged.
 
-### Layout (matches reference, single active tab)
+### Sidebar
 
-Page header (using existing `PageHeader` pattern from `src/components/exec/page-header.tsx` if suitable, otherwise inline):
-- Icon (Mail, lucide) + title "Email Configuration"
-- Subtitle: "Manage SMTP credentials for outbound emails (host, port, sender, app password)."
+- Edit `src/routes/_authenticated.tsx` `manage_items` array — add a new entry directly ABOVE `Settings` (so it renders just above it at the bottom):
+  - `{ to: "/email-config", label: "Email Configuration", icon: Mail, screen: null }`
+- Import `Mail` from `lucide-react` (already imported elsewhere; add if missing).
+- `screen: null` matches the pattern used for Settings so it's visible to any authenticated user.
 
-Tabs (shadcn `Tabs`) with two triggers to mirror the mockup, but only the second is functional:
-- "User SMTP Configuration" — disabled trigger (kept for visual parity)
-- "No Reply Email Configuration" — active, default
+### Revert settings.tsx
 
-Card body ("No Reply Email Configuration" section):
-1. Header row: Mail icon + "No Reply Email Configuration" title, helper copy underneath.
-2. "Enable No-Reply Sending" toggle row (shadcn `Switch`) inside a bordered/muted panel — bold label + muted helper "When off, system notifications are not sent."
-3. Two-column grid (`grid md:grid-cols-2 gap-4`) of fields, all shadcn `Input` / `Select`:
-   - SMTP Host (text) — default placeholder "smtp.gmail.com"
-   - Port (number) — default "587"
-   - Encryption (Select: None, SSL (465), TLS (587), STARTTLS)
-   - Username (email)
-   - App Password (password input with eye toggle button) — helper "(leave empty to keep existing)"
-   - From Email (email)
-   - From Name (text, spans 1 col)
-   - CC Recipients (optional) — tag/chip input: press Enter or comma to add; each chip shows email + × to remove; free-text input to type next; invalid entries silently skipped. Helper text underneath.
-4. Info alert (shadcn `Alert` with `Info` icon, using `--info` token): explains From/To/CC behavior.
-5. Footer row: left "Send test to" input; right side "Send Test Email" (outline button, `Send` icon) + "Save Configuration" (primary button). Both are click-handlers that only `toast()` (using existing sonner toast) — no network calls.
-
-### Styling
-
-- Card wrapper: `bg-card border border-border rounded-lg shadow-card p-6`
-- Inputs use existing shadcn styling; no custom colors introduced.
-- Toggle uses `Switch` (primary red when on) — matches the app's red accent (reference is orange; we use app primary for consistency).
-- Chips: `bg-accent text-accent-foreground` rounded-full pill with × button.
-- No new tokens added to `src/styles.css`.
-
-### Navigation entry
-
-- Add a "Email Configuration" link inside `src/routes/_authenticated/settings.tsx` (or wherever settings sub-nav lives). If settings.tsx is a leaf (not a layout), keep the new route independently reachable at `/settings/email-config` and add a `<Link>` on the existing settings page pointing to it.
+- Remove the Email Configuration `<Link>` card block added in the previous step.
+- Remove the unused `Link`, `Mail`, `ChevronRight` imports if no other usage.
 
 ### Files touched
 
-- New: `src/routes/_authenticated/settings.email-config.tsx` (all UI + local state)
-- Edit: `src/routes/_authenticated/settings.tsx` — add a link/card entry to open the new screen
+- Renamed: `src/routes/_authenticated/settings.email-config.tsx` → `src/routes/_authenticated/email-config.tsx` (route string updated)
+- Edited: `src/routes/_authenticated.tsx` (sidebar entry)
+- Edited: `src/routes/_authenticated/settings.tsx` (revert card + imports)
 - Auto-regenerated: `src/routeTree.gen.ts`
 
 ### Out of scope
 
-- No DB table, no server function, no email send, no persistence across reloads.
-- No permission/screen-key gating beyond existing `_authenticated` guard.
-- User SMTP Configuration tab body (visual tab only, disabled).
+No changes to the screen's content, styling, or behavior.

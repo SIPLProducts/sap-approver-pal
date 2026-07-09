@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export const Route = createFileRoute("/_authenticated/settings/email-config")({
+export const Route = createFileRoute("/_authenticated/email-config")({
   head: () => ({
     meta: [
       { title: "Email Configuration — Resustainability Approvals" },

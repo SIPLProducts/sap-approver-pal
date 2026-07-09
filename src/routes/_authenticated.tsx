@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft, ChevronsUpDown } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft, ChevronsUpDown, Mail } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -155,6 +155,7 @@ function AuthenticatedLayout() {
     { to: "/admin/strategies", label: "Release Strategies", icon: ShieldCheck, screen: "admin.strategies" },
     { to: "/admin/sap-api", label: "SAP API Settings", icon: Server, screen: "sap.api_settings" },
     { to: "/admin/integrations", label: "Integrations", icon: Plug, screen: "sap.integrations" },
+    { to: "/email-config", label: "Email Configuration", icon: Mail, screen: null as string | null },
     { to: "/settings", label: "Settings", icon: Settings, screen: null as string | null },
   ].filter((it) => it.screen === null || can(it.screen));
 

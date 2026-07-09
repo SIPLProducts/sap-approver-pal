@@ -15,8 +15,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedEmailConfigRouteImport } from './routes/_authenticated/email-config'
 import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
-import { Route as AuthenticatedSettingsEmailConfigRouteImport } from './routes/_authenticated/settings.email-config'
 import { Route as AuthenticatedSdScSoReportsRouteImport } from './routes/_authenticated/sd.sc-so-reports'
 import { Route as AuthenticatedSdScSoRouteImport } from './routes/_authenticated/sd.sc-so'
 import { Route as AuthenticatedSdSalesOrderReportsRouteImport } from './routes/_authenticated/sd.sales-order-reports'
@@ -68,17 +68,17 @@ const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedEmailConfigRoute =
+  AuthenticatedEmailConfigRouteImport.update({
+    id: '/email-config',
+    path: '/email-config',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInboxIndexRoute = AuthenticatedInboxIndexRouteImport.update({
   id: '/inbox/',
   path: '/inbox/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSettingsEmailConfigRoute =
-  AuthenticatedSettingsEmailConfigRouteImport.update({
-    id: '/email-config',
-    path: '/email-config',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
 const AuthenticatedSdScSoReportsRoute =
   AuthenticatedSdScSoReportsRouteImport.update({
     id: '/sd/sc-so-reports',
@@ -196,9 +196,10 @@ const AuthenticatedAdminSapApiIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/email-config': typeof AuthenticatedEmailConfigRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/settings': typeof AuthenticatedSettingsRoute
   '/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -214,7 +215,6 @@ export interface FileRoutesByFullPath {
   '/sd/sales-order-reports': typeof AuthenticatedSdSalesOrderReportsRoute
   '/sd/sc-so': typeof AuthenticatedSdScSoRoute
   '/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
-  '/settings/email-config': typeof AuthenticatedSettingsEmailConfigRoute
   '/inbox/': typeof AuthenticatedInboxIndexRoute
   '/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
@@ -225,9 +225,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/email-config': typeof AuthenticatedEmailConfigRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/settings': typeof AuthenticatedSettingsRoute
   '/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -243,7 +244,6 @@ export interface FileRoutesByTo {
   '/sd/sales-order-reports': typeof AuthenticatedSdSalesOrderReportsRoute
   '/sd/sc-so': typeof AuthenticatedSdScSoRoute
   '/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
-  '/settings/email-config': typeof AuthenticatedSettingsEmailConfigRoute
   '/inbox': typeof AuthenticatedInboxIndexRoute
   '/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
@@ -256,9 +256,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/email-config': typeof AuthenticatedEmailConfigRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
-  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/_authenticated/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -274,7 +275,6 @@ export interface FileRoutesById {
   '/_authenticated/sd/sales-order-reports': typeof AuthenticatedSdSalesOrderReportsRoute
   '/_authenticated/sd/sc-so': typeof AuthenticatedSdScSoRoute
   '/_authenticated/sd/sc-so-reports': typeof AuthenticatedSdScSoReportsRoute
-  '/_authenticated/settings/email-config': typeof AuthenticatedSettingsEmailConfigRoute
   '/_authenticated/inbox/': typeof AuthenticatedInboxIndexRoute
   '/_authenticated/admin/sap-api/$id': typeof AuthenticatedAdminSapApiIdRoute
   '/api/public/hooks/sap-sync': typeof ApiPublicHooksSapSyncRoute
@@ -287,6 +287,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/email-config'
     | '/history'
     | '/notifications'
     | '/settings'
@@ -305,7 +306,6 @@ export interface FileRouteTypes {
     | '/sd/sales-order-reports'
     | '/sd/sc-so'
     | '/sd/sc-so-reports'
-    | '/settings/email-config'
     | '/inbox/'
     | '/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
@@ -316,6 +316,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/email-config'
     | '/history'
     | '/notifications'
     | '/settings'
@@ -334,7 +335,6 @@ export interface FileRouteTypes {
     | '/sd/sales-order-reports'
     | '/sd/sc-so'
     | '/sd/sc-so-reports'
-    | '/settings/email-config'
     | '/inbox'
     | '/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
@@ -346,6 +346,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/email-config'
     | '/_authenticated/history'
     | '/_authenticated/notifications'
     | '/_authenticated/settings'
@@ -364,7 +365,6 @@ export interface FileRouteTypes {
     | '/_authenticated/sd/sales-order-reports'
     | '/_authenticated/sd/sc-so'
     | '/_authenticated/sd/sc-so-reports'
-    | '/_authenticated/settings/email-config'
     | '/_authenticated/inbox/'
     | '/_authenticated/admin/sap-api/$id'
     | '/api/public/hooks/sap-sync'
@@ -426,19 +426,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHistoryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/email-config': {
+      id: '/_authenticated/email-config'
+      path: '/email-config'
+      fullPath: '/email-config'
+      preLoaderRoute: typeof AuthenticatedEmailConfigRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inbox/': {
       id: '/_authenticated/inbox/'
       path: '/inbox'
       fullPath: '/inbox/'
       preLoaderRoute: typeof AuthenticatedInboxIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/email-config': {
-      id: '/_authenticated/settings/email-config'
-      path: '/email-config'
-      fullPath: '/settings/email-config'
-      preLoaderRoute: typeof AuthenticatedSettingsEmailConfigRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/sd/sc-so-reports': {
       id: '/_authenticated/sd/sc-so-reports'
@@ -583,23 +583,11 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedSettingsRouteChildren {
-  AuthenticatedSettingsEmailConfigRoute: typeof AuthenticatedSettingsEmailConfigRoute
-}
-
-const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
-  AuthenticatedSettingsEmailConfigRoute: AuthenticatedSettingsEmailConfigRoute,
-}
-
-const AuthenticatedSettingsRouteWithChildren =
-  AuthenticatedSettingsRoute._addFileChildren(
-    AuthenticatedSettingsRouteChildren,
-  )
-
 interface AuthenticatedRouteChildren {
+  AuthenticatedEmailConfigRoute: typeof AuthenticatedEmailConfigRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedAdminIntegrationsRoute: typeof AuthenticatedAdminIntegrationsRoute
   AuthenticatedAdminStrategiesRoute: typeof AuthenticatedAdminStrategiesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -621,9 +609,10 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedEmailConfigRoute: AuthenticatedEmailConfigRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedAdminIntegrationsRoute: AuthenticatedAdminIntegrationsRoute,
   AuthenticatedAdminStrategiesRoute: AuthenticatedAdminStrategiesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
