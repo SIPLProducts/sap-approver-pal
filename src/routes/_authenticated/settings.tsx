@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Bell, BellOff, Mail, ChevronRight } from "lucide-react";
+import { Bell, BellOff } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({ component: SettingsPage });
 
@@ -73,25 +73,6 @@ function SettingsPage() {
           )}
         </div>
       </Card>
-
-      <Link to="/settings/email-config" className="block">
-        <Card className="p-6 hover:bg-muted/40 transition-colors">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="rounded-md bg-accent p-2 text-accent-foreground">
-                <Mail className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="font-semibold">Email Configuration</div>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Manage SMTP credentials for outbound notifications.
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-          </div>
-        </Card>
-      </Link>
 
       <Card className="p-6 space-y-4">
         {[
