@@ -190,27 +190,17 @@ function LoginPage() {
           {mode === "signin" && (
             <div className="mt-8 rounded-xl border bg-secondary/40 p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2.5">
-                Demo accounts <span className="font-normal normal-case tracking-normal">· password Demo@1234</span>
+                Demo account <span className="font-normal normal-case tracking-normal">· password Demo@1234</span>
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: "Admin", userId: "admin@demo.app" },
-                  { label: "HOD", userId: "hod@demo.app" },
-                  { label: "Finance", userId: "finance@demo.app" },
-                  { label: "Requester", userId: "requester@demo.app" },
-                ].map((a) => (
-                  <Button
-                    key={a.userId}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs font-medium"
-                    onClick={() => { setUserId(a.userId); setPassword("Demo@1234"); }}
-                  >
-                    {a.label}
-                  </Button>
-                ))}
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full h-9 text-xs font-medium"
+                onClick={() => { setUserId("admin@demo.app"); setPassword("Demo@1234"); }}
+              >
+                Admin
+              </Button>
             </div>
           )}
         </div>
