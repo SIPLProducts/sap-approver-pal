@@ -1017,18 +1017,6 @@ function CreateUserDialog({
             />
           </Field>
 
-          <Field label="Status" required>
-            <Select
-              value={form.status}
-              onValueChange={(v) => setForm({ ...form, status: v as CreationStatus })}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
 
           <Field label="Plant" required>
             <PlantMultiSelect
