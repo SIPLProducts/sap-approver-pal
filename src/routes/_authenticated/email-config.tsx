@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useIsBuiltInAdmin } from "@/hooks/use-is-builtin-admin";
 import { usePermissions } from "@/hooks/use-permissions";
 
 
@@ -29,10 +28,8 @@ export const Route = createFileRoute("/_authenticated/email-config")({
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function EmailConfigPage() {
-  const { loading: adminLoading, isAdmin: isBuiltinAdmin } = useIsBuiltInAdmin();
   const perms = usePermissions();
-  const isSapAdmin = (perms.activeRoleLabel ?? "").trim().toUpperCase() === "ADMIN";
-  const allowed = isBuiltinAdmin || isSapAdmin;
+  const allowed = perms.can("settings.email_config");
 
   const [enabled, setEnabled] = useState(true);
   const [host, setHost] = useState("smtp.gmail.com");
@@ -75,7 +72,7 @@ function EmailConfigPage() {
     toast.success(`Test email queued to ${testTo}`, { description: "UI-only preview — nothing was sent." });
   }
 
-  if (adminLoading || perms.loading) {
+  if (perms.loading) {
     return <div className="min-h-[40vh] grid place-items-center text-muted-foreground">Loading…</div>;
   }
   if (!allowed) {
