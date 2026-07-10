@@ -44,7 +44,6 @@ function AuthenticatedLayout() {
     try { window.localStorage.setItem("app.sidebarCollapsed", collapsed ? "1" : "0"); } catch {}
   }, [collapsed]);
   const perms = usePermissions();
-  const { isAdmin: isBuiltinAdmin } = useIsBuiltInAdmin();
   const ctx = useActiveContext();
 
   const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
