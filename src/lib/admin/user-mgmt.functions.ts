@@ -778,10 +778,11 @@ export const editUserViaSap = createServerFn({ method: "POST" })
         ROLE: String(role).trim().toUpperCase(),
       })),
     };
-    if (data.password) {
-      inner.PASSWORD = data.password;
-      inner.ZCONFPSWD = data.confirm_password || data.password;
-    }
+    // SAP Edit_User requires PASSWORD/ZCONFPSWD keys to always be present.
+    // When the operator did not opt in to change the password, forward the
+    // sentinel so SAP's required-field check passes without overwriting.
+    inner.PASSWORD = data.password || "********";
+    inner.ZCONFPSWD = data.confirm_password || data.password || "********";
     const payload = { EDIT: inner };
 
     const result = await invokeViaMiddleware(cfgId, payload);
