@@ -27,7 +27,9 @@ function LoginPage() {
   const [forgotBusy, setForgotBusy] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { if (data.session) nav({ to: "/inbox" }); });
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) nav({ to: "/inbox" });
+    });
   }, [nav]);
 
   async function submit(e: React.FormEvent) {
@@ -68,7 +70,8 @@ function LoginPage() {
         nav({ to: "/inbox" });
       } else {
         const { error } = await supabase.auth.signUp({
-          email: userId, password,
+          email: userId,
+          password,
           options: { emailRedirectTo: window.location.origin, data: { full_name: name } },
         });
         if (error) throw error;
@@ -81,7 +84,6 @@ function LoginPage() {
       setBusy(false);
     }
   }
-
 
   return (
     <div className="min-h-dvh grid lg:grid-cols-[1.15fr_1fr] bg-background">
@@ -117,8 +119,8 @@ function LoginPage() {
             <span className="text-white/55">confidence.</span>
           </h1>
           <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/70">
-            A secure, single sign-on gateway to review and approve your SAP
-            transactions — protected end-to-end and fully audit-ready.
+            A secure, single sign-on gateway to review and approve your SAP transactions — protected end-to-end and
+            fully audit-ready.
           </p>
 
           <ul className="mt-10 space-y-3 max-w-md text-sm text-white/75">
@@ -138,16 +140,19 @@ function LoginPage() {
         </div>
 
         <div className="relative flex items-center justify-between gap-4 text-[11px] text-white/55">
-          <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> SSO · MFA · SAP-certified</span>
+          <span className="inline-flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5" /> SSO · MFA · SAP-certified
+          </span>
           <p>© {new Date().getFullYear()} Re Sustainability Limited</p>
         </div>
       </div>
 
-
       {/* Sign-in column */}
       <div className="flex items-center justify-center p-6 sm:p-10 bg-background">
         <div className="w-full max-w-[420px]">
-          <div className="lg:hidden mb-8 flex justify-center"><BrandLogo className="h-9" /></div>
+          <div className="lg:hidden mb-8 flex justify-center">
+            <BrandLogo className="h-9" />
+          </div>
 
           <div className="mb-8">
             <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
@@ -156,41 +161,65 @@ function LoginPage() {
             <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
               {mode === "signin" ? "Sign in to your console" : "Create your account"}
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Use your Re Sustainability corporate credentials.
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">Use your Re Sustainability corporate credentials.</p>
           </div>
-
 
           <form onSubmit={submit} className="space-y-4">
             {mode === "signup" && (
               <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-xs font-medium">Full name</Label>
+                <Label htmlFor="name" className="text-xs font-medium">
+                  Full name
+                </Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="h-11" />
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="userId" className="text-xs font-medium">User ID</Label>
-              <Input id="userId" type="text" autoComplete="username" value={userId} onChange={(e) => setUserId(e.target.value)} required className="h-11" />
+              <Label htmlFor="userId" className="text-xs font-medium">
+                User ID
+              </Label>
+              <Input
+                id="userId"
+                type="text"
+                autoComplete="username"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                required
+                className="h-11"
+              />
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-xs font-medium">Password</Label>
+                <Label htmlFor="password" className="text-xs font-medium">
+                  Password
+                </Label>
                 {mode === "signin" && (
                   <button
                     type="button"
-                    onClick={() => { setForgotEmail(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId) ? userId : ""); setForgotOpen((v) => !v); }}
+                    onClick={() => {
+                      setForgotEmail(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId) ? userId : "");
+                      setForgotOpen((v) => !v);
+                    }}
                     className="text-[11px] text-muted-foreground hover:text-foreground"
                   >
                     Forgot?
                   </button>
                 )}
               </div>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="h-11" />
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                className="h-11"
+              />
             </div>
             {forgotOpen && mode === "signin" && (
               <div className="rounded-xl border bg-secondary/40 p-4 space-y-2">
-                <Label htmlFor="forgotEmail" className="text-xs font-medium">Reset password</Label>
+                <Label htmlFor="forgotEmail" className="text-xs font-medium">
+                  Reset password
+                </Label>
                 <div className="flex gap-2">
                   <Input
                     id="forgotEmail"
@@ -225,20 +254,28 @@ function LoginPage() {
                     {forgotBusy ? "Sending…" : "Send"}
                   </Button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">We'll trigger the SAP password reset for this email.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  We'll trigger the SAP password reset for this email.
+                </p>
               </div>
             )}
             <Button type="submit" disabled={busy} className="w-full h-11 font-medium group">
-              {busy ? "Please wait…" : <>{mode === "signin" ? "Sign in" : "Create account"} <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-0.5" /></>}
+              {busy ? (
+                "Please wait…"
+              ) : (
+                <>
+                  {mode === "signin" ? "Sign in" : "Create account"}{" "}
+                  <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
             </Button>
           </form>
-
 
           <button
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
             className="mt-5 w-full text-center text-sm text-muted-foreground hover:text-foreground"
           >
-            {mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in"}
+            /* {mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in"} */
           </button>
 
           {mode === "signin" && (
@@ -251,7 +288,10 @@ function LoginPage() {
                 variant="outline"
                 size="sm"
                 className="w-full h-9 text-xs font-medium"
-                onClick={() => { setUserId("admin@demo.app"); setPassword("Demo@1234"); }}
+                onClick={() => {
+                  setUserId("admin@demo.app");
+                  setPassword("Demo@1234");
+                }}
               >
                 Admin
               </Button>
