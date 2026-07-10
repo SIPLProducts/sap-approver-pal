@@ -927,8 +927,10 @@ function CreateUserDialog({
 
     setSubmitting(true);
     try {
-      const sendPwd = passwordUnchanged ? PASSWORD_SENTINEL : form.password;
-      const sendConfirm = passwordUnchanged ? PASSWORD_SENTINEL : form.confirm_password;
+      // Always send the actual password held in the form: the real existing
+      // password when Change Password is unchecked, or the freshly typed one.
+      const sendPwd = form.password;
+      const sendConfirm = form.confirm_password || form.password;
       const base = {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
