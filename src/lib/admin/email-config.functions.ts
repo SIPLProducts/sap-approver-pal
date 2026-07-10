@@ -6,6 +6,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertScreen } from "@/lib/admin/assert-screen";
 import { z } from "zod";
 
 const encryptionSchema = z.enum(["none", "ssl", "tls", "starttls"]);
@@ -22,15 +23,8 @@ const configSchema = z.object({
   app_password: z.string().max(500).optional(), // empty/undefined = keep existing
 });
 
-async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "Admin",
-  });
-  if (error || !data) {
-    throw new Error("Forbidden: admin role required");
-  }
-}
+const SCREEN_KEY = "settings.email_config";
+
 
 export type NoReplyEmailConfig = {
   enabled: boolean;
@@ -48,7 +42,7 @@ export type NoReplyEmailConfig = {
 export const getNoReplyEmailConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<NoReplyEmailConfig> => {
-    await assertAdmin(context);
+    await assertScreen(context.userId, SCREEN_KEY);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: cfg }, { data: sec }] = await Promise.all([
       supabaseAdmin.from("email_no_reply_config").select("*").eq("id", "default").maybeSingle(),
@@ -72,7 +66,7 @@ export const saveNoReplyEmailConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => configSchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertScreen(context.userId, SCREEN_KEY);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const fromEmail = data.from_email ? data.from_email : null;
 
@@ -110,7 +104,7 @@ export const sendNoReplyTestEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ to: z.string().trim().email().max(200) }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertScreen(context.userId, SCREEN_KEY);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: cfg }, { data: sec }] = await Promise.all([
       supabaseAdmin.from("email_no_reply_config").select("*").eq("id", "default").maybeSingle(),
