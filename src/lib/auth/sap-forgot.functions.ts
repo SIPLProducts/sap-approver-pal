@@ -401,14 +401,15 @@ export const sapForgot = createServerFn({ method: "POST" })
           : undefined,
       });
 
-      const { html, text } = buildCredentialsEmail({ zuser, zpassword, zstatus });
+      const { html, text } = buildCredentialsEmail({ zuser, zpassword });
       await transport.sendMail({
         from: noReply.from_name
           ? `${noReply.from_name} <${noReply.from_email}>`
           : noReply.from_email,
         to: zmail,
         cc: (noReply.cc_recipients ?? []) as string[],
-        subject: "Your Re Sustainability Approvals credentials",
+        subject: "Account Recovery Successful: RESL APPROVALS Login Information",
+
         html,
         text,
       });
