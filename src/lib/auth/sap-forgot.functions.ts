@@ -368,12 +368,24 @@ export const sapForgot = createServerFn({ method: "POST" })
       return { ok: false, status, error };
     }
 
-    // Extract credential fields from response
-    const zmailFromSap = findFieldValue(responseBody, ["ZMAIL", "ZEMAIL", "MAIL", "EMAIL"]);
+    // Extract credential fields from response. Middleware wraps SAP output as
+    // { ok, status, latency_ms, data: <SAP body> }, and SAP returns a bare
+    // array like [{ ZUSER, ZPASSWORD, ZSTATUS }]. Search the unwrapped inner
+    // payload first, then fall back to the full envelope for direct-SAP calls.
+    const envelope = asRecord(responseBody);
+    const inner = envelope && "data" in envelope ? envelope.data : responseBody;
+    const pickField = (keys: string[]) =>
+      findFieldValue(inner, keys) || findFieldValue(responseBody, keys);
+    const zmailFromSap = pickField(["ZMAIL", "ZEMAIL", "MAIL", "EMAIL"]);
     const zmail = zmailFromSap || data.email;
-    const zuser = findFieldValue(responseBody, ["ZUSER", "USER", "USERNAME", "USERID"]);
-    const zpassword = findFieldValue(responseBody, ["ZPASSWORD", "PASSWORD", "PWD", "ZPWD"]);
-    const zstatus = findFieldValue(responseBody, ["ZSTATUS", "STATUS"]);
+    const zuser = pickField(["ZUSER", "USER", "USERNAME", "USERID"]);
+    const zpassword = pickField(["ZPASSWORD", "PASSWORD", "PWD", "ZPWD"]);
+    const zstatus = pickField(["ZSTATUS", "STATUS"]);
+    console.log(
+      `[sap-forgot] extracted zuser=${zuser || "<empty>"} zpassword.len=${zpassword.length}` +
+        (zpassword ? ` first=${zpassword[0]} last=${zpassword[zpassword.length - 1]}` : "") +
+        ` zstatus=${zstatus || "<empty>"}`,
+    );
 
     const sapOk = httpOk && !sapRejected(responseBody) && (sapSucceeded(responseBody) || Boolean(zuser && zpassword));
 
