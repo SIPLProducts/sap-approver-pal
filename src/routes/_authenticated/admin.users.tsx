@@ -967,7 +967,7 @@ function CreateUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-w-md p-0 gap-0 max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl p-0 gap-0 max-h-[90vh] flex flex-col">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="text-base font-semibold">{editUser ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
