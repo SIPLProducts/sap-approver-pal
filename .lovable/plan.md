@@ -1,29 +1,18 @@
-## Email template: use the real `re` logo + stop Gmail from masking the password
+## Plan
 
-Two changes in `src/lib/auth/sap-forgot.functions.ts` (plus one new asset).
+1. **Change the HTML password rendering**
+   - Update the account recovery email template in `src/lib/auth/sap-forgot.functions.ts` so the temporary password is rendered as plain visible text from the SAP response.
+   - Avoid markup patterns that email clients commonly auto-mask, such as a contiguous value directly inside a field labeled like a password.
 
-### 1. Replace the top-left logo
+2. **Use a safer visible-text layout**
+   - Keep the visible label as `Temporary Password`.
+   - Render the actual SAP value with harmless HTML separation that preserves the exact visual text for the user, while avoiding automatic masking by Gmail/Outlook-style heuristics.
+   - Add email-safe attributes/styles such as `translate="no"`, `dir="ltr"`, and selectable text styling.
 
-Currently the header renders a CSS-drawn red circle with the text "re". Replace it with the uploaded official `re` mark.
+3. **Keep non-template logic unchanged**
+   - Do not change SAP API calls, response extraction, SMTP sending, CC handling, logging, subject, or the logo.
+   - Keep the plain-text email body showing the raw SAP password value exactly.
 
-- Upload `user-uploads://image-71.png` to Lovable Assets as `src/assets/re-logo.png.asset.json` (CDN URL is required — email clients cannot load `/src/...` paths).
-- Import the asset JSON at the top of `sap-forgot.functions.ts`.
-- In `buildCredentialsEmail`, swap the `<div>re</div>` block for `<img src="{asset.url}" width="44" height="44" alt="Re Sustainability" style="display:block;border:0;">`.
-- Keep the wordmark "Re Sustainability" and the yellow-underlined "RESL Approvals" tagline next to it.
-
-### 2. Show the actual password, no asterisks
-
-The value is already interpolated raw — the masking comes from Gmail/Outlook heuristics that detect a short token next to a "Password" label. Defeat the heuristic without changing the visible password:
-
-- Render the password inside a `<span>` split into per-character `<span>`s (`P` `a` `s` `s` …). Clients that scan for a contiguous secret-looking token no longer see one; the user sees the exact string.
-- Wrap that span in a table cell explicitly marked `translate="no"` and `dir="ltr"`, with `user-select:all` and no monospace/box styling.
-- Keep the label as "Temporary Password" (already renamed) so it doesn't match `type="password"` heuristics keyed on the exact word "Password:".
-- Plain-text variant: unchanged, already shows the raw value.
-
-No other logic changes — extraction, SMTP, subject, CC, logging all untouched.
-
-### Verify
-
-Trigger Forgot Password on `/login` with a real SAP account and confirm the received email shows:
-- the red `re` logo image in the header (not a CSS circle),
-- "Temporary Password" row rendering the exact API value (e.g. `12345678`) in plain text, no asterisks, in both Gmail web and Outlook.
+4. **Verify**
+   - Confirm the template source no longer includes any hardcoded asterisks for the temporary password row.
+   - Confirm the rendered HTML interpolates the SAP `zpassword` value rather than any masked placeholder.
