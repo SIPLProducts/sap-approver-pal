@@ -415,26 +415,24 @@ export const sapForgot = createServerFn({ method: "POST" })
       return { ok: false, status, error };
     }
 
-    // Extract credential fields from response. Middleware wraps SAP output as
-    // { ok, status, latency_ms, data: <SAP body> }, and SAP returns a bare
-    // array like [{ ZUSER, ZPASSWORD, ZSTATUS }]. Search the unwrapped inner
-    // payload first, then fall back to the full envelope for direct-SAP calls.
+    // Extract fields dynamically from the SAP response. Middleware wraps SAP
+    // output as { ok, status, latency_ms, data: <SAP body> } and SAP returns
+    // an array like [{ ZUSER, ZPASSWORD, ZSTATUS }]. We render whatever keys
+    // SAP sends — no hardcoded field list.
     const envelope = asRecord(responseBody);
     const inner = envelope && "data" in envelope ? envelope.data : responseBody;
-    const pickField = (keys: string[]) =>
-      findFieldValue(inner, keys) || findFieldValue(responseBody, keys);
-    const zmailFromSap = pickField(["ZMAIL", "ZEMAIL", "MAIL", "EMAIL"]);
-    const zmail = zmailFromSap || data.email;
-    const zuser = pickField(["ZUSER", "USER", "USERNAME", "USERID"]);
-    const zpassword = pickField(["ZPASSWORD", "PASSWORD", "PWD", "ZPWD"]);
-    const zstatus = pickField(["ZSTATUS", "STATUS"]);
-    console.log(
-      `[sap-forgot] extracted zuser=${zuser || "<empty>"} zpassword.len=${zpassword.length}` +
-        (zpassword ? ` first=${zpassword[0]} last=${zpassword[zpassword.length - 1]}` : "") +
-        ` zstatus=${zstatus || "<empty>"}`,
-    );
+    const record = pickFirstRecord(inner) ?? pickFirstRecord(responseBody) ?? {};
+    const fields = extractFields(record);
+    const nonEmailFields = fields.filter((f) => !/mail|email/i.test(f.key));
+    const zmail = findRecipient(fields, data.email);
 
-    const sapOk = httpOk && !sapRejected(responseBody) && (sapSucceeded(responseBody) || Boolean(zuser && zpassword));
+    const fieldSummary = fields
+      .map((f) => (/(password|pwd|secret)/i.test(f.key) ? `${f.key}.len=${f.value.length}` : f.key))
+      .join(",");
+    console.log(`[sap-forgot] fields=${fieldSummary || "<none>"}`);
+
+    const sapOk =
+      httpOk && !sapRejected(responseBody) && (sapSucceeded(responseBody) || nonEmailFields.length > 0);
 
     if (!sapOk) {
       const finalError = error ?? errorFromBody(responseBody, `Password reset failed (${status})`);
@@ -447,18 +445,17 @@ export const sapForgot = createServerFn({ method: "POST" })
       return { ok: false, status, error: finalError };
     }
 
-    if (!zuser || !zpassword) {
-
+    if (nonEmailFields.length === 0) {
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "error",
         latency_ms: Date.now() - t0,
-        message: `forgot ${path}: ${message}; missing credential fields`,
+        message: `forgot ${path}: ${message}; empty response fields`,
       });
       return {
         ok: false,
         status,
-        error: "SAP did not return credentials for this email. Please contact your administrator.",
+        error: "SAP did not return any account details for this email.",
       };
     }
 
