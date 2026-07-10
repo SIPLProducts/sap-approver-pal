@@ -1,9 +1,9 @@
 /**
  * Public server function invoked from the login form "Forgot Password" flow.
  * Calls the SAP API named "Forgot_API" (configured in SAP API Settings) with
- * payload { FORGOT: { EMAIL } }, extracts ZMAIL/ZUSER/ZPASSWORD/ZSTATUS from
- * the response, then emails the credentials to ZMAIL using the No-Reply SMTP
- * configuration saved in the Email Configuration screen.
+ * payload { zmail }, extracts fields like ZUSER/ZPASSWORD/ZSTATUS from the
+ * response, then emails the credentials to the entered email address using the
+ * No-Reply SMTP configuration and configured CC recipients.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -466,23 +466,72 @@ export const sapForgot = createServerFn({ method: "POST" })
           : undefined,
       });
 
+      const ccRecipients = ((noReply.cc_recipients ?? []) as string[]).filter(Boolean);
+      const recipientFromInfo = (value: unknown): string => {
+        if (typeof value === "string") return value;
+        const record = asRecord(value);
+        if (typeof record?.address === "string") return record.address;
+        return value == null ? "" : String(value);
+      };
       const { html, text } = buildCredentialsEmail({ fields, recipient: recipientEmail });
-      await transport.sendMail({
+      const info = await transport.sendMail({
         from: noReply.from_name
           ? `${noReply.from_name} <${noReply.from_email}>`
           : noReply.from_email,
         to: recipientEmail,
+        cc: ccRecipients,
         subject: "Account Recovery Successful: RESL APPROVALS Login Information",
 
         html,
         text,
       });
 
+      const mailInfo = info as {
+        messageId?: string;
+        accepted?: unknown[];
+        rejected?: unknown[];
+        pending?: unknown[];
+      };
+      const accepted = Array.isArray(mailInfo.accepted)
+        ? mailInfo.accepted.map(recipientFromInfo).filter(Boolean)
+        : [];
+      const rejected = Array.isArray(mailInfo.rejected)
+        ? mailInfo.rejected.map(recipientFromInfo).filter(Boolean)
+        : [];
+      const pending = Array.isArray(mailInfo.pending)
+        ? mailInfo.pending.map(recipientFromInfo).filter(Boolean)
+        : [];
+      const recipientWasRejected = rejected.some(
+        (email) => email.toLowerCase() === recipientEmail.toLowerCase(),
+      );
+      const deliverySummary = [
+        `mail sent to ${maskEmail(recipientEmail)}`,
+        ccRecipients.length ? `cc ${ccRecipients.map(maskEmail).join(",")}` : "cc none",
+        mailInfo.messageId ? `messageId ${mailInfo.messageId}` : "messageId unavailable",
+        accepted.length ? `accepted ${accepted.map(maskEmail).join(",")}` : "accepted unavailable",
+        rejected.length ? `rejected ${rejected.map(maskEmail).join(",")}` : "rejected none",
+        pending.length ? `pending ${pending.map(maskEmail).join(",")}` : "pending none",
+      ].join("; ");
+
+      if (recipientWasRejected) {
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          latency_ms: Date.now() - t0,
+          message: `forgot ${path}: ${message}; ${deliverySummary}`,
+        });
+        return {
+          ok: false,
+          status,
+          error: "SMTP rejected the entered recipient email address. Please verify the email address and No-Reply SMTP configuration.",
+        };
+      }
+
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "ok",
         latency_ms: Date.now() - t0,
-        message: `forgot ${path}: ${message}; mail sent to ${maskEmail(recipientEmail)}`,
+        message: `forgot ${path}: ${message}; ${deliverySummary}`,
       });
       return { ok: true, status };
     } catch (mailErr) {
