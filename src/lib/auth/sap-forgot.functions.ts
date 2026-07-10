@@ -123,17 +123,81 @@ function escapeHtml(input: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildCredentialsEmail(fields: {
-  zuser: string;
-  zpassword: string;
-}): { html: string; text: string } {
-  const user = escapeHtml(fields.zuser);
-  // Keep the SAP value visible while avoiding email-client heuristics that
-  // mask values placed in a password-like table field.
-  const pwd = Array.from(fields.zpassword)
+type EmailField = { key: string; label: string; value: string };
+
+function prettifyLabel(key: string): string {
+  const stripped = key.replace(/^z_?/i, "");
+  return stripped
+    .replace(/[_\-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function pickFirstRecord(value: unknown, depth = 0): Record<string, unknown> | null {
+  if (depth > 6 || value == null) return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const rec = pickFirstRecord(item, depth + 1);
+      if (rec) return rec;
+    }
+    return null;
+  }
+  return asRecord(value);
+}
+
+function extractFields(record: Record<string, unknown>): EmailField[] {
+  const out: EmailField[] = [];
+  for (const [key, raw] of Object.entries(record)) {
+    if (raw == null) continue;
+    if (typeof raw === "object") continue;
+    const value = stringValue(raw).trim();
+    if (!value) continue;
+    out.push({ key, label: prettifyLabel(key), value });
+  }
+  return out;
+}
+
+function isEmailLike(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function findRecipient(fields: EmailField[], fallback: string): string {
+  const match = fields.find((f) => /mail|email/i.test(f.key) && isEmailLike(f.value));
+  return match?.value ?? fallback;
+}
+
+function renderValueSpans(value: string): string {
+  return Array.from(value)
     .map(
       (ch, index) =>
         `<span style="display:inline-block;min-width:0;" data-pos="${index}">${escapeHtml(ch)}</span>`,
+    )
+    .join("");
+}
+
+function buildCredentialsEmail(args: {
+  fields: EmailField[];
+  recipient: string;
+}): { html: string; text: string } {
+  const { fields, recipient } = args;
+  const headline = fields[0]?.value || recipient;
+  const headlineHtml = escapeHtml(headline);
+
+  const rowsHtml = fields
+    .map(
+      (f) => `
+                  <tr>
+                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:150px;vertical-align:top;">${escapeHtml(f.label)}</td>
+                    <td style="padding:10px 0;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td translate="no" dir="ltr" aria-label="${escapeHtml(f.label)}" style="font-size:14px;color:#111827;font-weight:600;letter-spacing:0;line-height:1.5;mso-line-height-rule:exactly;user-select:all;-webkit-user-select:all;white-space:nowrap;">${renderValueSpans(f.value)}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>`,
     )
     .join("");
 
@@ -167,29 +231,13 @@ function buildCredentialsEmail(fields: {
             <tr>
               <td style="padding:20px 32px 0 32px;">
                 <div style="background:#f3f4f6;border-radius:10px;padding:16px 18px;">
-                  <div style="font-size:16px;font-weight:700;color:#111827;">${user}</div>
-                  <div style="margin-top:4px;font-size:12px;color:#6b7280;"><span style="font-weight:600;color:#374151;">ID:</span> ${user}</div>
+                  <div style="font-size:16px;font-weight:700;color:#111827;">${headlineHtml}</div>
                 </div>
               </td>
             </tr>
             <tr>
               <td style="padding:20px 32px 8px 32px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:110px;">User ID</td>
-                    <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${user}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:150px;">Temporary Password</td>
-                    <td style="padding:10px 0;">
-                      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-                        <tr>
-                          <td translate="no" dir="ltr" aria-label="Temporary Password" style="font-size:14px;color:#111827;font-weight:600;letter-spacing:0;line-height:1.5;mso-line-height-rule:exactly;user-select:all;-webkit-user-select:all;white-space:nowrap;">${pwd}</td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowsHtml}
                 </table>
               </td>
             </tr>
@@ -210,10 +258,9 @@ function buildCredentialsEmail(fields: {
   </body>
 </html>`;
 
+  const labelWidth = Math.max(0, ...fields.map((f) => f.label.length));
   const text = [
-    `User ID:            ${fields.zuser}`,
-    `Temporary Password: ${fields.zpassword}`,
-
+    ...fields.map((f) => `${f.label.padEnd(labelWidth)} : ${f.value}`),
     "",
     "Please sign in and change your password immediately after login.",
     "",
