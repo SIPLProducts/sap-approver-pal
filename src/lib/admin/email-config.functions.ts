@@ -42,7 +42,7 @@ export type NoReplyEmailConfig = {
 export const getNoReplyEmailConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<NoReplyEmailConfig> => {
-    await assertAdmin(context);
+    await assertScreen(context.userId, SCREEN_KEY);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: cfg }, { data: sec }] = await Promise.all([
       supabaseAdmin.from("email_no_reply_config").select("*").eq("id", "default").maybeSingle(),
@@ -66,7 +66,7 @@ export const saveNoReplyEmailConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => configSchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertScreen(context.userId, SCREEN_KEY);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const fromEmail = data.from_email ? data.from_email : null;
 
@@ -104,7 +104,7 @@ export const sendNoReplyTestEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ to: z.string().trim().email().max(200) }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertScreen(context.userId, SCREEN_KEY);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: cfg }, { data: sec }] = await Promise.all([
       supabaseAdmin.from("email_no_reply_config").select("*").eq("id", "default").maybeSingle(),
