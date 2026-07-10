@@ -840,7 +840,10 @@ function CreateUserDialog({
   // Drop selected roles that are no longer available.
   useEffect(() => {
     const valid = new Set(roleOptions.map((o) => o.value));
-    setRoles((prev) => prev.filter((r) => valid.has(r)));
+    setRoles((prev) => {
+      const filtered = prev.filter((r) => valid.has(r));
+      return filtered.length === prev.length ? prev : filtered;
+    });
   }, [roleOptions]);
 
   // Surface role-fetch errors so failures aren't silent.
@@ -1017,18 +1020,6 @@ function CreateUserDialog({
             />
           </Field>
 
-          <Field label="Status" required>
-            <Select
-              value={form.status}
-              onValueChange={(v) => setForm({ ...form, status: v as CreationStatus })}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
 
           <Field label="Plant" required>
             <PlantMultiSelect
@@ -1061,33 +1052,6 @@ function CreateUserDialog({
             )}
           </Field>
 
-          {editUser && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">&nbsp;</Label>
-              <div className="flex items-center gap-2 h-9">
-                <Checkbox
-                  id="change-password"
-                  checked={changePassword}
-                  onCheckedChange={(checked) => {
-                    const enabled = checked === true;
-                    setChangePassword(enabled);
-                    if (enabled) {
-                      setForm((f) => ({ ...f, password: "", confirm_password: "" }));
-                    } else {
-                      // Restore the real existing password loaded from SAP
-                      const existingPwd = String(editUser?.password ?? "");
-                      const existingConfirm = String(editUser?.confirm_password ?? existingPwd);
-                      setForm((f) => ({ ...f, password: existingPwd, confirm_password: existingConfirm }));
-                      setShowPw(false);
-                    }
-                  }}
-                />
-                <Label htmlFor="change-password" className="text-sm font-normal cursor-pointer">
-                  Change Password
-                </Label>
-              </div>
-            </div>
-          )}
 
           <Field label="Password" required={!editUser || changePassword}>
             <div className="relative">
@@ -1129,6 +1093,47 @@ function CreateUserDialog({
                 {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+          </Field>
+
+          {editUser && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">&nbsp;</Label>
+              <div className="flex items-center gap-2 h-9">
+                <Checkbox
+                  id="change-password"
+                  checked={changePassword}
+                  onCheckedChange={(checked) => {
+                    const enabled = checked === true;
+                    setChangePassword(enabled);
+                    if (enabled) {
+                      setForm((f) => ({ ...f, password: "", confirm_password: "" }));
+                    } else {
+                      // Restore the real existing password loaded from SAP
+                      const existingPwd = String(editUser?.password ?? "");
+                      const existingConfirm = String(editUser?.confirm_password ?? existingPwd);
+                      setForm((f) => ({ ...f, password: existingPwd, confirm_password: existingConfirm }));
+                      setShowPw(false);
+                    }
+                  }}
+                />
+                <Label htmlFor="change-password" className="text-sm font-normal cursor-pointer">
+                  Change Password
+                </Label>
+              </div>
+            </div>
+          )}
+
+          <Field label="Status" required>
+            <Select
+              value={form.status}
+              onValueChange={(v) => setForm({ ...form, status: v as CreationStatus })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
 
