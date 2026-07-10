@@ -72,7 +72,7 @@ function EmailConfigPage() {
     toast.success(`Test email queued to ${testTo}`, { description: "UI-only preview — nothing was sent." });
   }
 
-  if (adminLoading || perms.loading) {
+  if (perms.loading) {
     return <div className="min-h-[40vh] grid place-items-center text-muted-foreground">Loading…</div>;
   }
   if (!allowed) {
