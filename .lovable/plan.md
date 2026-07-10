@@ -1,31 +1,33 @@
-## Treat Email Configuration like every other permissioned screen
+Update the user create/edit dialog in **src/routes/_authenticated/admin.users.tsx** so the password fields are disabled in edit mode unless the operator explicitly opts in to change them.
 
-### Goal
+## Changes
 
-Drop the special-case admin gate on Email Configuration. Access is governed purely by the `settings.email_config` screen permission (the SAP `SETTINGS.EMAIL_CONFIG` activity), exactly like `admin.users`, `sap.api_settings`, etc.
+1. **Add a `changePassword` state flag** in `CreateUserDialog`.
+   - Default to `false`.
+   - Reset to `false` whenever the dialog opens/closes or switches between add and edit.
 
-Whoever gets the screen assigned via Roles → Screen Permissions can open it. Whoever doesn't, can't. No hard-coded "Admin only" branch anywhere.
+2. **In edit mode, keep the password and confirm-password fields disabled by default.**
+   - Set `disabled={editUser && !changePassword}` on both inputs.
+   - Change the placeholder to indicate the field is locked (e.g. "******** — check Change Password to edit").
+   - Show the password field `required` marker only when the field is actually editable (add mode or edit mode with change password checked).
 
-### Changes
+3. **Add a "Change Password" checkbox at the bottom of the dialog body**, just above the footer.
+   - Only visible when `editUser` is present.
+   - Label: "Change Password".
+   - When checked, enable the password fields and clear the sentinel values so the user can type a new password.
+   - When unchecked, disable the fields again and reset password/confirm values back to `PASSWORD_SENTINEL`.
 
-1. **`src/routes/_authenticated.tsx`**
-   - Remove the second, `adminOnly` Email Configuration entry in `manage_items` (the duplicate at line 164).
-   - Simplify the `manage_items.filter(...)` back to the standard `it.screen === null || can(it.screen)` — drop the `adminOnly` / `isBuiltinAdmin || isSapAdmin` branch.
-   - Remove the now-unused `useIsBuiltInAdmin` import + call and the `isSapAdmin` local if nothing else uses them.
+4. **Update validation logic.**
+   - When creating a new user, password fields remain required as today.
+   - When editing and "Change Password" is unchecked, skip password length/match validation and send empty strings to the server (preserving the existing password).
+   - When editing and "Change Password" is checked, enforce the same 8-character minimum and confirm-password match rules.
 
-2. **`src/routes/_authenticated/email-config.tsx`**
-   - Replace the `useIsBuiltInAdmin` + `isSapAdmin` gate with the same pattern other permissioned screens use: check `perms.can("settings.email_config")`.
-   - Loading state waits on `perms.loading` only.
-   - If not permitted, keep the existing "Not authorized" alert.
-   - Remove `useIsBuiltInAdmin` import.
+## Not changing
 
-### Not changing
+- Server functions, DB, or other screens.
+- The add-new-user flow (password fields stay editable by default).
+- Existing `PASSWORD_SENTINEL` handling — it is still used to detect an unchanged password.
 
-- `screen-keys.ts` — `settings.email_config` / `SETTINGS.EMAIL_CONFIG` stays as-is (already in Roles → Screen Permissions from the earlier change).
-- Server-side assertions, DB, migrations.
-- Page UI/copy/design.
-- Any other screen's gating logic.
+## Result
 
-### Result
-
-Admins retain access only if their role has the Email Configuration screen assigned (as with any other screen). To grant a non-admin, an admin simply ticks Email Configuration in Roles → Screen Permissions for that role — no code change needed.
+Editing an existing user will no longer expose editable password fields by default. Operators must check "Change Password" to unlock them, reducing accidental password resets.
