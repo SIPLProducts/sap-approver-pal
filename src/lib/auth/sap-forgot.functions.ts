@@ -177,8 +177,8 @@ function buildCredentialsEmail(fields: {
                     <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${user}</td>
                   </tr>
                   <tr>
-                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:110px;">Temporary Password</td>
-                    <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${pwd}</td>
+                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:150px;">Temporary Password</td>
+                    <td translate="no" dir="ltr" style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;letter-spacing:0.5px;">${pwd}</td>
                   </tr>
 
                 </table>
