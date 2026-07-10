@@ -159,15 +159,6 @@ function extractFields(record: Record<string, unknown>): EmailField[] {
   return out;
 }
 
-function isEmailLike(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function findRecipient(fields: EmailField[], fallback: string): string {
-  const match = fields.find((f) => /mail|email/i.test(f.key) && isEmailLike(f.value));
-  return match?.value ?? fallback;
-}
-
 function renderValueSpans(value: string): string {
   return Array.from(value)
     .map(
@@ -424,7 +415,9 @@ export const sapForgot = createServerFn({ method: "POST" })
     const record = pickFirstRecord(inner) ?? pickFirstRecord(responseBody) ?? {};
     const fields = extractFields(record);
     const nonEmailFields = fields.filter((f) => !/mail|email/i.test(f.key));
-    const zmail = findRecipient(fields, data.email);
+    // Always send recovery credentials to the email address typed by the user.
+    // SAP response fields are intentionally not used for recipient routing.
+    const recipientEmail = data.email;
 
     const fieldSummary = fields
       .map((f) => (/(password|pwd|secret)/i.test(f.key) ? `${f.key}.len=${f.value.length}` : f.key))
@@ -473,13 +466,12 @@ export const sapForgot = createServerFn({ method: "POST" })
           : undefined,
       });
 
-      const { html, text } = buildCredentialsEmail({ fields, recipient: zmail });
+      const { html, text } = buildCredentialsEmail({ fields, recipient: recipientEmail });
       await transport.sendMail({
         from: noReply.from_name
           ? `${noReply.from_name} <${noReply.from_email}>`
           : noReply.from_email,
-        to: zmail,
-        cc: (noReply.cc_recipients ?? []) as string[],
+        to: recipientEmail,
         subject: "Account Recovery Successful: RESL APPROVALS Login Information",
 
         html,
@@ -490,7 +482,7 @@ export const sapForgot = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "ok",
         latency_ms: Date.now() - t0,
-        message: `forgot ${path}: ${message}; mail sent to ${maskEmail(zmail)}`,
+        message: `forgot ${path}: ${message}; mail sent to ${maskEmail(recipientEmail)}`,
       });
       return { ok: true, status };
     } catch (mailErr) {
