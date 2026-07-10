@@ -1118,6 +1118,19 @@ function CreateUserDialog({
               </button>
             </div>
           </Field>
+
+          <Field label="Status" required>
+            <Select
+              value={form.status}
+              onValueChange={(v) => setForm({ ...form, status: v as CreationStatus })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
         </div>
 
         <DialogFooter className="px-6 py-4 border-t bg-background gap-2 sm:gap-2">
