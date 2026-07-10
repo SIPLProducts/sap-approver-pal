@@ -619,6 +619,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       const email = String(pickField(r, "ZEMAIL") ?? pickField(r, "EMAIL") ?? pickField(r, "SMTP_ADDR") ?? "").trim();
       const contact = String(pickField(r, "ZCONTACT") ?? pickField(r, "CONTACT") ?? pickField(r, "MOBILE") ?? pickField(r, "TEL_NUMBER") ?? "").trim();
       const status = normStatus(String(pickField(r, "ZSTATUS") ?? pickField(r, "STATUS") ?? ""));
+      const password = String(pickField(r, "ZPASSWORD") ?? pickField(r, "PASSWORD") ?? "").trim();
+      const confirmPassword = String(pickField(r, "ZCONFPSWD") ?? pickField(r, "CONFPSWD") ?? pickField(r, "CONFIRM_PASSWORD") ?? "").trim();
 
       // Single-row plant/role (Z-prefixed flat shape)
       const singlePlant = String(pickField(r, "ZWERKS") ?? "").trim();
