@@ -473,7 +473,7 @@ export const sapForgot = createServerFn({ method: "POST" })
           : undefined,
       });
 
-      const { html, text } = buildCredentialsEmail({ zuser, zpassword });
+      const { html, text } = buildCredentialsEmail({ fields, recipient: zmail });
       await transport.sendMail({
         from: noReply.from_name
           ? `${noReply.from_name} <${noReply.from_email}>`
