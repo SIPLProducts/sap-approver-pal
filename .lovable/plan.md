@@ -1,30 +1,43 @@
-Fix two UX issues in the Edit User dialog (`src/routes/_authenticated/admin.users.tsx`) and its SAP call (`src/lib/admin/user-mgmt.functions.ts`).
 
-## 1. Remove the "Missing required field(s): EDIT.PASSWORD, EDIT.ZCONFPSWD" error toast
+## 1. UI — `src/routes/_authenticated/email-config.tsx`
+- Delete the `Tabs` wrapper and the disabled `User SMTP Configuration` trigger. Render the No-Reply panel directly.
+- Update page subtitle/description to drop the "user SMTP" wording.
+- Wire the form to a server function:
+  - On mount, load persisted config and hydrate all fields (host, port, encryption, username, from email, from name, cc list, enabled toggle). App password field stays empty when a value already exists (kept as "leave empty to keep existing").
+  - `Save Configuration` calls `saveNoReplyEmailConfig` server fn (upsert; leaves password unchanged when the field is empty).
+  - `Send Test Email` calls `sendNoReplyTestEmail` server fn using saved config.
 
-Root cause: the SAP `Edit_User` endpoint requires `PASSWORD` and `ZCONFPSWD` keys to be present in the `EDIT` payload. Today, when the operator saves without ticking "Change Password", the server sends an empty string and then omits the keys entirely (`if (data.password) { ... }`), so SAP rejects the request.
+## 2. Storage (new migration)
+- `public.email_no_reply_config` (single row, id text pk default `'default'`):
+  - `enabled bool not null default true`
+  - `host text`, `port int`, `encryption text` (`none|ssl|tls|starttls`)
+  - `username text`, `from_email text`, `from_name text`
+  - `cc_recipients text[] not null default '{}'`
+  - `updated_at timestamptz`, `updated_by uuid`
+- `public.email_no_reply_secrets` (id text pk `'default'`, `app_password text`). No RLS grants to `authenticated`/`anon`; accessed only via service-role server code.
+- `email_no_reply_config` grants: `SELECT/INSERT/UPDATE` to `authenticated` guarded by RLS requiring `has_role(auth.uid(),'Admin')`; `ALL` to `service_role`. Never expose `app_password` to the client.
+- Trigger `touch_updated_at` on config table.
 
-Fix (server, `sapEditUser` handler around lines 781–784):
-- Always include `PASSWORD` and `ZCONFPSWD` in `inner`.
-- When the operator did not change the password, send the sentinel string `"********"` for both fields (same sentinel already used in the UI to represent "unchanged"). This satisfies SAP's required-field check without exposing or overwriting the actual password — SAP's Edit_User config already treats the sentinel as "no change" (that's why it's the existing convention in this project).
-- Keep the audit-log masking (`PASSWORD: "***"`) so nothing sensitive is logged.
+## 3. Server functions — `src/lib/admin/email-config.functions.ts` (new)
+- `getNoReplyEmailConfig` (auth, admin only) → returns config row + `hasPassword: boolean` (never the password itself).
+- `saveNoReplyEmailConfig` (auth, admin only) → upserts config; if payload includes non-empty `app_password`, upsert into secrets table; otherwise leave existing password intact.
+- `sendNoReplyTestEmail` (auth, admin only) → sends a simple test email via SMTP using saved config.
 
-Fix (client, `submit` around lines 926–936):
-- When `passwordUnchanged` is true, send `PASSWORD_SENTINEL` for `password` and `confirm_password` instead of empty strings, so the server always has a value to forward.
+## 4. Forgot Password wiring — `src/lib/auth/sap-forgot.functions.ts`
+- Before building the SAP payload, load the No-Reply config (`from_email`, `from_name`, `enabled`).
+- If enabled and `from_email` present, include the sender in the SAP payload as
+  `FORGOT: { EMAIL, FROM_EMAIL, FROM_NAME }` so SAP uses it as the "from" when it dispatches the reset mail. If disabled or no from configured, return an error `"No-Reply sender is not configured"` and skip the SAP call.
+- No SMTP send from the app for Forgot (per user: "just trigger the mail, from mail is in the email configuration").
+- Sync-log message updated to include which sender was used.
 
-Result: saving an edit without changing the password no longer triggers the SAP "Missing required field(s)" toast.
+## 5. SMTP dependency
+- Add `nodemailer` (and `@types/nodemailer`) for the `sendNoReplyTestEmail` path only. Import inside the handler to keep it out of client bundles.
 
-## 2. Make the eye icon toggle both password fields
+## Non-technical summary
+- The Email Configuration screen shows only the No-Reply tab now.
+- No-Reply settings (SMTP host/port/user/password/from/CC) are saved to the database. The password is stored securely and never sent back to the browser; leaving it empty on save keeps the existing one.
+- A "Send Test Email" button verifies the settings actually work.
+- The Forgot Password link on the login screen tells SAP to send the reset email using the From address configured here.
 
-Currently only the Password field has a show/hide button; the Confirm Password field is always `type="password"` with no toggle, and the existing toggle sits inside a `relative` wrapper that works but does not visually align with the disabled state.
-
-Fix (client, `Field label="Password"` and `Field label="Confirm Password"` around lines 1047–1076):
-- Extract a small reusable pattern (or duplicate inline) so Confirm Password gets the same `Eye`/`EyeOff` toggle button as Password.
-- Bind both fields' `type` to the same `showPw` state so a single click reveals/hides both values consistently.
-- Ensure the toggle button remains clickable even when the input is disabled (button stays enabled; only the `<Input>` is disabled). Keep `aria-label` switching between "Show password" / "Hide password".
-
-## Not changing
-
-- Change Password checkbox behavior, validation rules, or the add-new-user flow.
-- Any other screens, DB tables, or RLS.
-- The `PASSWORD_SENTINEL` value itself.
+## Out of scope
+- No changes to login UI, permissions model, SAP API Settings, or other screens.

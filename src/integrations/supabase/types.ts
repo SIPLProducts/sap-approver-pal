@@ -413,6 +413,66 @@ export type Database = {
           },
         ]
       }
+      email_no_reply_config: {
+        Row: {
+          cc_recipients: string[]
+          enabled: boolean
+          encryption: string
+          from_email: string | null
+          from_name: string | null
+          host: string | null
+          id: string
+          port: number | null
+          updated_at: string
+          updated_by: string | null
+          username: string | null
+        }
+        Insert: {
+          cc_recipients?: string[]
+          enabled?: boolean
+          encryption?: string
+          from_email?: string | null
+          from_name?: string | null
+          host?: string | null
+          id?: string
+          port?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          username?: string | null
+        }
+        Update: {
+          cc_recipients?: string[]
+          enabled?: boolean
+          encryption?: string
+          from_email?: string | null
+          from_name?: string | null
+          host?: string | null
+          id?: string
+          port?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      email_no_reply_secrets: {
+        Row: {
+          app_password: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          app_password?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          app_password?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
