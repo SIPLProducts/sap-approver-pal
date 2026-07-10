@@ -123,75 +123,70 @@ function escapeHtml(input: string): string {
 function buildCredentialsEmail(fields: {
   zuser: string;
   zpassword: string;
-  zstatus: string;
 }): { html: string; text: string } {
   const user = escapeHtml(fields.zuser);
   const pwd = escapeHtml(fields.zpassword);
-  const status = escapeHtml(fields.zstatus || "Password Reset");
-  const greetingName = /^[A-Za-z][A-Za-z .'-]{1,60}$/.test(fields.zuser) ? fields.zuser : "";
-  const greeting = greetingName ? `Hello ${escapeHtml(greetingName)},` : "Hello,";
 
   const html = `<!doctype html>
 <html>
-  <body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:32px 12px;">
+  <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,0.08);">
+          <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(15,23,42,0.06);">
             <tr>
-              <td style="background:linear-gradient(135deg,#0b1f3a 0%,#173a6b 100%);padding:26px 32px;color:#ffffff;">
-                <div style="font-size:12px;letter-spacing:0.22em;text-transform:uppercase;opacity:0.75;">Re Sustainability</div>
-                <div style="font-size:22px;font-weight:700;margin-top:6px;">Approvals — Password Reset</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:28px 32px 8px 32px;">
-                <p style="margin:0 0 12px 0;font-size:15px;">${greeting}</p>
-                <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#374151;">
-                  You requested a password reset for your Re Sustainability Approvals account. Please find your updated credentials below.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
+              <td style="padding:28px 32px 20px 32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td style="padding:16px 18px;border-bottom:1px solid #eef2f7;">
-                      <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#6b7280;">User ID</div>
-                      <div style="font-size:15px;font-weight:600;margin-top:4px;color:#111827;">${user}</div>
+                    <td style="vertical-align:middle;padding-right:14px;">
+                      <div style="width:44px;height:44px;border-radius:50%;background:#d4202a;color:#ffffff;font-weight:800;font-size:20px;font-style:italic;text-align:center;line-height:44px;font-family:Georgia,serif;">re</div>
                     </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:16px 18px;border-bottom:1px solid #eef2f7;">
-                      <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#6b7280;">Temporary Password</div>
-                      <div style="margin-top:6px;display:inline-block;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:15px;font-weight:600;color:#0b1f3a;background:#ffffff;border:1px dashed #cbd5e1;border-radius:6px;padding:8px 12px;letter-spacing:0.04em;">${pwd}</div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:16px 18px;">
-                      <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#6b7280;">Status</div>
-                      <div style="font-size:14px;font-weight:600;margin-top:4px;color:#047857;">${status}</div>
+                    <td style="vertical-align:middle;">
+                      <div style="font-size:22px;font-weight:800;color:#d4202a;line-height:1.1;">Re Sustainability</div>
+                      <div style="margin-top:4px;font-size:12px;color:#6b7280;border-bottom:3px solid #f5c518;display:inline-block;padding-bottom:2px;">RESL Approvals</div>
                     </td>
                   </tr>
                 </table>
               </td>
             </tr>
             <tr>
-              <td style="padding:22px 32px 4px 32px;">
-                <div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.55;">
-                  <strong>Security notice:</strong> For your safety, please sign in and change this password immediately. Do not share it with anyone.
+              <td style="padding:0 32px;">
+                <div style="height:1px;background:#eef2f7;"></div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px 0 32px;">
+                <div style="background:#f3f4f6;border-radius:10px;padding:16px 18px;">
+                  <div style="font-size:16px;font-weight:700;color:#111827;">${user}</div>
+                  <div style="margin-top:4px;font-size:12px;color:#6b7280;"><span style="font-weight:600;color:#374151;">ID:</span> ${user}</div>
                 </div>
               </td>
             </tr>
             <tr>
-              <td style="padding:20px 32px 28px 32px;">
-                <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.55;">
-                  This is an automated message from Re Sustainability Approvals. Please do not reply to this email.
-                </p>
+              <td style="padding:20px 32px 8px 32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:110px;">User ID</td>
+                    <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${user}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:110px;">Password</td>
+                    <td style="padding:10px 0;">
+                      <span style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:14px;font-weight:600;color:#0b1f3a;background:#f3f4f6;border-radius:6px;padding:6px 10px;letter-spacing:0.03em;">${pwd}</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 32px 26px 32px;">
+                <div style="border-top:1px solid #eef2f7;padding-top:14px;font-size:12px;color:#9ca3af;text-align:center;">
+                  Please sign in and change your password immediately after login.
+                </div>
               </td>
             </tr>
           </table>
-          <div style="max-width:600px;width:100%;margin-top:14px;font-size:11px;color:#94a3b8;text-align:center;">
+          <div style="max-width:520px;width:100%;margin-top:14px;font-size:11px;color:#9ca3af;text-align:center;">
             © ${new Date().getFullYear()} Re Sustainability Limited
           </div>
         </td>
@@ -201,22 +196,17 @@ function buildCredentialsEmail(fields: {
 </html>`;
 
   const text = [
-    greeting,
-    "",
-    "You requested a password reset for your Re Sustainability Approvals account.",
-    "Please find your updated credentials below.",
-    "",
     `User ID:  ${fields.zuser}`,
     `Password: ${fields.zpassword}`,
-    `Status:   ${fields.zstatus || "Password Reset"}`,
     "",
-    "For your security, please sign in and change this password immediately. Do not share it with anyone.",
+    "Please sign in and change your password immediately after login.",
     "",
-    "— Re Sustainability Approvals (automated message, do not reply)",
+    "— RESL Approvals",
   ].join("\n");
 
   return { html, text };
 }
+
 
 export const sapForgot = createServerFn({ method: "POST" })
   .inputValidator((d) =>
