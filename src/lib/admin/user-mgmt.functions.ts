@@ -801,7 +801,7 @@ export const editUserViaSap = createServerFn({ method: "POST" })
       target_table: "sap_users",
       target_id: null,
       payload: {
-        request: { EDIT: { ...inner, ...(inner.PASSWORD ? { PASSWORD: "***", ZCONFPSWD: "***" } : {}) } },
+        request: { EDIT: { ...inner, PASSWORD: "***", ZCONFPSWD: "***" } },
         response: sapBody,
         middleware_status: result.status,
         middleware_error: result.error ?? null,
