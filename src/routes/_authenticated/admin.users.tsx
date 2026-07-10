@@ -923,8 +923,8 @@ function CreateUserDialog({
 
     setSubmitting(true);
     try {
-      const sendPwd = passwordUnchanged ? "" : form.password;
-      const sendConfirm = passwordUnchanged ? "" : form.confirm_password;
+      const sendPwd = passwordUnchanged ? PASSWORD_SENTINEL : form.password;
+      const sendConfirm = passwordUnchanged ? PASSWORD_SENTINEL : form.confirm_password;
       const base = {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
