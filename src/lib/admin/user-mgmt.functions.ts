@@ -707,6 +707,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       email: e.email,
       contact: e.contact,
       status: e.status,
+      password: e.password,
+      confirm_password: e.confirm_password,
       plants: Array.from(e._plants).sort(),
       roles: Array.from(e._roles).sort(),
       role_assignments: Array.from(e._assignments).sort().map((s) => {
