@@ -123,17 +123,81 @@ function escapeHtml(input: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildCredentialsEmail(fields: {
-  zuser: string;
-  zpassword: string;
-}): { html: string; text: string } {
-  const user = escapeHtml(fields.zuser);
-  // Keep the SAP value visible while avoiding email-client heuristics that
-  // mask values placed in a password-like table field.
-  const pwd = Array.from(fields.zpassword)
+type EmailField = { key: string; label: string; value: string };
+
+function prettifyLabel(key: string): string {
+  const stripped = key.replace(/^z_?/i, "");
+  return stripped
+    .replace(/[_\-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function pickFirstRecord(value: unknown, depth = 0): Record<string, unknown> | null {
+  if (depth > 6 || value == null) return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const rec = pickFirstRecord(item, depth + 1);
+      if (rec) return rec;
+    }
+    return null;
+  }
+  return asRecord(value);
+}
+
+function extractFields(record: Record<string, unknown>): EmailField[] {
+  const out: EmailField[] = [];
+  for (const [key, raw] of Object.entries(record)) {
+    if (raw == null) continue;
+    if (typeof raw === "object") continue;
+    const value = stringValue(raw).trim();
+    if (!value) continue;
+    out.push({ key, label: prettifyLabel(key), value });
+  }
+  return out;
+}
+
+function isEmailLike(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function findRecipient(fields: EmailField[], fallback: string): string {
+  const match = fields.find((f) => /mail|email/i.test(f.key) && isEmailLike(f.value));
+  return match?.value ?? fallback;
+}
+
+function renderValueSpans(value: string): string {
+  return Array.from(value)
     .map(
       (ch, index) =>
         `<span style="display:inline-block;min-width:0;" data-pos="${index}">${escapeHtml(ch)}</span>`,
+    )
+    .join("");
+}
+
+function buildCredentialsEmail(args: {
+  fields: EmailField[];
+  recipient: string;
+}): { html: string; text: string } {
+  const { fields, recipient } = args;
+  const headline = fields[0]?.value || recipient;
+  const headlineHtml = escapeHtml(headline);
+
+  const rowsHtml = fields
+    .map(
+      (f) => `
+                  <tr>
+                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:150px;vertical-align:top;">${escapeHtml(f.label)}</td>
+                    <td style="padding:10px 0;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td translate="no" dir="ltr" aria-label="${escapeHtml(f.label)}" style="font-size:14px;color:#111827;font-weight:600;letter-spacing:0;line-height:1.5;mso-line-height-rule:exactly;user-select:all;-webkit-user-select:all;white-space:nowrap;">${renderValueSpans(f.value)}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>`,
     )
     .join("");
 
@@ -167,29 +231,13 @@ function buildCredentialsEmail(fields: {
             <tr>
               <td style="padding:20px 32px 0 32px;">
                 <div style="background:#f3f4f6;border-radius:10px;padding:16px 18px;">
-                  <div style="font-size:16px;font-weight:700;color:#111827;">${user}</div>
-                  <div style="margin-top:4px;font-size:12px;color:#6b7280;"><span style="font-weight:600;color:#374151;">ID:</span> ${user}</div>
+                  <div style="font-size:16px;font-weight:700;color:#111827;">${headlineHtml}</div>
                 </div>
               </td>
             </tr>
             <tr>
               <td style="padding:20px 32px 8px 32px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:110px;">User ID</td>
-                    <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${user}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:150px;">Temporary Password</td>
-                    <td style="padding:10px 0;">
-                      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-                        <tr>
-                          <td translate="no" dir="ltr" aria-label="Temporary Password" style="font-size:14px;color:#111827;font-weight:600;letter-spacing:0;line-height:1.5;mso-line-height-rule:exactly;user-select:all;-webkit-user-select:all;white-space:nowrap;">${pwd}</td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowsHtml}
                 </table>
               </td>
             </tr>
@@ -210,10 +258,9 @@ function buildCredentialsEmail(fields: {
   </body>
 </html>`;
 
+  const labelWidth = Math.max(0, ...fields.map((f) => f.label.length));
   const text = [
-    `User ID:            ${fields.zuser}`,
-    `Temporary Password: ${fields.zpassword}`,
-
+    ...fields.map((f) => `${f.label.padEnd(labelWidth)} : ${f.value}`),
     "",
     "Please sign in and change your password immediately after login.",
     "",
@@ -368,26 +415,24 @@ export const sapForgot = createServerFn({ method: "POST" })
       return { ok: false, status, error };
     }
 
-    // Extract credential fields from response. Middleware wraps SAP output as
-    // { ok, status, latency_ms, data: <SAP body> }, and SAP returns a bare
-    // array like [{ ZUSER, ZPASSWORD, ZSTATUS }]. Search the unwrapped inner
-    // payload first, then fall back to the full envelope for direct-SAP calls.
+    // Extract fields dynamically from the SAP response. Middleware wraps SAP
+    // output as { ok, status, latency_ms, data: <SAP body> } and SAP returns
+    // an array like [{ ZUSER, ZPASSWORD, ZSTATUS }]. We render whatever keys
+    // SAP sends — no hardcoded field list.
     const envelope = asRecord(responseBody);
     const inner = envelope && "data" in envelope ? envelope.data : responseBody;
-    const pickField = (keys: string[]) =>
-      findFieldValue(inner, keys) || findFieldValue(responseBody, keys);
-    const zmailFromSap = pickField(["ZMAIL", "ZEMAIL", "MAIL", "EMAIL"]);
-    const zmail = zmailFromSap || data.email;
-    const zuser = pickField(["ZUSER", "USER", "USERNAME", "USERID"]);
-    const zpassword = pickField(["ZPASSWORD", "PASSWORD", "PWD", "ZPWD"]);
-    const zstatus = pickField(["ZSTATUS", "STATUS"]);
-    console.log(
-      `[sap-forgot] extracted zuser=${zuser || "<empty>"} zpassword.len=${zpassword.length}` +
-        (zpassword ? ` first=${zpassword[0]} last=${zpassword[zpassword.length - 1]}` : "") +
-        ` zstatus=${zstatus || "<empty>"}`,
-    );
+    const record = pickFirstRecord(inner) ?? pickFirstRecord(responseBody) ?? {};
+    const fields = extractFields(record);
+    const nonEmailFields = fields.filter((f) => !/mail|email/i.test(f.key));
+    const zmail = findRecipient(fields, data.email);
 
-    const sapOk = httpOk && !sapRejected(responseBody) && (sapSucceeded(responseBody) || Boolean(zuser && zpassword));
+    const fieldSummary = fields
+      .map((f) => (/(password|pwd|secret)/i.test(f.key) ? `${f.key}.len=${f.value.length}` : f.key))
+      .join(",");
+    console.log(`[sap-forgot] fields=${fieldSummary || "<none>"}`);
+
+    const sapOk =
+      httpOk && !sapRejected(responseBody) && (sapSucceeded(responseBody) || nonEmailFields.length > 0);
 
     if (!sapOk) {
       const finalError = error ?? errorFromBody(responseBody, `Password reset failed (${status})`);
@@ -400,18 +445,17 @@ export const sapForgot = createServerFn({ method: "POST" })
       return { ok: false, status, error: finalError };
     }
 
-    if (!zuser || !zpassword) {
-
+    if (nonEmailFields.length === 0) {
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "error",
         latency_ms: Date.now() - t0,
-        message: `forgot ${path}: ${message}; missing credential fields`,
+        message: `forgot ${path}: ${message}; empty response fields`,
       });
       return {
         ok: false,
         status,
-        error: "SAP did not return credentials for this email. Please contact your administrator.",
+        error: "SAP did not return any account details for this email.",
       };
     }
 
@@ -429,7 +473,7 @@ export const sapForgot = createServerFn({ method: "POST" })
           : undefined,
       });
 
-      const { html, text } = buildCredentialsEmail({ zuser, zpassword });
+      const { html, text } = buildCredentialsEmail({ fields, recipient: zmail });
       await transport.sendMail({
         from: noReply.from_name
           ? `${noReply.from_name} <${noReply.from_email}>`
