@@ -142,7 +142,7 @@ function buildCredentialsEmail(fields: {
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td style="vertical-align:middle;padding-right:14px;">
-                      <div style="width:44px;height:44px;border-radius:50%;background:#d4202a;color:#ffffff;font-weight:800;font-size:20px;font-style:italic;text-align:center;line-height:44px;font-family:Georgia,serif;">re</div>
+                      <img src="${LOGO_URL}" width="52" height="52" alt="Re Sustainability" style="display:block;border:0;outline:none;text-decoration:none;" />
                     </td>
                     <td style="vertical-align:middle;">
                       <div style="font-size:22px;font-weight:800;color:#d4202a;line-height:1.1;">Re Sustainability</div>
