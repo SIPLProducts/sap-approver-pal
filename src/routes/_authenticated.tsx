@@ -153,6 +153,7 @@ function AuthenticatedLayout() {
   const showMm = can("approvals.inbox.mm");
   const showSd = sdChildren.length > 0;
 
+  const isSapAdmin = (perms.activeRoleLabel ?? "").trim().toUpperCase() === "ADMIN";
   const manage_items = [
     { to: "/history", label: "History", icon: History, screen: "approvals.history" },
     { to: "/admin/users", label: "Users & Roles", icon: Users, screen: "admin.users" },
@@ -162,7 +163,7 @@ function AuthenticatedLayout() {
     { to: "/email-config", label: "Email Configuration", icon: Mail, screen: "settings.email_config" },
     { to: "/email-config", label: "Email Configuration", icon: Mail, screen: null as string | null, adminOnly: true },
     { to: "/settings", label: "Settings", icon: Settings, screen: null as string | null },
-  ].filter((it) => (it.screen === null || can(it.screen)) && (!("adminOnly" in it) || !it.adminOnly || isBuiltinAdmin));
+  ].filter((it) => (it.screen === null || can(it.screen)) && (!("adminOnly" in it) || !it.adminOnly || isBuiltinAdmin || isSapAdmin));
 
 
   // ===== Top-bar role/plant select handlers =====
