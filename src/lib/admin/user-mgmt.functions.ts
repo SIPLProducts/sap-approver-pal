@@ -778,11 +778,13 @@ export const editUserViaSap = createServerFn({ method: "POST" })
         ROLE: String(role).trim().toUpperCase(),
       })),
     };
-    // SAP Edit_User requires PASSWORD/ZCONFPSWD keys to always be present.
-    // When the operator did not opt in to change the password, forward the
-    // sentinel so SAP's required-field check passes without overwriting.
-    inner.PASSWORD = data.password || "********";
-    inner.ZCONFPSWD = data.confirm_password || data.password || "********";
+    // Only forward PASSWORD/ZCONFPSWD when the operator opted in to change
+    // the password. Sending a masked sentinel would overwrite the real
+    // password in SAP with literal asterisks.
+    if (data.password) {
+      inner.PASSWORD = data.password;
+      inner.ZCONFPSWD = data.confirm_password || data.password;
+    }
     const payload = { EDIT: inner };
 
     const result = await invokeViaMiddleware(cfgId, payload);
@@ -801,7 +803,12 @@ export const editUserViaSap = createServerFn({ method: "POST" })
       target_table: "sap_users",
       target_id: null,
       payload: {
-        request: { EDIT: { ...inner, PASSWORD: "***", ZCONFPSWD: "***" } },
+        request: {
+          EDIT: {
+            ...inner,
+            ...(inner.PASSWORD ? { PASSWORD: "***", ZCONFPSWD: "***" } : {}),
+          },
+        },
         response: sapBody,
         middleware_status: result.status,
         middleware_error: result.error ?? null,
