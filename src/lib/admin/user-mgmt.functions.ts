@@ -586,6 +586,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       email: string;
       contact: string;
       status: string;
+      password: string;
+      confirm_password: string;
       plants: string[];
       roles: string[];
       role_assignments: { werks: string; role: string }[];
@@ -617,6 +619,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       const email = String(pickField(r, "ZEMAIL") ?? pickField(r, "EMAIL") ?? pickField(r, "SMTP_ADDR") ?? "").trim();
       const contact = String(pickField(r, "ZCONTACT") ?? pickField(r, "CONTACT") ?? pickField(r, "MOBILE") ?? pickField(r, "TEL_NUMBER") ?? "").trim();
       const status = normStatus(String(pickField(r, "ZSTATUS") ?? pickField(r, "STATUS") ?? ""));
+      const password = String(pickField(r, "ZPASSWORD") ?? pickField(r, "PASSWORD") ?? "").trim();
+      const confirmPassword = String(pickField(r, "ZCONFPSWD") ?? pickField(r, "CONFPSWD") ?? pickField(r, "CONFIRM_PASSWORD") ?? "").trim();
 
       // Single-row plant/role (Z-prefixed flat shape)
       const singlePlant = String(pickField(r, "ZWERKS") ?? "").trim();
@@ -661,6 +665,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
           email,
           contact,
           status,
+          password,
+          confirm_password: confirmPassword,
           plants: [],
           roles: [],
           role_assignments: [],
@@ -677,6 +683,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
         if (!entry.email && email) entry.email = email;
         if (!entry.contact && contact) entry.contact = contact;
         if (!entry.status && status) entry.status = status;
+        if (!entry.password && password) entry.password = password;
+        if (!entry.confirm_password && confirmPassword) entry.confirm_password = confirmPassword;
       }
       if (singlePlant) entry._plants.add(singlePlant);
       for (const p of nestedPlants) entry._plants.add(p);
@@ -699,6 +707,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
       email: e.email,
       contact: e.contact,
       status: e.status,
+      password: e.password,
+      confirm_password: e.confirm_password,
       plants: Array.from(e._plants).sort(),
       roles: Array.from(e._roles).sort(),
       role_assignments: Array.from(e._assignments).sort().map((s) => {

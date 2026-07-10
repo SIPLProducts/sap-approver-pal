@@ -783,7 +783,7 @@ function ApprovalMatrixTab({ tenantScope, tenants }: { tenantScope: string; tena
  * ============================================================ */
 type CreationStatus = "Active" | "Inactive";
 
-const PASSWORD_SENTINEL = "********";
+
 
 const emptyForm = () => ({
   sap_user_id: "",
@@ -859,6 +859,8 @@ function CreateUserDialog({
 
   useEffect(() => {
     if (editUser) {
+      const existingPwd = String(editUser.password ?? "");
+      const existingConfirm = String(editUser.confirm_password ?? existingPwd ?? "");
       setForm({
         sap_user_id: editUser.user ?? "",
         first_name: editUser.first_name ?? "",
@@ -866,8 +868,8 @@ function CreateUserDialog({
         email: editUser.email ?? "",
         contact_number: editUser.contact ?? "",
         status: editUser.status === "ACTIVE" || editUser.status === "Active" ? "Active" as CreationStatus : "Inactive" as CreationStatus,
-        password: PASSWORD_SENTINEL,
-        confirm_password: PASSWORD_SENTINEL,
+        password: existingPwd,
+        confirm_password: existingConfirm,
       });
       const editPlants: string[] = editUser.plants ?? [];
       setPlants(editPlants);
@@ -884,11 +886,13 @@ function CreateUserDialog({
       }
       setRoles(Array.from(new Set(composite)));
       setChangePassword(false);
+      setShowPw(false);
     } else {
       setForm(emptyForm());
       setPlants([]);
       setRoles([]);
       setChangePassword(false);
+      setShowPw(false);
     }
   }, [editUser]);
 
@@ -923,8 +927,10 @@ function CreateUserDialog({
 
     setSubmitting(true);
     try {
-      const sendPwd = passwordUnchanged ? PASSWORD_SENTINEL : form.password;
-      const sendConfirm = passwordUnchanged ? PASSWORD_SENTINEL : form.confirm_password;
+      // Always send the actual password held in the form: the real existing
+      // password when Change Password is unchecked, or the freshly typed one.
+      const sendPwd = form.password;
+      const sendConfirm = form.confirm_password || form.password;
       const base = {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
@@ -1050,7 +1056,7 @@ function CreateUserDialog({
                 type={showPw ? "text" : "password"}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder={editUser && !changePassword ? "******** — check Change Password to edit" : "Enter password"}
+                placeholder={editUser && !changePassword ? "Check Change Password to edit" : "Enter password"}
                 disabled={!!editUser && !changePassword}
                 className="pr-9"
               />
@@ -1071,7 +1077,7 @@ function CreateUserDialog({
                 type={showPw ? "text" : "password"}
                 value={form.confirm_password}
                 onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
-                placeholder={editUser && !changePassword ? "******** — check Change Password to edit" : "Re-enter password"}
+                placeholder={editUser && !changePassword ? "Check Change Password to edit" : "Re-enter password"}
                 disabled={!!editUser && !changePassword}
                 className="pr-9"
               />
@@ -1110,7 +1116,10 @@ function CreateUserDialog({
                   if (enabled) {
                     setForm((f) => ({ ...f, password: "", confirm_password: "" }));
                   } else {
-                    setForm((f) => ({ ...f, password: PASSWORD_SENTINEL, confirm_password: PASSWORD_SENTINEL }));
+                    // Restore the real existing password loaded from SAP
+                    const existingPwd = String(editUser?.password ?? "");
+                    const existingConfirm = String(editUser?.confirm_password ?? existingPwd);
+                    setForm((f) => ({ ...f, password: existingPwd, confirm_password: existingConfirm }));
                     setShowPw(false);
                   }
                 }}
