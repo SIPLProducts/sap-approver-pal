@@ -7,6 +7,9 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import reLogo from "@/assets/re-logo.png.asset.json";
+
+const LOGO_URL = `https://sap-approver-pal.lovable.app${reLogo.url}`;
 
 type SapForgotResult = {
   ok: boolean;
@@ -125,7 +128,11 @@ function buildCredentialsEmail(fields: {
   zpassword: string;
 }): { html: string; text: string } {
   const user = escapeHtml(fields.zuser);
-  const pwd = escapeHtml(fields.zpassword);
+  // Split each character into its own span so Gmail/Outlook heuristics don't
+  // treat the value as a password token and auto-mask it with asterisks.
+  const pwd = Array.from(fields.zpassword)
+    .map((ch) => `<span>${escapeHtml(ch)}</span>`)
+    .join("");
 
   const html = `<!doctype html>
 <html>
@@ -139,7 +146,7 @@ function buildCredentialsEmail(fields: {
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td style="vertical-align:middle;padding-right:14px;">
-                      <div style="width:44px;height:44px;border-radius:50%;background:#d4202a;color:#ffffff;font-weight:800;font-size:20px;font-style:italic;text-align:center;line-height:44px;font-family:Georgia,serif;">re</div>
+                      <img src="${LOGO_URL}" width="52" height="52" alt="Re Sustainability" style="display:block;border:0;outline:none;text-decoration:none;" />
                     </td>
                     <td style="vertical-align:middle;">
                       <div style="font-size:22px;font-weight:800;color:#d4202a;line-height:1.1;">Re Sustainability</div>
@@ -170,8 +177,8 @@ function buildCredentialsEmail(fields: {
                     <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${user}</td>
                   </tr>
                   <tr>
-                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:110px;">Temporary Password</td>
-                    <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${pwd}</td>
+                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:150px;">Temporary Password</td>
+                    <td translate="no" dir="ltr" style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;letter-spacing:0.5px;">${pwd}</td>
                   </tr>
 
                 </table>
