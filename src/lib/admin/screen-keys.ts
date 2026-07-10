@@ -46,6 +46,13 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
       { key: "reports.notifications", label: "Notifications", activity: "REPORTS.NOTIFICATIONS" },
     ],
   },
+  {
+    module: "Settings",
+    screens: [
+      { key: "settings.email_config", label: "Email Configuration", activity: "SETTINGS.EMAIL_CONFIG" },
+    ],
+  },
+
 ];
 
 export const ALL_SCREENS: ScreenDef[] = SCREEN_GROUPS.flatMap((g) => g.screens);

@@ -155,7 +155,7 @@ function AuthenticatedLayout() {
     { to: "/admin/strategies", label: "Release Strategies", icon: ShieldCheck, screen: "admin.strategies" },
     { to: "/admin/sap-api", label: "SAP API Settings", icon: Server, screen: "sap.api_settings" },
     { to: "/admin/integrations", label: "Integrations", icon: Plug, screen: "sap.integrations" },
-    { to: "/email-config", label: "Email Configuration", icon: Mail, screen: null as string | null },
+    { to: "/email-config", label: "Email Configuration", icon: Mail, screen: "settings.email_config" },
     { to: "/settings", label: "Settings", icon: Settings, screen: null as string | null },
   ].filter((it) => it.screen === null || can(it.screen));
 

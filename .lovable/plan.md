@@ -1,32 +1,18 @@
-## Move Email Configuration out of Settings
+## Add Email Configuration to Screen Permissions
 
-Turn Email Configuration into a top-level standalone screen at the bottom of the left sidebar, alongside `Settings`. Remove the entry card that was added to the Settings page.
+Register the new page as a permission-controlled screen so it shows up in the Roles tab's Screen Permissions chip list (alongside MM Approvals Inbox, Users & Roles, etc.).
 
-### Route change
+### Changes
 
-- Rename file: `src/routes/_authenticated/settings.email-config.tsx` → `src/routes/_authenticated/email-config.tsx`
-- Update `createFileRoute("/_authenticated/settings/email-config")` → `createFileRoute("/_authenticated/email-config")`
-- Component/head unchanged.
+1. **`src/lib/admin/screen-keys.ts`** — add a new module group to `SCREEN_GROUPS`:
+   - Module **"Settings"** with one screen:
+     - `{ key: "settings.email_config", label: "Email Configuration", activity: "SETTINGS.EMAIL_CONFIG" }`
 
-### Sidebar
+2. **`src/routes/_authenticated.tsx`** — gate the sidebar entry by the new screen key:
+   - Change the Email Configuration item from `screen: null` → `screen: "settings.email_config"`.
 
-- Edit `src/routes/_authenticated.tsx` `manage_items` array — add a new entry directly ABOVE `Settings` (so it renders just above it at the bottom):
-  - `{ to: "/email-config", label: "Email Configuration", icon: Mail, screen: null }`
-- Import `Mail` from `lucide-react` (already imported elsewhere; add if missing).
-- `screen: null` matches the pattern used for Settings so it's visible to any authenticated user.
+### Result
 
-### Revert settings.tsx
-
-- Remove the Email Configuration `<Link>` card block added in the previous step.
-- Remove the unused `Link`, `Mail`, `ChevronRight` imports if no other usage.
-
-### Files touched
-
-- Renamed: `src/routes/_authenticated/settings.email-config.tsx` → `src/routes/_authenticated/email-config.tsx` (route string updated)
-- Edited: `src/routes/_authenticated.tsx` (sidebar entry)
-- Edited: `src/routes/_authenticated/settings.tsx` (revert card + imports)
-- Auto-regenerated: `src/routeTree.gen.ts`
-
-### Out of scope
-
-No changes to the screen's content, styling, or behavior.
+- Roles dialog auto-lists "Email Configuration" as a selectable chip (it reads from `SCREEN_GROUPS`), and the "N of N assigned" counter grows by one.
+- Built-in Admin continues to see the item unconditionally; other roles see it only when granted.
+- No DB migration and no visual/style changes.
