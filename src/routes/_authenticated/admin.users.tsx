@@ -1052,33 +1052,6 @@ function CreateUserDialog({
             )}
           </Field>
 
-          {editUser && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">&nbsp;</Label>
-              <div className="flex items-center gap-2 h-9">
-                <Checkbox
-                  id="change-password"
-                  checked={changePassword}
-                  onCheckedChange={(checked) => {
-                    const enabled = checked === true;
-                    setChangePassword(enabled);
-                    if (enabled) {
-                      setForm((f) => ({ ...f, password: "", confirm_password: "" }));
-                    } else {
-                      // Restore the real existing password loaded from SAP
-                      const existingPwd = String(editUser?.password ?? "");
-                      const existingConfirm = String(editUser?.confirm_password ?? existingPwd);
-                      setForm((f) => ({ ...f, password: existingPwd, confirm_password: existingConfirm }));
-                      setShowPw(false);
-                    }
-                  }}
-                />
-                <Label htmlFor="change-password" className="text-sm font-normal cursor-pointer">
-                  Change Password
-                </Label>
-              </div>
-            </div>
-          )}
 
           <Field label="Password" required={!editUser || changePassword}>
             <div className="relative">
