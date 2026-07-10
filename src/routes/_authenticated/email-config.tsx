@@ -28,10 +28,8 @@ export const Route = createFileRoute("/_authenticated/email-config")({
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function EmailConfigPage() {
-  const { loading: adminLoading, isAdmin: isBuiltinAdmin } = useIsBuiltInAdmin();
   const perms = usePermissions();
-  const isSapAdmin = (perms.activeRoleLabel ?? "").trim().toUpperCase() === "ADMIN";
-  const allowed = isBuiltinAdmin || isSapAdmin;
+  const allowed = perms.can("settings.email_config");
 
   const [enabled, setEnabled] = useState(true);
   const [host, setHost] = useState("smtp.gmail.com");
