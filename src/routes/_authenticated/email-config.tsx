@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useIsBuiltInAdmin } from "@/hooks/use-is-builtin-admin";
 import { usePermissions } from "@/hooks/use-permissions";
 
 
