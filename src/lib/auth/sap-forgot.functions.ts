@@ -128,10 +128,13 @@ function buildCredentialsEmail(fields: {
   zpassword: string;
 }): { html: string; text: string } {
   const user = escapeHtml(fields.zuser);
-  // Split each character into its own span so Gmail/Outlook heuristics don't
-  // treat the value as a password token and auto-mask it with asterisks.
+  // Keep the SAP value visible while avoiding email-client heuristics that
+  // mask values placed in a password-like table field.
   const pwd = Array.from(fields.zpassword)
-    .map((ch) => `<span>${escapeHtml(ch)}</span>`)
+    .map(
+      (ch, index) =>
+        `<span style="display:inline-block;min-width:0;" data-pos="${index}">${escapeHtml(ch)}</span>`,
+    )
     .join("");
 
   const html = `<!doctype html>
@@ -178,7 +181,13 @@ function buildCredentialsEmail(fields: {
                   </tr>
                   <tr>
                     <td style="padding:10px 0;font-size:13px;color:#6b7280;width:150px;">Temporary Password</td>
-                    <td translate="no" dir="ltr" style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;letter-spacing:0.5px;">${pwd}</td>
+                    <td style="padding:10px 0;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td translate="no" dir="ltr" aria-label="Temporary Password" style="font-size:14px;color:#111827;font-weight:600;letter-spacing:0;line-height:1.5;mso-line-height-rule:exactly;user-select:all;-webkit-user-select:all;white-space:nowrap;">${pwd}</td>
+                        </tr>
+                      </table>
+                    </td>
                   </tr>
 
                 </table>
