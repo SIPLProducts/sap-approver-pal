@@ -812,6 +812,8 @@ function CreateUserDialog({
   const [roles, setRoles] = useState<string[]>([]);
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [changePassword, setChangePassword] = useState(false);
+
 
   const sortedPlants = useMemo(() => [...plants].sort(), [plants]);
   const rolesQuery = useQuery({
@@ -881,19 +883,24 @@ function CreateUserDialog({
         for (const p of editPlants) for (const r of rs) composite.push(`${p}::${String(r).toUpperCase()}`);
       }
       setRoles(Array.from(new Set(composite)));
+      setChangePassword(false);
     } else {
       setForm(emptyForm());
       setPlants([]);
       setRoles([]);
+      setChangePassword(false);
     }
   }, [editUser]);
+
 
   function reset() {
     setForm(emptyForm());
     setPlants([]);
     setRoles([]);
     setShowPw(false);
+    setChangePassword(false);
   }
+
 
   function close(next: boolean) {
     if (!next) reset();
@@ -907,11 +914,12 @@ function CreateUserDialog({
     if (!form.email.trim()) return toast.error("Email is required");
     if (!/^\d{10}$/.test(form.contact_number.trim())) return toast.error("Contact number must be 10 digits");
     if (roles.length === 0) return toast.error("Please select at least one role");
-    const passwordUnchanged = editUser && form.password === PASSWORD_SENTINEL && form.confirm_password === PASSWORD_SENTINEL;
+    const passwordUnchanged = editUser && !changePassword;
     if (!passwordUnchanged) {
       if (form.password.length < 8) return toast.error("Password must be at least 8 characters");
       if (form.password !== form.confirm_password) return toast.error("Passwords do not match");
     }
+
 
     setSubmitting(true);
     try {
