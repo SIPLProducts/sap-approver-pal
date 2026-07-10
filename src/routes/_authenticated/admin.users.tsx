@@ -1077,7 +1077,7 @@ function CreateUserDialog({
                 type={showPw ? "text" : "password"}
                 value={form.confirm_password}
                 onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
-                placeholder={editUser && !changePassword ? "******** — check Change Password to edit" : "Re-enter password"}
+                placeholder={editUser && !changePassword ? "Check Change Password to edit" : "Re-enter password"}
                 disabled={!!editUser && !changePassword}
                 className="pr-9"
               />
