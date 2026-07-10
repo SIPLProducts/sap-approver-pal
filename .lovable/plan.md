@@ -1,21 +1,32 @@
-## Restrict Email Configuration to Admin only (for now)
+## Fix "Not authorized" on Email Configuration for SAP ADMIN users
 
-Currently the sidebar entry is gated by `settings.email_config`, so any custom role granted that screen would see it. To keep it Admin-only until we're ready to expose it:
+### Problem
+
+The signed-in user (SARVI_INFO1) has the SAP role **ADMIN** — visible in the sidebar badge — but no row in the Supabase `user_roles` table with the built-in `Admin` role. The current guard uses `useIsBuiltInAdmin()`, which only checks `user_roles` via the `has_role` RPC, so SAP-only admins get "You are not authorized to view this screen." even though they are effectively admins.
+
+The sidebar item is hidden for the same reason, so this user reaches the page only via the saved URL / browser history.
+
+### Fix
+
+Broaden the "admin" check used by the Email Configuration screen and its sidebar entry to accept **either**:
+
+1. The built-in Supabase `Admin` role (current behavior), **or**
+2. An active SAP role whose label is `ADMIN` (case-insensitive) — matches what SAP returns and what the sidebar badge already shows.
 
 ### Changes
 
-1. **`src/routes/_authenticated.tsx`** — replace the screen-based gate on the Email Configuration nav item with a built-in Admin check:
-   - Import the existing `useIsBuiltinAdmin` hook (`src/hooks/use-is-builtin-admin.ts`).
-   - Filter the Email Configuration item out unless `isBuiltinAdmin === true`.
-   - Leave the entry visually/positionally unchanged otherwise.
+1. **`src/routes/_authenticated/email-config.tsx`**
+   - In addition to `useIsBuiltInAdmin()`, read `usePermissions()` and derive `isSapAdmin = activeRoleLabel?.trim().toUpperCase() === "ADMIN"`.
+   - Wait for both `adminLoading` and `perms.loading` before deciding.
+   - Allow the page if `isBuiltinAdmin || isSapAdmin`; otherwise keep the existing "Not authorized" alert.
 
-2. **`src/routes/_authenticated/email-config.tsx`** — add a lightweight component-level guard:
-   - If `!isBuiltinAdmin`, render a simple "Not authorized" message (same pattern used elsewhere) instead of the form, so direct URL access is also blocked.
+2. **`src/routes/_authenticated.tsx`**
+   - Compute the same `isSapAdmin` from `perms.activeRoleLabel`.
+   - In the `manage_items` filter, change the Email Configuration entry's gate from `isBuiltinAdmin` to `isBuiltinAdmin || isSapAdmin` so the sidebar link reappears for SAP admins.
 
-3. **`src/lib/admin/screen-keys.ts`** — leave the `settings.email_config` entry in place so it still shows in the Roles tab chip list (per the previous request), but it will have no effect until we drop the Admin-only gate. No change here.
+### Not changing
 
-### Notes
-
-- No DB / migration changes.
-- No visual/style changes.
-- When we're ready to open the screen to custom roles, we simply revert step 1 back to `screen: "settings.email_config"` and remove the guard in step 2.
+- `screen-keys.ts` (Email Configuration stays in the chip list).
+- Any DB / migration / server assertions.
+- Visual design or copy of the screen.
+- The existing duplicate Email Configuration entry in `manage_items` (one gated by `settings.email_config` screen, one adminOnly) is left as-is per prior direction; only the adminOnly gate is broadened.
