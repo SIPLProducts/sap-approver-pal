@@ -195,8 +195,9 @@ function buildCredentialsEmail(fields: {
 </html>`;
 
   const text = [
-    `User ID:  ${fields.zuser}`,
-    `Password: ${fields.zpassword}`,
+    `User ID:            ${fields.zuser}`,
+    `Temporary Password: ${fields.zpassword}`,
+
     "",
     "Please sign in and change your password immediately after login.",
     "",
