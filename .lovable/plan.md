@@ -1,16 +1,29 @@
-## Goal
-Ensure the Forgot Password email is delivered to the exact email address entered in the login form, not to any email returned by SAP or configured as CC.
+## Current finding
+The Forgot Password function already builds the SAP request as `{ zmail: enteredEmail }` and currently sends the email with `to: enteredEmail`. However, the previous change removed configured CC recipients, and the mailer does not log SMTP delivery details such as accepted/rejected recipients.
 
 ## Plan
-1. Update the Forgot Password server function so the recipient is always the user-entered email from the request payload.
-2. Stop using SAP response fields to determine the email recipient. SAP response values like `ZUSER`, `ZPASSWORD`, and `ZSTATUS` will still be rendered in the email body dynamically.
-3. Prevent No-Reply CC recipients from receiving Forgot Password credential emails, unless you explicitly want CC for this sensitive flow.
-4. Update logging so it records the masked user-entered recipient, making delivery debugging clear without exposing the full address.
-5. Verify the flow by checking that the SMTP `to` value is the entered email and no alternate response/configured address is used.
+1. Keep the entered Forgot Password email as the only primary recipient:
+   - SAP request payload remains `{ zmail: data.email }`.
+   - SMTP `to` remains the exact same `data.email` value.
+   - Do not use any SAP response field to override the recipient.
+
+2. Re-include required configured CC recipients:
+   - Read `cc_recipients` from the No-Reply email configuration.
+   - Pass those addresses to `sendMail({ cc: ... })`.
+   - Keep the entered email in `to`, not only in CC.
+
+3. Add SMTP delivery verification/logging:
+   - Capture Nodemailer `sendMail()` result.
+   - Log masked `to`, masked CC list, `messageId`, accepted recipients, rejected recipients, and pending recipients in `sap_api_sync_log`.
+   - If SMTP rejects the entered `to` address, return a clear error instead of showing success.
+
+4. Validate configuration before sending:
+   - Confirm No-Reply sending is enabled.
+   - Confirm host, port, from email, and app password are present.
+   - Keep using the saved No-Reply SMTP settings from Email Configuration.
 
 ## Technical details
-- Change `src/lib/auth/sap-forgot.functions.ts`.
-- Replace recipient resolution with `const zmail = data.email` or equivalent.
-- Remove/ignore `findRecipient(fields, data.email)` for this flow.
-- Send mail with `to: data.email`.
-- For credential recovery, omit `cc: noReply.cc_recipients` to avoid sending passwords to configured CC recipients.
+- Update `src/lib/auth/sap-forgot.functions.ts` only.
+- Use `recipientEmail = data.email` for both SAP payload and SMTP `to`.
+- Use `cc: (noReply.cc_recipients ?? []) as string[]` when sending the Forgot Password email.
+- Store only masked email addresses in logs; do not log passwords or full addresses.
