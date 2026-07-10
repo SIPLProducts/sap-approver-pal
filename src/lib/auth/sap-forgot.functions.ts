@@ -363,7 +363,8 @@ export const sapForgot = createServerFn({ method: "POST" })
     }
 
     // Extract credential fields from response
-    const zmail = findFieldValue(responseBody, ["ZMAIL", "ZEMAIL", "MAIL", "EMAIL"]);
+    const zmailFromSap = findFieldValue(responseBody, ["ZMAIL", "ZEMAIL", "MAIL", "EMAIL"]);
+    const zmail = zmailFromSap || data.email;
     const zuser = findFieldValue(responseBody, ["ZUSER", "USER", "USERNAME", "USERID"]);
     const zpassword = findFieldValue(responseBody, ["ZPASSWORD", "PASSWORD", "PWD", "ZPWD"]);
     const zstatus = findFieldValue(responseBody, ["ZSTATUS", "STATUS"]);
@@ -381,7 +382,8 @@ export const sapForgot = createServerFn({ method: "POST" })
       return { ok: false, status, error: finalError };
     }
 
-    if (!zmail || !zuser || !zpassword) {
+    if (!zuser || !zpassword) {
+
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "error",
