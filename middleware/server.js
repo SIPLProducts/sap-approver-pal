@@ -471,6 +471,9 @@ async function invokeSap(cfg, inputs) {
     body = JSON.stringify(payload);
   }
 
+  // Redact password/secret keys ONLY in this outbound REQUEST log — this mutates
+  // a deep clone of the payload, never the actual outbound body, and it never
+  // touches the SAP response (responses are returned to the caller verbatim).
   try {
     const redacted = JSON.parse(JSON.stringify(payload));
     const stack = [redacted];
@@ -747,7 +750,10 @@ async function invokeSapRaw(cfg, rawBody) {
   const latency_ms = Date.now() - t0;
   const contentType = res.headers.get("content-type") ?? "";
   const text = await res.text().catch(() => "");
-  console.log(`[raw-invoke] ${method} ${url} status=${res.status} raw=`, text.slice(0, 500));
+  // Full unmasked response log — the middleware never masks SAP responses.
+  // Kept full-length (not sliced) so operators can verify the exact value SAP
+  // returned (e.g. ZPASSWORD in the Forgot flow).
+  console.log(`[raw-invoke] ${method} ${url} status=${res.status} raw=`, text);
   const parsedRaw = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
     ? safeParseSapJson(text)
     : { value: text, repaired: false };
@@ -756,7 +762,7 @@ async function invokeSapRaw(cfg, rawBody) {
     console.log(`[raw-invoke] NOTE: SAP JSON was malformed and repaired (string-safe)`);
   }
   console.log(`[raw-invoke] ${method} ${url} parsed=`,
-    typeof data === "string" ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500));
+    typeof data === "string" ? data : JSON.stringify(data));
 
   return { ok: res.ok, status: res.status, latency_ms, data };
 }
@@ -825,6 +831,7 @@ app.use((err, _req, res, _next) => {
 
 const server = app.listen(PORT, () => {
   console.log(`[sap-middleware] listening on :${PORT} (${MOCK_MODE ? "mock" : "live"} mode)`);
+  console.log(`[sap-middleware] build=${new Date().toISOString()} — response bodies are NEVER masked (only outbound request-log keys password/pswd/secret are redacted for console safety)`);
   if (!MOCK_MODE) console.log(`[sap-middleware] app: ${APP_BASE_URL}`);
   console.log(`[sap-middleware] timeouts request=${TIMEOUT_MS}ms headers=${HEADERS_TIMEOUT_MS}ms body=${BODY_TIMEOUT_MS}ms keepAlive=${CONNECT_TIMEOUT_MS}ms`);
 });
