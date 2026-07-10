@@ -840,7 +840,10 @@ function CreateUserDialog({
   // Drop selected roles that are no longer available.
   useEffect(() => {
     const valid = new Set(roleOptions.map((o) => o.value));
-    setRoles((prev) => prev.filter((r) => valid.has(r)));
+    setRoles((prev) => {
+      const filtered = prev.filter((r) => valid.has(r));
+      return filtered.length === prev.length ? prev : filtered;
+    });
   }, [roleOptions]);
 
   // Surface role-fetch errors so failures aren't silent.
