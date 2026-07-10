@@ -218,13 +218,13 @@ function LoginPage() {
             {forgotOpen && mode === "signin" && (
               <div className="rounded-xl border bg-secondary/40 p-4 space-y-2">
                 <Label htmlFor="forgotEmail" className="text-xs font-medium">
-                  Reset password
+                  Email
                 </Label>
                 <div className="flex gap-2">
                   <Input
                     id="forgotEmail"
                     type="email"
-                    placeholder="you@company.com"
+                    placeholder="Enter your mail"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
                     className="h-10 flex-1"
