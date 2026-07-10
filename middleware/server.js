@@ -471,6 +471,9 @@ async function invokeSap(cfg, inputs) {
     body = JSON.stringify(payload);
   }
 
+  // Redact password/secret keys ONLY in this outbound REQUEST log — this mutates
+  // a deep clone of the payload, never the actual outbound body, and it never
+  // touches the SAP response (responses are returned to the caller verbatim).
   try {
     const redacted = JSON.parse(JSON.stringify(payload));
     const stack = [redacted];
