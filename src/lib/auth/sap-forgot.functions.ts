@@ -170,11 +170,10 @@ function buildCredentialsEmail(fields: {
                     <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${user}</td>
                   </tr>
                   <tr>
-                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:110px;">Password</td>
-                    <td style="padding:10px 0;">
-                      <span style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:14px;font-weight:600;color:#0b1f3a;background:#f3f4f6;border-radius:6px;padding:6px 10px;letter-spacing:0.03em;">${pwd}</span>
-                    </td>
+                    <td style="padding:10px 0;font-size:13px;color:#6b7280;width:110px;">Temporary Password</td>
+                    <td style="padding:10px 0;font-size:14px;color:#111827;font-weight:600;">${pwd}</td>
                   </tr>
+
                 </table>
               </td>
             </tr>
@@ -196,8 +195,9 @@ function buildCredentialsEmail(fields: {
 </html>`;
 
   const text = [
-    `User ID:  ${fields.zuser}`,
-    `Password: ${fields.zpassword}`,
+    `User ID:            ${fields.zuser}`,
+    `Temporary Password: ${fields.zpassword}`,
+
     "",
     "Please sign in and change your password immediately after login.",
     "",
