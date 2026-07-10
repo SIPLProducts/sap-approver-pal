@@ -972,20 +972,7 @@ function CreateUserDialog({
           <DialogTitle className="text-base font-semibold">{editUser ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-          <Field label="Plant" required>
-            <PlantMultiSelect
-              value={plants}
-              onChange={setPlants}
-              placeholder="— Select Plants —"
-              restrictToActive={false}
-            />
-
-            {plants.length === 0 && (
-              <p className="text-[11px] text-muted-foreground mt-1">Please select at least one plant</p>
-            )}
-          </Field>
-
+        <div className="flex-1 overflow-y-auto px-6 py-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="User ID" required>
             <Input
               value={form.sap_user_id}
@@ -1030,6 +1017,31 @@ function CreateUserDialog({
             />
           </Field>
 
+          <Field label="Status" required>
+            <Select
+              value={form.status}
+              onValueChange={(v) => setForm({ ...form, status: v as CreationStatus })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="Plant" required>
+            <PlantMultiSelect
+              value={plants}
+              onChange={setPlants}
+              placeholder="— Select Plants —"
+              restrictToActive={false}
+            />
+            {plants.length === 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1">Please select at least one plant</p>
+            )}
+          </Field>
+
           <Field label="Role" required>
             <RoleMultiSelect
               value={roles}
@@ -1049,6 +1061,33 @@ function CreateUserDialog({
             )}
           </Field>
 
+          {editUser && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">&nbsp;</Label>
+              <div className="flex items-center gap-2 h-9">
+                <Checkbox
+                  id="change-password"
+                  checked={changePassword}
+                  onCheckedChange={(checked) => {
+                    const enabled = checked === true;
+                    setChangePassword(enabled);
+                    if (enabled) {
+                      setForm((f) => ({ ...f, password: "", confirm_password: "" }));
+                    } else {
+                      // Restore the real existing password loaded from SAP
+                      const existingPwd = String(editUser?.password ?? "");
+                      const existingConfirm = String(editUser?.confirm_password ?? existingPwd);
+                      setForm((f) => ({ ...f, password: existingPwd, confirm_password: existingConfirm }));
+                      setShowPw(false);
+                    }
+                  }}
+                />
+                <Label htmlFor="change-password" className="text-sm font-normal cursor-pointer">
+                  Change Password
+                </Label>
+              </div>
+            </div>
+          )}
 
           <Field label="Password" required={!editUser || changePassword}>
             <div className="relative">
@@ -1091,45 +1130,6 @@ function CreateUserDialog({
               </button>
             </div>
           </Field>
-
-          <Field label="Status" required>
-            <Select
-              value={form.status}
-              onValueChange={(v) => setForm({ ...form, status: v as CreationStatus })}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {editUser && (
-            <div className="flex items-center gap-2 pt-2">
-              <Checkbox
-                id="change-password"
-                checked={changePassword}
-                onCheckedChange={(checked) => {
-                  const enabled = checked === true;
-                  setChangePassword(enabled);
-                  if (enabled) {
-                    setForm((f) => ({ ...f, password: "", confirm_password: "" }));
-                  } else {
-                    // Restore the real existing password loaded from SAP
-                    const existingPwd = String(editUser?.password ?? "");
-                    const existingConfirm = String(editUser?.confirm_password ?? existingPwd);
-                    setForm((f) => ({ ...f, password: existingPwd, confirm_password: existingConfirm }));
-                    setShowPw(false);
-                  }
-                }}
-              />
-              <Label htmlFor="change-password" className="text-sm font-normal cursor-pointer">
-                Change Password
-              </Label>
-            </div>
-          )}
-
         </div>
 
         <DialogFooter className="px-6 py-4 border-t bg-background gap-2 sm:gap-2">
