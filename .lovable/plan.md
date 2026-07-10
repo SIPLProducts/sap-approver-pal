@@ -1,45 +1,16 @@
-## Problem
+## Goal
+Ensure the Forgot Password email is delivered to the exact email address entered in the login form, not to any email returned by SAP or configured as CC.
 
-When editing a user without changing the password, the Edit_User request currently forwards `"PASSWORD": "********"` and `"ZCONFPSWD": "********"` to SAP. Those asterisks are a UI placeholder — sending them to SAP would overwrite the real password with literal asterisks.
+## Plan
+1. Update the Forgot Password server function so the recipient is always the user-entered email from the request payload.
+2. Stop using SAP response fields to determine the email recipient. SAP response values like `ZUSER`, `ZPASSWORD`, and `ZSTATUS` will still be rendered in the email body dynamically.
+3. Prevent No-Reply CC recipients from receiving Forgot Password credential emails, unless you explicitly want CC for this sensitive flow.
+4. Update logging so it records the masked user-entered recipient, making delivery debugging clear without exposing the full address.
+5. Verify the flow by checking that the SMTP `to` value is the entered email and no alternate response/configured address is used.
 
-Source: `src/lib/admin/user-mgmt.functions.ts` lines 781–785:
-
-```ts
-inner.PASSWORD = data.password || "********";
-inner.ZCONFPSWD = data.confirm_password || data.password || "********";
-```
-
-## Fix
-
-In the `editSapUser` server function, only include `PASSWORD` / `ZCONFPSWD` when the operator actually opted in to change the password (i.e. `data.password` is a non-empty string). Otherwise, omit both keys from the `EDIT` payload entirely so SAP keeps the existing password untouched.
-
-### Edit
-
-`src/lib/admin/user-mgmt.functions.ts` (~lines 781–786):
-
-```ts
-if (data.password) {
-  inner.PASSWORD = data.password;
-  inner.ZCONFPSWD = data.confirm_password || data.password;
-}
-const payload = { EDIT: inner };
-```
-
-### Audit log
-
-Update the audit log spread (~line 804) so the masked `PASSWORD`/`ZCONFPSWD` entries only appear when they were actually sent:
-
-```ts
-request: {
-  EDIT: {
-    ...inner,
-    ...(inner.PASSWORD ? { PASSWORD: "***", ZCONFPSWD: "***" } : {}),
-  },
-},
-```
-
-No other files change. The create-user flow (which legitimately needs a real password) is unaffected — it lives in a separate block above and always supplies `data.password`.
-
-## Verification
-
-Edit an existing SAP user in the admin screen without ticking "Change password" and confirm the outbound middleware request no longer contains `PASSWORD` or `ZCONFPSWD` keys, and SAP returns success without resetting the password. Then edit again with "Change password" ticked and confirm both keys are sent with the real values.
+## Technical details
+- Change `src/lib/auth/sap-forgot.functions.ts`.
+- Replace recipient resolution with `const zmail = data.email` or equivalent.
+- Remove/ignore `findRecipient(fields, data.email)` for this flow.
+- Send mail with `to: data.email`.
+- For credential recovery, omit `cc: noReply.cc_recipients` to avoid sending passwords to configured CC recipients.
