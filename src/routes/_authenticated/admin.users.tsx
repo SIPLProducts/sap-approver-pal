@@ -1044,13 +1044,14 @@ function CreateUserDialog({
           </Field>
 
 
-          <Field label="Password" required>
+          <Field label="Password" required={!editUser || changePassword}>
             <div className="relative">
               <Input
                 type={showPw ? "text" : "password"}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="Enter password"
+                placeholder={editUser && !changePassword ? "******** — check Change Password to edit" : "Enter password"}
+                disabled={!!editUser && !changePassword}
                 className="pr-9"
               />
               <button
@@ -1064,12 +1065,13 @@ function CreateUserDialog({
             </div>
           </Field>
 
-          <Field label="Confirm Password" required>
+          <Field label="Confirm Password" required={!editUser || changePassword}>
             <Input
               type="password"
               value={form.confirm_password}
               onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
-              placeholder="Re-enter password"
+              placeholder={editUser && !changePassword ? "******** — check Change Password to edit" : "Re-enter password"}
+              disabled={!!editUser && !changePassword}
             />
           </Field>
 
@@ -1085,6 +1087,29 @@ function CreateUserDialog({
               </SelectContent>
             </Select>
           </Field>
+
+          {editUser && (
+            <div className="flex items-center gap-2 pt-2">
+              <Checkbox
+                id="change-password"
+                checked={changePassword}
+                onCheckedChange={(checked) => {
+                  const enabled = checked === true;
+                  setChangePassword(enabled);
+                  if (enabled) {
+                    setForm((f) => ({ ...f, password: "", confirm_password: "" }));
+                  } else {
+                    setForm((f) => ({ ...f, password: PASSWORD_SENTINEL, confirm_password: PASSWORD_SENTINEL }));
+                    setShowPw(false);
+                  }
+                }}
+              />
+              <Label htmlFor="change-password" className="text-sm font-normal cursor-pointer">
+                Change Password
+              </Label>
+            </div>
+          )}
+
         </div>
 
         <DialogFooter className="px-6 py-4 border-t bg-background gap-2 sm:gap-2">
