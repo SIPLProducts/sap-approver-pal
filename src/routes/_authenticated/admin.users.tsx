@@ -1056,7 +1056,7 @@ function CreateUserDialog({
                 type={showPw ? "text" : "password"}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder={editUser && !changePassword ? "******** — check Change Password to edit" : "Enter password"}
+                placeholder={editUser && !changePassword ? "Check Change Password to edit" : "Enter password"}
                 disabled={!!editUser && !changePassword}
                 className="pr-9"
               />
