@@ -1,29 +1,60 @@
-## Current finding
-The Forgot Password function already builds the SAP request as `{ zmail: enteredEmail }` and currently sends the email with `to: enteredEmail`. However, the previous change removed configured CC recipients, and the mailer does not log SMTP delivery details such as accepted/rejected recipients.
+## Likely issue
 
-## Plan
-1. Keep the entered Forgot Password email as the only primary recipient:
-   - SAP request payload remains `{ zmail: data.email }`.
-   - SMTP `to` remains the exact same `data.email` value.
-   - Do not use any SAP response field to override the recipient.
+The SAP/API response only proves the reset request succeeded. It does not prove SMTP delivered the email to the entered address.
 
-2. Re-include required configured CC recipients:
-   - Read `cc_recipients` from the No-Reply email configuration.
-   - Pass those addresses to `sendMail({ cc: ... })`.
-   - Keep the entered email in `to`, not only in CC.
+Based on the current flow, the likely causes are:
 
-3. Add SMTP delivery verification/logging:
-   - Capture Nodemailer `sendMail()` result.
-   - Log masked `to`, masked CC list, `messageId`, accepted recipients, rejected recipients, and pending recipients in `sap_api_sync_log`.
-   - If SMTP rejects the entered `to` address, return a clear error instead of showing success.
+1. **SMTP accepted the message but did not accept the typed recipient**
+   - Some mail servers return success for the overall send while listing recipients as rejected or pending.
+   - The app must inspect Nodemailer's `accepted`, `rejected`, and `pending` arrays, not just assume `sendMail()` success means delivery.
 
-4. Validate configuration before sending:
-   - Confirm No-Reply sending is enabled.
-   - Confirm host, port, from email, and app password are present.
-   - Keep using the saved No-Reply SMTP settings from Email Configuration.
+2. **Email is going only to configured CC recipients**
+   - If the `to` recipient is rejected, but CC recipients are accepted, people in CC can receive the email while the user-entered address does not.
+   - This matches the symptom: “others got the mail, but the entered email did not.”
 
-## Technical details
-- Update `src/lib/auth/sap-forgot.functions.ts` only.
-- Use `recipientEmail = data.email` for both SAP payload and SMTP `to`.
-- Use `cc: (noReply.cc_recipients ?? []) as string[]` when sending the Forgot Password email.
-- Store only masked email addresses in logs; do not log passwords or full addresses.
+3. **The typed recipient is being blocked downstream**
+   - The app can send to `harshinil@sharviinfotech.com`, but the recipient domain may reject, quarantine, spam-filter, or silently drop the message.
+   - The backend can only verify SMTP handoff; final inbox delivery depends on the recipient mail server.
+
+4. **No-Reply SMTP configuration may be incomplete or misaligned**
+   - The configured SMTP account, `from_email`, `username`, encryption mode, or sender domain authentication could cause recipient-specific delivery failure.
+
+## Verification plan
+
+1. **Confirm recipient routing in code**
+   - Ensure SAP payload remains `{ zmail: enteredEmail }`.
+   - Ensure SMTP `to` is exactly the email typed in the Forgot Password input.
+   - Ensure configured CC recipients are passed as `cc`, not replacing `to`.
+
+2. **Verify No-Reply email configuration**
+   - Check whether No-Reply sending is enabled.
+   - Confirm SMTP host, port, encryption, sender email, username, and app password are configured.
+   - Confirm CC recipients are loaded from the email configuration.
+
+3. **Add/inspect SMTP delivery evidence**
+   - Capture the SMTP send result.
+   - Log masked versions of:
+     - primary `to` recipient
+     - CC recipients
+     - SMTP `messageId`
+     - accepted recipients
+     - rejected recipients
+     - pending recipients
+   - If the entered `to` address appears in `rejected`, return a visible error instead of showing success.
+
+4. **Check backend send logs for the affected email**
+   - Look for the latest Forgot Password log entry.
+   - Confirm whether `harshinil@sharviinfotech.com` was accepted, rejected, or pending by SMTP.
+
+## Expected result
+
+After verification, we should be able to tell whether the issue is:
+
+- the app not sending to the typed address,
+- SMTP rejecting only the typed address,
+- SMTP accepting the address but the recipient mail system filtering/dropping it,
+- or a No-Reply configuration issue.
+
+## Implementation scope if approved
+
+Update only the Forgot Password server function if needed, keeping the entered email as `to` and preserving required CC recipients, with delivery logging and rejection handling.
