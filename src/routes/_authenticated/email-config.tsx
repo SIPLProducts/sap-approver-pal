@@ -28,6 +28,8 @@ export const Route = createFileRoute("/_authenticated/email-config")({
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function EmailConfigPage() {
+  const { loading: adminLoading, isAdmin: isBuiltinAdmin } = useIsBuiltInAdmin();
+
   const [enabled, setEnabled] = useState(true);
   const [host, setHost] = useState("smtp.gmail.com");
   const [port, setPort] = useState("587");
