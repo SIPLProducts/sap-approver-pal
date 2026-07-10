@@ -783,7 +783,7 @@ function ApprovalMatrixTab({ tenantScope, tenants }: { tenantScope: string; tena
  * ============================================================ */
 type CreationStatus = "Active" | "Inactive";
 
-const PASSWORD_SENTINEL = "********";
+
 
 const emptyForm = () => ({
   sap_user_id: "",
