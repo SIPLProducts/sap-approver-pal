@@ -828,6 +828,7 @@ app.use((err, _req, res, _next) => {
 
 const server = app.listen(PORT, () => {
   console.log(`[sap-middleware] listening on :${PORT} (${MOCK_MODE ? "mock" : "live"} mode)`);
+  console.log(`[sap-middleware] build=${new Date().toISOString()} — response bodies are NEVER masked (only outbound request-log keys password/pswd/secret are redacted for console safety)`);
   if (!MOCK_MODE) console.log(`[sap-middleware] app: ${APP_BASE_URL}`);
   console.log(`[sap-middleware] timeouts request=${TIMEOUT_MS}ms headers=${HEADERS_TIMEOUT_MS}ms body=${BODY_TIMEOUT_MS}ms keepAlive=${CONNECT_TIMEOUT_MS}ms`);
 });
