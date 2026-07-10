@@ -71,7 +71,21 @@ function EmailConfigPage() {
     toast.success(`Test email queued to ${testTo}`, { description: "UI-only preview — nothing was sent." });
   }
 
+  if (adminLoading) {
+    return <div className="min-h-[40vh] grid place-items-center text-muted-foreground">Loading…</div>;
+  }
+  if (!isBuiltinAdmin) {
+    return (
+      <div className="max-w-2xl">
+        <Alert variant="destructive">
+          <AlertDescription>You are not authorized to view this screen.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
+
     <div className="max-w-5xl space-y-6">
       <PageHeader
         eyebrow="Settings"
