@@ -261,7 +261,7 @@ export const sapForgot = createServerFn({ method: "POST" })
       };
     }
 
-    const payload = { FORGOT: { EMAIL: data.email } };
+    const payload = { zmail: data.email };
     const t0 = Date.now();
     let ok = false;
     let status = 0;
