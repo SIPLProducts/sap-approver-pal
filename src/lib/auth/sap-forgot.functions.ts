@@ -111,7 +111,28 @@ export const sapForgot = createServerFn({ method: "POST" })
       };
     }
 
-    const payload = { FORGOT: { EMAIL: data.email } };
+    // Load No-Reply sender settings to use as the "from" for the SAP-triggered mail.
+    const { data: noReply } = await supabaseAdmin
+      .from("email_no_reply_config")
+      .select("enabled, from_email, from_name")
+      .eq("id", "default")
+      .maybeSingle();
+
+    if (!noReply?.enabled || !noReply.from_email) {
+      return {
+        ok: false,
+        status: 0,
+        error: "No-Reply sender is not configured. Set it in Email Configuration.",
+      };
+    }
+
+    const payload = {
+      FORGOT: {
+        EMAIL: data.email,
+        FROM_EMAIL: noReply.from_email,
+        FROM_NAME: noReply.from_name ?? "",
+      },
+    };
     const t0 = Date.now();
     let ok = false;
     let status = 0;
