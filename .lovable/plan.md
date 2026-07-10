@@ -1,42 +1,48 @@
 ## Goal
 
-The SAP Forgot API returns the real password in Postman (`[{ "ZUSER":"SARVI", "ZPASSWORD":"Chaitu@071", "ZSTATUS":"ACTIVE" }]`), but the recovery email shows `********`. Find where the value is being lost and preserve the exact SAP value end-to-end.
+Stop hardcoding "User ID" / "Temporary Password" (and the fixed `zuser` + `zpassword` picks) in the forgot-password email. Instead, drive the email body directly from whatever fields the SAP `Forgot_API` response returns for that user, so if SAP later adds/renames/removes columns the email adapts automatically.
 
-## Findings so far
-
-- `middleware/server.js` has **only one** masking site: line 481, inside the outbound request log for `invokeSap`. It runs on a deep clone (`JSON.parse(JSON.stringify(payload))`) of the *request payload*, not the SAP response, and only mutates the clone that is passed to `console.log`. It does not touch the value the middleware returns.
-- Forgot uses `namedRawInvokeRoute("/login/Forgot_API", "Forgot_API")` → `invokeSapRaw`, which never calls `mapResponse` and never masks. It returns `{ ok, status, latency_ms, data }` with `data` = parsed SAP body verbatim.
-- The middleware's response body log (`[raw-invoke] ... raw=`) is truncated to `text.slice(0, 500)` — so on a longer array response the operator sees a cut-off preview, which can look like the value was altered.
-- The app-side `findFieldValue` in `src/lib/auth/sap-forgot.functions.ts` already walks arrays and nested objects, so it will find `ZPASSWORD` inside `data[0]` from the middleware envelope. No masking happens on the app side either.
-
-Conclusion: the most likely real causes are (a) a stale middleware deployment, (b) truncated middleware logs being misread as masking, or (c) the SAP response actually reaching the app but the array-wrapped envelope tripping a code path we should harden. The plan below fixes all three deterministically and adds unmasked, full-body diagnostics so the next test is unambiguous.
+Example SAP response the email must render as-is:
+```
+[
+  { "ZUSER": "...", "ZPASSWORD": "...", "ZSTATUS": "..." }
+]
+```
 
 ## Changes
 
-### 1. `middleware/server.js` — prove the response is not masked
+### 1. `src/lib/auth/sap-forgot.functions.ts`
 
-- In `invokeSapRaw`, replace the two `text.slice(0, 500)` / `JSON.stringify(data).slice(0, 500)` log lines with **full** unmasked logs for the Forgot flow (log the entire `text` and entire `JSON.stringify(data)`), so operator can see the exact SAP payload the middleware received and returned.
-- Narrow the request-log masking in `invokeSap` (line 475–486) so it only masks keys on the immediate request payload (already the case), and add a comment clarifying that this never touches the response. No behavior change to responses — just makes intent explicit.
-- Add a version banner line at boot (`console.log("[middleware] build=<git sha or timestamp>")`) so we can confirm the running middleware is the latest one when the user retests.
+- **Unwrap the SAP record generically.** After extracting `inner` from the middleware envelope, pick the first plain object in the payload (walk arrays, take `inner[0]` when array, else `inner` when object). Do not look for specific keys.
+- **Build a `fields` array** of `{ key, label, value }` from every own-property of that record whose value is a non-empty scalar (string/number/boolean). Preserve SAP's original key order.
+  - `label` = key with a leading `Z` stripped, snake/underscore split, Title Cased (e.g. `ZUSER` → `User`, `ZPASSWORD` → `Password`, `ZSTATUS` → `Status`, `FIRST_NAME` → `First Name`). No renaming beyond that.
+  - `value` = string form of the SAP value, unmasked.
+- **Recipient email discovery stays generic:** pick the first field whose key matches `/mail|email/i` and whose value looks like an email; otherwise fall back to `data.email` (the address the user typed). No hardcoded `ZMAIL` list.
+- **Success gate** becomes "response is not rejected AND at least one non-email field has a value" instead of requiring `zuser && zpassword`.
+- **Debug log** prints the list of keys returned plus lengths (never full password values), e.g. `[sap-forgot] fields=ZUSER,ZPASSWORD,ZSTATUS; ZPASSWORD.len=10`.
+- **Missing-data error** wording: "SAP did not return any account details for this email."
+- Replace the call `buildCredentialsEmail({ zuser, zpassword })` with `buildCredentialsEmail({ fields, recipient })`.
 
-### 2. `src/lib/auth/sap-forgot.functions.ts` — harden extraction + log the raw value
+### 2. Email template in the same file
 
-- After receiving the middleware response, unwrap `responseBody.data` when it's an array or object (SAP returns a bare array; middleware wraps it as `{ ok, status, data: [...] }`). Feed the unwrapped payload into `findFieldValue` first, then fall back to the full envelope. This guarantees `ZPASSWORD` is picked from `data[0]` even if SAP later moves fields around.
-- Add a server-side debug log (redacted only for email, full for password length + first/last char) right before `buildCredentialsEmail` is called, e.g. `console.log("[sap-forgot] zpassword length=", zpassword.length, "first=", zpassword[0], "last=", zpassword.at(-1))`. This lets us confirm the exact SAP value reached the mailer without ever writing the full password to persistent logs.
-- Confirm `buildCredentialsEmail` renders `fields.zpassword` verbatim (per-character spans already in place from the previous change) with no `.replace(/./g, "*")` or similar anywhere in the chain.
+Rewrite `buildCredentialsEmail` so it takes `{ fields, recipient }` and renders:
 
-### 3. Verification
+- Header block: brand logo + "Re Sustainability / RESL Approvals" (unchanged).
+- **Highlight card at top:** show the first field's value as the display name (or fall back to recipient), no hardcoded "ID:" line.
+- **Details table:** one row per entry in `fields`, in SAP's order:
+  - Left column = `label`
+  - Right column = value, rendered with the same per-character `<span>` trick already used for the password (prevents Gmail/Outlook from masking it), applied to every value so nothing looks like a password field.
+- Footer: unchanged reminder to sign in and change password after login.
+- Plain-text alternative: `label: value` lines in the same order, followed by the existing sign-in reminder.
 
-- Rebuild + redeploy the Node middleware (the user must restart the middleware service — noted in the reply — otherwise old code keeps masking in their memory of it).
-- Trigger a forgot-password from the login page.
-- Inspect middleware console:
-  - `[request] body=` — the `{ inputs: { zmail: "..." } }` sent by the app.
-  - `[raw-invoke] ... raw=` — full unmasked SAP response array with real `ZPASSWORD`.
-- Inspect app server-function log:
-  - `[sap-forgot] zpassword length=… first=… last=…` — matches the Postman value's length and endpoints.
-- Open the delivered email and confirm the Temporary Password row shows the exact SAP value (e.g. `Chaitu@071`).
+No field is special-cased. If SAP returns only `ZUSER` + `ZPASSWORD`, only those two rows appear. If SAP later adds `ZEMAIL`, `ZROLE`, etc., they show up automatically without another code change.
 
-## Out of scope
+### 3. No other files change
 
-- SAP field mapping, auth, SMTP config, subject line, CC list, logo, or plain-text body — unchanged.
-- Client-side login/forgot UI — unchanged.
+- Middleware, request payload (`{ zmail }`), SMTP config, subject line, logging table, and route wiring stay exactly as they are.
+
+## Verification
+
+1. Trigger forgot password with a real SAP account.
+2. Check the delivered email — rows must match the SAP response keys/values 1:1 (labels prettified from the SAP keys), and the password value must be the literal string SAP returned (not asterisks).
+3. Server log line `[sap-forgot] fields=...` should list every key SAP returned.
