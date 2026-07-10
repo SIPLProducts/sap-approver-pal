@@ -128,7 +128,11 @@ function buildCredentialsEmail(fields: {
   zpassword: string;
 }): { html: string; text: string } {
   const user = escapeHtml(fields.zuser);
-  const pwd = escapeHtml(fields.zpassword);
+  // Split each character into its own span so Gmail/Outlook heuristics don't
+  // treat the value as a password token and auto-mask it with asterisks.
+  const pwd = Array.from(fields.zpassword)
+    .map((ch) => `<span>${escapeHtml(ch)}</span>`)
+    .join("");
 
   const html = `<!doctype html>
 <html>
