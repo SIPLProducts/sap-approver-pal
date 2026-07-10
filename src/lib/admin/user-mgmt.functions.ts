@@ -665,6 +665,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
           email,
           contact,
           status,
+          password,
+          confirm_password: confirmPassword,
           plants: [],
           roles: [],
           role_assignments: [],
@@ -681,6 +683,8 @@ export const listUsersViaSap = createServerFn({ method: "POST" })
         if (!entry.email && email) entry.email = email;
         if (!entry.contact && contact) entry.contact = contact;
         if (!entry.status && status) entry.status = status;
+        if (!entry.password && password) entry.password = password;
+        if (!entry.confirm_password && confirmPassword) entry.confirm_password = confirmPassword;
       }
       if (singlePlant) entry._plants.add(singlePlant);
       for (const p of nestedPlants) entry._plants.add(p);
