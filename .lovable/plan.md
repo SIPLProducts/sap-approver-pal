@@ -1,48 +1,45 @@
-## Goal
+## Problem
 
-Stop hardcoding "User ID" / "Temporary Password" (and the fixed `zuser` + `zpassword` picks) in the forgot-password email. Instead, drive the email body directly from whatever fields the SAP `Forgot_API` response returns for that user, so if SAP later adds/renames/removes columns the email adapts automatically.
+When editing a user without changing the password, the Edit_User request currently forwards `"PASSWORD": "********"` and `"ZCONFPSWD": "********"` to SAP. Those asterisks are a UI placeholder — sending them to SAP would overwrite the real password with literal asterisks.
 
-Example SAP response the email must render as-is:
+Source: `src/lib/admin/user-mgmt.functions.ts` lines 781–785:
+
+```ts
+inner.PASSWORD = data.password || "********";
+inner.ZCONFPSWD = data.confirm_password || data.password || "********";
 ```
-[
-  { "ZUSER": "...", "ZPASSWORD": "...", "ZSTATUS": "..." }
-]
+
+## Fix
+
+In the `editSapUser` server function, only include `PASSWORD` / `ZCONFPSWD` when the operator actually opted in to change the password (i.e. `data.password` is a non-empty string). Otherwise, omit both keys from the `EDIT` payload entirely so SAP keeps the existing password untouched.
+
+### Edit
+
+`src/lib/admin/user-mgmt.functions.ts` (~lines 781–786):
+
+```ts
+if (data.password) {
+  inner.PASSWORD = data.password;
+  inner.ZCONFPSWD = data.confirm_password || data.password;
+}
+const payload = { EDIT: inner };
 ```
 
-## Changes
+### Audit log
 
-### 1. `src/lib/auth/sap-forgot.functions.ts`
+Update the audit log spread (~line 804) so the masked `PASSWORD`/`ZCONFPSWD` entries only appear when they were actually sent:
 
-- **Unwrap the SAP record generically.** After extracting `inner` from the middleware envelope, pick the first plain object in the payload (walk arrays, take `inner[0]` when array, else `inner` when object). Do not look for specific keys.
-- **Build a `fields` array** of `{ key, label, value }` from every own-property of that record whose value is a non-empty scalar (string/number/boolean). Preserve SAP's original key order.
-  - `label` = key with a leading `Z` stripped, snake/underscore split, Title Cased (e.g. `ZUSER` → `User`, `ZPASSWORD` → `Password`, `ZSTATUS` → `Status`, `FIRST_NAME` → `First Name`). No renaming beyond that.
-  - `value` = string form of the SAP value, unmasked.
-- **Recipient email discovery stays generic:** pick the first field whose key matches `/mail|email/i` and whose value looks like an email; otherwise fall back to `data.email` (the address the user typed). No hardcoded `ZMAIL` list.
-- **Success gate** becomes "response is not rejected AND at least one non-email field has a value" instead of requiring `zuser && zpassword`.
-- **Debug log** prints the list of keys returned plus lengths (never full password values), e.g. `[sap-forgot] fields=ZUSER,ZPASSWORD,ZSTATUS; ZPASSWORD.len=10`.
-- **Missing-data error** wording: "SAP did not return any account details for this email."
-- Replace the call `buildCredentialsEmail({ zuser, zpassword })` with `buildCredentialsEmail({ fields, recipient })`.
+```ts
+request: {
+  EDIT: {
+    ...inner,
+    ...(inner.PASSWORD ? { PASSWORD: "***", ZCONFPSWD: "***" } : {}),
+  },
+},
+```
 
-### 2. Email template in the same file
-
-Rewrite `buildCredentialsEmail` so it takes `{ fields, recipient }` and renders:
-
-- Header block: brand logo + "Re Sustainability / RESL Approvals" (unchanged).
-- **Highlight card at top:** show the first field's value as the display name (or fall back to recipient), no hardcoded "ID:" line.
-- **Details table:** one row per entry in `fields`, in SAP's order:
-  - Left column = `label`
-  - Right column = value, rendered with the same per-character `<span>` trick already used for the password (prevents Gmail/Outlook from masking it), applied to every value so nothing looks like a password field.
-- Footer: unchanged reminder to sign in and change password after login.
-- Plain-text alternative: `label: value` lines in the same order, followed by the existing sign-in reminder.
-
-No field is special-cased. If SAP returns only `ZUSER` + `ZPASSWORD`, only those two rows appear. If SAP later adds `ZEMAIL`, `ZROLE`, etc., they show up automatically without another code change.
-
-### 3. No other files change
-
-- Middleware, request payload (`{ zmail }`), SMTP config, subject line, logging table, and route wiring stay exactly as they are.
+No other files change. The create-user flow (which legitimately needs a real password) is unaffected — it lives in a separate block above and always supplies `data.password`.
 
 ## Verification
 
-1. Trigger forgot password with a real SAP account.
-2. Check the delivered email — rows must match the SAP response keys/values 1:1 (labels prettified from the SAP keys), and the password value must be the literal string SAP returned (not asterisks).
-3. Server log line `[sap-forgot] fields=...` should list every key SAP returned.
+Edit an existing SAP user in the admin screen without ticking "Change password" and confirm the outbound middleware request no longer contains `PASSWORD` or `ZCONFPSWD` keys, and SAP returns success without resetting the password. Then edit again with "Change password" ticked and confirm both keys are sent with the real values.
