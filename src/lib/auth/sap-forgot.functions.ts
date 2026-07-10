@@ -7,6 +7,9 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import reLogo from "@/assets/re-logo.png.asset.json";
+
+const LOGO_URL = `https://sap-approver-pal.lovable.app${reLogo.url}`;
 
 type SapForgotResult = {
   ok: boolean;
