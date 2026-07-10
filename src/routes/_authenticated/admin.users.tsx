@@ -859,6 +859,8 @@ function CreateUserDialog({
 
   useEffect(() => {
     if (editUser) {
+      const existingPwd = String(editUser.password ?? "");
+      const existingConfirm = String(editUser.confirm_password ?? existingPwd ?? "");
       setForm({
         sap_user_id: editUser.user ?? "",
         first_name: editUser.first_name ?? "",
@@ -866,8 +868,8 @@ function CreateUserDialog({
         email: editUser.email ?? "",
         contact_number: editUser.contact ?? "",
         status: editUser.status === "ACTIVE" || editUser.status === "Active" ? "Active" as CreationStatus : "Inactive" as CreationStatus,
-        password: PASSWORD_SENTINEL,
-        confirm_password: PASSWORD_SENTINEL,
+        password: existingPwd,
+        confirm_password: existingConfirm,
       });
       const editPlants: string[] = editUser.plants ?? [];
       setPlants(editPlants);
@@ -884,11 +886,13 @@ function CreateUserDialog({
       }
       setRoles(Array.from(new Set(composite)));
       setChangePassword(false);
+      setShowPw(false);
     } else {
       setForm(emptyForm());
       setPlants([]);
       setRoles([]);
       setChangePassword(false);
+      setShowPw(false);
     }
   }, [editUser]);
 
