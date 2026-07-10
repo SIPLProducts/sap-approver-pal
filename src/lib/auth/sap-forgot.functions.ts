@@ -1,9 +1,9 @@
 /**
  * Public server function invoked from the login form "Forgot Password" flow.
  * Calls the SAP API named "Forgot_API" (configured in SAP API Settings) with
- * payload { FORGOT: { EMAIL } }, extracts ZMAIL/ZUSER/ZPASSWORD/ZSTATUS from
- * the response, then emails the credentials to ZMAIL using the No-Reply SMTP
- * configuration saved in the Email Configuration screen.
+ * payload { zmail }, extracts fields like ZUSER/ZPASSWORD/ZSTATUS from the
+ * response, then emails the credentials to the entered email address using the
+ * No-Reply SMTP configuration and configured CC recipients.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
