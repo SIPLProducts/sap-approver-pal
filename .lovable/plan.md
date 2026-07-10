@@ -1,18 +1,21 @@
-## Add Email Configuration to Screen Permissions
+## Restrict Email Configuration to Admin only (for now)
 
-Register the new page as a permission-controlled screen so it shows up in the Roles tab's Screen Permissions chip list (alongside MM Approvals Inbox, Users & Roles, etc.).
+Currently the sidebar entry is gated by `settings.email_config`, so any custom role granted that screen would see it. To keep it Admin-only until we're ready to expose it:
 
 ### Changes
 
-1. **`src/lib/admin/screen-keys.ts`** — add a new module group to `SCREEN_GROUPS`:
-   - Module **"Settings"** with one screen:
-     - `{ key: "settings.email_config", label: "Email Configuration", activity: "SETTINGS.EMAIL_CONFIG" }`
+1. **`src/routes/_authenticated.tsx`** — replace the screen-based gate on the Email Configuration nav item with a built-in Admin check:
+   - Import the existing `useIsBuiltinAdmin` hook (`src/hooks/use-is-builtin-admin.ts`).
+   - Filter the Email Configuration item out unless `isBuiltinAdmin === true`.
+   - Leave the entry visually/positionally unchanged otherwise.
 
-2. **`src/routes/_authenticated.tsx`** — gate the sidebar entry by the new screen key:
-   - Change the Email Configuration item from `screen: null` → `screen: "settings.email_config"`.
+2. **`src/routes/_authenticated/email-config.tsx`** — add a lightweight component-level guard:
+   - If `!isBuiltinAdmin`, render a simple "Not authorized" message (same pattern used elsewhere) instead of the form, so direct URL access is also blocked.
 
-### Result
+3. **`src/lib/admin/screen-keys.ts`** — leave the `settings.email_config` entry in place so it still shows in the Roles tab chip list (per the previous request), but it will have no effect until we drop the Admin-only gate. No change here.
 
-- Roles dialog auto-lists "Email Configuration" as a selectable chip (it reads from `SCREEN_GROUPS`), and the "N of N assigned" counter grows by one.
-- Built-in Admin continues to see the item unconditionally; other roles see it only when granted.
-- No DB migration and no visual/style changes.
+### Notes
+
+- No DB / migration changes.
+- No visual/style changes.
+- When we're ready to open the screen to custom roles, we simply revert step 1 back to `screen: "settings.email_config"` and remove the guard in step 2.

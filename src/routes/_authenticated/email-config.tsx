@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useIsBuiltInAdmin } from "@/hooks/use-is-builtin-admin";
+
 
 export const Route = createFileRoute("/_authenticated/email-config")({
   head: () => ({
@@ -26,6 +28,8 @@ export const Route = createFileRoute("/_authenticated/email-config")({
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function EmailConfigPage() {
+  const { loading: adminLoading, isAdmin: isBuiltinAdmin } = useIsBuiltInAdmin();
+
   const [enabled, setEnabled] = useState(true);
   const [host, setHost] = useState("smtp.gmail.com");
   const [port, setPort] = useState("587");
@@ -67,7 +71,21 @@ function EmailConfigPage() {
     toast.success(`Test email queued to ${testTo}`, { description: "UI-only preview — nothing was sent." });
   }
 
+  if (adminLoading) {
+    return <div className="min-h-[40vh] grid place-items-center text-muted-foreground">Loading…</div>;
+  }
+  if (!isBuiltinAdmin) {
+    return (
+      <div className="max-w-2xl">
+        <Alert variant="destructive">
+          <AlertDescription>You are not authorized to view this screen.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
+
     <div className="max-w-5xl space-y-6">
       <PageHeader
         eyebrow="Settings"
