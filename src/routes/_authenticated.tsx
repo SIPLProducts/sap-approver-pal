@@ -16,7 +16,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { syncFromSAP } from "@/lib/sap/sap.functions";
 import { fetchBmwStatusReport } from "@/lib/sd/bmw-status-report.functions";
 import { usePermissions } from "@/hooks/use-permissions";
-import { useIsBuiltInAdmin } from "@/hooks/use-is-builtin-admin";
 import { ActiveContextProvider, useActiveContext, type AssignedPlant } from "@/hooks/use-active-context";
 
 
