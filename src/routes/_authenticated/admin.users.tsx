@@ -1116,7 +1116,10 @@ function CreateUserDialog({
                   if (enabled) {
                     setForm((f) => ({ ...f, password: "", confirm_password: "" }));
                   } else {
-                    setForm((f) => ({ ...f, password: PASSWORD_SENTINEL, confirm_password: PASSWORD_SENTINEL }));
+                    // Restore the real existing password loaded from SAP
+                    const existingPwd = String(editUser?.password ?? "");
+                    const existingConfirm = String(editUser?.confirm_password ?? existingPwd);
+                    setForm((f) => ({ ...f, password: existingPwd, confirm_password: existingConfirm }));
                     setShowPw(false);
                   }
                 }}
