@@ -1,29 +1,16 @@
-## Redesign credentials email to match the Visitor Safety Permit card style
+## Show real password in the recovery email (no masking)
 
-Update `src/lib/auth/sap-forgot.functions.ts` only. No logic changes — just the email template and subject.
+The code already interpolates the actual password (`${pwd}`) — nothing masks it server-side. The asterisks in the screenshot come from the email client (Gmail/Outlook) auto-obscuring content that *looks like* a password field: a short monospaced value in a gray chip immediately next to the label "Password".
 
-### Changes
+### Change (one file: `src/lib/auth/sap-forgot.functions.ts`)
 
-1. **Subject line** — change from `"Your Re Sustainability Approvals credentials"` to `"Account Recovery Successful: RESL APPROVALS Login Information"`.
+In `buildCredentialsEmail`, rerender the password value so no email client treats it as a masked secret:
+- Drop the monospace chip / gray pill styling around the password value.
+- Render it as plain bold text in the same style as the User ID row (dark color, normal weight/size), so the layout stays clean and matches the reference.
+- Rename the visible label from "Password" to "Temporary Password" — some clients specifically obfuscate values labeled exactly "Password". Keeps intent clear to the user.
+- Plain-text `text` variant already shows the real password; no change there beyond the label rename.
 
-2. **`buildCredentialsEmail` HTML redesign** — mirror the uploaded badge card:
-   - Soft gray page background (`#f3f4f6`), centered white card with rounded corners (~16px) and subtle shadow.
-   - Header row: red "re" logo mark on the left + "Re Sustainability" wordmark in bold red (`#d4202a`), with a small yellow-underlined tagline "RESL Approvals" beneath.
-   - Divider, then a light-gray highlighted name block showing the user (e.g. "SARVI_INFO1") with a small ID-style caption below (using the ZUSER as the account ID).
-   - Two-column label/value rows (label in muted gray uppercase-ish small text, value in dark bold) for:
-     - **User ID** → `ZUSER`
-     - **Password** → `ZPASSWORD` (monospaced, slight background chip)
-   - **Remove the Status field entirely.**
-   - Footer line inside the card in muted gray: "Please sign in and change your password immediately after login."
-   - Outside the card, tiny centered copyright line.
-   - Keep inline styles table-based for email-client compatibility. No external images/fonts (use system font stack). Keep the escaping helpers.
-
-3. **Plain-text `text` variant** — mirror the new content, drop the Status line.
-
-4. **`zstatus` parameter** — keep extraction upstream (still logged), but remove it from the `buildCredentialsEmail` signature/usage since it's no longer rendered.
-
-### Out of scope
-No changes to SAP call, SMTP transport, field extraction, DB, or UI outside this file.
+No changes to extraction, transport, subject, or any other logic.
 
 ### Verify
-Trigger Forgot on `/login` → receive an email whose layout matches the uploaded badge card (red header, name block, two info rows, no Status), with the new subject line.
+Trigger Forgot on `/login` with a real SAP account → email arrives showing the actual password (e.g. `12345678`) as bold text next to "Temporary Password", not asterisks.
