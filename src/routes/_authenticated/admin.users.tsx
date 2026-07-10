@@ -923,8 +923,8 @@ function CreateUserDialog({
 
     setSubmitting(true);
     try {
-      const sendPwd = passwordUnchanged ? "" : form.password;
-      const sendConfirm = passwordUnchanged ? "" : form.confirm_password;
+      const sendPwd = passwordUnchanged ? PASSWORD_SENTINEL : form.password;
+      const sendConfirm = passwordUnchanged ? PASSWORD_SENTINEL : form.confirm_password;
       const base = {
         sap_user_id: form.sap_user_id.trim(),
         first_name: form.first_name.trim(),
@@ -1066,13 +1066,24 @@ function CreateUserDialog({
           </Field>
 
           <Field label="Confirm Password" required={!editUser || changePassword}>
-            <Input
-              type="password"
-              value={form.confirm_password}
-              onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
-              placeholder={editUser && !changePassword ? "******** — check Change Password to edit" : "Re-enter password"}
-              disabled={!!editUser && !changePassword}
-            />
+            <div className="relative">
+              <Input
+                type={showPw ? "text" : "password"}
+                value={form.confirm_password}
+                onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
+                placeholder={editUser && !changePassword ? "******** — check Change Password to edit" : "Re-enter password"}
+                disabled={!!editUser && !changePassword}
+                className="pr-9"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPw ? "Hide password" : "Show password"}
+              >
+                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </Field>
 
           <Field label="Status" required>
