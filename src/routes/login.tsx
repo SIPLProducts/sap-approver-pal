@@ -274,9 +274,7 @@ function LoginPage() {
           <button
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
             className="mt-5 w-full text-center text-sm text-muted-foreground hover:text-foreground"
-          >
-            /* {mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in"} */
-          </button>
+          ></button>
 
           {mode === "signin" && (
             <div className="mt-8 rounded-xl border bg-secondary/40 p-4">
