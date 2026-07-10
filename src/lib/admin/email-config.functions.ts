@@ -22,10 +22,7 @@ const configSchema = z.object({
   app_password: z.string().max(500).optional(), // empty/undefined = keep existing
 });
 
-async function assertAdmin(ctx: {
-  supabase: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> };
-  userId: string;
-}) {
+async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
     _user_id: ctx.userId,
     _role: "Admin",
