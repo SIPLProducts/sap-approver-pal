@@ -6,6 +6,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertScreen } from "@/lib/admin/assert-screen";
 import { z } from "zod";
 
 const encryptionSchema = z.enum(["none", "ssl", "tls", "starttls"]);
@@ -22,15 +23,8 @@ const configSchema = z.object({
   app_password: z.string().max(500).optional(), // empty/undefined = keep existing
 });
 
-async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "Admin",
-  });
-  if (error || !data) {
-    throw new Error("Forbidden: admin role required");
-  }
-}
+const SCREEN_KEY = "settings.email_config";
+
 
 export type NoReplyEmailConfig = {
   enabled: boolean;
