@@ -747,7 +747,10 @@ async function invokeSapRaw(cfg, rawBody) {
   const latency_ms = Date.now() - t0;
   const contentType = res.headers.get("content-type") ?? "";
   const text = await res.text().catch(() => "");
-  console.log(`[raw-invoke] ${method} ${url} status=${res.status} raw=`, text.slice(0, 500));
+  // Full unmasked response log — the middleware never masks SAP responses.
+  // Kept full-length (not sliced) so operators can verify the exact value SAP
+  // returned (e.g. ZPASSWORD in the Forgot flow).
+  console.log(`[raw-invoke] ${method} ${url} status=${res.status} raw=`, text);
   const parsedRaw = contentType.includes("application/json") || /^\s*[\[{]/.test(text)
     ? safeParseSapJson(text)
     : { value: text, repaired: false };
@@ -756,7 +759,7 @@ async function invokeSapRaw(cfg, rawBody) {
     console.log(`[raw-invoke] NOTE: SAP JSON was malformed and repaired (string-safe)`);
   }
   console.log(`[raw-invoke] ${method} ${url} parsed=`,
-    typeof data === "string" ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500));
+    typeof data === "string" ? data : JSON.stringify(data));
 
   return { ok: res.ok, status: res.status, latency_ms, data };
 }
