@@ -1,60 +1,39 @@
-## Likely issue
+## Problem
 
-The SAP/API response only proves the reset request succeeded. It does not prove SMTP delivered the email to the entered address.
+In Admin → Users → Edit User dialog:
 
-Based on the current flow, the likely causes are:
+1. If the operator edits any field but doesn't touch the password, the SAP Edit payload is sent with `PASSWORD: "********"` (the masked sentinel), which overwrites the real password in SAP with literal asterisks.
+2. Clicking the eye/"view" icon on the password field shows `********` instead of the user's actual current password.
+3. The password / confirm-password inputs are editable even when the "Change Password" checkbox is unchecked, which is what lets the sentinel leak into the payload.
 
-1. **SMTP accepted the message but did not accept the typed recipient**
-   - Some mail servers return success for the overall send while listing recipients as rejected or pending.
-   - The app must inspect Nodemailer's `accepted`, `rejected`, and `pending` arrays, not just assume `sendMail()` success means delivery.
+## Root cause
 
-2. **Email is going only to configured CC recipients**
-   - If the `to` recipient is rejected, but CC recipients are accepted, people in CC can receive the email while the user-entered address does not.
-   - This matches the symptom: “others got the mail, but the entered email did not.”
+- `Create_User_Display_Table` (the SAP list API) already returns `ZPASSWORD` and `ZCONFPSWD` for each user, but `listSapUsers` throws that field away — it never appears on the row objects that feed the edit dialog.
+- The edit dialog therefore has no real password to pre-fill, so it fills both password fields with the constant `PASSWORD_SENTINEL = "********"`.
+- On submit, when `changePassword` is unchecked, the form still sends `password: "********"` to `editUserViaSap`. The server treats any truthy `data.password` as a real password and forwards `PASSWORD: "********"` to SAP.
+- The password inputs are only visually placeholdered — they remain enabled and typeable even when `Change Password` is off.
 
-3. **The typed recipient is being blocked downstream**
-   - The app can send to `harshinil@sharviinfotech.com`, but the recipient domain may reject, quarantine, spam-filter, or silently drop the message.
-   - The backend can only verify SMTP handoff; final inbox delivery depends on the recipient mail server.
+## Fix
 
-4. **No-Reply SMTP configuration may be incomplete or misaligned**
-   - The configured SMTP account, `from_email`, `username`, encryption mode, or sender domain authentication could cause recipient-specific delivery failure.
+Frontend — `src/routes/_authenticated/admin.users.tsx`:
 
-## Verification plan
+- When opening Edit User, seed `form.password` / `form.confirm_password` from the row's real `ZPASSWORD` / `ZCONFPSWD` (fall back to empty string if missing) instead of `PASSWORD_SENTINEL`. Keep the value in state so it can be sent back untouched.
+- Disable (`disabled` + muted styling) both password inputs and the show/hide eye button whenever `editUser && !changePassword`. Update placeholders accordingly.
+- When the operator toggles `Change Password`:
+  - ON → clear both fields so they can type a new password.
+  - OFF → restore the original password from the loaded row (not the sentinel).
+- On submit, always send the current `form.password` / `form.confirm_password` — the real existing password when unchanged, the freshly typed one when changed. Skip the "min 8 / must match" validation only when `!changePassword` (existing SAP value is trusted as-is).
+- The eye/view toggle now reveals the real password because the field holds the actual value.
 
-1. **Confirm recipient routing in code**
-   - Ensure SAP payload remains `{ zmail: enteredEmail }`.
-   - Ensure SMTP `to` is exactly the email typed in the Forgot Password input.
-   - Ensure configured CC recipients are passed as `cc`, not replacing `to`.
+Backend — `src/lib/admin/user-mgmt.functions.ts`:
 
-2. **Verify No-Reply email configuration**
-   - Check whether No-Reply sending is enabled.
-   - Confirm SMTP host, port, encryption, sender email, username, and app password are configured.
-   - Confirm CC recipients are loaded from the email configuration.
+- Extend `listSapUsers` row mapping to capture `ZPASSWORD` / `ZCONFPSWD` (fallbacks: `PASSWORD`, `CONFPSWD`) into the returned row (e.g. `password`, `confirm_password`), so the client has them for the edit dialog.
+- Extend the `Row` shape (both the aggregator and the outputted user object) to include these fields; do NOT log them in `admin_audit_log` (keep `sample_keys` only, no values).
+- `editUserViaSap` keeps its current behavior of forwarding `PASSWORD` / `ZCONFPSWD` when provided — no server-side "change vs. unchanged" branching needed because the client now always sends the correct value. Continue masking them in the audit log.
 
-3. **Add/inspect SMTP delivery evidence**
-   - Capture the SMTP send result.
-   - Log masked versions of:
-     - primary `to` recipient
-     - CC recipients
-     - SMTP `messageId`
-     - accepted recipients
-     - rejected recipients
-     - pending recipients
-   - If the entered `to` address appears in `rejected`, return a visible error instead of showing success.
+No other routes or business logic are affected.
 
-4. **Check backend send logs for the affected email**
-   - Look for the latest Forgot Password log entry.
-   - Confirm whether `harshinil@sharviinfotech.com` was accepted, rejected, or pending by SMTP.
+## Out of scope
 
-## Expected result
-
-After verification, we should be able to tell whether the issue is:
-
-- the app not sending to the typed address,
-- SMTP rejecting only the typed address,
-- SMTP accepting the address but the recipient mail system filtering/dropping it,
-- or a No-Reply configuration issue.
-
-## Implementation scope if approved
-
-Update only the Forgot Password server function if needed, keeping the entered email as `to` and preserving required CC recipients, with delivery logging and rejection handling.
+- Storing SAP passwords anywhere in Lovable Cloud (they stay in memory only, sourced fresh from the SAP list API each time the dialog opens).
+- Add User dialog behavior (unchanged).
