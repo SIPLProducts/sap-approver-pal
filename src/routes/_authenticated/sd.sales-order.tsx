@@ -23,6 +23,7 @@ import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-ta
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
+import { SearchTermMultiSelect } from "@/components/sap/search-term-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   fetchSalesOrderApprovals,
@@ -114,6 +115,7 @@ function SalesOrderPage() {
   }, [__aps.join(",")]);
   const [userId, setUserId] = useState("");
   const [customerFrom, setCustomerFrom] = useState("");
+  const [searchTerms, setSearchTerms] = useState<string[]>([]);
   const [status, setStatusState] = useState<Status>(urlStatus);
   const [rows, setRows] = useState<SalesOrderRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -141,6 +143,7 @@ function SalesOrderPage() {
       user_id: string;
       customer_from: string;
       customer_to: string;
+      search_terms: string[];
       status: Status;
     }) => {
       const v: any = await fetchFn({
@@ -149,6 +152,7 @@ function SalesOrderPage() {
           user_id: vars.user_id,
           customer_from: vars.customer_from,
           customer_to: vars.customer_to,
+          search_terms: vars.search_terms,
           status: vars.status,
         },
       });
@@ -178,6 +182,7 @@ function SalesOrderPage() {
       user_id: userId.trim(),
       customer_from: customerFrom.trim(),
       customer_to: customerFrom.trim(),
+      search_terms: searchTerms,
       status: s,
     });
   }
@@ -205,6 +210,7 @@ function SalesOrderPage() {
     setPlants([]);
     setUserId("");
     setCustomerFrom("");
+    setSearchTerms([]);
     setStatusState("pending");
     setRows([]);
     setSelected(new Set());
@@ -349,6 +355,10 @@ function SalesOrderPage() {
               plants={plants}
               onEnter={execute}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Search Term</Label>
+            <SearchTermMultiSelect value={searchTerms} onChange={setSearchTerms} plants={plants} />
           </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={!canExecute}>

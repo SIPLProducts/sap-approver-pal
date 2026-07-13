@@ -79,6 +79,7 @@ export const fetchSalesOrderApprovals = createServerFn({ method: "POST" })
       user_id: z.string().trim().max(40).optional(),
       customer_from: z.string().trim().max(40).optional(),
       customer_to: z.string().trim().max(40).optional(),
+      search_terms: z.array(z.string().trim().min(1).max(40)).max(100).optional(),
       status: z.enum(["pending", "accepted", "rejected", "all"]).default("pending"),
     }).parse(d),
   )
@@ -119,11 +120,14 @@ export const fetchSalesOrderApprovals = createServerFn({ method: "POST" })
 
     const custFrom = (data.customer_from ?? "").trim();
     const custTo = (data.customer_to ?? "").trim() || custFrom;
+    const searchTerms = (data.search_terms ?? []).map((s) => s.trim()).filter(Boolean);
 
     const inputs = {
       PLANT: data.plants.map((p) => ({ plant: p })),
       CUSTOMER_FROM: custFrom,
       CUSTOMER_TO: custTo,
+      SEARCH_TERMS: searchTerms.map((s) => ({ search_term: s })),
+      SORTL: searchTerms[0] ?? "",
       USER_ID: userId,
       R_PEND,
       R_ACCP,
@@ -162,6 +166,8 @@ export const fetchSalesOrderApprovals = createServerFn({ method: "POST" })
         `${join}PLANT=${encodeURIComponent(firstPlant)}` +
         `&CUSTOMER_FROM=${encodeURIComponent(inputs.CUSTOMER_FROM)}` +
         `&CUSTOMER_TO=${encodeURIComponent(inputs.CUSTOMER_TO)}` +
+        `&SORTL=${encodeURIComponent(inputs.SORTL)}` +
+        `&SEARCH_TERMS=${encodeURIComponent(searchTerms.join(","))}` +
         `&USER_ID=${encodeURIComponent(inputs.USER_ID)}` +
         `&R_PEND=${encodeURIComponent(inputs.R_PEND)}` +
         `&R_ACCP=${encodeURIComponent(inputs.R_ACCP)}` +
