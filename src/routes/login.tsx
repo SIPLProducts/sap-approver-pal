@@ -276,27 +276,9 @@ function LoginPage() {
             className="mt-5 w-full text-center text-sm text-muted-foreground hover:text-foreground"
           ></button>
 
-          {mode === "signin" && (
-            <div className="mt-8 rounded-xl border bg-secondary/40 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2.5">
-                Demo account <span className="font-normal normal-case tracking-normal">· password Demo@1234</span>
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full h-9 text-xs font-medium"
-                onClick={() => {
-                  setUserId("admin@demo.app");
-                  setPassword("Demo@1234");
-                }}
-              >
-                Admin
-              </Button>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 }
+
