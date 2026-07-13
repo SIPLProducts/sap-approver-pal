@@ -1,25 +1,21 @@
-## Root cause
+## Plan
 
-The SAP API config row in `sap_api_configs` is named `Get_Search _Term` (extra space before `_Term`). The lookup in `src/lib/sap/search-term.functions.ts` uses `ilike("name", "Get_Search_Term")`, which is case-insensitive but not whitespace-insensitive — so `configId` comes back `null`, the F4 button is hidden by `hasConfig = !!configId`, and `/sap/invoke` is never called. Postman works because you're hitting SAP directly, bypassing this lookup.
+1. **Fix Search Term response parsing**
+   - Update the Search Term option extractor so the middleware response shape `[{ SEARCH_TERM: "..." }]` is always recognized.
+   - Also handle common wrapper shapes returned by the generic SAP invoker, such as `data`, `DATA`, and nested `data.data`, so options display even if the middleware wraps the SAP response.
 
-## Fix
+2. **Keep Search Term as an input field**
+   - Keep the visible control as a normal text input so users can type one or more terms manually.
+   - Open the F4 help from keyboard `F4` and by interacting with the input area, but remove the separate magnifier/search/dropdown button.
 
-Rename the config in the database so the app finds it. One-line update in a migration:
+3. **Match Customer field styling**
+   - Use the same height, border, width, typography, disabled/loading treatment, popover width, and command-list styling as the Customer field.
+   - Do not show search, dropdown, or chevron icons in the Search Term field.
 
-```sql
-UPDATE public.sap_api_configs
-SET name = 'Get_Search_Term'
-WHERE id = '5fc48733-7be5-428d-84a6-7cd5389af4d7';
-```
+4. **Preserve multi-select behavior**
+   - Keep checkboxes inside the F4 popup for selecting multiple search terms.
+   - Keep Apply/Cancel controls so manual typed values and selected F4 values merge into the comma-separated input.
 
-That's the whole fix. No code changes required — the existing `search-term.functions.ts`, `SearchTermMultiSelect`, and middleware wiring are already correct.
-
-## Verification
-
-After migration, reload the SD Contract / Sales Order / Service Certificate screens:
-
-1. F4 magnifier button appears next to the Search Term input.
-2. Clicking it opens the popup; middleware terminal logs `[/sap/invoke] config name=Get_Search_Term …`.
-3. Options list populates from the SAP response.
-
-If any config-name drift happens again later, the fastest diagnostic is `SELECT id, name FROM sap_api_configs WHERE name ILIKE '%search%term%'` — any name other than exactly `Get_Search_Term` will silently hide the F4 button.
+5. **Validate**
+   - Add or update a focused test for `extractSearchTermOptions` with the provided response structure.
+   - Verify the Search Term field renders without icons and the parsed options include `PWMP-1180`, `LUCKY ENGINEERS`, and `ARORA REFRACTORIES`.
