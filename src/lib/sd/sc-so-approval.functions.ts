@@ -109,6 +109,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
       user_id: z.string().trim().max(40).optional(),
       customer_from: z.string().trim().max(40).optional(),
       customer_to: z.string().trim().max(40).optional(),
+      search_terms: z.array(z.string().trim().min(1).max(40)).max(100).optional(),
       status: z.enum(["pending", "accepted", "rejected", "all"]).default("pending"),
       approval_type: z.enum(["service", "sales", "all"]).default("service"),
     }).parse(d),
@@ -141,6 +142,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
 
     const custFrom = (data.customer_from ?? "").trim();
     const custTo = (data.customer_to ?? "").trim() || custFrom;
+    const searchTerms = (data.search_terms ?? []).map((s) => s.trim()).filter(Boolean);
 
     const resolvedUserId =
       (data.user_id && data.user_id.trim()) ||
@@ -154,6 +156,8 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
       PLANT: data.plants.map((p) => ({ plant: p })),
       CUSTOMER_FROM: custFrom,
       CUSTOMER_TO: custTo,
+      SEARCH_TERMS: searchTerms.map((s) => ({ search_term: s })),
+      SORTL: searchTerms[0] ?? "",
       USER_ID: resolvedUserId,
       R_PEND: isAllStatus || data.status === "pending" ? "X" : "",
       R_ACCP: isAllStatus || data.status === "accepted" ? "X" : "",
