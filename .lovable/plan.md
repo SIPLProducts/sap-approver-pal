@@ -1,27 +1,30 @@
 ## Plan
 
-1. **Fix malformed SAP JSON parsing in the middleware**
-   - Update the middleware JSON parser so SAP responses with raw control characters inside string values are sanitized before parsing.
-   - Keep the existing repairs for missing values and dangling commas, but add a string-aware repair step for invalid JSON control characters such as raw newlines, carriage returns, tabs, and other ASCII control bytes.
+### 1. Fix Search Term value mapping
+The current extractor sorts codes alphabetically and normalizes by uppercased key aliases. The user wants the exact SAP response order and values shown. Change `extractSearchTermOptions` to:
+- Only consume the `SEARCH_TERM` field (drop the alias list) so it always mirrors what SAP actually returned.
+- Preserve the SAP response order (no `sort`), dedupe by exact string.
+- Keep the response-envelope unwrapping (`data.data`, JSON-string payloads) so the middleware wrapper still works.
 
-2. **Return the real Search Term rows instead of a parse-error object**
-   - Ensure `/sap/invoke` returns the parsed SAP data array/object when repair succeeds.
-   - Preserve useful trace info like `json_repaired=true`, response byte count, and row count.
-   - Avoid changing the request payload for `Get_Search_Term`; it should remain a GET call with `{}` inputs, matching the middleware log.
+### 2. Restyle the Search Term field to match Customer
+Rebuild `SearchTermMultiSelect` to look exactly like `CustomerSelect`:
+- Replace the `<Input>` trigger with a `Button` (`variant="outline"`, `role="combobox"`, `h-9 w-full justify-between`) whose label shows the selected codes (comma-joined) or the placeholder.
+- Show a `ChevronsUpDown` icon on the right, just like `CustomerSelect` (user asked to match Customer field exactly; Customer keeps this chevron). No search icon, no F4 button, no manual text input.
+- Clicking the trigger opens the popover directly (no F4 keybinding needed anymore).
+- `PopoverContent` uses the same sizing/classes as Customer.
 
-3. **Harden app-side Search Term response handling**
-   - Keep the app extractor compatible with the expected response shape:
-     ```text
-     [{ "SEARCH_TERM": "PWMP-1180" }, ...]
-     ```
-   - Add a clear fallback/error path if the middleware still returns `__parse_error`, so the dropdown does not silently show no options.
+### 3. Remove Apply / Cancel from dropdown
+- Delete the footer row containing the Apply / Cancel buttons and the "N selected" counter.
+- Selecting a row toggles it and immediately calls `onChange` with the updated list (no draft state, no apply step).
+- Keep the "Select all / Clear all" `CommandItem` at the top, but have it act on the committed value directly.
 
-4. **Validate with focused tests**
-   - Add/update middleware parser tests using a sample SAP JSON string that includes an unescaped control character inside a value.
-   - Keep the existing Search Term extractor test for `SEARCH_TERM` rows.
-   - Verify the dropdown can receive and display `PWMP-1180`, `LUCKY ENGINEERS`, and `ARORA REFRACTORIES` once the parser returns the data array.
+### 4. Tests
+Update `search-term-multi-select.test.ts`:
+- Keep the SAP-shape test but assert the returned options preserve SAP order (`PWMP-1180`, `LUCKY ENGINEERS`, `ARORA REFRACTORIES`) and only use `SEARCH_TERM`.
+- Keep the envelope-unwrap and parse-error tests.
 
-## Technical notes
+### Files touched
+- `src/components/sap/search-term-multi-select.tsx` — extractor + full UI rewrite to mirror `CustomerSelect`.
+- `src/components/sap/search-term-multi-select.test.ts` — update order expectation.
 
-- Root cause: the middleware currently repairs malformed JSON outside strings, but the actual SAP response fails because of a bad control character inside a JSON string. That makes `safeParseSapJson()` return `{ __parse_error: ... }`, so the app never receives searchable rows.
-- The fix belongs primarily in `middleware/server.js`; the app component parser is already close, but should surface parser errors more clearly.
+No middleware or server-function changes.
