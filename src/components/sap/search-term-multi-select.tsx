@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,22 +36,77 @@ export interface SearchTermOption {
   text: string;
 }
 
-const CODE_KEYS = ["SORTL", "SEARCH_TERM", "SEARCHTERM", "SEARCH_TERM_1", "SUCHBEGRIFF"];
-const TEXT_KEYS = ["DESCRIPTION", "NAME", "NAME1", "TEXT", "LABEL"];
+const CODE_KEYS = ["SORTL", "SEARCH_TERM", "SEARCHTERM", "SEARCH_TERM_1", "SUCHBEGRIFF", "search_term", "SearchTerm"];
+const TEXT_KEYS = ["DESCRIPTION", "NAME", "NAME1", "TEXT", "LABEL", "description", "name", "label"];
+
+function parseJsonIfPossible(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed || !(trimmed.startsWith("[") || trimmed.startsWith("{"))) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function hasSearchTermShape(row: Record<string, unknown>) {
+  const keys = new Set(Object.keys(row).map((k) => k.toLowerCase()));
+  return CODE_KEYS.some((k) => keys.has(k.toLowerCase()));
+}
+
+function collectRows(value: unknown, depth = 0): any[] {
+  if (depth > 6 || value == null) return [];
+  const parsed: any = parseJsonIfPossible(value);
+  if (Array.isArray(parsed)) return parsed;
+  if (!parsed || typeof parsed !== "object") return [];
+
+  if (hasSearchTermShape(parsed)) return [parsed];
+
+  const candidates = [
+    parsed.DATA,
+    parsed.data?.DATA,
+    parsed.data?.data,
+    parsed.data,
+    parsed.ITEMS,
+    parsed.items,
+    parsed.RESULTS,
+    parsed.results,
+    parsed.SEARCH_TERMS,
+    parsed.SEARCH_TERM_LIST,
+    parsed.SEARCH_TERM,
+  ];
+
+  for (const candidate of candidates) {
+    const rows = collectRows(candidate, depth + 1);
+    if (rows.length) return rows;
+  }
+
+  for (const child of Object.values(parsed)) {
+    const rows = collectRows(child, depth + 1);
+    if (rows.length) return rows;
+  }
+
+  return [];
+}
+
+function firstValue(row: Record<string, unknown>, keys: string[]) {
+  for (const k of keys) {
+    const direct = row[k];
+    if (direct != null && String(direct).trim()) return String(direct).trim();
+  }
+  const lowerToKey = new Map(Object.keys(row).map((k) => [k.toLowerCase(), k]));
+  for (const k of keys) {
+    const actual = lowerToKey.get(k.toLowerCase());
+    if (!actual) continue;
+    const value = row[actual];
+    if (value != null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
 
 export function extractSearchTermOptions(resp: unknown): SearchTermOption[] {
-  const r: any = resp;
-  let rows: any[] = [];
-  if (Array.isArray(r)) rows = r;
-  else if (r && typeof r === "object") {
-    const candidates = [r.DATA, r.data?.DATA, r.data, r.ITEMS, r.items, r.RESULTS, r.results, r.SEARCH_TERMS, r.SEARCH_TERM_LIST];
-    rows = candidates.find((c) => Array.isArray(c)) ?? [];
-    if (!rows.length) {
-      for (const v of Object.values(r)) {
-        if (Array.isArray(v)) { rows = v; break; }
-      }
-    }
-  }
+  const rows = collectRows(resp);
   const map = new Map<string, string>();
   for (const row of rows) {
     if (row == null) continue;
@@ -60,17 +115,11 @@ export function extractSearchTermOptions(resp: unknown): SearchTermOption[] {
       if (c && !map.has(c)) map.set(c, "");
       continue;
     }
-    let code = "";
-    for (const k of CODE_KEYS) {
-      const v = row?.[k];
-      if (v != null && String(v).trim()) { code = String(v).trim(); break; }
-    }
+    const parsedRow = parseJsonIfPossible(row);
+    if (!parsedRow || typeof parsedRow !== "object" || Array.isArray(parsedRow)) continue;
+    const code = firstValue(parsedRow as Record<string, unknown>, CODE_KEYS);
     if (!code) continue;
-    let text = "";
-    for (const k of TEXT_KEYS) {
-      const v = row?.[k];
-      if (v != null && String(v).trim()) { text = String(v).trim(); break; }
-    }
+    const text = firstValue(parsedRow as Record<string, unknown>, TEXT_KEYS);
     if (!map.has(code) || (text && !map.get(code))) map.set(code, text);
   }
   return Array.from(map.entries())
@@ -186,9 +235,10 @@ export function SearchTermMultiSelect({
   }
 
   const hasConfig = !!configId;
+  const inputDisabled = disabled || cfgQuery.isLoading;
 
-  return (
-    <div className={cn("flex items-center gap-1", className)}>
+  if (!cfgQuery.isLoading && !configId) {
+    return (
       <Input
         value={inputText}
         onChange={(e) => commitInput(e.target.value)}
@@ -200,38 +250,41 @@ export function SearchTermMultiSelect({
         }}
         placeholder={placeholder}
         disabled={disabled}
-        className="h-9 font-mono flex-1"
+        className={cn("h-9 w-full font-mono", className)}
       />
-      {hasConfig && (
-        <Popover open={open} onOpenChange={(o) => (o ? openPopup() : setOpen(false))}>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={disabled || cfgQuery.isLoading}
-              className="h-9 px-2 shrink-0"
-              title="F4 help — search terms"
-              aria-label="F4 help"
-            >
-              {cfgQuery.isLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Search className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          </PopoverTrigger>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={(o) => (o ? openPopup() : setOpen(false))}>
+      <PopoverTrigger asChild>
+        <Input
+          value={cfgQuery.isLoading ? "" : inputText}
+          onChange={(e) => commitInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "F4") {
+              e.preventDefault();
+              if (hasConfig && !disabled) openPopup();
+            }
+          }}
+          placeholder={cfgQuery.isLoading ? "Loading…" : placeholder}
+          disabled={inputDisabled}
+          aria-expanded={open}
+          className={cn("h-9 w-full font-mono", !inputText && "font-sans", className)}
+        />
+      </PopoverTrigger>
           <PopoverContent
-            className="z-[1000] w-[380px] p-0 max-h-[65vh] overflow-hidden"
-            align="end"
+            className="z-[1000] w-[380px] p-0 max-h-[60vh] overflow-hidden"
+            align="start"
             side="bottom"
             sideOffset={6}
             avoidCollisions={false}
+            onOpenAutoFocus={(e) => e.preventDefault()}
             onWheel={(e) => e.stopPropagation()}
           >
             <Command>
               <CommandInput placeholder="Search…" className="h-9" />
-              <CommandList className="max-h-[calc(65vh-6rem)]">
+              <CommandList className="max-h-[calc(60vh-6rem)]">
                 {stQuery.isLoading ? (
                   <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching search terms…
@@ -322,7 +375,5 @@ export function SearchTermMultiSelect({
             </Command>
           </PopoverContent>
         </Popover>
-      )}
-    </div>
   );
 }

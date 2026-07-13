@@ -1,0 +1,30 @@
+import { describe, expect, it } from "vitest";
+import { extractSearchTermOptions } from "./search-term-multi-select";
+
+describe("extractSearchTermOptions", () => {
+  it("maps Get_Search_Term rows that only contain SEARCH_TERM", () => {
+    expect(
+      extractSearchTermOptions([
+        { SEARCH_TERM: "PWMP-1180" },
+        { SEARCH_TERM: "LUCKY ENGINEERS" },
+        { SEARCH_TERM: "ARORA REFRACTORIES" },
+      ]),
+    ).toEqual([
+      { code: "ARORA REFRACTORIES", text: "" },
+      { code: "LUCKY ENGINEERS", text: "" },
+      { code: "PWMP-1180", text: "" },
+    ]);
+  });
+
+  it("unwraps generic middleware response envelopes", () => {
+    expect(
+      extractSearchTermOptions({
+        ok: true,
+        status: 200,
+        data: {
+          data: JSON.stringify([{ SEARCH_TERM: "PWMP-1180" }]),
+        },
+      }),
+    ).toEqual([{ code: "PWMP-1180", text: "" }]);
+  });
+});
