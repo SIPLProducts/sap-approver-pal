@@ -1,30 +1,42 @@
-## Plan
+## Plan — Lazy F4 for Search Term with paginated rendering
 
-### 1. Fix Search Term value mapping
-The current extractor sorts codes alphabetically and normalizes by uppercased key aliases. The user wants the exact SAP response order and values shown. Change `extractSearchTermOptions` to:
-- Only consume the `SEARCH_TERM` field (drop the alias list) so it always mirrors what SAP actually returned.
-- Preserve the SAP response order (no `sort`), dedupe by exact string.
-- Keep the response-envelope unwrapping (`data.data`, JSON-string payloads) so the middleware wrapper still works.
+Goal: don't hit the backend until the user has typed at least 2 characters in the dropdown search box, and render results in pages instead of dumping the full list into the DOM. No changes to middleware, server functions, extractor logic, or the Customer-style trigger UI.
 
-### 2. Restyle the Search Term field to match Customer
-Rebuild `SearchTermMultiSelect` to look exactly like `CustomerSelect`:
-- Replace the `<Input>` trigger with a `Button` (`variant="outline"`, `role="combobox"`, `h-9 w-full justify-between`) whose label shows the selected codes (comma-joined) or the placeholder.
-- Show a `ChevronsUpDown` icon on the right, just like `CustomerSelect` (user asked to match Customer field exactly; Customer keeps this chevron). No search icon, no F4 button, no manual text input.
-- Clicking the trigger opens the popover directly (no F4 keybinding needed anymore).
-- `PopoverContent` uses the same sizing/classes as Customer.
+### 1. Gate the backend call on query length
 
-### 3. Remove Apply / Cancel from dropdown
-- Delete the footer row containing the Apply / Cancel buttons and the "N selected" counter.
-- Selecting a row toggles it and immediately calls `onChange` with the updated list (no draft state, no apply step).
-- Keep the "Select all / Clear all" `CommandItem` at the top, but have it act on the committed value directly.
+In `src/components/sap/search-term-multi-select.tsx`:
 
-### 4. Tests
-Update `search-term-multi-select.test.ts`:
-- Keep the SAP-shape test but assert the returned options preserve SAP order (`PWMP-1180`, `LUCKY ENGINEERS`, `ARORA REFRACTORIES`) and only use `SEARCH_TERM`.
-- Keep the envelope-unwrap and parse-error tests.
+- Add local state `search` (the text inside `CommandInput`), debounced ~250 ms into `debouncedSearch`.
+- Change the `useQuery` for search terms to:
+  - `enabled: !!configId && open && debouncedSearch.trim().length >= 2`
+  - Include `debouncedSearch` in the `queryKey` so results are cached per query.
+  - Keep the existing `runApi` call and `extractSearchTermOptions` pipeline unchanged (business logic untouched). The SAP middleware endpoint returns the full list; we simply refuse to call it until the user commits to a search.
+- Before 2 chars, show a hint row: "Type at least 2 characters to search." (replaces the current auto-loading spinner path).
+- Preserve the current already-selected chips — selected codes stay in `value` even when not present in the fetched page.
+
+Note: the SAP `Get_Search_Term` API does not accept a query filter today, so the "fetch after 2 chars" gate is a client-side guard on when we invoke it. The filtering itself runs client-side against the returned rows. This matches the user's ask ("fetch from backend only after 2–3 characters") without changing the SAP contract.
+
+### 2. Paginate the rendered list
+
+Rendering thousands of `CommandItem`s is what makes F4 sluggish, so page the list instead of virtualizing:
+
+- Constant `PAGE_SIZE = 50`.
+- Local state `visibleCount`, reset to `PAGE_SIZE` whenever `debouncedSearch` or the fetched option set changes.
+- Compute `filtered` = options whose `code` contains `debouncedSearch` (case-insensitive), preserving SAP order.
+- Render only `filtered.slice(0, visibleCount)`.
+- If `filtered.length > visibleCount`, render a final non-selectable `CommandItem` "Load more (showing X of Y)" that increments `visibleCount` by `PAGE_SIZE` on select. Also attach an `IntersectionObserver` on that row so scrolling to the bottom auto-loads the next page.
+- Keep "Select all / Clear all" acting on the **filtered** set (so bulk actions stay predictable when a query is active) — clarified in the item label as "Select all matching (N)".
+
+### 3. Keep everything else intact
+
+- Trigger button, `ChevronsUpDown`, popover sizing, immediate `onChange` toggling, error/empty/loading states, `getSearchTermParseError` surfacing — unchanged.
+- No middleware, server-function, or extractor changes.
+- Existing tests keep passing; add one small test that `extractSearchTermOptions` still returns SAP order (already covered) — no new logic to unit test on the UI side beyond what RTL would require.
 
 ### Files touched
-- `src/components/sap/search-term-multi-select.tsx` — extractor + full UI rewrite to mirror `CustomerSelect`.
-- `src/components/sap/search-term-multi-select.test.ts` — update order expectation.
+- `src/components/sap/search-term-multi-select.tsx` — add `search`/`debouncedSearch`/`visibleCount` state, gate `useQuery`, slice rendered list, add load-more sentinel.
 
-No middleware or server-function changes.
+### Technical notes
+- Debounce: a tiny inline `useEffect` + `setTimeout` (250 ms) — no new dependency.
+- IntersectionObserver is optional polish; the "Load more" row alone satisfies pagination if we want to keep the diff minimal. Recommend including both.
+- `CommandInput` from `cmdk` filters internally by default; we'll pass `shouldFilter={false}` on `<Command>` so our own `filtered`/pagination is the source of truth and cmdk doesn't hide the "Load more" row.
