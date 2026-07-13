@@ -5,7 +5,7 @@ import {
 } from "./search-term-multi-select";
 
 describe("extractSearchTermOptions", () => {
-  it("maps Get_Search_Term rows that only contain SEARCH_TERM", () => {
+  it("maps Get_Search_Term rows preserving SAP response order", () => {
     expect(
       extractSearchTermOptions([
         { SEARCH_TERM: "PWMP-1180" },
@@ -13,9 +13,9 @@ describe("extractSearchTermOptions", () => {
         { SEARCH_TERM: "ARORA REFRACTORIES" },
       ]),
     ).toEqual([
-      { code: "ARORA REFRACTORIES", text: "" },
-      { code: "LUCKY ENGINEERS", text: "" },
       { code: "PWMP-1180", text: "" },
+      { code: "LUCKY ENGINEERS", text: "" },
+      { code: "ARORA REFRACTORIES", text: "" },
     ]);
   });
 
