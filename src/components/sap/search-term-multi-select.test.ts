@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { extractSearchTermOptions } from "./search-term-multi-select";
+import {
+  extractSearchTermOptions,
+  getSearchTermParseError,
+} from "./search-term-multi-select";
 
 describe("extractSearchTermOptions", () => {
   it("maps Get_Search_Term rows that only contain SEARCH_TERM", () => {
@@ -26,5 +29,16 @@ describe("extractSearchTermOptions", () => {
         },
       }),
     ).toEqual([{ code: "PWMP-1180", text: "" }]);
+  });
+
+  it("surfaces middleware parse errors instead of returning empty options silently", () => {
+    expect(
+      getSearchTermParseError({
+        data: {
+          __parse_error: "Bad control character in string literal in JSON",
+          __raw_preview: "[{...",
+        },
+      }),
+    ).toBe("Bad control character in string literal in JSON");
   });
 });
