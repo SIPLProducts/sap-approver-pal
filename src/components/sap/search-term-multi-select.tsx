@@ -127,6 +127,19 @@ export function extractSearchTermOptions(resp: unknown): SearchTermOption[] {
     .sort((a, b) => a.code.localeCompare(b.code));
 }
 
+export function getSearchTermParseError(resp: unknown): string | null {
+  const parsed: any = parseJsonIfPossible(resp);
+  if (!parsed || typeof parsed !== "object") return null;
+  const direct = parsed.__parse_error;
+  if (typeof direct === "string" && direct.trim()) return direct.trim();
+  const candidates = [parsed.data, parsed.DATA, parsed.body, parsed.result];
+  for (const candidate of candidates) {
+    const nested = getSearchTermParseError(candidate);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 function parseCodes(text: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -186,7 +199,12 @@ export function SearchTermMultiSelect({
         inputs.VKORG = plants[0];
       }
       const resp: any = await runApi({ data: { configId: configId!, inputs } });
-      return extractSearchTermOptions(resp?.data ?? resp);
+      const payload = resp?.data ?? resp;
+      const parseError = getSearchTermParseError(payload);
+      if (parseError) {
+        throw new Error(`SAP returned malformed JSON: ${parseError}`);
+      }
+      return extractSearchTermOptions(payload);
     },
   });
 

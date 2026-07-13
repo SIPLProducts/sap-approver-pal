@@ -14,6 +14,7 @@ import express from "express";
 import cors from "cors";
 import { z } from "zod";
 import { createHash } from "node:crypto";
+import { safeParseSapJson } from "./json-repair.js";
 
 // ---------- env ----------
 const PORT = parseInt(process.env.PORT || "3005", 10);
@@ -394,62 +395,6 @@ async function fetchWithTimeout(url, init) {
     throw e;
   }
 }
-
-// SAP sometimes returns malformed JSON with empty values like
-// `"ADV_DOC_NUM": { "ZEILE": , "EBELP": }`. Try strict parse first, then
-// repair ONLY outside string literals (a state machine walks the text and
-// inserts `null` after a bare `:` followed by `,` `}` or `]`). The old blind
-// regex approach also rewrote matches INSIDE string values, corrupting real
-// data. Returns { value, repaired } so callers can log when repair happened.
-function repairJsonOutsideStrings(text) {
-  let out = "";
-  let inString = false;
-  let escape = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (inString) {
-      out += ch;
-      if (escape) escape = false;
-      else if (ch === "\\") escape = true;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') { inString = true; out += ch; continue; }
-    if (ch === ":") {
-      let j = i + 1;
-      while (j < text.length && /\s/.test(text[j])) j++;
-      if (j < text.length && (text[j] === "," || text[j] === "}" || text[j] === "]")) {
-        out += ": null";
-        i = j - 1; // resume at the delimiter
-        continue;
-      }
-    }
-    if (ch === ",") {
-      // Drop dangling commas before a closing bracket/brace (`[1, ]`, `{...,}`)
-      let j = i + 1;
-      while (j < text.length && /\s/.test(text[j])) j++;
-      if (j < text.length && (text[j] === "}" || text[j] === "]")) {
-        i = j - 1; // skip the comma, resume at the closer
-        continue;
-      }
-    }
-    out += ch;
-  }
-  return out;
-}
-
-function safeParseSapJson(text) {
-  if (text == null || text === "") return { value: null, repaired: false };
-  try { return { value: JSON.parse(text), repaired: false }; } catch {}
-  const sanitized = repairJsonOutsideStrings(text);
-  try { return { value: JSON.parse(sanitized), repaired: true }; } catch (e) {
-    return {
-      value: { __parse_error: e.message, __raw_preview: String(text).slice(0, 1000) },
-      repaired: true,
-    };
-  }
-}
-
 
 async function invokeSap(cfg, inputs) {
   const payload = buildRequestPayload(cfg.requestFields, inputs);
