@@ -276,7 +276,9 @@ function LoginPage() {
             className="mt-5 w-full text-center text-sm text-muted-foreground hover:text-foreground"
           ></button>
 
-
-
+        </div>
+      </div>
+    </div>
   );
 }
+
