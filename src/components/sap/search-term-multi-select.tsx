@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronsUpDown, Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,17 +78,43 @@ export function extractSearchTermOptions(resp: unknown): SearchTermOption[] {
     .sort((a, b) => a.code.localeCompare(b.code));
 }
 
+function parseCodes(text: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of text.split(/[,\s]+/)) {
+    const t = raw.trim();
+    if (!t) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
 export function SearchTermMultiSelect({
   value,
   onChange,
   plants,
-  placeholder = "Select search term…",
+  placeholder = "e.g. TERM1, TERM2",
   disabled,
   className,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [inputText, setInputText] = useState<string>(value.join(", "));
+  const [draft, setDraft] = useState<Set<string>>(new Set(value));
+
   const getCfg = useServerFn(getSearchTermConfig);
   const runApi = useServerFn(runSapApi);
+
+  // Sync external value → input text when parent resets/updates
+  useEffect(() => {
+    const parsed = parseCodes(inputText);
+    // avoid clobbering user's in-progress typing when equivalent
+    if (parsed.join(",") !== value.join(",")) {
+      setInputText(value.join(", "));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.join(",")]);
 
   const cfgQuery = useQuery({
     queryKey: ["sap-search-term-config"],
@@ -101,7 +127,7 @@ export function SearchTermMultiSelect({
 
   const stQuery = useQuery({
     queryKey: ["sap-search-terms", configId, plantKey],
-    enabled: !!configId,
+    enabled: !!configId && open,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const inputs: Record<string, unknown> = {};
@@ -116,143 +142,187 @@ export function SearchTermMultiSelect({
   });
 
   const options = useMemo(() => stQuery.data ?? [], [stQuery.data]);
-  const selected = useMemo(() => new Set(value), [value]);
 
-  function toggle(code: string) {
-    if (selected.has(code)) onChange(value.filter((v) => v !== code));
-    else onChange([...value, code]);
+  function commitInput(text: string) {
+    setInputText(text);
+    onChange(parseCodes(text));
   }
 
-  // Fallback to comma-separated text input when config is missing
-  if (!cfgQuery.isLoading && !configId) {
-    return (
-      <Input
-        value={value.join(", ")}
-        onChange={(e) =>
-          onChange(
-            e.target.value
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean),
-          )
-        }
-        placeholder="e.g. TERM1, TERM2"
-        className={cn("h-9 font-mono", className)}
-        disabled={disabled}
-      />
-    );
+  function openPopup() {
+    setDraft(new Set(parseCodes(inputText)));
+    setOpen(true);
   }
+
+  function toggleDraft(code: string) {
+    setDraft((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
+
+  function apply() {
+    // Merge: keep typed order first, then any new picks from popup
+    const typed = parseCodes(inputText);
+    const merged: string[] = [];
+    const seen = new Set<string>();
+    for (const c of typed) {
+      if (draft.has(c) && !seen.has(c)) {
+        merged.push(c);
+        seen.add(c);
+      }
+    }
+    for (const c of draft) {
+      if (!seen.has(c)) {
+        merged.push(c);
+        seen.add(c);
+      }
+    }
+    const text = merged.join(", ");
+    setInputText(text);
+    onChange(merged);
+    setOpen(false);
+  }
+
+  const hasConfig = !!configId;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled || cfgQuery.isLoading}
-          className={cn(
-            "h-9 w-full justify-between gap-2 px-3",
-            value.length === 0 && "text-muted-foreground font-sans",
-            value.length > 0 && "font-mono",
-            className,
-          )}
-        >
-          {cfgQuery.isLoading ? (
-            <span className="flex items-center gap-2 font-sans">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
-            </span>
-          ) : value.length === 0 ? (
-            <span className="flex-1 text-left truncate">{placeholder}</span>
-          ) : (
-            <div
-              className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap text-left [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              onWheel={(e) => {
-                if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
-              }}
+    <div className={cn("flex items-center gap-1", className)}>
+      <Input
+        value={inputText}
+        onChange={(e) => commitInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "F4") {
+            e.preventDefault();
+            if (hasConfig && !disabled) openPopup();
+          }
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="h-9 font-mono flex-1"
+      />
+      {hasConfig && (
+        <Popover open={open} onOpenChange={(o) => (o ? openPopup() : setOpen(false))}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={disabled || cfgQuery.isLoading}
+              className="h-9 px-2 shrink-0"
+              title="F4 help — search terms"
+              aria-label="F4 help"
             >
-              {value.join(", ")}
-            </div>
-          )}
-          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="z-[1000] w-[380px] p-0 max-h-[60vh] overflow-hidden"
-        align="start"
-        side="bottom"
-        sideOffset={6}
-        avoidCollisions={false}
-        onWheel={(e) => e.stopPropagation()}
-      >
-        <Command>
-          <CommandInput placeholder="Search…" className="h-9" />
-          <CommandList className="max-h-[calc(60vh-3rem)]">
-            {stQuery.isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching search terms…
-              </div>
-            ) : stQuery.isError ? (
-              <div className="px-3 py-4 text-xs text-destructive space-y-1">
-                <div className="font-medium">Failed to load search terms.</div>
-                <div className="text-[11px] opacity-80 break-words">
-                  {(stQuery.error as Error)?.message ?? "Unknown error"}
-                </div>
-                <button className="underline" onClick={() => stQuery.refetch()}>
-                  Retry
-                </button>
-              </div>
-            ) : options.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground">
-                No search terms returned by Get_Search_Term.
-              </div>
-            ) : (
-              <>
-                <CommandEmpty>No search term found.</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem
-                    value="__select_all__"
-                    onSelect={() => {
-                      if (value.length === options.length) onChange([]);
-                      else onChange(options.map((o) => o.code));
-                    }}
-                    className="font-medium border-b rounded-none"
-                  >
-                    <Checkbox
-                      checked={value.length === options.length}
-                      tabIndex={-1}
-                      className="pointer-events-none mr-2"
-                    />
-                    {value.length === options.length
-                      ? `Clear all (${options.length})`
-                      : `Select all (${options.length})`}
-                  </CommandItem>
-                  {options.map((o) => {
-                    const isSel = selected.has(o.code);
-                    return (
+              {cfgQuery.isLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Search className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="z-[1000] w-[380px] p-0 max-h-[65vh] overflow-hidden"
+            align="end"
+            side="bottom"
+            sideOffset={6}
+            avoidCollisions={false}
+            onWheel={(e) => e.stopPropagation()}
+          >
+            <Command>
+              <CommandInput placeholder="Search…" className="h-9" />
+              <CommandList className="max-h-[calc(65vh-6rem)]">
+                {stQuery.isLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching search terms…
+                  </div>
+                ) : stQuery.isError ? (
+                  <div className="px-3 py-4 text-xs text-destructive space-y-1">
+                    <div className="font-medium">Failed to load search terms.</div>
+                    <div className="text-[11px] opacity-80 break-words">
+                      {(stQuery.error as Error)?.message ?? "Unknown error"}
+                    </div>
+                    <button className="underline" onClick={() => stQuery.refetch()}>
+                      Retry
+                    </button>
+                  </div>
+                ) : options.length === 0 ? (
+                  <div className="px-3 py-4 text-xs text-muted-foreground">
+                    No search terms returned by Get_Search_Term.
+                  </div>
+                ) : (
+                  <>
+                    <CommandEmpty>No search term found.</CommandEmpty>
+                    <CommandGroup>
                       <CommandItem
-                        key={o.code}
-                        value={`${o.code} ${o.text}`}
-                        onSelect={() => toggle(o.code)}
+                        value="__select_all__"
+                        onSelect={() => {
+                          if (draft.size === options.length) setDraft(new Set());
+                          else setDraft(new Set(options.map((o) => o.code)));
+                        }}
+                        className="font-medium border-b rounded-none"
                       >
                         <Checkbox
-                          checked={isSel}
+                          checked={draft.size === options.length && options.length > 0}
                           tabIndex={-1}
                           className="pointer-events-none mr-2"
                         />
-                        <span className="font-mono">{o.code}</span>
-                        {o.text && (
-                          <span className="ml-2 text-muted-foreground truncate">— {o.text}</span>
-                        )}
+                        {draft.size === options.length
+                          ? `Clear all (${options.length})`
+                          : `Select all (${options.length})`}
                       </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                      {options.map((o) => {
+                        const isSel = draft.has(o.code);
+                        return (
+                          <CommandItem
+                            key={o.code}
+                            value={`${o.code} ${o.text}`}
+                            onSelect={() => toggleDraft(o.code)}
+                          >
+                            <Checkbox
+                              checked={isSel}
+                              tabIndex={-1}
+                              className="pointer-events-none mr-2"
+                            />
+                            <span className="font-mono">{o.code}</span>
+                            {o.text && (
+                              <span className="ml-2 text-muted-foreground truncate">— {o.text}</span>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </>
+                )}
+              </CommandList>
+              <div className="flex items-center justify-between gap-2 border-t p-2">
+                <span className="text-[11px] text-muted-foreground">
+                  {draft.size} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7"
+                    onClick={() => setOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7"
+                    onClick={apply}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
   );
 }

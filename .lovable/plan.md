@@ -1,48 +1,41 @@
 ## Goal
 
-On the **Contract Approvals**, **Service Certificate & SO Approvals**, and **Sales Order Approvals** selection screens, add a new field **Search Term** immediately after the Customer field. The field uses F4 help sourced from the `Get_Search_Term` API (configured in Admin → SAP API Settings) and supports selecting multiple values.
+Change the **Search Term** field so it presents as a normal text input (comma-separated codes), with an adjacent **F4** helper button that opens a popup. The popup fetches values from the `Get_Search_Term` API (configured in Admin → SAP API Settings) and lets the user pick one or more codes; on confirm, the selections are written back into the input (merged with anything the user typed).
+
+## Why the F4 wasn't visible
+
+The current `SearchTermMultiSelect` renders as a `<Button>`-styled combobox trigger. It looks like a dropdown, not a text field, and users don't recognise a click target for F4. Requirement is: the field itself stays an editable input, and F4 help is a separate affordance.
 
 ## Changes
 
-### 1. New server function — `src/lib/sap/search-term.functions.ts`
-Mirror `getCustomerConfig`: look up the active `sap_api_configs` row named `Get_Search_Term` and return its `configId` (or `null` when missing/inactive). Auth-protected via `requireSupabaseAuth`.
+### 1. Rework `src/components/sap/search-term-multi-select.tsx`
 
-### 2. New component — `src/components/sap/search-term-multi-select.tsx`
-Reusable multi-select F4 dropdown (same visual pattern as `PlantMultiSelect` + `CustomerSelect`):
-- Loads config via `getSearchTermConfig`, then calls `runSapApi` with `configId` and any active `PLANTS` context.
-- Extracts options from the SAP response using tolerant key detection (`SORTL` / `SEARCH_TERM` / `SEARCHTERM` for code, `DESCRIPTION` / `NAME` for optional label).
-- Renders checkboxes with search input; `value: string[]`, `onChange(next: string[])`.
-- Trigger shows "N selected" summary; "Select all" / "Clear" controls.
-- Graceful fallback: when config is missing → comma-separated text input; when SAP returns nothing → informative empty state (same UX as `CustomerSelect`).
+Replace the trigger with an input group:
 
-### 3. Wire the field into the three screens
-Files: `src/routes/_authenticated/sd.contract.tsx`, `src/routes/_authenticated/sd.sales-order.tsx`, `src/routes/_authenticated/sd.sc-so.tsx`.
+```
+[  input (comma-separated codes)                ] [ F4 ]
+```
 
-For each:
-- Add `const [searchTerms, setSearchTerms] = useState<string[]>([])`.
-- Insert a new grid cell **directly after** the Customer cell in the SELECTION SCREEN card:
-  ```tsx
-  <div className="space-y-1.5">
-    <Label className="text-xs">Search Term</Label>
-    <SearchTermMultiSelect value={searchTerms} onChange={setSearchTerms} plants={plants} />
-  </div>
-  ```
-- Pass `search_terms: searchTerms` through the fetch mutation `vars` and the corresponding server fn call.
-- Include `search_terms` in `reset()` (clear to `[]`).
+- `<Input>` bound to `value.join(", ")`; onChange splits on comma/whitespace, trims, dedupes.
+- `<Button>` labelled "F4" (small, `variant="outline"`, keyboard shortcut: F4 while input is focused) opens a `<Popover>`.
+- Popover content is the existing multi-select list (Command + Checkbox items, "Select all / Clear", search box, loading / error / empty states) — unchanged behaviour.
+- On popup open, seed local selection from current `value`. On **Apply**, call `onChange(mergedCodes)` and close. On **Cancel**, discard.
+- Keep the config-missing fallback (plain input), but drop the F4 button in that case (no API to call).
+- Keep the tolerant key extractor (`SORTL` / `SEARCH_TERM` / `SEARCHTERM` / …) and the plant-context inputs already implemented.
 
-### 4. Extend fetch server functions
-Files: `src/lib/sd/contract-approval.functions.ts`, `src/lib/sd/sales-order-approval.functions.ts`, `src/lib/sd/sc-so-approval.functions.ts`.
+### 2. No changes required in the three screens
 
-- Extend the zod input schema with `search_terms: z.array(z.string().trim().min(1)).max(100).optional()`.
-- When non-empty, forward to the SAP fetch API payload as `SEARCH_TERMS` (array) **and** `SORTL` (first value) for backend compatibility with either convention. Existing `customer_from` / `customer_to` handling is untouched.
+`sd.contract.tsx`, `sd.sales-order.tsx`, `sd.sc-so.tsx` already pass `value: string[]` / `onChange` and `plants`. The component's public API (`{ value, onChange, plants, disabled }`) stays identical, so no route edits are needed.
 
-### 5. Reports screens (out of scope)
-Not modified this pass. If the same filter is later needed on `sd.contract-reports.tsx`, `sd.sales-order-reports.tsx`, `sd.sc-so-reports.tsx`, we can add it symmetrically — flag if you want it done now.
+### 3. Out of scope
 
-## Assumption to confirm during build
-The `Get_Search_Term` API returns rows keyed by `SORTL` (SAP standard) with optional description. The extractor will accept `SORTL` / `SEARCH_TERM` / `SEARCHTERM` interchangeably; if your API uses a different key, tell me the field name and I'll pin it.
+- No backend / server-fn / zod schema changes.
+- No changes to Reports screens.
+- No changes to how `search_terms` is forwarded to SAP.
 
-## Out of scope
-- No changes to approval decision / submit payloads.
-- No DB or RLS changes (the API config is already administered via `sap_api_configs`).
-- No changes to the Reports variants of these screens.
+## Technical notes
+
+- Input parsing: split on `/[,\s]+/`, filter empty, uppercase-preserving, dedupe while keeping order.
+- F4 keyboard shortcut: `onKeyDown` on the input — `if (e.key === "F4") { e.preventDefault(); setOpen(true); }`.
+- Popover positioning: reuse existing `align="start" side="bottom" sideOffset={6}` and z-index.
+- Merge on Apply: union of typed codes and popup selection, preserving typed order first.
