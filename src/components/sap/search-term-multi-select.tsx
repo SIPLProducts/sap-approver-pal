@@ -274,10 +274,19 @@ export function SearchTermMultiSelect({
         sideOffset={6}
         avoidCollisions={false}
       >
-        <Command>
-          <CommandInput placeholder="Search…" className="h-9" />
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Type at least 2 characters…"
+            className="h-9"
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList className="max-h-[calc(60vh-3rem)]">
-            {stQuery.isLoading ? (
+            {!hasQuery ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground">
+                Type at least 2 characters to search.
+              </div>
+            ) : stQuery.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching search terms…
               </div>
@@ -291,50 +300,61 @@ export function SearchTermMultiSelect({
                   Retry
                 </button>
               </div>
-            ) : options.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">
-                No search terms returned by Get_Search_Term.
+                No search terms match "{debouncedSearch}".
               </div>
             ) : (
-              <>
-                <CommandEmpty>No search term found.</CommandEmpty>
-                <CommandGroup>
+              <CommandGroup>
+                <CommandItem
+                  value="__select_all__"
+                  onSelect={toggleAllFiltered}
+                  className="font-medium border-b rounded-none"
+                >
+                  <Checkbox
+                    checked={
+                      filtered.length > 0 &&
+                      filtered.every((o) => selected.has(o.code))
+                    }
+                    tabIndex={-1}
+                    className="pointer-events-none mr-2"
+                  />
+                  {filtered.every((o) => selected.has(o.code))
+                    ? `Clear all matching (${filtered.length})`
+                    : `Select all matching (${filtered.length})`}
+                </CommandItem>
+                {visible.map((o) => {
+                  const isSel = selected.has(o.code);
+                  return (
+                    <CommandItem
+                      key={o.code}
+                      value={`${o.code} ${o.text}`}
+                      onSelect={() => toggle(o.code)}
+                    >
+                      <Checkbox
+                        checked={isSel}
+                        tabIndex={-1}
+                        className="pointer-events-none mr-2"
+                      />
+                      <span className="font-mono">{o.code}</span>
+                      {o.text && (
+                        <span className="ml-2 text-muted-foreground truncate">— {o.text}</span>
+                      )}
+                    </CommandItem>
+                  );
+                })}
+                {hasMore && (
                   <CommandItem
-                    value="__select_all__"
-                    onSelect={toggleAll}
-                    className="font-medium border-b rounded-none"
+                    value="__load_more__"
+                    onSelect={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                    className="justify-center text-xs text-muted-foreground"
                   >
-                    <Checkbox
-                      checked={value.length === options.length && options.length > 0}
-                      tabIndex={-1}
-                      className="pointer-events-none mr-2"
-                    />
-                    {value.length === options.length
-                      ? `Clear all (${options.length})`
-                      : `Select all (${options.length})`}
+                    <div ref={loadMoreRef} className="w-full text-center">
+                      Load more (showing {visible.length} of {filtered.length})
+                    </div>
                   </CommandItem>
-                  {options.map((o) => {
-                    const isSel = selected.has(o.code);
-                    return (
-                      <CommandItem
-                        key={o.code}
-                        value={`${o.code} ${o.text}`}
-                        onSelect={() => toggle(o.code)}
-                      >
-                        <Checkbox
-                          checked={isSel}
-                          tabIndex={-1}
-                          className="pointer-events-none mr-2"
-                        />
-                        <span className="font-mono">{o.code}</span>
-                        {o.text && (
-                          <span className="ml-2 text-muted-foreground truncate">— {o.text}</span>
-                        )}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </>
+                )}
+              </CommandGroup>
             )}
           </CommandList>
         </Command>
