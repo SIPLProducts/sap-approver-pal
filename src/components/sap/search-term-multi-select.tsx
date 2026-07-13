@@ -120,6 +120,25 @@ export function SearchTermMultiSelect({
   className,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const PAGE_SIZE = 50;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset search/pagination when popover closes
+  useEffect(() => {
+    if (!open) {
+      setSearch("");
+      setDebouncedSearch("");
+      setVisibleCount(PAGE_SIZE);
+    }
+  }, [open]);
 
   const getCfg = useServerFn(getSearchTermConfig);
   const runApi = useServerFn(runSapApi);
@@ -132,10 +151,11 @@ export function SearchTermMultiSelect({
 
   const configId = cfgQuery.data?.configId ?? null;
   const plantKey = (plants ?? []).join(",");
+  const hasQuery = debouncedSearch.length >= 2;
 
   const stQuery = useQuery({
     queryKey: ["sap-search-terms", configId, plantKey],
-    enabled: !!configId && open,
+    enabled: !!configId && open && hasQuery,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const inputs: Record<string, unknown> = {};
@@ -158,6 +178,36 @@ export function SearchTermMultiSelect({
   const selected = useMemo(() => new Set(value), [value]);
   const triggerLabel = value.length ? value.join(", ") : "";
 
+  const filtered = useMemo(() => {
+    if (!hasQuery) return [];
+    const q = debouncedSearch.toLowerCase();
+    return options.filter((o) => o.code.toLowerCase().includes(q));
+  }, [options, debouncedSearch, hasQuery]);
+
+  // Reset pagination when filter/results change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [debouncedSearch, options]);
+
+  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = filtered.length > visibleCount;
+
+  // IntersectionObserver-based auto load-more
+  useEffect(() => {
+    if (!hasMore || !loadMoreRef.current) return;
+    const el = loadMoreRef.current;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((c) => c + PAGE_SIZE);
+        }
+      },
+      { root: el.closest("[cmdk-list]") as Element | null, threshold: 0.1 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, visibleCount, filtered.length]);
+
   function toggle(code: string) {
     if (selected.has(code)) {
       onChange(value.filter((c) => c !== code));
@@ -166,11 +216,14 @@ export function SearchTermMultiSelect({
     }
   }
 
-  function toggleAll() {
-    if (value.length === options.length && options.length > 0) {
-      onChange([]);
+  function toggleAllFiltered() {
+    const codes = filtered.map((o) => o.code);
+    const allSelected = codes.length > 0 && codes.every((c) => selected.has(c));
+    if (allSelected) {
+      onChange(value.filter((c) => !codes.includes(c)));
     } else {
-      onChange(options.map((o) => o.code));
+      const merged = new Set([...value, ...codes]);
+      onChange(Array.from(merged));
     }
   }
 
