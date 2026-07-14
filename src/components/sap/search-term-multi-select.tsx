@@ -358,6 +358,7 @@ export function SearchTermMultiSelect({
                   </CommandItem>
                 )}
               </CommandGroup>
+              </>
             )}
           </CommandList>
         </Command>
