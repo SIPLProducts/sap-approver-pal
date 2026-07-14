@@ -1,42 +1,43 @@
-## Plan — Lazy F4 for Search Term with paginated rendering
+## Plan — F4 Search Term: show 50 on open, filter after 2+ chars, paginate
 
-Goal: don't hit the backend until the user has typed at least 2 characters in the dropdown search box, and render results in pages instead of dumping the full list into the DOM. No changes to middleware, server functions, extractor logic, or the Customer-style trigger UI.
+Goal: on popover open, fetch once and show the first 50 rows. When the user types ≥2 characters, filter the fetched dataset and show paginated matches. No changes to middleware, server functions, extractor, or Customer-style trigger UI.
 
-### 1. Gate the backend call on query length
+### Context / constraint
 
-In `src/components/sap/search-term-multi-select.tsx`:
+SAP's `Get_Search_Term` endpoint does not accept a query filter — it returns the full list. So "fetch from backend after 2–3 chars" is not literally possible against this endpoint. We keep a single backend call (cached for 5 min) and do the filtering client-side, which matches the user-visible behavior they want (fast dropdown, only relevant matches shown, no giant DOM).
 
-- Add local state `search` (the text inside `CommandInput`), debounced ~250 ms into `debouncedSearch`.
-- Change the `useQuery` for search terms to:
-  - `enabled: !!configId && open && debouncedSearch.trim().length >= 2`
-  - Include `debouncedSearch` in the `queryKey` so results are cached per query.
-  - Keep the existing `runApi` call and `extractSearchTermOptions` pipeline unchanged (business logic untouched). The SAP middleware endpoint returns the full list; we simply refuse to call it until the user commits to a search.
-- Before 2 chars, show a hint row: "Type at least 2 characters to search." (replaces the current auto-loading spinner path).
-- Preserve the current already-selected chips — selected codes stay in `value` even when not present in the fetched page.
+### Changes in `src/components/sap/search-term-multi-select.tsx`
 
-Note: the SAP `Get_Search_Term` API does not accept a query filter today, so the "fetch after 2 chars" gate is a client-side guard on when we invoke it. The filtering itself runs client-side against the returned rows. This matches the user's ask ("fetch from backend only after 2–3 characters") without changing the SAP contract.
+1. Fetch gate
+   - `stQuery.enabled = !!configId && open` (fetch as soon as the popover opens, not gated on query length).
+   - Keep the existing `runApi` + `extractSearchTermOptions` pipeline untouched.
+   - Keep `staleTime: 5 min` so re-opening the popover does not re-hit SAP.
 
-### 2. Paginate the rendered list
+2. Initial view (no query)
+   - Constant `PAGE_SIZE = 50`.
+   - When `debouncedSearch.length < 2`, `filtered = options` (full list, SAP order) and we render `filtered.slice(0, visibleCount)` — so the first paint shows only the first 50 rows.
+   - Show a subtle hint above the list: "Showing first 50 — type 2+ characters to filter."
 
-Rendering thousands of `CommandItem`s is what makes F4 sluggish, so page the list instead of virtualizing:
+3. Filtered view (≥2 chars)
+   - `debouncedSearch` (250 ms debounce of `search`).
+   - `filtered = options.filter(o => o.code.toLowerCase().includes(q))`, preserving SAP order.
+   - Render `filtered.slice(0, visibleCount)`.
 
-- Constant `PAGE_SIZE = 50`.
-- Local state `visibleCount`, reset to `PAGE_SIZE` whenever `debouncedSearch` or the fetched option set changes.
-- Compute `filtered` = options whose `code` contains `debouncedSearch` (case-insensitive), preserving SAP order.
-- Render only `filtered.slice(0, visibleCount)`.
-- If `filtered.length > visibleCount`, render a final non-selectable `CommandItem` "Load more (showing X of Y)" that increments `visibleCount` by `PAGE_SIZE` on select. Also attach an `IntersectionObserver` on that row so scrolling to the bottom auto-loads the next page.
-- Keep "Select all / Clear all" acting on the **filtered** set (so bulk actions stay predictable when a query is active) — clarified in the item label as "Select all matching (N)".
+4. Pagination (both modes)
+   - `visibleCount` starts at `PAGE_SIZE`, resets whenever `debouncedSearch` or `options` change.
+   - If `filtered.length > visibleCount`, render a non-selectable "Load more (showing X of Y)" `CommandItem` that bumps `visibleCount` by `PAGE_SIZE` on select.
+   - Attach `IntersectionObserver` to that row so scrolling to the bottom auto-loads the next page.
+   - Keep `<Command shouldFilter={false}>` so our slice is the source of truth.
 
-### 3. Keep everything else intact
+5. Bulk actions
+   - "Select all / Clear all" operates on the current `filtered` set (label: `Select all matching (N)` / `Clear all matching (N)`), so behavior is predictable in both modes.
 
-- Trigger button, `ChevronsUpDown`, popover sizing, immediate `onChange` toggling, error/empty/loading states, `getSearchTermParseError` surfacing — unchanged.
-- No middleware, server-function, or extractor changes.
-- Existing tests keep passing; add one small test that `extractSearchTermOptions` still returns SAP order (already covered) — no new logic to unit test on the UI side beyond what RTL would require.
+6. Untouched
+   - Trigger button, `ChevronsUpDown`, popover sizing, immediate `onChange` toggling, error/empty/loading states, `getSearchTermParseError` surfacing, extractor, server functions, middleware.
 
 ### Files touched
-- `src/components/sap/search-term-multi-select.tsx` — add `search`/`debouncedSearch`/`visibleCount` state, gate `useQuery`, slice rendered list, add load-more sentinel.
+- `src/components/sap/search-term-multi-select.tsx` — flip `enabled` back to fetch-on-open, change the pre-query branch to render the first page of the full list instead of a hint-only state, keep debounce + pagination + IntersectionObserver.
 
 ### Technical notes
-- Debounce: a tiny inline `useEffect` + `setTimeout` (250 ms) — no new dependency.
-- IntersectionObserver is optional polish; the "Load more" row alone satisfies pagination if we want to keep the diff minimal. Recommend including both.
-- `CommandInput` from `cmdk` filters internally by default; we'll pass `shouldFilter={false}` on `<Command>` so our own `filtered`/pagination is the source of truth and cmdk doesn't hide the "Load more" row.
+- The single-fetch-then-client-filter approach is the only way to honor "fetch matching results from the backend" against an SAP endpoint that has no filter parameter; if you later expose a server-side filter (e.g. a `Q` input on the API config), we can switch `queryKey` to include `debouncedSearch` and re-enable fetch-on-type without touching the UI.
+- No new dependencies; debounce is an inline `setTimeout` in `useEffect`.

@@ -154,7 +154,7 @@ export function SearchTermMultiSelect({
 
   const stQuery = useQuery({
     queryKey: ["sap-search-terms", configId, plantKey],
-    enabled: !!configId && open && hasQuery,
+    enabled: !!configId && open,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const inputs: Record<string, unknown> = {};
