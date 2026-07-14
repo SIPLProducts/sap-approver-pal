@@ -297,9 +297,17 @@ export function SearchTermMultiSelect({
               </div>
             ) : filtered.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">
-                No search terms match "{debouncedSearch}".
+                {hasQuery
+                  ? `No search terms match "${debouncedSearch}".`
+                  : "No search terms available."}
               </div>
             ) : (
+              <>
+                {!hasQuery && (
+                  <div className="px-3 py-2 text-[11px] text-muted-foreground border-b">
+                    Showing first {Math.min(visibleCount, filtered.length)} of {filtered.length} — type 2+ characters to filter.
+                  </div>
+                )}
               <CommandGroup>
                 <CommandItem
                   value="__select_all__"
