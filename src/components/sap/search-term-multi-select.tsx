@@ -178,7 +178,7 @@ export function SearchTermMultiSelect({
   const triggerLabel = value.length ? value.join(", ") : "";
 
   const filtered = useMemo(() => {
-    if (!hasQuery) return [];
+    if (!hasQuery) return options;
     const q = debouncedSearch.toLowerCase();
     return options.filter((o) => o.code.toLowerCase().includes(q));
   }, [options, debouncedSearch, hasQuery]);
