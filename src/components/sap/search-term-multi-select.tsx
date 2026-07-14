@@ -275,17 +275,13 @@ export function SearchTermMultiSelect({
       >
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Type at least 2 characters…"
+            placeholder="Search… (type 2+ chars to filter)"
             className="h-9"
             value={search}
             onValueChange={setSearch}
           />
           <CommandList className="max-h-[calc(60vh-3rem)]">
-            {!hasQuery ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground">
-                Type at least 2 characters to search.
-              </div>
-            ) : stQuery.isLoading ? (
+            {stQuery.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching search terms…
               </div>
