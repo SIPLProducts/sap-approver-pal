@@ -154,7 +154,7 @@ export function SearchTermMultiSelect({
 
   const stQuery = useQuery({
     queryKey: ["sap-search-terms", configId, plantKey],
-    enabled: !!configId && open && hasQuery,
+    enabled: !!configId && open,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const inputs: Record<string, unknown> = {};
@@ -178,7 +178,7 @@ export function SearchTermMultiSelect({
   const triggerLabel = value.length ? value.join(", ") : "";
 
   const filtered = useMemo(() => {
-    if (!hasQuery) return [];
+    if (!hasQuery) return options;
     const q = debouncedSearch.toLowerCase();
     return options.filter((o) => o.code.toLowerCase().includes(q));
   }, [options, debouncedSearch, hasQuery]);
@@ -275,17 +275,13 @@ export function SearchTermMultiSelect({
       >
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Type at least 2 characters…"
+            placeholder="Search… (type 2+ chars to filter)"
             className="h-9"
             value={search}
             onValueChange={setSearch}
           />
           <CommandList className="max-h-[calc(60vh-3rem)]">
-            {!hasQuery ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground">
-                Type at least 2 characters to search.
-              </div>
-            ) : stQuery.isLoading ? (
+            {stQuery.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching search terms…
               </div>
@@ -301,9 +297,17 @@ export function SearchTermMultiSelect({
               </div>
             ) : filtered.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">
-                No search terms match "{debouncedSearch}".
+                {hasQuery
+                  ? `No search terms match "${debouncedSearch}".`
+                  : "No search terms available."}
               </div>
             ) : (
+              <>
+                {!hasQuery && (
+                  <div className="px-3 py-2 text-[11px] text-muted-foreground border-b">
+                    Showing first {Math.min(visibleCount, filtered.length)} of {filtered.length} — type 2+ characters to filter.
+                  </div>
+                )}
               <CommandGroup>
                 <CommandItem
                   value="__select_all__"
@@ -354,6 +358,7 @@ export function SearchTermMultiSelect({
                   </CommandItem>
                 )}
               </CommandGroup>
+              </>
             )}
           </CommandList>
         </Command>
