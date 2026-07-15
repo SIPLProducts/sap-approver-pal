@@ -327,7 +327,7 @@ function BmwStatusReportPage() {
     setLastFetchedAt(null);
   }
 
-  const canExecute = !!salesOrgFrom && !!salesOrgTo && !mutation.isPending;
+  const canExecute = !!salesOrgFrom && !mutation.isPending;
   const schema = schemaWithSapExtras(SCHEMAS[activeMode], rows);
 
 
