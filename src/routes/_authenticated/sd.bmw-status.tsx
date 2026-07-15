@@ -306,7 +306,6 @@ function BmwStatusReportPage() {
   function execute() {
     if (mutation.isPending) return; // guard: no overlapping requests (Enter key path)
     if (!salesOrgFrom.trim()) return toast.error("Select Sales Organization From");
-    if (!salesOrgTo.trim()) return toast.error("Select Sales Organization To");
     setRows([]);
     setDuplicatesRemoved(0);
     setLastFetchedAt(null);
