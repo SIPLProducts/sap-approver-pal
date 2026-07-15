@@ -175,18 +175,23 @@
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
     font-weight: 600;
     font-style: normal;
   }
-  h1 { font-size: 20px; }
-  h2 { font-size: 18px; }
-  h3 { font-size: 16px; }
-  h4 { font-size: 14px; }
+  h1 { font-size: 28px; line-height: 1.2; }
+  h2 { font-size: 20px; line-height: 1.25; }
+  h3 { font-size: 16px; line-height: 1.3; }
+  h4 { font-size: 14px; line-height: 1.35; }
   em, i, cite, address, dfn, var { font-style: normal; }
   .tabular, .tabular-nums, td.num, .num {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
+  }
+  :where(a, button, [role="button"], input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
