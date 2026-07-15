@@ -475,17 +475,18 @@ function SdDashboardPage() {
               height={340}
             >
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+                <PieChart margin={{ top: 16, right: 24, bottom: 16, left: 24 }}>
                   <Pie
                     data={stats.bpStatus}
                     dataKey="value"
                     nameKey="name"
-                    innerRadius={70}
-                    outerRadius={105}
+                    innerRadius="55%"
+                    outerRadius="78%"
                     paddingAngle={3}
                     stroke="hsl(var(--card))"
                     strokeWidth={2}
                     label={(e: any) => `${e.name}: ${e.value}`}
+                    labelLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.5 }}
                   >
                     {stats.bpStatus.map((d, i) => (
                       <Cell key={i} fill={d.name === "Active" ? STATUS_COLORS.Approved : STATUS_COLORS.Rejected} />
