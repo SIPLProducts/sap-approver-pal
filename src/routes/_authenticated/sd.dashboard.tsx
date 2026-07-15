@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -39,6 +39,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { KpiTile } from "@/components/exec/kpi-tile";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
@@ -123,12 +124,14 @@ function SdDashboardPage() {
   const fetchFn = useServerFn(fetchBmwStatusReport);
   const { activePlants } = useActiveContext();
 
+  const [mode, setMode] = useState<"customer" | "contract" | "sales">("customer");
+
   const sorted = useMemo(() => [...activePlants].sort(), [activePlants]);
   const from = sorted[0] ?? "";
   const to = sorted[sorted.length - 1] ?? "";
 
   const query = useQuery({
-    queryKey: ["sd-dashboard-bmw", from, to],
+    queryKey: ["sd-dashboard-bmw", from, to, mode],
     enabled: !!from && !!to,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -144,7 +147,7 @@ function SdDashboardPage() {
           customer_to: "",
           contract_from: "",
           contract_to: "",
-          mode: "sales" as const,
+          mode,
         },
       });
       return (res?.rows ?? []) as BmwStatusRow[];
@@ -345,7 +348,25 @@ function SdDashboardPage() {
               Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as "customer" | "contract" | "sales")}
+              className="flex items-center gap-4 h-8 rounded-md border bg-card px-3"
+            >
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <RadioGroupItem value="customer" id="dash-r-cus" />
+                Customer
+              </label>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <RadioGroupItem value="contract" id="dash-r-cont" />
+                Contract
+              </label>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <RadioGroupItem value="sales" id="dash-r-sales" />
+                Sales Order
+              </label>
+            </RadioGroup>
             {hasContext && !loading && (
               <Badge variant="secondary" className="text-xs h-7 font-mono">
                 {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
