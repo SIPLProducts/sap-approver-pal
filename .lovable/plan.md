@@ -1,34 +1,20 @@
-# SD Dashboard — Selection Type radio (Customer / Contract / Sales)
+## Fix BP Status pie chart label clipping
 
-Add the same three-way selector used in BMW Status Report to the SD Dashboard, and drive all KPIs and charts from the selected mode. Default = Customer.
+**File:** `src/routes/_authenticated/sd.dashboard.tsx` (lines ~477–497)
 
-## Scope
-Only `src/routes/_authenticated/sd.dashboard.tsx`. No changes to server functions, business logic, aggregation math, or chart components.
+**Problem:** The BP Status donut uses fixed pixel radii (`innerRadius={70}`, `outerRadius={105}`) with an external label `"${name}: ${value}"`. As the ChartCard grows wider (large screens / browser zoom out), the donut stays a fixed small size in the middle while the external labels are anchored to the pie's geometry — the labels then extend past the container edges and get clipped.
 
-## Changes
+**Fix (styling only, no data/logic changes):**
 
-1. **Mode state**
-   - Add `const [mode, setMode] = useState<"customer" | "contract" | "sales">("customer");`
-   - Import `useState`, `RadioGroup`, `RadioGroupItem`, `Label`.
+1. Replace fixed pixel radii with percentage strings so the donut scales with the container:
+   - `innerRadius="55%"` , `outerRadius="78%"`
+2. Add a `PieChart` `margin={{ top: 16, right: 24, bottom: 16, left: 24 }}` so external labels have breathing room on both sides at any width.
+3. Keep external labels visible but ensure they render on top and don't wrap awkwardly:
+   - Keep `label={(e) => `${e.name}: ${e.value}`}` and add `labelLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.5 }}`.
+   - Add `isAnimationActive={false}` on the labels? Not needed — leave animation.
+4. Cap the visible label length only if it grows too wide by rendering labels with a small font via a custom label renderer that positions text at the polar angle, clamping x within container bounds. Simpler: rely on the added horizontal margin + percentage radii — this is enough for "Active" / "Inactive" strings which are short.
+5. Keep the `<Legend />` as-is (already shows the labels below), so even in the rare narrow case, the identity is visible.
 
-2. **Query wiring**
-   - Include `mode` in `queryKey`: `["sd-dashboard-bmw", from, to, mode]`.
-   - Pass `mode` (instead of the hardcoded `"sales"`) into `fetchFn({ data: { ..., mode } })`.
-   - Result: the backend returns the customer / contract / sales scoped rowset, and every downstream memoised stat (KPIs, top customers, top materials, monthly trend, release pipeline, PH throughput, BP status pie) automatically recomputes from those rows. No aggregation logic changes.
+**Out of scope:** No changes to `bpStatus` computation, colors, other charts, or the ChartCard component.
 
-3. **UI — Selection Type control**
-   - In the hero header (right side, next to the Refresh button, wrapping cleanly on narrow widths), render a compact `RadioGroup` with three options: Customer, Contract, Sales Order — same labels and value keys (`customer` / `contract` / `sales`) as BMW Status Report.
-   - Selecting an option updates `mode`; React Query refetches automatically due to the new key. Previous data stays visible via `placeholderData: (prev) => prev` (already set).
-
-4. **Cosmetic**
-   - Keep the "updated … rows" badge and Refresh button behaviour identical.
-   - No changes to skeleton, empty state, or error state.
-
-## Out of scope
-- No changes to `fetchBmwStatusReport`, aggregation in the `stats` memo, chart definitions, colors, or KPI tiles.
-- No new filters (customer range, contract-date range, etc.) — only the mode toggle.
-
-## Verification
-- Load `/sd/dashboard`; radio defaults to Customer, data loads.
-- Switch to Contract, then Sales Order — spinner appears, KPIs/charts update, no console errors.
-- Refresh button still works in each mode.
+**Verification:** Load `/sd/dashboard` at 1188px and at zoomed-out widths (1440–1920). Confirm "Active: N" and "Inactive: N" labels render fully inside the card at every width.
