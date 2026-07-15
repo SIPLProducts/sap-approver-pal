@@ -395,11 +395,25 @@ td.tabular-nums {
 }
 .data-table tbody td {
   font-size: 13px;
-  padding: 10px 12px;
+  padding: 12px;
   border-bottom: 1px solid var(--border);
 }
 .data-table tbody tr:hover td {
   background: color-mix(in oklab, var(--muted) 60%, transparent);
+}
+.data-table td.num,
+.data-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wide tables scroll horizontally on small screens instead of breaking layout */
+@media (max-width: 640px) {
+  .awsui-app-scope [class*="awsui_wrapper"]:has(table),
+  .data-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 
