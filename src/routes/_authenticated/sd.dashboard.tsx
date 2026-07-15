@@ -349,10 +349,10 @@ function SdDashboardPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {hasContext ? (
-              <Badge variant="outline" className="font-mono text-xs h-7 px-2.5">
-                <Building2 className="h-3 w-3 mr-1.5" />
-                {from === to ? `Sales Org ${from}` : `${from} → ${to}`}
-              </Badge>
+              // <Badge variant="outline" className="font-mono text-xs h-7 px-2.5">
+              //   <Building2 className="h-3 w-3 mr-1.5" />
+              //   {from === to ? `Sales Org ${from}` : `${from} → ${to}`}
+              // </Badge>
             ) : (
               <Badge variant="secondary" className="text-xs h-7">
                 Select a plant in the top bar
