@@ -354,9 +354,7 @@ function BmwStatusReportPage() {
             <PlantSelect value={salesOrgFrom} onChange={setSalesOrgFrom} placeholder="Select…" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">
-              Sales Organization To <span className="text-destructive">*</span>
-            </Label>
+            <Label className="text-xs">Sales Organization To</Label>
             <PlantSelect value={salesOrgTo} onChange={setSalesOrgTo} placeholder="Select…" />
           </div>
           <div className="space-y-1.5">
