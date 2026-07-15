@@ -346,6 +346,7 @@ function SdDashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            /*{" "}
             {hasContext ? (
               <Badge variant="outline" className="font-mono text-xs h-7 px-2.5">
                 <Building2 className="h-3 w-3 mr-1.5" />
@@ -355,7 +356,8 @@ function SdDashboardPage() {
               <Badge variant="secondary" className="text-xs h-7">
                 Select a plant in the top bar
               </Badge>
-            )}
+            )}{" "}
+            */
             {hasContext && !loading && (
               <Badge variant="secondary" className="text-xs h-7 font-mono">
                 {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
