@@ -167,7 +167,6 @@ function SdDashboardPage() {
     const releaseBuckets: Record<number, Record<StatusBucket, number>> = {};
     for (let n = 1; n <= 8; n++) releaseBuckets[n] = { Approved: 0, Pending: 0, Rejected: 0, Other: 0 };
     const phBuckets: Record<StatusBucket, number> = { Approved: 0, Pending: 0, Rejected: 0, Other: 0 };
-    
 
     let contractValue = 0;
     let salesValue = 0;
@@ -237,7 +236,6 @@ function SdDashboardPage() {
         phBuckets[bucketStatus(nonEmpty(r.PH_STATUS))]++;
       }
 
-
       if (cust && !seenBp.has(cust)) {
         seenBp.add(cust);
         const st = nonEmpty(r.BP_ACTIVE_INACTIVE);
@@ -296,7 +294,6 @@ function SdDashboardPage() {
       { name: "Inactive", value: inactiveBp },
     ].filter((d) => d.value > 0);
 
-
     return {
       totalRecords: rows.length,
       customers: customers.size,
@@ -334,25 +331,26 @@ function SdDashboardPage() {
             "linear-gradient(135deg, hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.02) 55%, hsl(var(--card)))",
         }}
       >
-        <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: "var(--gradient-primary, hsl(var(--primary)))" }} />
+        <div
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{ background: "var(--gradient-primary, hsl(var(--primary)))" }}
+        />
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               SD Approvals · Live analytics
             </p>
-            <h1 className="mt-1.5 font-display text-2xl sm:text-3xl font-semibold tracking-tight">
-              SD Dashboard
-            </h1>
+            <h1 className="mt-1.5 font-display text-2xl sm:text-3xl font-semibold tracking-tight">SD Dashboard</h1>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
               Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {hasContext ? (
-              // <Badge variant="outline" className="font-mono text-xs h-7 px-2.5">
-              //   <Building2 className="h-3 w-3 mr-1.5" />
-              //   {from === to ? `Sales Org ${from}` : `${from} → ${to}`}
-              // </Badge>
+              <Badge variant="outline" className="font-mono text-xs h-7 px-2.5">
+                <Building2 className="h-3 w-3 mr-1.5" />
+                {from === to ? `Sales Org ${from}` : `${from} → ${to}`}
+              </Badge>
             ) : (
               <Badge variant="secondary" className="text-xs h-7">
                 Select a plant in the top bar
@@ -459,9 +457,24 @@ function SdDashboardPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis type="number" tickFormatter={fmtCompact} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip formatter={(v: number) => fmtCompact(v)} contentStyle={TOOLTIP_STYLE} cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }} />
+                  <XAxis
+                    type="number"
+                    tickFormatter={fmtCompact}
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={150}
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <Tooltip
+                    formatter={(v: number) => fmtCompact(v)}
+                    contentStyle={TOOLTIP_STYLE}
+                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+                  />
                   <Bar dataKey="value" fill="url(#grad-cust)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -515,8 +528,24 @@ function SdDashboardPage() {
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="contracts" name="Contracts" stroke={CHART_COLORS[0]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                  <Line type="monotone" dataKey="sales" name="Sales Orders" stroke={CHART_COLORS[2]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="contracts"
+                    name="Contracts"
+                    stroke={CHART_COLORS[0]}
+                    strokeWidth={2.5}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="sales"
+                    name="Sales Orders"
+                    stroke={CHART_COLORS[2]}
+                    strokeWidth={2.5}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -618,22 +647,41 @@ function SdDashboardPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" interval={0} angle={-20} textAnchor="end" height={50} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                    height={50}
+                  />
                   <YAxis tickFormatter={fmtCompact} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip formatter={(v: number) => fmtCompact(v)} contentStyle={TOOLTIP_STYLE} cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }} />
+                  <Tooltip
+                    formatter={(v: number) => fmtCompact(v)}
+                    contentStyle={TOOLTIP_STYLE}
+                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+                  />
                   <Bar dataKey="value" fill="url(#grad-mat)" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-
           </section>
 
           {/* Footer micro-KPIs */}
           <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <MicroTile label="Billing Docs" value={fmtInt(stats.billingDocs)} icon={<Receipt className="h-4 w-4" />} />
             <MicroTile label="Accounting Docs" value={fmtInt(stats.acctDocs)} icon={<Landmark className="h-4 w-4" />} />
-            <MicroTile label="Service Certificates" value={fmtInt(stats.serviceCerts)} icon={<FileCheck2 className="h-4 w-4" />} />
-            <MicroTile label="Avg Contract Value" value={fmtCompact(stats.avgContract)} icon={<Wallet className="h-4 w-4" />} />
+            <MicroTile
+              label="Service Certificates"
+              value={fmtInt(stats.serviceCerts)}
+              icon={<FileCheck2 className="h-4 w-4" />}
+            />
+            <MicroTile
+              label="Avg Contract Value"
+              value={fmtCompact(stats.avgContract)}
+              icon={<Wallet className="h-4 w-4" />}
+            />
           </section>
         </>
       )}
