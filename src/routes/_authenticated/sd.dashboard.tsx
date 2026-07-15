@@ -124,12 +124,14 @@ function SdDashboardPage() {
   const fetchFn = useServerFn(fetchBmwStatusReport);
   const { activePlants } = useActiveContext();
 
+  const [mode, setMode] = useState<"customer" | "contract" | "sales">("customer");
+
   const sorted = useMemo(() => [...activePlants].sort(), [activePlants]);
   const from = sorted[0] ?? "";
   const to = sorted[sorted.length - 1] ?? "";
 
   const query = useQuery({
-    queryKey: ["sd-dashboard-bmw", from, to],
+    queryKey: ["sd-dashboard-bmw", from, to, mode],
     enabled: !!from && !!to,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -145,7 +147,7 @@ function SdDashboardPage() {
           customer_to: "",
           contract_from: "",
           contract_to: "",
-          mode: "sales" as const,
+          mode,
         },
       });
       return (res?.rows ?? []) as BmwStatusRow[];
