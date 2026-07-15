@@ -215,6 +215,28 @@
     background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, currentColor 18%, transparent) 1px, transparent 0);
     background-size: 22px 22px;
   }
+  /* Consistent page rhythm */
+  .page-shell {
+    padding: 1.25rem;
+  }
+  @media (min-width: 640px) { .page-shell { padding: 1.5rem; } }
+  @media (min-width: 1024px) { .page-shell { padding: 2rem; } }
+  .page-stack > * + * { margin-top: 1.25rem; }
+  @media (min-width: 640px) { .page-stack > * + * { margin-top: 1.5rem; } }
+  .card-surface {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+  .card-pad { padding: 1.25rem; }
+  @media (min-width: 640px) { .card-pad { padding: 1.5rem; } }
+  /* Wide content: allow horizontal scroll gracefully on small screens */
+  .table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Cloudscape table header: match sidebar background */
