@@ -306,7 +306,6 @@ function BmwStatusReportPage() {
   function execute() {
     if (mutation.isPending) return; // guard: no overlapping requests (Enter key path)
     if (!salesOrgFrom.trim()) return toast.error("Select Sales Organization From");
-    if (!salesOrgTo.trim()) return toast.error("Select Sales Organization To");
     setRows([]);
     setDuplicatesRemoved(0);
     setLastFetchedAt(null);
@@ -328,7 +327,7 @@ function BmwStatusReportPage() {
     setLastFetchedAt(null);
   }
 
-  const canExecute = !!salesOrgFrom && !!salesOrgTo && !mutation.isPending;
+  const canExecute = !!salesOrgFrom && !mutation.isPending;
   const schema = schemaWithSapExtras(SCHEMAS[activeMode], rows);
 
 
@@ -355,9 +354,7 @@ function BmwStatusReportPage() {
             <PlantSelect value={salesOrgFrom} onChange={setSalesOrgFrom} placeholder="Select…" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">
-              Sales Organization To <span className="text-destructive">*</span>
-            </Label>
+            <Label className="text-xs">Sales Organization To</Label>
             <PlantSelect value={salesOrgTo} onChange={setSalesOrgTo} placeholder="Select…" />
           </div>
           <div className="space-y-1.5">
