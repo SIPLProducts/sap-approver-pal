@@ -348,7 +348,25 @@ function SdDashboardPage() {
               Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as "customer" | "contract" | "sales")}
+              className="flex items-center gap-4 h-8 rounded-md border bg-card px-3"
+            >
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <RadioGroupItem value="customer" id="dash-r-cus" />
+                Customer
+              </label>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <RadioGroupItem value="contract" id="dash-r-cont" />
+                Contract
+              </label>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <RadioGroupItem value="sales" id="dash-r-sales" />
+                Sales Order
+              </label>
+            </RadioGroup>
             {hasContext && !loading && (
               <Badge variant="secondary" className="text-xs h-7 font-mono">
                 {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
