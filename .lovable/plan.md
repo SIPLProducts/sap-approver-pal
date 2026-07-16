@@ -1,19 +1,44 @@
+# Material Reservation Screen (MM Approvals)
 
-Node's built-in `fetch` (undici) hard-rejects GET/HEAD with a body — that's the error you just saw. Postman works because it uses libcurl, which permits it. So we can't use `fetch` for the GET-with-body case; we need a raw Node HTTP client for that one path.
+Add a new screen visually identical to **Price Approvals**, placed in the sidebar right after **MM Dashboard**, under the MM Approvals group.
 
-## Fix — swap the transport, only when it's a GET/DELETE with a body
+## Selection screen fields
 
-In `middleware/server.js`, inside `invokeSap` (the single spot that builds the outbound request):
+- **Document Number** — free-text input
+- **HOD Approve** — checkbox
+- **User ID** — auto-filled from the logged-in user's SAP user id (read-only, same behavior as Gate Process / Price Approvals)
+- No Plant field
 
-1. Keep the current logic that decides "GET with a non-empty payload → attach JSON body". No change to what we send on the wire.
-2. Replace only the outbound call for that one case: instead of `fetchWithTimeout(...)`, use Node's `http` / `https` module to open the request, write the JSON body, and read the response into a `Response`-shaped object (`ok`, `status`, `statusText`, `headers`, `text()`) so the rest of `invokeSap` (raw-body log, `mapResponse`, error handling, timing, `sap_api_sync_log`) stays byte-identical.
-3. All other cases (POST/PUT/PATCH, plain GET with empty payload, HEAD) keep using `fetchWithTimeout` — no behavior change.
-4. Honor the same timeout as `fetchWithTimeout` via `req.setTimeout(...)` + `req.destroy()`.
-5. No changes to UI, `fetchGateProcess`, permissions, DB configs (method stays GET), credentials, response-field mappings, or any other SAP config.
+Buttons: Execute, Reset (same styling as Price Approvals — no Reports button for now).
 
-### Verification
-- Redeploy middleware.
-- Click **Execute** on Gate Process.
-- Middleware log should now show `GET ... body={"USER_ID":"SHARVI_RSSPL"}` succeeding with a non-empty response and the Cloudscape table renders the `DATA[]` row.
+## Results
 
-Approve and I'll make just that one localized change in `middleware/server.js`.
+Renders a `CloudscapeApprovalTable` with dynamic columns built from the SAP `DATA[]` rows via `buildDynamicColumns` (same helper Price/Gate Process use). Row selection enabled; Accept / Reject wiring can be added later once SAP provides a decision endpoint — initial screen is fetch-only, matching Gate Process.
+
+## Files
+
+**New — `src/routes/_authenticated/mm.material-reservation.tsx`**
+- Route id `/_authenticated/mm/material-reservation`.
+- Component cloned from `src/routes/_authenticated/mm.gate-process.tsx` (closest existing pattern with auto-filled User ID and no plant), with:
+  - Title: `Material Reservation`.
+  - State: `docNumber` (string), `hodApprove` (boolean), `userId` (auto-filled, read-only).
+  - Execute passes `{ user_id, doc_number, hod_approve }` to the server fn.
+  - Reset clears doc number, unchecks HOD, restores user id.
+
+**New — `src/lib/mm/material-reservation.functions.ts`**
+- `createServerFn` + `requireSupabaseAuth`, modeled on `src/lib/mm/gate-process.functions.ts`.
+- Zod input: `user_id: string`, `doc_number: string` (optional/required — required), `hod_approve: boolean`.
+- Looks up `sap_api_configs` row named **`Material_Reservation_Fetch_API`** (user configures this in Admin → SAP API; endpoint + method + auth managed there — same as Gate Process).
+- Sends `USER_ID`, `DOC_NUMBER`, `HOD_APPROVE` (as `"X"`/`""` — SAP boolean convention) as inputs; proxy path posts to `${middlewareUrl}/material_reservation/Fetch` with `inputs: { USER_ID, DOC_NUMBER, HOD_APPROVE }`; direct path appends them as query params. Same fallback to `/sap/invoke` on middleware 404.
+- Returns `{ rows, count, fetched_at, error }` where rows are raw untyped objects (so `buildDynamicColumns` renders every returned field, matching Gate Process behavior).
+
+**Edit — `src/routes/_authenticated.tsx`** (line 155-158)
+- Insert `{ to: "/mm/material-reservation", label: "Material Reservation", icon: <a lucide icon, e.g. Package>, screen: "approvals.inbox.mm" }` between the MM Dashboard and Gate Process entries.
+
+## Permissions
+
+Reuses the existing `approvals.inbox.mm` screen key — no new activity or admin change needed. Anyone who already sees MM Dashboard sees Material Reservation.
+
+## Follow-up you'll need to do once
+
+In **Admin → SAP API Settings**, create a config named `Material_Reservation_Fetch_API` (endpoint URL, method, auth) — the screen will show a clear "config not found" error until then, matching how Gate Process behaves.
