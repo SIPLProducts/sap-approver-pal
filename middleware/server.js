@@ -504,7 +504,13 @@ async function invokeSap(cfg, inputs) {
   } catch {}
 
   const t0 = Date.now();
-  const res = await fetchWithTimeout(url.toString(), { method: cfg.http_method, headers, body });
+  // GET/DELETE with a body is legal HTTP and Postman does it, but Node's fetch
+  // (undici) forbids it — route those through the raw http client instead.
+  const needsRawHttp =
+    body != null && ["GET", "DELETE", "HEAD"].includes(cfg.http_method);
+  const res = needsRawHttp
+    ? await rawHttpRequestWithBody(url.toString(), { method: cfg.http_method, headers, body })
+    : await fetchWithTimeout(url.toString(), { method: cfg.http_method, headers, body });
   const latency_ms = Date.now() - t0;
 
   const contentType = res.headers.get("content-type") ?? "";
