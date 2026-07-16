@@ -37,6 +37,7 @@ function MaterialReservationPage() {
   const [hodApprove, setHodApprove] = useState(false);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const hasResults = rows.length > 0;
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
@@ -80,71 +81,76 @@ function MaterialReservationPage() {
         <h1 className="text-2xl font-bold tracking-tight">Material Reservation</h1>
       </div>
 
-      <Card className="p-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
-          <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
-        </div>
-        <div className="grid gap-3 md:grid-cols-[240px_200px_180px_1fr_auto] items-end">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Document Number</Label>
-            <Input
-              value={docNumber}
-              onChange={(e) => setDocNumber(e.target.value)}
-              placeholder="Document number"
-              className="h-9 text-sm"
-            />
+      {!hasResults && (
+        <Card className="p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
+            <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">HOD Approve</Label>
-            <div className="h-9 flex items-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={hodApprove}
-                  onCheckedChange={(v) => setHodApprove(v === true)}
-                />
-                HOD Approve
-              </label>
+          <div className="grid gap-3 md:grid-cols-[240px_200px_180px_1fr_auto] items-end">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Document Number</Label>
+              <Input
+                value={docNumber}
+                onChange={(e) => setDocNumber(e.target.value)}
+                placeholder="Document number"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">HOD Approve</Label>
+              <div className="h-9 flex items-center">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={hodApprove}
+                    onCheckedChange={(v) => setHodApprove(v === true)}
+                  />
+                  HOD Approve
+                </label>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                User ID <span className="text-destructive">*</span>
+              </Label>
+              <Input value={userId} readOnly className="h-9 text-sm bg-muted/40" />
+            </div>
+            <div />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={execute} disabled={!userId.trim() || mutation.isPending}>
+                {mutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Execute
+              </Button>
+              <Button variant="ghost" size="sm" onClick={reset}>
+                Reset
+              </Button>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              User ID <span className="text-destructive">*</span>
-            </Label>
-            <Input value={userId} readOnly className="h-9 text-sm bg-muted/40" />
-          </div>
-          <div />
-          <div className="flex gap-2">
-            <Button size="sm" onClick={execute} disabled={!userId.trim() || mutation.isPending}>
-              {mutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              Execute
-            </Button>
-            <Button variant="ghost" size="sm" onClick={reset}>
-              Reset
-            </Button>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
-      <CloudscapeApprovalTable
-        title="Material Reservation"
-        countLabel={`(${rows.length})`}
-        rows={rows}
-        rowKey={rowKey}
-        loading={mutation.isPending}
-        showSelect
-        selectedKeys={selected}
-        onSelectionChange={setSelected}
-        emptyMessage={
-          rows.length === 0
-            ? "Click Execute to load material reservation records from SAP."
-            : "No records."
-        }
-        columns={buildDynamicColumns(rows)}
-      />
+      {hasResults && (
+        <CloudscapeApprovalTable
+          title="Material Reservation"
+          countLabel={`(${rows.length})`}
+          rows={rows}
+          rowKey={rowKey}
+          loading={mutation.isPending}
+          showSelect
+          selectedKeys={selected}
+          onSelectionChange={setSelected}
+          emptyMessage="No records."
+          headerExtras={
+            <Button variant="ghost" size="sm" onClick={reset}>
+              Back to Search
+            </Button>
+          }
+          columns={buildDynamicColumns(rows)}
+        />
+      )}
     </div>
   );
 }
