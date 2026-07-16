@@ -16,7 +16,7 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
     module: "Approvals",
     screens: [
       { key: "approvals.inbox.mm", label: "MM Approvals Inbox", activity: "APPROVALS.INBOX_MM" },
-      { key: "approvals.gate_process", label: "Gate Process", activity: "APPROVALS.GATE_PROCESS" },
+      
       { key: "approvals.inbox.sd", label: "SD Approvals Inbox", activity: "APPROVALS.INBOX_SD" },
       { key: "approvals.history",  label: "Approval History",   activity: "APPROVALS.HISTORY" },
       { key: "approvals.detail",   label: "Approval Detail",    activity: "APPROVALS.DETAIL" },

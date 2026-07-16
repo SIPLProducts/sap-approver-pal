@@ -154,7 +154,7 @@ function AuthenticatedLayout() {
 
   const mmChildren = [
     { to: "/mm/dashboard", label: "MM Dashboard", icon: BarChart3, screen: "approvals.inbox.mm" },
-    { to: "/mm/gate-process", label: "Gate Process", icon: ClipboardCheck, screen: "approvals.gate_process" },
+    { to: "/mm/gate-process", label: "Gate Process", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
   ].filter((it) => can(it.screen));
 
   const showMm = mmChildren.length > 0;
