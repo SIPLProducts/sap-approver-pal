@@ -407,14 +407,20 @@ async function invokeSap(cfg, inputs) {
   };
 
   let body;
+  const payloadKeys = Object.keys(payload);
   if (["GET", "DELETE", "HEAD"].includes(cfg.http_method)) {
-    for (const [k, v] of Object.entries(payload)) {
-      if (v != null) url.searchParams.set(k, String(v));
+    // Match Postman: SAP services like znfa_ter read USER_ID from the JSON body
+    // even on GET. When we have a payload, send it as a JSON body on GET/DELETE
+    // instead of appending to the query string. Empty payload keeps plain GET.
+    if (payloadKeys.length > 0) {
+      headers["Content-Type"] = headers["Content-Type"] ?? "application/json";
+      body = JSON.stringify(payload);
     }
   } else {
     headers["Content-Type"] = headers["Content-Type"] ?? "application/json";
     body = JSON.stringify(payload);
   }
+
 
   // Redact password/secret keys ONLY in this outbound REQUEST log — this mutates
   // a deep clone of the payload, never the actual outbound body, and it never
