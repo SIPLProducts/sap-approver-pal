@@ -398,6 +398,67 @@ async function fetchWithTimeout(url, init) {
   }
 }
 
+// Node's fetch (undici) forbids a request body on GET/HEAD. Postman works because
+// libcurl permits it. For SAP services (e.g. znfa_ter) that read parameters from
+// the JSON body even on GET, we use Node's raw http/https client and wrap the
+// result to match the subset of `fetch`'s Response API used by invokeSap.
+async function rawHttpRequestWithBody(urlStr, { method, headers, body }) {
+  const u = new URL(urlStr);
+  const lib = u.protocol === "https:" ? https : http;
+  const outHeaders = { ...headers };
+  if (body != null && outHeaders["Content-Length"] == null) {
+    outHeaders["Content-Length"] = Buffer.byteLength(body);
+  }
+  return await new Promise((resolve, reject) => {
+    const req = lib.request(
+      {
+        protocol: u.protocol,
+        hostname: u.hostname,
+        port: u.port || (u.protocol === "https:" ? 443 : 80),
+        path: `${u.pathname}${u.search}`,
+        method,
+        headers: outHeaders,
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const buf = Buffer.concat(chunks);
+          const status = res.statusCode ?? 0;
+          const wrapped = {
+            ok: status >= 200 && status < 300,
+            status,
+            statusText: res.statusMessage ?? "",
+            headers: {
+              get: (name) => {
+                const key = Object.keys(res.headers).find(
+                  (k) => k.toLowerCase() === String(name).toLowerCase(),
+                );
+                const v = key ? res.headers[key] : undefined;
+                return Array.isArray(v) ? v.join(", ") : v ?? null;
+              },
+            },
+            text: async () => buf.toString("utf8"),
+            clone() { return wrapped; },
+          };
+          resolve(wrapped);
+        });
+        res.on("error", reject);
+      },
+    );
+    req.setTimeout(TIMEOUT_MS, () => {
+      const err = new Error(`SAP request timed out after ${TIMEOUT_MS}ms`);
+      err.code = "ETIMEDOUT";
+      req.destroy(err);
+    });
+    req.on("error", reject);
+    if (body != null) req.write(body);
+    req.end();
+  });
+}
+
+
+
 async function invokeSap(cfg, inputs) {
   const payload = buildRequestPayload(cfg.requestFields, inputs);
   const url = new URL(cfg.endpoint_url);
