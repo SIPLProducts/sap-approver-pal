@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft, ChevronsUpDown, Mail } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft, ChevronsUpDown, Mail, ClipboardCheck } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -154,6 +154,7 @@ function AuthenticatedLayout() {
 
   const mmChildren = [
     { to: "/mm/dashboard", label: "MM Dashboard", icon: BarChart3, screen: "approvals.inbox.mm" },
+    { to: "/mm/gate-process", label: "Gate Process", icon: ClipboardCheck, screen: "approvals.gate_process" },
   ].filter((it) => can(it.screen));
 
   const showMm = mmChildren.length > 0;
