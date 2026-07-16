@@ -1,28 +1,45 @@
-## Goal
-Introduce an "MM Dashboard" sub-screen under "MM Approvals" in the sidebar, mirroring the SD Approvals → SD Dashboard pattern. The MM Dashboard shows the existing MM Approvals inbox screen. No existing business logic, server functions, or the inbox component are modified.
 
-## Changes
+## Add "Gate Process" under MM Approvals
 
-### 1. New route: `src/routes/_authenticated/mm.dashboard.tsx`
-- Registers `/mm/dashboard`.
-- Uses `beforeLoad` to `redirect({ to: "/inbox/$module", params: { module: "mm" } })`, so the existing MM Approvals inbox (`inbox.$module.tsx`) renders unchanged.
-- This keeps "MM Dashboard" as a distinct, permission-checkable sub-screen entry without duplicating or modifying the inbox implementation.
+New sub-screen mirroring Price Approvals design, with a User ID field (auto-filled from the logged-in user) instead of Plant, and no Reports button.
 
-### 2. Sidebar update: `src/routes/_authenticated.tsx`
-Convert the current single "MM Approvals" link into a collapsible group that mirrors the SD group:
+### 1. Screen key
+`src/lib/admin/screen-keys.ts` — add to the **Approvals** module:
+```
+{ key: "approvals.gate_process", label: "Gate Process", activity: "APPROVALS.GATE_PROCESS" }
+```
 
-- Add `mmOpen` / `mmExpanded` state parallel to `sdOpen` / `sdExpanded`:
-  - `mmOpen = pathname.startsWith("/inbox/mm") || pathname.startsWith("/mm")`.
-- Build an `mmChildren` array (same shape as `sdChildren`) with a single entry:
-  - `{ to: "/mm/dashboard", label: "MM Dashboard", icon: LayoutDashboard (or BarChart3), screen: "approvals.inbox.mm" }`.
-- Replace lines 196–202 (the flat MM link) with the same collapsible button + expanded child list markup used for SD (lines 204–250), gated on `showMm` and filtered by `can(screen)`.
-- Clicking the "MM Approvals" parent expands the group and navigates to `/mm/dashboard` (which redirects into the existing inbox).
+### 2. Server functions — `src/lib/sd/gate-process.functions.ts` (new)
+Two `createServerFn` handlers guarded by `requireSupabaseAuth`, patterned on `price-approval.functions.ts`:
 
-### 3. Permissions
-- Uses existing screen key `approvals.inbox.mm` — no changes to `src/lib/admin/screen-keys.ts`.
+- `fetchGateProcess` (POST, input: `{ user_id: string }`)
+  - Reads `sap_api_configs` row where `name = 'Gate_Pass_Fetch_API'` (+ credentials, global proxy settings — identical logic to `fetchPriceApprovals`).
+  - Payload sent: `{ "USER_ID": "<user_id>" }` (proxy: `{ inputs: { USER_ID: <id> } }`).
+  - Response parsing: reads `DATA[]` (case-insensitive), returns rows with fields `check, pr_number, rfq_number, rfq_title, vendor_name, ter_sub_id` plus original raw fields so `buildDynamicColumns` can render them.
+  - Same sync-log inserts and friendly error envelope `{ rows, count, fetched_at, user_id, error }` as price fetch.
+- `getMySapUserId` — reuse the existing export from `price-approval.functions.ts` (import it directly; no duplication).
 
-## Not changed
-- `src/routes/_authenticated/inbox.$module.tsx` (MM inbox rendering logic)
-- Any server functions, SAP sync, notifications, or query keys
-- `src/routes/index.tsx` marketing links to `/inbox/mm` (still valid)
-- `screen-keys.ts` / permissions model
+Decision endpoint (Accept/Reject) is deferred until the user provides the Gate Process decision SAP config — the Accept/Reject buttons in the table stay disabled with a tooltip note. (Ask if this is wrong; otherwise omit decision wiring.)
+
+### 3. Route — `src/routes/_authenticated/mm.gate-process.tsx` (new)
+Clone of `sd.price.tsx` with these changes:
+- Route path `/_authenticated/mm/gate-process`, screen key `approvals.gate_process`.
+- **Remove** the Plant `PlantMultiSelect` field, `activePlants` usage, and plants state.
+- **Add** a User ID text `Input` (readonly, prefilled from `getMySapUserId`). Layout: single-column selection card `grid md:grid-cols-[240px_1fr_auto]`.
+- **Remove** the Reports button and its `navigate` import usage.
+- Execute button enabled when `userId.trim() !== ""`.
+- Table via `CloudscapeApprovalTable` + `buildDynamicColumns(rows)` (no exclusions needed).
+- Title: "Gate Process".
+- Keep the same Card wrapper, spacing, loading spinner, empty state, and result dialog scaffolding (dialog only shown if/when a decision endpoint is added later; safe to omit for now).
+
+### 4. Sidebar — `src/routes/_authenticated.tsx`
+Add a second entry to `mmChildren`, immediately after MM Dashboard:
+```
+{ to: "/mm/gate-process", label: "Gate Process", icon: ClipboardCheck, screen: "approvals.gate_process" }
+```
+(Use an already-imported lucide icon; add `ClipboardCheck` to the import if needed.) No other logic changes — the existing collapsible MM group renders it automatically, permission-gated by `can("approvals.gate_process")`.
+
+### Out of scope
+- No changes to MM Dashboard, MM inbox, price approvals, or any existing route.
+- No new migration; the `Gate_Pass_Fetch_API` config is expected to exist in `sap_api_configs` (managed in Admin → SAP API Settings, as the user described).
+- No Accept/Reject SAP submission until the decision API name/payload is provided.
