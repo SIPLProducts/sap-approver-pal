@@ -441,6 +441,17 @@ async function invokeSap(cfg, inputs) {
   const contentType = res.headers.get("content-type") ?? "";
   const text = await res.text().catch(() => "");
 
+  // Raw SAP response log (pre-mapping) — helps diagnose cases where mapResponse
+  // strips data because SAP returned an unexpected envelope. Log-only; behavior
+  // of invokeSap / mapResponse is unchanged.
+  console.log(
+    `[/sap/invoke] raw sap body url=${url.toString()} status=${res.status} ` +
+    `content-type=${contentType || "unknown"} basic_user=${cfg.credentials?.username ?? "(none)"} ` +
+    `bytes=${text.length} body=`,
+    text.length > 2000 ? `${text.slice(0, 2000)}…(truncated)` : text,
+  );
+
+
   // Exact-reproduction trace: everything needed to replay this request in
   // Postman and compare responses byte-for-byte.
   const payloadSha = createHash("sha256").update(body ?? url.toString()).digest("hex");
@@ -764,6 +775,10 @@ namedRawInvokeRoute("/service_certificate/Service_Certificate_Approve_Reject", "
 // Auth — Login (raw passthrough; sends { LOGIN: { USER, PASSWORD } } verbatim)
 namedRawInvokeRoute("/login/Login_API", "Login_API");
 namedRawInvokeRoute("/login/Forgot_API", "Forgot_API");
+
+// MM — Gate Process (named alias for cleaner logs; same pipeline as /sap/invoke)
+namedInvokeRoute("/gate_pass/Fetch", "Gate_Pass_Fetch_API");
+
 
 
 
