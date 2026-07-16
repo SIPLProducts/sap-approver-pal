@@ -152,7 +152,11 @@ function AuthenticatedLayout() {
     { to: "/sd/bmw-status", label: "BMW Status Report", icon: BarChart3, screen: "approvals.inbox.sd" },
   ].filter((it) => can(it.screen));
 
-  const showMm = can("approvals.inbox.mm");
+  const mmChildren = [
+    { to: "/mm/dashboard", label: "MM Dashboard", icon: BarChart3, screen: "approvals.inbox.mm" },
+  ].filter((it) => can(it.screen));
+
+  const showMm = mmChildren.length > 0;
   const showSd = sdChildren.length > 0;
 
   const manage_items = [
