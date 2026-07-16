@@ -27,6 +27,7 @@ import { Route as AuthenticatedSdDashboardRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSdContractReportsRouteImport } from './routes/_authenticated/sd.contract-reports'
 import { Route as AuthenticatedSdContractRouteImport } from './routes/_authenticated/sd.contract'
 import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
+import { Route as AuthenticatedMmDashboardRouteImport } from './routes/_authenticated/mm.dashboard'
 import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
 import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
@@ -136,6 +137,12 @@ const AuthenticatedSdBmwStatusRoute =
     path: '/sd/bmw-status',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMmDashboardRoute =
+  AuthenticatedMmDashboardRouteImport.update({
+    id: '/mm/dashboard',
+    path: '/mm/dashboard',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInboxModuleRoute =
   AuthenticatedInboxModuleRouteImport.update({
     id: '/inbox/$module',
@@ -205,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
   '/sd/contract-reports': typeof AuthenticatedSdContractReportsRoute
@@ -234,6 +242,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
   '/sd/contract-reports': typeof AuthenticatedSdContractReportsRoute
@@ -265,6 +274,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
+  '/_authenticated/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/_authenticated/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/_authenticated/sd/contract': typeof AuthenticatedSdContractRoute
   '/_authenticated/sd/contract-reports': typeof AuthenticatedSdContractReportsRoute
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/approval/$id'
     | '/inbox/$module'
+    | '/mm/dashboard'
     | '/sd/bmw-status'
     | '/sd/contract'
     | '/sd/contract-reports'
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/approval/$id'
     | '/inbox/$module'
+    | '/mm/dashboard'
     | '/sd/bmw-status'
     | '/sd/contract'
     | '/sd/contract-reports'
@@ -355,6 +367,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/users'
     | '/_authenticated/approval/$id'
     | '/_authenticated/inbox/$module'
+    | '/_authenticated/mm/dashboard'
     | '/_authenticated/sd/bmw-status'
     | '/_authenticated/sd/contract'
     | '/_authenticated/sd/contract-reports'
@@ -510,6 +523,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSdBmwStatusRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mm/dashboard': {
+      id: '/_authenticated/mm/dashboard'
+      path: '/mm/dashboard'
+      fullPath: '/mm/dashboard'
+      preLoaderRoute: typeof AuthenticatedMmDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inbox/$module': {
       id: '/_authenticated/inbox/$module'
       path: '/inbox/$module'
@@ -593,6 +613,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
   AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
+  AuthenticatedMmDashboardRoute: typeof AuthenticatedMmDashboardRoute
   AuthenticatedSdBmwStatusRoute: typeof AuthenticatedSdBmwStatusRoute
   AuthenticatedSdContractRoute: typeof AuthenticatedSdContractRoute
   AuthenticatedSdContractReportsRoute: typeof AuthenticatedSdContractReportsRoute
@@ -618,6 +639,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
   AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
+  AuthenticatedMmDashboardRoute: AuthenticatedMmDashboardRoute,
   AuthenticatedSdBmwStatusRoute: AuthenticatedSdBmwStatusRoute,
   AuthenticatedSdContractRoute: AuthenticatedSdContractRoute,
   AuthenticatedSdContractReportsRoute: AuthenticatedSdContractReportsRoute,
@@ -648,13 +670,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

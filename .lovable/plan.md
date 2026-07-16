@@ -1,22 +1,28 @@
-## Change
+## Goal
+Introduce an "MM Dashboard" sub-screen under "MM Approvals" in the sidebar, mirroring the SD Approvals → SD Dashboard pattern. The MM Dashboard shows the existing MM Approvals inbox screen. No existing business logic, server functions, or the inbox component are modified.
 
-In `src/routes/_authenticated/sd.bmw-status.tsx`, remove the mandatory validation for "Sales Organization To". "Sales Organization From" remains required. If "To" is empty, it will continue to default to the "From" value (existing fallback already in place at line 278 and in the backend).
+## Changes
 
-### Edits (UI-only)
+### 1. New route: `src/routes/_authenticated/mm.dashboard.tsx`
+- Registers `/mm/dashboard`.
+- Uses `beforeLoad` to `redirect({ to: "/inbox/$module", params: { module: "mm" } })`, so the existing MM Approvals inbox (`inbox.$module.tsx`) renders unchanged.
+- This keeps "MM Dashboard" as a distinct, permission-checkable sub-screen entry without duplicating or modifying the inbox implementation.
 
-1. **Line 309** — remove the guard:
-   ```ts
-   if (!salesOrgTo.trim()) return toast.error("Select Sales Organization To");
-   ```
+### 2. Sidebar update: `src/routes/_authenticated.tsx`
+Convert the current single "MM Approvals" link into a collapsible group that mirrors the SD group:
 
-2. **Line 331** — `canExecute` no longer requires `salesOrgTo`:
-   ```ts
-   const canExecute = !!salesOrgFrom && !mutation.isPending;
-   ```
+- Add `mmOpen` / `mmExpanded` state parallel to `sdOpen` / `sdExpanded`:
+  - `mmOpen = pathname.startsWith("/inbox/mm") || pathname.startsWith("/mm")`.
+- Build an `mmChildren` array (same shape as `sdChildren`) with a single entry:
+  - `{ to: "/mm/dashboard", label: "MM Dashboard", icon: LayoutDashboard (or BarChart3), screen: "approvals.inbox.mm" }`.
+- Replace lines 196–202 (the flat MM link) with the same collapsible button + expanded child list markup used for SD (lines 204–250), gated on `showMm` and filtered by `can(screen)`.
+- Clicking the "MM Approvals" parent expands the group and navigates to `/mm/dashboard` (which redirects into the existing inbox).
 
-3. **Line 359** — drop the red asterisk on the "Sales Organization To" label:
-   ```tsx
-   <Label className="text-xs">Sales Organization To</Label>
-   ```
+### 3. Permissions
+- Uses existing screen key `approvals.inbox.mm` — no changes to `src/lib/admin/screen-keys.ts`.
 
-No changes to server functions or business logic — the existing `sales_org_to || sales_org_from` fallback keeps the SAP request identical when "To" is left blank.
+## Not changed
+- `src/routes/_authenticated/inbox.$module.tsx` (MM inbox rendering logic)
+- Any server functions, SAP sync, notifications, or query keys
+- `src/routes/index.tsx` marketing links to `/inbox/mm` (still valid)
+- `screen-keys.ts` / permissions model
