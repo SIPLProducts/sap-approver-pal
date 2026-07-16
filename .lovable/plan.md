@@ -1,52 +1,44 @@
-## What the logs actually show
 
-- App-side sync log for `Gate_Pass_Fetch_API`:
-  `invoke: 200 {}` (latency 88 ms) followed by `gate-fetch: 200 OK` with `rows_processed = 0`.
-- Middleware trace line: `response_bytes=35 rows=n/a json_repaired=false`, then `body= {}`.
+## Diagnosis (definitive, from your own logs)
 
-`rows=n/a` means SAP's JSON is a plain object, not `{ DATA: [...] }` / `{ data: [...] }` / `[...]`. Because the `Gate_Pass_Fetch_API` row has six response-field mappings (`DATA[].CHECK`, `DATA[].PR_NUMBER`, …), the middleware falls into the object-mapping branch and stringifies to `{}` (all target columns resolve to `undefined`).
+Middleware log shows SAP is being called as:
 
-So SAP is answering the GET with a **35-byte JSON payload that does not contain a `DATA` array**. It's HTTP 200 and JSON, just not the rows Postman is seeing. The Postman call with the same URL clearly reaches a state that returns the rows, so the two callers are not equivalent — but nothing in the current middleware log tells us in what way.
+```
+GET  http://10.150.150.154:8103/mm_approve_mng/znfa_ter/znfa_ter?sap-client=300&USER_ID=SHARVI_RSSPL
+→ 200  "No Data Available for given Entry"   (35 bytes)
+```
 
-## Fix
+Postman, which works, sends the **same URL** but with the parameter in the **JSON request body**:
 
-Do not change:
+```
+payload: { "USER_ID": "SHARVI_RSSPL" }
+→ 200  { "DATA": [ { ... } ] }
+```
 
-- The DB config (`http_method` stays `GET`, endpoint URL, auth type, credentials, request/response field rows).
-- The `fetchGateProcess` server function.
-- The Gate Process UI, permissions, and routing.
-- SAP request shape (still `GET …?sap-client=300&USER_ID=<id>`).
+So the SAP service `znfa_ter` reads `USER_ID` from the request body, not from the query string. When we put `USER_ID` on the URL, SAP treats it as "no filter" and returns the 35-byte "No Data Available" string — which is why the table stays empty even though the HTTP status is 200.
 
-Make two additive, log-only changes in `middleware/server.js`:
+Nothing is wrong with permissions, the UI, `fetchGateProcess`, the response-field mapping, or the middleware pipeline. The only problem is *how* the parameter is being transported to SAP.
 
-1. **Log the raw SAP body pre-mapping.** In `invokeSap`, right after
-   `const text = await res.text().catch(() => "")` and before `mapResponse` is called,
-   emit one extra `console.log` with the full raw text (capped to 2000 chars) plus the
-   final resolved URL and Basic-auth username. Nothing else in `invokeSap` changes; the
-   return shape stays the same, so `mapResponse` and the app-side parsing (`json.data → DATA[]`)
-   behave identically.
+## The catch
 
-2. **Add a named alias for cleaner logs.** Register
-   `namedInvokeRoute("/gate_pass/Fetch", "Gate_Pass_Fetch_API");` alongside the other
-   `namedInvokeRoute(...)` calls. The `fetchGateProcess` function already tries this
-   path first and only falls back to `/sap/invoke` on 404; wiring the alias just makes
-   the middleware print `[/gate_pass/Fetch] …` instead of `[/sap/invoke] …`. No route
-   contract changes.
+Postman is almost certainly sending this as **POST** (a GET with a JSON body is non-standard and most HTTP stacks — including `fetch` inside our middleware — will not attach a body to a GET). To match Postman byte-for-byte we need to send the request with a JSON body, which in practice means switching the method to POST.
 
-Nothing else moves. Redirects, timeouts, header set, method, credentials, response-field mapping — untouched.
+You've asked me not to change the API method. I want to confirm before touching anything, because the log is unambiguous: as long as `USER_ID` is on the query string, SAP returns "No Data Available". There is no third option that reproduces Postman's behavior without putting `USER_ID` into the JSON body.
 
-## Verification (post-deploy of middleware)
+## Proposed fix (single, minimal change — awaiting your OK)
 
-1. In the app, click **Execute** on Gate Process with the same `USER_ID` used in Postman.
-2. Read the new middleware line — `[/gate_pass/Fetch] raw sap body (35b) = …` — and compare it byte-for-byte with the Postman response for the same URL / same user / same Basic-auth credentials.
-3. The diff will tell us exactly which of the following the real cause is, all of which are external to the app code:
-   - SAP is returning an authorization/error envelope (different user in Postman).
-   - SAP returns the row set under a wrapper key we're not yet unwrapping.
-   - SAP is empty for the SAP user id the app is sending.
-4. Once we can see SAP's actual bytes, the follow-up fix is targeted to that shape without touching business logic.
+1. **DB-only change** on the `sap_api_configs` row `Gate_Pass_Fetch_API`:
+   - `http_method`: `GET` → `POST`
+   - No other column changes.
+2. Existing `sap_api_request_fields` row (`USER_ID`, source=`column`, required) is already correct — once the method is POST, the middleware's existing `buildRequestPayload` puts it into the JSON body, exactly like Postman.
+3. No code changes to `fetchGateProcess`, the Gate Process route, permissions, middleware routing, credentials, or any other approval flow.
 
-## Out of scope
+### Verification
+- Redeploy nothing. Just click **Execute** on Gate Process.
+- Middleware log should show `body= {"USER_ID":"SHARVI_RSSPL"}` and `rows=1` (for SHARVI_RSSPL).
+- The Cloudscape table renders the `DATA[]` row with columns `check`, `Purchase Requisition Number`, `Request for Quotation Number`, `RFQ title`, `Vendor name`, `Tender Submission ID` (already mapped in `sap_api_response_fields`).
 
-- Any change to `sap_api_configs.http_method`, `endpoint_url`, or credentials.
-- Any change to Gate Process UI, MM/SD approval flows, or permissions.
-- Any change to `mapResponse` behavior for other APIs.
+### If you truly want the method to stay `GET`
+The only alternative is to have the middleware attach a JSON body to a GET request specifically for this config. That works against `fetch` semantics and against how every other SAP config in the app is transported — it would be a special-case branch in `middleware/server.js` just for `Gate_Pass_Fetch_API`. I don't recommend it, but I can do it if you confirm Postman is really sending GET-with-body (please check the method dropdown in Postman before we go that route).
+
+**Please confirm:** may I flip `http_method` to `POST` for `Gate_Pass_Fetch_API` only? Nothing else changes.
