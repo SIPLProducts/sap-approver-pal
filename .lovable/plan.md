@@ -1,27 +1,19 @@
 
-Understood — you've confirmed Postman is set to **GET** and it still returns the data. That means SAP's `znfa_ter` service reads `USER_ID` from the JSON **body** even on a GET request. Our middleware currently:
+Node's built-in `fetch` (undici) hard-rejects GET/HEAD with a body — that's the error you just saw. Postman works because it uses libcurl, which permits it. So we can't use `fetch` for the GET-with-body case; we need a raw Node HTTP client for that one path.
 
-- On GET → puts params in the query string, sends no body.
-- On POST → puts params in the JSON body.
+## Fix — swap the transport, only when it's a GET/DELETE with a body
 
-That's why Postman (GET + body) works and our app (GET + query string) returns `"No Data Available"`.
+In `middleware/server.js`, inside `invokeSap` (the single spot that builds the outbound request):
 
-## Fix — revert method, teach middleware to send GET-with-body
-
-1. **Revert the DB change**
-   - `sap_api_configs.http_method` for `Gate_Pass_Fetch_API`: `POST` → `GET` (back to original).
-
-2. **Small change in `middleware/server.js`** (single spot inside the shared SAP invoke pipeline used by `/sap/invoke` and `/gate_pass/Fetch`):
-   - When `http_method === 'GET'` and there is a non-empty request payload (from `sap_api_request_fields`), send the payload as a **JSON body** on the GET request (`Content-Type: application/json`) instead of appending it to the query string.
-   - When `http_method === 'GET'` and the payload is empty, keep today's behavior (plain GET, no body).
-   - POST / PUT / PATCH / DELETE behavior is untouched.
-   - This uses Node's `fetch` (undici), which does support a body on GET when explicitly set — same wire shape Postman produces.
-
-3. **No other changes** — no UI change, no change to `fetchGateProcess`, permissions, credentials, response-field mappings, or any other SAP config. Every other config today has an empty payload on GET, so their behavior is unchanged.
+1. Keep the current logic that decides "GET with a non-empty payload → attach JSON body". No change to what we send on the wire.
+2. Replace only the outbound call for that one case: instead of `fetchWithTimeout(...)`, use Node's `http` / `https` module to open the request, write the JSON body, and read the response into a `Response`-shaped object (`ok`, `status`, `statusText`, `headers`, `text()`) so the rest of `invokeSap` (raw-body log, `mapResponse`, error handling, timing, `sap_api_sync_log`) stays byte-identical.
+3. All other cases (POST/PUT/PATCH, plain GET with empty payload, HEAD) keep using `fetchWithTimeout` — no behavior change.
+4. Honor the same timeout as `fetchWithTimeout` via `req.setTimeout(...)` + `req.destroy()`.
+5. No changes to UI, `fetchGateProcess`, permissions, DB configs (method stays GET), credentials, response-field mappings, or any other SAP config.
 
 ### Verification
-- Redeploy the middleware.
+- Redeploy middleware.
 - Click **Execute** on Gate Process.
-- Middleware trace should now show `method=GET body={"USER_ID":"SHARVI_RSSPL"} rows=1` and the Cloudscape table renders the `DATA[]` row with the mapped columns (`check`, `Purchase Requisition Number`, `Request for Quotation Number`, `RFQ title`, `Vendor name`, `Tender Submission ID`).
+- Middleware log should now show `GET ... body={"USER_ID":"SHARVI_RSSPL"}` succeeding with a non-empty response and the Cloudscape table renders the `DATA[]` row.
 
-Approve and I'll revert the DB flag and make the one middleware edit.
+Approve and I'll make just that one localized change in `middleware/server.js`.
