@@ -50,6 +50,10 @@ function AuthenticatedLayout() {
   const [sdExpanded, setSdExpanded] = useState(sdOpen);
   useEffect(() => { if (sdOpen) setSdExpanded(true); }, [sdOpen]);
 
+  const mmOpen = pathname.startsWith("/mm") || pathname.startsWith("/inbox/mm");
+  const [mmExpanded, setMmExpanded] = useState(mmOpen);
+  useEffect(() => { if (mmOpen) setMmExpanded(true); }, [mmOpen]);
+
   useEffect(() => { if (!loading && !user) nav({ to: "/login" }); }, [loading, user, nav]);
 
   const { data: profile } = useQuery({
