@@ -14,6 +14,8 @@ import express from "express";
 import cors from "cors";
 import { z } from "zod";
 import { createHash } from "node:crypto";
+import http from "node:http";
+import https from "node:https";
 import { safeParseSapJson } from "./json-repair.js";
 
 // ---------- env ----------
