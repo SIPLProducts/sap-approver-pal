@@ -18,9 +18,9 @@ export const fetchGatePass = createServerFn({ method: "POST" })
       gate_pass_number: z.string().trim().max(40).optional().default(""),
       hod_approval: z.boolean().optional().default(false),
       store_approval: z.boolean().optional().default(false),
-      scm_head: z.string().trim().max(60).optional().default(""),
-      plant_head: z.string().trim().max(60).optional().default(""),
-      return_receipt: z.string().trim().max(60).optional().default(""),
+      scm_head: z.boolean().optional().default(false),
+      plant_head: z.boolean().optional().default(false),
+      return_receipt: z.boolean().optional().default(false),
     }).parse(d),
   )
   .handler(async ({ data }) => {
