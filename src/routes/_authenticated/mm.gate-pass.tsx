@@ -102,9 +102,9 @@ function GatePassPage() {
       gate_pass_number: gatePassNumber.trim(),
       hod_approval: hodApproval,
       store_approval: storeApproval,
-      scm_head: scmHead.trim(),
-      plant_head: plantHead.trim(),
-      return_receipt: returnReceipt.trim(),
+      scm_head: scmHead,
+      plant_head: plantHead,
+      return_receipt: returnReceipt,
     });
   }
 
@@ -113,9 +113,9 @@ function GatePassPage() {
     setGatePassNumber("");
     setHodApproval(false);
     setStoreApproval(false);
-    setScmHead("");
-    setPlantHead("");
-    setReturnReceipt("");
+    setScmHead(false);
+    setPlantHead(false);
+    setReturnReceipt(false);
     setHeader(null);
     setRows([]);
     setSelected(new Set());
