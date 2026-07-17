@@ -218,30 +218,39 @@ function GatePassPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">SCM Head</Label>
-            <Input
-              value={scmHead}
-              onChange={(e) => setScmHead(e.target.value)}
-              placeholder="SCM Head"
-              className="h-9 text-sm"
-            />
+            <div className="h-9 flex items-center">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={scmHead}
+                  onCheckedChange={(v) => setScmHead(v === true)}
+                />
+                SCM Head
+              </label>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Plant Head</Label>
-            <Input
-              value={plantHead}
-              onChange={(e) => setPlantHead(e.target.value)}
-              placeholder="Plant Head"
-              className="h-9 text-sm"
-            />
+            <div className="h-9 flex items-center">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={plantHead}
+                  onCheckedChange={(v) => setPlantHead(v === true)}
+                />
+                Plant Head
+              </label>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Return Receipt</Label>
-            <Input
-              value={returnReceipt}
-              onChange={(e) => setReturnReceipt(e.target.value)}
-              placeholder="Return receipt"
-              className="h-9 text-sm"
-            />
+            <div className="h-9 flex items-center">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={returnReceipt}
+                  onCheckedChange={(v) => setReturnReceipt(v === true)}
+                />
+                Return Receipt
+              </label>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">HOD Approval</Label>
