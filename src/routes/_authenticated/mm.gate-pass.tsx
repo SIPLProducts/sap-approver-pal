@@ -121,10 +121,12 @@ function GatePassPage() {
     setSelected(new Set());
   }
 
-  const dataKeys = useMemo<string[]>(() => {
-    if (rows.length === 0) return [];
-    return Object.keys(rows[0]).filter((k) => k !== "__key");
-  }, [rows]);
+  function updateRowField(item: DataRow, i: number, key: string, value: any) {
+    const target = rowKey(item, i);
+    setRows((prev) =>
+      prev.map((r, idx) => (rowKey(r, idx) === target ? { ...r, [key]: value } : r)),
+    );
+  }
 
   const headerKeys = useMemo<string[]>(() => {
     if (!header) return [];
@@ -132,17 +134,64 @@ function GatePassPage() {
   }, [header]);
 
   const columns = useMemo<CloudscapeColumn<DataRow>[]>(() => {
-    return dataKeys.map((k) => ({
+    const readonly = (k: string, label?: string, minWidth = 120): CloudscapeColumn<DataRow> => ({
       id: k,
-      header: humanize(k),
-      minWidth: 120,
+      header: label ?? humanize(k),
+      minWidth,
       cell: (item) => {
         const v = (item as any)[k];
         if (v == null || v === "") return "—";
         return String(v);
       },
-    }));
-  }, [dataKeys]);
+    });
+
+    const editCheckbox = (k: string, label?: string): CloudscapeColumn<DataRow> => ({
+      id: k,
+      header: label ?? humanize(k),
+      minWidth: 110,
+      cell: (item, i) => (
+        <Checkbox
+          checked={(item as any)[k] === "X"}
+          onCheckedChange={(v) => updateRowField(item, i, k, v === true ? "X" : "")}
+        />
+      ),
+    });
+
+    const editInput = (k: string, label?: string, minWidth = 200): CloudscapeColumn<DataRow> => ({
+      id: k,
+      header: label ?? humanize(k),
+      minWidth,
+      cell: (item, i) => (
+        <Input
+          value={toStr((item as any)[k])}
+          onChange={(e) => updateRowField(item, i, k, e.target.value)}
+          className="h-8 text-sm"
+        />
+      ),
+    });
+
+    return [
+      readonly("MATERIAL"),
+      readonly("DESCRIPTION", "Description", 220),
+      readonly("MEINS", "UoM", 80),
+      readonly("QUANTITY"),
+      readonly("VALUE"),
+      readonly("EXPECTED_DATE_OF_RETURN", "Expected Return", 150),
+      readonly("USER_REMARKS", "User Remarks", 180),
+      editCheckbox("HOD_APPROVAL", "HOD Approval"),
+      editCheckbox("HOD_REJECTION", "HOD Rejection"),
+      editInput("HOD_REMARKS", "HOD Remarks"),
+      readonly("ISSUED_QUANTITY", "Issued Qty"),
+      editCheckbox("STORE_APPROVAL", "Store Approval"),
+      editInput("JUSTIFICATION", "Justification"),
+      readonly("SCM_HEAD", "SCM Head"),
+      readonly("PH_APPROVAL", "PH Approval"),
+      readonly("PH_REJECTION", "PH Rejection"),
+      readonly("RETURN_STATUS", "Return Status"),
+      editInput("REMARKS", "Remarks"),
+      readonly("RETURNED_QUANTITY", "Returned Qty"),
+    ];
+  }, []);
 
   return (
     <div className="space-y-5">
