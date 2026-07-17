@@ -29,6 +29,7 @@ import { Route as AuthenticatedSdContractRouteImport } from './routes/_authentic
 import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
 import { Route as AuthenticatedMmMaterialReservationRouteImport } from './routes/_authenticated/mm.material-reservation'
 import { Route as AuthenticatedMmGateProcessRouteImport } from './routes/_authenticated/mm.gate-process'
+import { Route as AuthenticatedMmGatePassRouteImport } from './routes/_authenticated/mm.gate-pass'
 import { Route as AuthenticatedMmDashboardRouteImport } from './routes/_authenticated/mm.dashboard'
 import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
 import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
@@ -151,6 +152,11 @@ const AuthenticatedMmGateProcessRoute =
     path: '/mm/gate-process',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMmGatePassRoute = AuthenticatedMmGatePassRouteImport.update({
+  id: '/mm/gate-pass',
+  path: '/mm/gate-pass',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedMmDashboardRoute =
   AuthenticatedMmDashboardRouteImport.update({
     id: '/mm/dashboard',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
+  '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
+  '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
   '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/_authenticated/mm/dashboard': typeof AuthenticatedMmDashboardRoute
+  '/_authenticated/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/_authenticated/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/_authenticated/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
   '/_authenticated/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
@@ -327,6 +336,7 @@ export interface FileRouteTypes {
     | '/approval/$id'
     | '/inbox/$module'
     | '/mm/dashboard'
+    | '/mm/gate-pass'
     | '/mm/gate-process'
     | '/mm/material-reservation'
     | '/sd/bmw-status'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/approval/$id'
     | '/inbox/$module'
     | '/mm/dashboard'
+    | '/mm/gate-pass'
     | '/mm/gate-process'
     | '/mm/material-reservation'
     | '/sd/bmw-status'
@@ -392,6 +403,7 @@ export interface FileRouteTypes {
     | '/_authenticated/approval/$id'
     | '/_authenticated/inbox/$module'
     | '/_authenticated/mm/dashboard'
+    | '/_authenticated/mm/gate-pass'
     | '/_authenticated/mm/gate-process'
     | '/_authenticated/mm/material-reservation'
     | '/_authenticated/sd/bmw-status'
@@ -563,6 +575,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMmGateProcessRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mm/gate-pass': {
+      id: '/_authenticated/mm/gate-pass'
+      path: '/mm/gate-pass'
+      fullPath: '/mm/gate-pass'
+      preLoaderRoute: typeof AuthenticatedMmGatePassRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/mm/dashboard': {
       id: '/_authenticated/mm/dashboard'
       path: '/mm/dashboard'
@@ -654,6 +673,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
   AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
   AuthenticatedMmDashboardRoute: typeof AuthenticatedMmDashboardRoute
+  AuthenticatedMmGatePassRoute: typeof AuthenticatedMmGatePassRoute
   AuthenticatedMmGateProcessRoute: typeof AuthenticatedMmGateProcessRoute
   AuthenticatedMmMaterialReservationRoute: typeof AuthenticatedMmMaterialReservationRoute
   AuthenticatedSdBmwStatusRoute: typeof AuthenticatedSdBmwStatusRoute
@@ -682,6 +702,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
   AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
   AuthenticatedMmDashboardRoute: AuthenticatedMmDashboardRoute,
+  AuthenticatedMmGatePassRoute: AuthenticatedMmGatePassRoute,
   AuthenticatedMmGateProcessRoute: AuthenticatedMmGateProcessRoute,
   AuthenticatedMmMaterialReservationRoute:
     AuthenticatedMmMaterialReservationRoute,
