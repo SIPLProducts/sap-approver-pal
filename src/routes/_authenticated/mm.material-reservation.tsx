@@ -125,7 +125,9 @@ function MaterialReservationPage() {
     setHeader(null);
     setRows([]);
     setRowStates(new Map());
+    setSelected(new Set());
   }
+
 
   function updateRow(k: string, patch: Partial<RowState>) {
     setRowStates((prev) => {
