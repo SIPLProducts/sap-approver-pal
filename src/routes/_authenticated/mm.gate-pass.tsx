@@ -49,9 +49,9 @@ function GatePassPage() {
   const [gatePassNumber, setGatePassNumber] = useState("");
   const [hodApproval, setHodApproval] = useState(false);
   const [storeApproval, setStoreApproval] = useState(false);
-  const [scmHead, setScmHead] = useState("");
-  const [plantHead, setPlantHead] = useState("");
-  const [returnReceipt, setReturnReceipt] = useState("");
+  const [scmHead, setScmHead] = useState(false);
+  const [plantHead, setPlantHead] = useState(false);
+  const [returnReceipt, setReturnReceipt] = useState(false);
 
   const [header, setHeader] = useState<Record<string, any> | null>(null);
   const [rows, setRows] = useState<DataRow[]>([]);
@@ -69,9 +69,9 @@ function GatePassPage() {
       gate_pass_number: string;
       hod_approval: boolean;
       store_approval: boolean;
-      scm_head: string;
-      plant_head: string;
-      return_receipt: string;
+      scm_head: boolean;
+      plant_head: boolean;
+      return_receipt: boolean;
     }) => {
       const v: any = await fetchFn({ data: vars });
       const data = Array.isArray(v?.data) ? (v.data as DataRow[]) : [];
@@ -102,9 +102,9 @@ function GatePassPage() {
       gate_pass_number: gatePassNumber.trim(),
       hod_approval: hodApproval,
       store_approval: storeApproval,
-      scm_head: scmHead.trim(),
-      plant_head: plantHead.trim(),
-      return_receipt: returnReceipt.trim(),
+      scm_head: scmHead,
+      plant_head: plantHead,
+      return_receipt: returnReceipt,
     });
   }
 
@@ -113,9 +113,9 @@ function GatePassPage() {
     setGatePassNumber("");
     setHodApproval(false);
     setStoreApproval(false);
-    setScmHead("");
-    setPlantHead("");
-    setReturnReceipt("");
+    setScmHead(false);
+    setPlantHead(false);
+    setReturnReceipt(false);
     setHeader(null);
     setRows([]);
     setSelected(new Set());
@@ -218,30 +218,39 @@ function GatePassPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">SCM Head</Label>
-            <Input
-              value={scmHead}
-              onChange={(e) => setScmHead(e.target.value)}
-              placeholder="SCM Head"
-              className="h-9 text-sm"
-            />
+            <div className="h-9 flex items-center">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={scmHead}
+                  onCheckedChange={(v) => setScmHead(v === true)}
+                />
+                SCM Head
+              </label>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Plant Head</Label>
-            <Input
-              value={plantHead}
-              onChange={(e) => setPlantHead(e.target.value)}
-              placeholder="Plant Head"
-              className="h-9 text-sm"
-            />
+            <div className="h-9 flex items-center">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={plantHead}
+                  onCheckedChange={(v) => setPlantHead(v === true)}
+                />
+                Plant Head
+              </label>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Return Receipt</Label>
-            <Input
-              value={returnReceipt}
-              onChange={(e) => setReturnReceipt(e.target.value)}
-              placeholder="Return receipt"
-              className="h-9 text-sm"
-            />
+            <div className="h-9 flex items-center">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={returnReceipt}
+                  onCheckedChange={(v) => setReturnReceipt(v === true)}
+                />
+                Return Receipt
+              </label>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">HOD Approval</Label>
