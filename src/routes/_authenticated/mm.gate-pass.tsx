@@ -69,9 +69,9 @@ function GatePassPage() {
       gate_pass_number: string;
       hod_approval: boolean;
       store_approval: boolean;
-      scm_head: string;
-      plant_head: string;
-      return_receipt: string;
+      scm_head: boolean;
+      plant_head: boolean;
+      return_receipt: boolean;
     }) => {
       const v: any = await fetchFn({ data: vars });
       const data = Array.isArray(v?.data) ? (v.data as DataRow[]) : [];
