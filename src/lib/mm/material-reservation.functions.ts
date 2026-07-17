@@ -1,19 +1,22 @@
 /**
  * MM Material Reservation — live SAP fetch via the configured
- * Material_Reservation_Fetch_API sap_api_configs row.
+ * Material_Fetch_API sap_api_configs row.
+ *
+ * Sends payload: { DOCUMENT_NUMBER, HOD_APPROVE, USER_ID }
+ * Parses response { HEADER: [...], DATA: [...] } and returns { header, data }.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const CONFIG_NAME = "Material_Reservation_Fetch_API";
+const CONFIG_NAME = "Material_Fetch_API";
 
 export const fetchMaterialReservation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
       user_id: z.string().trim().min(1, "User ID is required").max(60),
-      doc_number: z.string().trim().max(40).optional().default(""),
+      document_number: z.string().trim().max(40).optional().default(""),
       hod_approve: z.boolean().optional().default(false),
     }).parse(d),
   )
@@ -35,13 +38,13 @@ export const fetchMaterialReservation = createServerFn({ method: "POST" })
     ]);
 
     const userId = data.user_id.trim();
-    const docNumber = (data.doc_number ?? "").trim();
+    const documentNumber = (data.document_number ?? "").trim();
     const hodFlag = data.hod_approve ? "X" : "";
 
     const inputs: Record<string, string> = {
-      USER_ID: userId,
-      DOC_NUMBER: docNumber,
+      DOCUMENT_NUMBER: documentNumber,
       HOD_APPROVE: hodFlag,
+      USER_ID: userId,
     };
 
     const globalProxy =
@@ -58,7 +61,7 @@ export const fetchMaterialReservation = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      target = `${middlewareUrl.replace(/\/$/, "")}/material_reservation/Fetch`;
+      target = `${middlewareUrl.replace(/\/$/, "")}/material_fetch/Fetch`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
@@ -106,12 +109,12 @@ export const fetchMaterialReservation = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms,
-        message: `material-reservation-fetch network: ${errMsg}`,
+        message: `material-fetch network: ${errMsg}`,
       });
       return {
-        rows: [] as Record<string, any>[],
+        header: null as Record<string, any> | null,
+        data: [] as Record<string, any>[],
         fetched_at: new Date().toISOString(),
-        count: 0,
         user_id: userId,
         error: `Could not reach SAP at ${cfg.endpoint_url.split("?")[0]}. ${errMsg}.`,
       };
@@ -126,12 +129,12 @@ export const fetchMaterialReservation = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms,
-        message: `material-reservation-fetch: ${message} ${text.slice(0, 500)}`,
+        message: `material-fetch: ${message} ${text.slice(0, 500)}`,
       });
       return {
-        rows: [] as Record<string, any>[],
+        header: null as Record<string, any> | null,
+        data: [] as Record<string, any>[],
         fetched_at: new Date().toISOString(),
-        count: 0,
         user_id: userId,
         error: `SAP returned ${message}: ${text.slice(0, 200)}`,
       };
@@ -142,36 +145,46 @@ export const fetchMaterialReservation = createServerFn({ method: "POST" })
       json = text ? JSON.parse(text) : {};
     } catch {
       return {
-        rows: [] as Record<string, any>[],
+        header: null as Record<string, any> | null,
+        data: [] as Record<string, any>[],
         fetched_at: new Date().toISOString(),
-        count: 0,
         user_id: userId,
         error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
       };
     }
-    const sapJson: any = proxied ? (json?.data ?? {}) : json;
-    const arr: any[] = Array.isArray(sapJson?.DATA)
+    const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+
+    const headerArr: any[] = Array.isArray(sapJson?.HEADER)
+      ? sapJson.HEADER
+      : Array.isArray(sapJson?.header)
+        ? sapJson.header
+        : [];
+    const dataArr: any[] = Array.isArray(sapJson?.DATA)
       ? sapJson.DATA
       : Array.isArray(sapJson?.data)
         ? sapJson.data
-        : Array.isArray(sapJson)
-          ? sapJson
-          : [];
+        : [];
 
-    const rows: Record<string, any>[] = arr.map((r) => (r && typeof r === "object" ? { ...r } : {}));
+    const header: Record<string, any> | null =
+      headerArr.length > 0 && headerArr[0] && typeof headerArr[0] === "object"
+        ? { ...headerArr[0] }
+        : null;
+    const rows: Record<string, any>[] = dataArr.map((r) =>
+      r && typeof r === "object" ? { ...r } : {},
+    );
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
       status: "ok",
       latency_ms,
       rows_processed: rows.length,
-      message: `material-reservation-fetch: ${message}`,
+      message: `material-fetch: ${message}`,
     });
 
     return {
-      rows,
+      header,
+      data: rows,
       fetched_at: new Date().toISOString(),
-      count: rows.length,
       user_id: userId,
       error: null as string | null,
     };
