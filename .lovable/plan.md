@@ -1,13 +1,19 @@
-## Plan: Point ZNFA Rating screen at ZNFA_Fetch_API
+# Fix: ZNFA Rating still calls Gate_Pass_Fetch_API on the middleware
 
-Single change in `src/lib/mm/gate-process.functions.ts`:
+## Root cause
 
-- Change the `CONFIG_NAME` constant from `"Gate_Pass_Fetch_API"` to `"ZNFA_Fetch_API"` so `fetchGateProcess` looks up and calls the `ZNFA_Fetch_API` row from `sap_api_configs`.
+In `src/lib/mm/gate-process.functions.ts` the DB lookup was switched to `ZNFA_Fetch_API`, but the proxy request URL is still hardcoded to `/gate_pass/Fetch`. The middleware maps that path to the `Gate_Pass_Fetch_API` config, so even though our server function loaded the ZNFA row from `sap_api_configs`, the proxy resolves the call back to `Gate_Pass_Fetch_API` and errors with `Config not found: Gate_Pass_Fetch_API` (because in this environment only ZNFA is configured).
 
-Everything else stays as-is:
-- Same Zod input (`user_id`), same payload shape (`{ inputs: { USER_ID } }` in proxy mode, `?USER_ID=...` in direct mode).
-- Same response parsing (`DATA[]` → `GateRow[]` with CHECK / PR_NUMBER / RFQ_NUMBER / RFQ_TITLE / VENDOR_NAME / TER_SUB_ID).
-- Same proxy fallback (`/gate_pass/Fetch` → `/sap/invoke` on 404), sync-log writes, and error handling.
-- No changes to the route file, UI, sidebar, or any other server function.
+## Change
 
-Admin must have a `ZNFA_Fetch_API` row configured in Admin → SAP API for the call to succeed.
+Single edit in `src/lib/mm/gate-process.functions.ts`, proxy branch only:
+
+- Stop hitting `${middlewareUrl}/gate_pass/Fetch`.
+- Call the generic invoke route directly using the loaded config's id:
+  - `target = ${middlewareUrl}/sap/invoke`
+  - `body = { configId: cfg.id, inputs: { USER_ID: userId } }`
+- Remove the 404-`Cannot POST` fallback block (no longer needed since we start on `/sap/invoke`).
+
+This routes the request by the ZNFA config row we already fetched from the DB, so the middleware calls whatever endpoint that row defines — independent of URL path naming.
+
+Nothing else changes: same input schema, same response parsing, same sync-log writes, same non-proxy (basic) branch, same UI. Admin must have `ZNFA_Fetch_API` configured (already the case per your logs).

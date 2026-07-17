@@ -76,7 +76,7 @@ export const fetchGateProcess = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      target = `${middlewareUrl.replace(/\/$/, "")}/gate_pass/Fetch`;
+      target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
@@ -84,7 +84,7 @@ export const fetchGateProcess = createServerFn({ method: "POST" })
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
-      bodyOut = JSON.stringify({ inputs: { USER_ID: userId } });
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs: { USER_ID: userId } });
       proxied = true;
     } else {
       const join = cfg.endpoint_url.includes("?") ? "&" : "?";
@@ -104,18 +104,6 @@ export const fetchGateProcess = createServerFn({ method: "POST" })
     try {
       res = await fetch(target, { method, headers, body: bodyOut });
 
-      if (proxied && res.status === 404) {
-        const peek = await res.clone().text().catch(() => "");
-        if (/Cannot\s+POST/i.test(peek)) {
-          const fallback = `${middlewareUrl!.replace(/\/$/, "")}/sap/invoke`;
-          res = await fetch(fallback, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ configId: cfg.id, inputs: { USER_ID: userId } }),
-          });
-          target = fallback;
-        }
-      }
     } catch (e) {
       const errMsg = (e as Error).message || "fetch failed";
       const latency_ms = Date.now() - t0;
