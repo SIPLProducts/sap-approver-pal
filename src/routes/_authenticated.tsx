@@ -156,6 +156,7 @@ function AuthenticatedLayout() {
     { to: "/mm/dashboard", label: "MM Dashboard", icon: BarChart3, screen: "approvals.inbox.mm" },
     { to: "/mm/material-reservation", label: "Material Reservation", icon: Package, screen: "approvals.inbox.mm" },
     { to: "/mm/gate-process", label: "ZNFA Rating", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
+    { to: "/mm/gate-pass", label: "Gate Pass", icon: Truck, screen: "approvals.inbox.mm" },
   ].filter((it) => can(it.screen));
 
   const showMm = mmChildren.length > 0;
