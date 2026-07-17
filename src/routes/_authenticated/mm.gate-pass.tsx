@@ -49,9 +49,9 @@ function GatePassPage() {
   const [gatePassNumber, setGatePassNumber] = useState("");
   const [hodApproval, setHodApproval] = useState(false);
   const [storeApproval, setStoreApproval] = useState(false);
-  const [scmHead, setScmHead] = useState("");
-  const [plantHead, setPlantHead] = useState("");
-  const [returnReceipt, setReturnReceipt] = useState("");
+  const [scmHead, setScmHead] = useState(false);
+  const [plantHead, setPlantHead] = useState(false);
+  const [returnReceipt, setReturnReceipt] = useState(false);
 
   const [header, setHeader] = useState<Record<string, any> | null>(null);
   const [rows, setRows] = useState<DataRow[]>([]);
