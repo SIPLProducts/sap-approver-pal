@@ -16,7 +16,7 @@ export type GateRow = {
   ter_sub_id: string | null;
 };
 
-const CONFIG_NAME = "Gate_Pass_Fetch_API";
+const CONFIG_NAME = "ZNFA_Fetch_API";
 
 function pick(o: any, k: string) {
   if (!o || typeof o !== "object") return null;
