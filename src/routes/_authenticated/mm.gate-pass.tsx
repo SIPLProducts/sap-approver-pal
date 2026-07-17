@@ -152,10 +152,10 @@ function GatePassPage() {
       id: k,
       header: label ?? humanize(k),
       minWidth: 110,
-      cell: (item, i) => (
+      cell: (item) => (
         <Checkbox
           checked={(item as any)[k] === "X"}
-          onCheckedChange={(v) => updateRowField(item, i, k, v === true ? "X" : "")}
+          onCheckedChange={(v) => updateRowField(item, k, v === true ? "X" : "")}
         />
       ),
     });
@@ -164,10 +164,10 @@ function GatePassPage() {
       id: k,
       header: label ?? humanize(k),
       minWidth,
-      cell: (item, i) => (
+      cell: (item) => (
         <Input
           value={toStr((item as any)[k])}
-          onChange={(e) => updateRowField(item, i, k, e.target.value)}
+          onChange={(e) => updateRowField(item, k, e.target.value)}
           className="h-8 text-sm"
         />
       ),
