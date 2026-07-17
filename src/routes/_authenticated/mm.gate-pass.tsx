@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/mm/gate-pass")({
 type DataRow = Record<string, any> & { __key?: string };
 
 function rowKey(r: DataRow, i: number) {
-  return [r.GATE_PASS_NUMBER, r.SNO, r.MATERIAL, i].map((x) => x ?? "").join("|");
+  return [r.GATEPASS_NUMBER, r.GATE_PASS_NUMBER, r.SNO, r.MATERIAL, i].map((x) => x ?? "").join("|");
 }
 
 function toStr(v: any): string {
