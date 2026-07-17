@@ -43,13 +43,13 @@ export const fetchGatePass = createServerFn({ method: "POST" })
     const userId = data.user_id.trim();
 
     const inputs: Record<string, string> = {
-      USER_ID: userId,
-      GATE_PASS_NUMBER: (data.gate_pass_number ?? "").trim(),
+      GATEPASS_NUMBER: (data.gate_pass_number ?? "").trim(),
       HOD_APPROVAL: data.hod_approval ? "X" : "",
       STORE_APPROVAL: data.store_approval ? "X" : "",
       SCM_HEAD: (data.scm_head ?? "").trim(),
       PLANT_HEAD: (data.plant_head ?? "").trim(),
       RETURN_RECEIPT: (data.return_receipt ?? "").trim(),
+      USER_ID: userId,
     };
 
     const globalProxy =
