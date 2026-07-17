@@ -8,7 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const CONFIG_NAME = "Gate_Pass_Approval_API";
+const CONFIG_NAME = "Gate_Pass_Fetch_API";
 
 export const fetchGatePass = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
