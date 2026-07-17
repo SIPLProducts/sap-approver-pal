@@ -80,7 +80,7 @@ function GateProcessPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Gate Process</h1>
+        <h1 className="text-2xl font-bold tracking-tight">ZNFA Rating</h1>
       </div>
 
       <Card className="p-4">
@@ -117,7 +117,7 @@ function GateProcessPage() {
       </Card>
 
       <CloudscapeApprovalTable
-        title="Gate Process"
+        title="ZNFA Rating"
         countLabel={`(${rows.length})`}
         rows={rows}
         rowKey={rowKey}
@@ -125,7 +125,7 @@ function GateProcessPage() {
         showSelect
         selectedKeys={selected}
         onSelectionChange={setSelected}
-        emptyMessage={rows.length === 0 ? "Click Execute to load gate-process records from SAP." : "No records."}
+        emptyMessage={rows.length === 0 ? "Click Execute to load ZNFA Rating records from SAP." : "No records."}
         columns={buildDynamicColumns(rows)}
       />
     </div>
