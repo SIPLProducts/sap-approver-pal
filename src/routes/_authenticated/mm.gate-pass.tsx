@@ -121,11 +121,14 @@ function GatePassPage() {
     setSelected(new Set());
   }
 
-  function updateRowField(item: DataRow, i: number, key: string, value: any) {
-    const target = rowKey(item, i);
-    setRows((prev) =>
-      prev.map((r, idx) => (rowKey(r, idx) === target ? { ...r, [key]: value } : r)),
-    );
+  function updateRowField(item: DataRow, key: string, value: any) {
+    setRows((prev) => {
+      const idx = prev.indexOf(item);
+      if (idx === -1) return prev;
+      const next = prev.slice();
+      next[idx] = { ...next[idx], [key]: value };
+      return next;
+    });
   }
 
   const headerKeys = useMemo<string[]>(() => {
