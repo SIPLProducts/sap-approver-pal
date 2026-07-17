@@ -69,6 +69,7 @@ function MaterialReservationPage() {
   const [header, setHeader] = useState<Record<string, any> | null>(null);
   const [rows, setRows] = useState<DataRow[]>([]);
   const [rowStates, setRowStates] = useState<Map<string, RowState>>(new Map());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const hasResults = header !== null || rows.length > 0;
 
   useEffect(() => {
