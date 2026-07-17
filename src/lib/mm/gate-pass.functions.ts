@@ -8,7 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const CONFIG_NAME = "Gate_Pass_Approval_API";
+const CONFIG_NAME = "Gate_Pass_Fetch_API";
 
 export const fetchGatePass = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -43,13 +43,13 @@ export const fetchGatePass = createServerFn({ method: "POST" })
     const userId = data.user_id.trim();
 
     const inputs: Record<string, string> = {
-      USER_ID: userId,
-      GATE_PASS_NUMBER: (data.gate_pass_number ?? "").trim(),
+      GATEPASS_NUMBER: (data.gate_pass_number ?? "").trim(),
       HOD_APPROVAL: data.hod_approval ? "X" : "",
       STORE_APPROVAL: data.store_approval ? "X" : "",
       SCM_HEAD: (data.scm_head ?? "").trim(),
       PLANT_HEAD: (data.plant_head ?? "").trim(),
       RETURN_RECEIPT: (data.return_receipt ?? "").trim(),
+      USER_ID: userId,
     };
 
     const globalProxy =
@@ -66,7 +66,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      target = `${middlewareUrl.replace(/\/$/, "")}/gate_pass_approval/Fetch`;
+      target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
@@ -74,7 +74,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
-      bodyOut = JSON.stringify({ inputs });
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs });
       proxied = true;
     } else {
       const qs = new URLSearchParams(inputs).toString();
@@ -94,19 +94,6 @@ export const fetchGatePass = createServerFn({ method: "POST" })
     let res: Response;
     try {
       res = await fetch(target, { method, headers, body: bodyOut });
-
-      if (proxied && res.status === 404) {
-        const peek = await res.clone().text().catch(() => "");
-        if (/Cannot\s+POST/i.test(peek)) {
-          const fallback = `${middlewareUrl!.replace(/\/$/, "")}/sap/invoke`;
-          res = await fetch(fallback, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ configId: cfg.id, inputs }),
-          });
-          target = fallback;
-        }
-      }
     } catch (e) {
       const errMsg = (e as Error).message || "fetch failed";
       const latency_ms = Date.now() - t0;
