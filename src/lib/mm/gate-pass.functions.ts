@@ -46,9 +46,9 @@ export const fetchGatePass = createServerFn({ method: "POST" })
       GATEPASS_NUMBER: (data.gate_pass_number ?? "").trim(),
       HOD_APPROVAL: data.hod_approval ? "X" : "",
       STORE_APPROVAL: data.store_approval ? "X" : "",
-      SCM_HEAD: (data.scm_head ?? "").trim(),
-      PLANT_HEAD: (data.plant_head ?? "").trim(),
-      RETURN_RECEIPT: (data.return_receipt ?? "").trim(),
+      SCM_HEAD: data.scm_head ? "X" : "",
+      PLANT_HEAD: data.plant_head ? "X" : "",
+      RETURN_RECEIPT: data.return_receipt ? "X" : "",
       USER_ID: userId,
     };
 
