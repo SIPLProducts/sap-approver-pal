@@ -66,7 +66,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
 
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      target = `${middlewareUrl.replace(/\/$/, "")}/gate_pass_approval/Fetch`;
+      target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
       method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
@@ -74,7 +74,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
-      bodyOut = JSON.stringify({ inputs });
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs });
       proxied = true;
     } else {
       const qs = new URLSearchParams(inputs).toString();
