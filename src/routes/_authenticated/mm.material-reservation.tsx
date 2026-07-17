@@ -214,7 +214,7 @@ function MaterialReservationPage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-        <div className="grid gap-3 md:grid-cols-[240px_200px_180px_1fr_auto] items-end">
+        <div className="grid gap-3 md:grid-cols-[240px_200px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Document Number</Label>
             <Input
@@ -235,12 +235,6 @@ function MaterialReservationPage() {
                 HOD Approve
               </label>
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              User ID <span className="text-destructive">*</span>
-            </Label>
-            <Input value={userId} readOnly className="h-9 text-sm bg-muted/40" />
           </div>
           <div />
           <div className="flex gap-2">
