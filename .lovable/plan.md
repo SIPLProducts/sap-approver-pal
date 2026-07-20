@@ -1,18 +1,24 @@
-## Change Gate Pass selection-screen fields to checkboxes
+## New screen: PR Release (MM Approvals)
 
-### Frontend — `src/routes/_authenticated/mm.gate-pass.tsx`
+Placed immediately after MM Dashboard, before ZNFA Rating.
 
-- Replace the three `Input` fields (SCM Head, Plant Head, Return Receipt) with `Checkbox` controls, styled identically to the existing HOD Approval / Store Approval checkboxes.
-- State changes:
-  - `scmHead`, `plantHead`, `returnReceipt` change from `useState("")` to `useState(false)`.
-- On Execute, send `"X"` when checked and `""` when unchecked (same convention as `hod_approval` / `store_approval`).
-- `reset()` sets all three back to `false`.
+### Route
+- New file: `src/routes/_authenticated/mm.pr-release.tsx`
+  - Path: `/_authenticated/mm/pr-release`
+  - Layout mirrors ZNFA Rating / Material Reservation (page title + selection-screen Card).
 
-### Backend — `src/lib/mm/gate-pass.functions.ts`
+### UI
+- Page title: **PR Release**
+- Selection screen card containing:
+  - Radio group with two options: **Single Level**, **Multiple Level** (using shadcn `RadioGroup`). Default: Single Level.
+  - When either radio is selected (i.e. always visible once a level is chosen), show:
+    - **Release Group** – text input
+    - **Release Code** – text input
+    - **Execute** button + **Reset** button (styled identically to other MM screens)
+- No API wiring yet — Execute is a placeholder (toast "Not implemented") since the user didn't specify an API. Business logic hooks can be added later without structural changes.
 
-- Update the input schema: `scm_head`, `plant_head`, `return_receipt` become `z.boolean().optional().default(false)`.
-- In the payload builder, emit `SCM_HEAD`, `PLANT_HEAD`, `RETURN_RECEIPT` as `data.scm_head ? "X" : ""` (mirroring `HOD_APPROVAL` / `STORE_APPROVAL`).
+### Sidebar
+- `src/routes/_authenticated.tsx`: add "PR Release" link under MM Approvals, immediately after MM Dashboard and before ZNFA Rating. Gated by the existing MM Approvals permission (no new screen key, matching the current convention where MM sub-screens inherit from MM Approvals).
 
-### What is NOT changing
-
-- API name (`Gate_Pass_Fetch_API`), proxy routing, response parsing, header/table rendering, Save button behaviour, and every other field on the screen remain untouched.
+### Not changing
+- No new SAP API config, no new server function, no permission/screen-key additions, no changes to other MM screens.
