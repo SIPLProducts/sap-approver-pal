@@ -25,27 +25,6 @@ export const Route = createFileRoute("/_authenticated/mm/pr-release")({
   component: PrReleasePage,
 });
 
-const COLUMNS: { key: string; label: string }[] = [
-  { key: "PREQ_NO", label: "PR No." },
-  { key: "PREQ_ITEM", label: "Item" },
-  { key: "DOC_TYPE", label: "Doc Type" },
-  { key: "PUR_GROUP", label: "Pur Grp" },
-  { key: "CREATED_BY", label: "Created By" },
-  { key: "PREQ_NAME", label: "PR Name" },
-  { key: "PREQ_DATE", label: "PR Date" },
-  { key: "SHORT_TEXT", label: "Short Text" },
-  { key: "MATERIAL", label: "Material" },
-  { key: "PLANT", label: "Plant" },
-  { key: "QUANTITY", label: "Qty" },
-  { key: "UNIT", label: "Unit" },
-  { key: "DELIV_DATE", label: "Deliv. Date" },
-  { key: "DES_VENDOR", label: "Des. Vendor" },
-  { key: "FIXED_VEND", label: "Fixed Vendor" },
-  { key: "PURCH_ORG", label: "Purch Org" },
-  { key: "CURRENCY", label: "Currency" },
-  { key: "PO_PRICE", label: "PO Price" },
-  { key: "C_AMT_BAPI", label: "Amount" },
-];
 
 function rowKey(r: Record<string, any>, idx: number) {
   const preq = r.PREQ_NO ?? "";
@@ -103,6 +82,20 @@ function PrReleasePage() {
   const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
   const someSelected = selected.size > 0 && !allSelected;
+
+  const columns = useMemo(() => {
+    const keys: string[] = [];
+    const seen = new Set<string>();
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        if (!seen.has(k)) {
+          seen.add(k);
+          keys.push(k);
+        }
+      }
+    }
+    return keys;
+  }, [rows]);
 
   function toggleAll(checked: boolean) {
     setSelected(checked ? new Set(allKeys) : new Set());
@@ -208,9 +201,9 @@ function PrReleasePage() {
                       aria-label="Select all"
                     />
                   </TableHead>
-                  {COLUMNS.map((c) => (
-                    <TableHead key={c.key} className="whitespace-nowrap text-xs">
-                      {c.label}
+                  {columns.map((key) => (
+                    <TableHead key={key} className="whitespace-nowrap text-xs">
+                      {key}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -218,7 +211,7 @@ function PrReleasePage() {
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={COLUMNS.length + 1} className="text-center text-sm text-muted-foreground py-6">
+                    <TableCell colSpan={columns.length + 1} className="text-center text-sm text-muted-foreground py-6">
                       No data available.
                     </TableCell>
                   </TableRow>
@@ -235,11 +228,11 @@ function PrReleasePage() {
                             aria-label={`Select row ${i + 1}`}
                           />
                         </TableCell>
-                        {COLUMNS.map((c) => (
-                          <TableCell key={c.key} className="whitespace-nowrap text-xs">
-                            {r[c.key] === null || r[c.key] === undefined || r[c.key] === ""
+                        {columns.map((key) => (
+                          <TableCell key={key} className="whitespace-nowrap text-xs">
+                            {r[key] === null || r[key] === undefined || r[key] === ""
                               ? "-"
-                              : String(r[c.key])}
+                              : String(r[key])}
                           </TableCell>
                         ))}
                       </TableRow>
