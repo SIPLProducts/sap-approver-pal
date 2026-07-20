@@ -112,6 +112,7 @@ const COLUMN_LABELS: Record<string, string> = {
   BUDGET_PERIOD: "Budget Period",
   MATERIAL_LONG: "Long Material Number",
   PUR_MAT_LONG: "Long Purchasing Material Number",
+  REMARKS: "Remarks",
 };
 
 function rowKey(r: Record<string, any>, idx: number) {
@@ -125,6 +126,7 @@ function PrReleasePage() {
   const [releaseCode, setReleaseCode] = useState("");
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [remarks, setRemarks] = useState<Record<string, string>>({});
 
   const fetchFn = useServerFn(fetchPrReleaseMultiple);
   const mutation = useMutation({
@@ -135,10 +137,12 @@ function PrReleasePage() {
         toast.error(res.error);
         setRows([]);
         setSelected(new Set());
+        setRemarks({});
         return;
       }
       setRows(res.data);
       setSelected(new Set());
+      setRemarks({});
       toast.success(`Loaded ${res.data.length} row(s).`);
     },
     onError: (e: any) => {
@@ -159,6 +163,7 @@ function PrReleasePage() {
     setReleaseCode("");
     setRows([]);
     setSelected(new Set());
+    setRemarks({});
   }
 
   const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
@@ -176,6 +181,7 @@ function PrReleasePage() {
         }
       }
     }
+    if (!seen.has("REMARKS")) keys.push("REMARKS");
     return keys;
   }, [rows]);
 
@@ -311,9 +317,20 @@ function PrReleasePage() {
                         </TableCell>
                         {columns.map((key) => (
                           <TableCell key={key} className="whitespace-nowrap text-xs">
-                            {r[key] === null || r[key] === undefined || r[key] === ""
-                              ? "-"
-                              : String(r[key])}
+                            {key === "REMARKS" ? (
+                              <Input
+                                value={remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS))}
+                                onChange={(e) =>
+                                  setRemarks((prev) => ({ ...prev, [k]: e.target.value }))
+                                }
+                                placeholder="Remarks"
+                                className="h-8 text-xs min-w-[180px]"
+                              />
+                            ) : r[key] === null || r[key] === undefined || r[key] === "" ? (
+                              "-"
+                            ) : (
+                              String(r[key])
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
