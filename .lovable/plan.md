@@ -1,19 +1,36 @@
-## Add editable Remarks column to PR Release table
+## Release action for PR Release screen
 
-File: `src/routes/_authenticated/mm.pr-release.tsx`
+Wire the "Release" button on `src/routes/_authenticated/mm.pr-release.tsx` to call `PR_Release_API` for each checked row, show a per-row toast using SAP's `MSGTXT`, and refresh the pending list.
 
-### Changes
+### 1. New server function — `src/lib/mm/pr-release.functions.ts`
 
-1. Add `REMARKS: "Remarks"` to the `COLUMN_LABELS` map.
-2. Add local state to track per-row remarks edits:
-   ```ts
-   const [remarks, setRemarks] = useState<Record<string, string>>({});
-   ```
-   Reset it alongside `setRows`/`setSelected` in `onSuccess` and `reset()`.
-3. Ensure `REMARKS` appears in the dynamic `columns` list even if the API omits it — after building `columns` from row keys, append `"REMARKS"` if not present, so the column always renders.
-4. In the table body, render the `REMARKS` cell as an `<Input>` (same styling as the Gate Pass Remarks input — `h-8 text-xs`) bound to `remarks[k] ?? String(r.REMARKS ?? "")`, updating `remarks` state on change. All other cells continue to use the existing read-only string formatting.
-5. No changes to fetch logic, business rules, Release/Reject buttons, selection, or the header row.
+Add `releasePrItems` alongside the existing `fetchPrReleaseMultiple`:
 
-### Notes
+- Config name: `PR_Release_API`.
+- Input (zod):
+  ```
+  { relgroup, relcode, items: [{ PREQ_NO, PREQ_ITEM, REMARKS? }] }
+  ```
+- For each item, build payload:
+  ```
+  { RELEASE: { BANFN, BNFPO, REL_CODE: relcode, REL_GRP: relgroup, REMARKS: remarks ?? "" } }
+  ```
+- Reuse the same SAP invocation pattern as `fetchPrReleaseMultiple` (proxy vs direct, credentials, headers, `sap_api_sync_log` entry). Send one HTTP call per row sequentially so each row's `MSGTXT` is captured independently.
+- Return `{ results: [{ preq_no, preq_item, ok, msgtxt, error? }], error? }` — no throw on partial failures; only throw for missing/disabled config.
 
-- Remarks values remain client-side only for now (consistent with current Release/Reject buttons that just toast). No payload/API changes.
+### 2. UI wiring — `src/routes/_authenticated/mm.pr-release.tsx`
+
+- Add a `releaseMutation` using `useServerFn(releasePrItems)`.
+- `onRelease` handler:
+  1. Guard: require `releaseGroup` + `releaseCode` + at least one checked row.
+  2. Build `items` from `rows` filtered by `selected`, using `remarks[k] ?? r.REMARKS ?? ""`.
+  3. Call the server fn.
+  4. On response, iterate `results`: `toast.success` when `ok`, `toast.error` otherwise, using `MSGTXT` as the message (fallback: `error` or a generic string). Prefix each toast with `PR <BANFN>/<BNFPO>` so multiple toasts are distinguishable.
+  5. After all toasts, re-run the existing `fetchPrReleaseMultiple` mutation with the current `releaseGroup`/`releaseCode` so released rows disappear from the pending list. Clear `selected` and `remarks` on refresh (already handled by `onSuccess`).
+- Disable the Release button while `releaseMutation.isPending` (spinner like Execute).
+- Reject button behavior is unchanged.
+- No auto-call on row click or checkbox toggle — API only fires from the Release button.
+
+### 3. Out of scope
+
+- No schema changes, no changes to `fetchPrReleaseMultiple`, no changes to Reject behavior, no changes to column labels, and no seeding of the `PR_Release_API` config (must already exist in `sap_api_configs`, same as sibling configs).
