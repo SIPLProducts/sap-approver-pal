@@ -83,6 +83,20 @@ function PrReleasePage() {
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
   const someSelected = selected.size > 0 && !allSelected;
 
+  const columns = useMemo(() => {
+    const keys: string[] = [];
+    const seen = new Set<string>();
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        if (!seen.has(k)) {
+          seen.add(k);
+          keys.push(k);
+        }
+      }
+    }
+    return keys;
+  }, [rows]);
+
   function toggleAll(checked: boolean) {
     setSelected(checked ? new Set(allKeys) : new Set());
   }
