@@ -112,6 +112,7 @@ const COLUMN_LABELS: Record<string, string> = {
   BUDGET_PERIOD: "Budget Period",
   MATERIAL_LONG: "Long Material Number",
   PUR_MAT_LONG: "Long Purchasing Material Number",
+  REMARKS: "Remarks",
 };
 
 function rowKey(r: Record<string, any>, idx: number) {

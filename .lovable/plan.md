@@ -1,20 +1,19 @@
-Simplify the PR Release screen (`src/routes/_authenticated/mm.pr-release.tsx`) based on the request:
+## Add editable Remarks column to PR Release table
 
-1. Remove the Single Level / Multiple Level radio buttons entirely.
-   - Remove the `RadioGroup` and `RadioGroupItem` import.
-   - Delete the `level` state and the radio group JSX.
-2. Always use the existing `PR_Release_Multiple_Fetch_API`.
-   - The `fetchPrReleaseMultiple` call remains unchanged.
-   - Remove the `level === "single"` guard in `execute()` so the API always runs.
-3. Move the Release / Reject action buttons so they sit between the input fields and the output table.
-   - Add a button bar directly below the selection card (after Release Group / Release Code / Execute).
-   - Buttons remain enabled only when rows are selected and show the same toast behavior.
-   - Remove the duplicate button bar from the bottom of the results card.
-4. Keep all existing behavior unchanged:
-   - Release Group / Release Code inputs and validation.
-   - Execute / Reset buttons.
-   - Dynamic column rendering, column labels, row selection, empty-cell formatting.
-   - Results card visibility still depends on `mutation.isSuccess || rows.length > 0`.
+File: `src/routes/_authenticated/mm.pr-release.tsx`
 
-Files changed:
-- `src/routes/_authenticated/mm.pr-release.tsx`
+### Changes
+
+1. Add `REMARKS: "Remarks"` to the `COLUMN_LABELS` map.
+2. Add local state to track per-row remarks edits:
+   ```ts
+   const [remarks, setRemarks] = useState<Record<string, string>>({});
+   ```
+   Reset it alongside `setRows`/`setSelected` in `onSuccess` and `reset()`.
+3. Ensure `REMARKS` appears in the dynamic `columns` list even if the API omits it — after building `columns` from row keys, append `"REMARKS"` if not present, so the column always renders.
+4. In the table body, render the `REMARKS` cell as an `<Input>` (same styling as the Gate Pass Remarks input — `h-8 text-xs`) bound to `remarks[k] ?? String(r.REMARKS ?? "")`, updating `remarks` state on change. All other cells continue to use the existing read-only string formatting.
+5. No changes to fetch logic, business rules, Release/Reject buttons, selection, or the header row.
+
+### Notes
+
+- Remarks values remain client-side only for now (consistent with current Release/Reject buttons that just toast). No payload/API changes.
