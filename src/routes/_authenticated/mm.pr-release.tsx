@@ -163,6 +163,7 @@ function PrReleasePage() {
     setReleaseCode("");
     setRows([]);
     setSelected(new Set());
+    setRemarks({});
   }
 
   const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
