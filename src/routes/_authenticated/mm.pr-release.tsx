@@ -201,9 +201,9 @@ function PrReleasePage() {
                       aria-label="Select all"
                     />
                   </TableHead>
-                  {COLUMNS.map((c) => (
-                    <TableHead key={c.key} className="whitespace-nowrap text-xs">
-                      {c.label}
+                  {columns.map((key) => (
+                    <TableHead key={key} className="whitespace-nowrap text-xs">
+                      {key}
                     </TableHead>
                   ))}
                 </TableRow>
