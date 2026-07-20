@@ -317,9 +317,20 @@ function PrReleasePage() {
                         </TableCell>
                         {columns.map((key) => (
                           <TableCell key={key} className="whitespace-nowrap text-xs">
-                            {r[key] === null || r[key] === undefined || r[key] === ""
-                              ? "-"
-                              : String(r[key])}
+                            {key === "REMARKS" ? (
+                              <Input
+                                value={remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS))}
+                                onChange={(e) =>
+                                  setRemarks((prev) => ({ ...prev, [k]: e.target.value }))
+                                }
+                                placeholder="Remarks"
+                                className="h-8 text-xs min-w-[180px]"
+                              />
+                            ) : r[key] === null || r[key] === undefined || r[key] === "" ? (
+                              "-"
+                            ) : (
+                              String(r[key])
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
