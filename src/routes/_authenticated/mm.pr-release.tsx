@@ -213,21 +213,6 @@ function PrReleasePage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <RadioGroup
-          value={level}
-          onValueChange={(v) => setLevel(v as "single" | "multiple")}
-          className="flex items-center gap-6 mb-4"
-        >
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <RadioGroupItem value="single" id="pr-level-single" />
-            Single Level
-          </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <RadioGroupItem value="multiple" id="pr-level-multiple" />
-            Multiple Level
-          </label>
-        </RadioGroup>
-
         <div className="grid gap-3 md:grid-cols-[240px_240px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Release Group</Label>
