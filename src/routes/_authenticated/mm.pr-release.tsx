@@ -211,7 +211,7 @@ function PrReleasePage() {
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={COLUMNS.length + 1} className="text-center text-sm text-muted-foreground py-6">
+                    <TableCell colSpan={columns.length + 1} className="text-center text-sm text-muted-foreground py-6">
                       No data available.
                     </TableCell>
                   </TableRow>
