@@ -137,10 +137,12 @@ function PrReleasePage() {
         toast.error(res.error);
         setRows([]);
         setSelected(new Set());
+        setRemarks({});
         return;
       }
       setRows(res.data);
       setSelected(new Set());
+      setRemarks({});
       toast.success(`Loaded ${res.data.length} row(s).`);
     },
     onError: (e: any) => {
