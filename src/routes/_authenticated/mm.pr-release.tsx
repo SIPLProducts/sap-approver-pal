@@ -121,7 +121,6 @@ function rowKey(r: Record<string, any>, idx: number) {
 }
 
 function PrReleasePage() {
-  const [level, setLevel] = useState<"single" | "multiple">("single");
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
   const [rows, setRows] = useState<Record<string, any>[]>([]);
@@ -148,10 +147,6 @@ function PrReleasePage() {
   });
 
   function execute() {
-    if (level === "single") {
-      toast.info("Single Level — not implemented yet.");
-      return;
-    }
     if (!releaseGroup.trim() || !releaseCode.trim()) {
       toast.error("Release Group and Release Code are required.");
       return;
@@ -160,7 +155,6 @@ function PrReleasePage() {
   }
 
   function reset() {
-    setLevel("single");
     setReleaseGroup("");
     setReleaseCode("");
     setRows([]);
@@ -206,7 +200,7 @@ function PrReleasePage() {
     toast(`Reject: ${selected.size} item(s)`);
   }
 
-  const showResults = level === "multiple" && (mutation.isSuccess || rows.length > 0);
+  const showResults = mutation.isSuccess || rows.length > 0;
 
   return (
     <div className="space-y-5">
