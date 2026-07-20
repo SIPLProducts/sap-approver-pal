@@ -306,7 +306,12 @@ function PrReleasePage() {
         >
           Reject
         </Button>
-        <Button size="sm" onClick={onRelease} disabled={selected.size === 0}>
+        <Button
+          size="sm"
+          onClick={onRelease}
+          disabled={selected.size === 0 || releaseMutation.isPending}
+        >
+          {releaseMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           Release
         </Button>
       </div>
