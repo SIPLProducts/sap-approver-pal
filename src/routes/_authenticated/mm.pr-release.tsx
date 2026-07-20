@@ -324,19 +324,6 @@ function PrReleasePage() {
             </Table>
           </div>
 
-          <div className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={onReject}
-              disabled={selected.size === 0}
-            >
-              Reject
-            </Button>
-            <Button size="sm" onClick={onRelease} disabled={selected.size === 0}>
-              Release
-            </Button>
-          </div>
         </Card>
       )}
     </div>
