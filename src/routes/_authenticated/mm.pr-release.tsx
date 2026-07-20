@@ -249,6 +249,20 @@ function PrReleasePage() {
         </div>
       </Card>
 
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={onReject}
+          disabled={selected.size === 0}
+        >
+          Reject
+        </Button>
+        <Button size="sm" onClick={onRelease} disabled={selected.size === 0}>
+          Release
+        </Button>
+      </div>
+
       {showResults && (
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
