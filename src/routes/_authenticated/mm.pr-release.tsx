@@ -25,27 +25,6 @@ export const Route = createFileRoute("/_authenticated/mm/pr-release")({
   component: PrReleasePage,
 });
 
-const COLUMNS: { key: string; label: string }[] = [
-  { key: "PREQ_NO", label: "PR No." },
-  { key: "PREQ_ITEM", label: "Item" },
-  { key: "DOC_TYPE", label: "Doc Type" },
-  { key: "PUR_GROUP", label: "Pur Grp" },
-  { key: "CREATED_BY", label: "Created By" },
-  { key: "PREQ_NAME", label: "PR Name" },
-  { key: "PREQ_DATE", label: "PR Date" },
-  { key: "SHORT_TEXT", label: "Short Text" },
-  { key: "MATERIAL", label: "Material" },
-  { key: "PLANT", label: "Plant" },
-  { key: "QUANTITY", label: "Qty" },
-  { key: "UNIT", label: "Unit" },
-  { key: "DELIV_DATE", label: "Deliv. Date" },
-  { key: "DES_VENDOR", label: "Des. Vendor" },
-  { key: "FIXED_VEND", label: "Fixed Vendor" },
-  { key: "PURCH_ORG", label: "Purch Org" },
-  { key: "CURRENCY", label: "Currency" },
-  { key: "PO_PRICE", label: "PO Price" },
-  { key: "C_AMT_BAPI", label: "Amount" },
-];
 
 function rowKey(r: Record<string, any>, idx: number) {
   const preq = r.PREQ_NO ?? "";
