@@ -197,9 +197,51 @@ function PrReleasePage() {
     });
   }
 
+  const releaseFn = useServerFn(releasePrItems);
+  const releaseMutation = useMutation({
+    mutationFn: (input: {
+      relgroup: string;
+      relcode: string;
+      items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
+    }) => releaseFn({ data: input }),
+    onSuccess: (res) => {
+      for (const r of res.results) {
+        const label = `PR ${r.preq_no}/${r.preq_item}`;
+        const msg = r.msgtxt || r.error || (r.ok ? "Released" : "Failed");
+        if (r.ok) toast.success(`${label}: ${msg}`);
+        else toast.error(`${label}: ${msg}`);
+      }
+      // Refresh the pending list so released rows disappear.
+      if (releaseGroup.trim() && releaseCode.trim()) {
+        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim() });
+      }
+    },
+    onError: (e: any) => {
+      toast.error(e?.message ?? "Release failed.");
+    },
+  });
+
   function onRelease() {
     if (selected.size === 0) return;
-    toast.success(`Release: ${selected.size} item(s)`);
+    if (!releaseGroup.trim() || !releaseCode.trim()) {
+      toast.error("Release Group and Release Code are required.");
+      return;
+    }
+    const items = rows
+      .map((r, i) => ({ r, k: rowKey(r, i) }))
+      .filter(({ k }) => selected.has(k))
+      .map(({ r, k }) => ({
+        PREQ_NO: String(r.PREQ_NO ?? ""),
+        PREQ_ITEM: String(r.PREQ_ITEM ?? ""),
+        REMARKS: remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS)),
+      }))
+      .filter((it) => it.PREQ_NO && it.PREQ_ITEM);
+    if (items.length === 0) return;
+    releaseMutation.mutate({
+      relgroup: releaseGroup.trim(),
+      relcode: releaseCode.trim(),
+      items,
+    });
   }
   function onReject() {
     if (selected.size === 0) return;
