@@ -228,11 +228,11 @@ function PrReleasePage() {
                             aria-label={`Select row ${i + 1}`}
                           />
                         </TableCell>
-                        {COLUMNS.map((c) => (
-                          <TableCell key={c.key} className="whitespace-nowrap text-xs">
-                            {r[c.key] === null || r[c.key] === undefined || r[c.key] === ""
+                        {columns.map((key) => (
+                          <TableCell key={key} className="whitespace-nowrap text-xs">
+                            {r[key] === null || r[key] === undefined || r[key] === ""
                               ? "-"
-                              : String(r[c.key])}
+                              : String(r[key])}
                           </TableCell>
                         ))}
                       </TableRow>
