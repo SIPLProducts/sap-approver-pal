@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Table,
   TableBody,
@@ -122,7 +121,6 @@ function rowKey(r: Record<string, any>, idx: number) {
 }
 
 function PrReleasePage() {
-  const [level, setLevel] = useState<"single" | "multiple">("single");
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
   const [rows, setRows] = useState<Record<string, any>[]>([]);
@@ -149,10 +147,6 @@ function PrReleasePage() {
   });
 
   function execute() {
-    if (level === "single") {
-      toast.info("Single Level — not implemented yet.");
-      return;
-    }
     if (!releaseGroup.trim() || !releaseCode.trim()) {
       toast.error("Release Group and Release Code are required.");
       return;
@@ -161,7 +155,6 @@ function PrReleasePage() {
   }
 
   function reset() {
-    setLevel("single");
     setReleaseGroup("");
     setReleaseCode("");
     setRows([]);
@@ -207,7 +200,7 @@ function PrReleasePage() {
     toast(`Reject: ${selected.size} item(s)`);
   }
 
-  const showResults = level === "multiple" && (mutation.isSuccess || rows.length > 0);
+  const showResults = mutation.isSuccess || rows.length > 0;
 
   return (
     <div className="space-y-5">
@@ -219,21 +212,6 @@ function PrReleasePage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-
-        <RadioGroup
-          value={level}
-          onValueChange={(v) => setLevel(v as "single" | "multiple")}
-          className="flex items-center gap-6 mb-4"
-        >
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <RadioGroupItem value="single" id="pr-level-single" />
-            Single Level
-          </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <RadioGroupItem value="multiple" id="pr-level-multiple" />
-            Multiple Level
-          </label>
-        </RadioGroup>
 
         <div className="grid gap-3 md:grid-cols-[240px_240px_1fr_auto] items-end">
           <div className="space-y-1.5">
@@ -270,6 +248,20 @@ function PrReleasePage() {
           </div>
         </div>
       </Card>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={onReject}
+          disabled={selected.size === 0}
+        >
+          Reject
+        </Button>
+        <Button size="sm" onClick={onRelease} disabled={selected.size === 0}>
+          Release
+        </Button>
+      </div>
 
       {showResults && (
         <Card className="p-4">
@@ -332,19 +324,6 @@ function PrReleasePage() {
             </Table>
           </div>
 
-          <div className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={onReject}
-              disabled={selected.size === 0}
-            >
-              Reject
-            </Button>
-            <Button size="sm" onClick={onRelease} disabled={selected.size === 0}>
-              Release
-            </Button>
-          </div>
         </Card>
       )}
     </div>
