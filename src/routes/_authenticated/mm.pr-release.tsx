@@ -181,6 +181,7 @@ function PrReleasePage() {
         }
       }
     }
+    if (!seen.has("REMARKS")) keys.push("REMARKS");
     return keys;
   }, [rows]);
 
