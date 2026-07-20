@@ -292,7 +292,7 @@ function PrReleasePage() {
                   </TableHead>
                   {columns.map((key) => (
                     <TableHead key={key} className="whitespace-nowrap text-xs">
-                      {key}
+                      {COLUMN_LABELS[key] ?? key}
                     </TableHead>
                   ))}
                 </TableRow>
