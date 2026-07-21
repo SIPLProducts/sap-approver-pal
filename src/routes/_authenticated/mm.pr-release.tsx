@@ -308,7 +308,7 @@ function PrReleasePage() {
         PREQ_ITEM: String(r.PREQ_ITEM ?? ""),
         REMARKS: remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS)),
       }))
-      .filter((it) => it.PREQ_NO && it.PREQ_ITEM);
+      .filter((it) => it.PREQ_NO);
     if (items.length === 0) return;
     rejectMutation.mutate({
       relgroup: releaseGroup.trim(),
