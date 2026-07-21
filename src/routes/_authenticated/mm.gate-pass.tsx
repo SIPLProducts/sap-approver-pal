@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
-import { fetchGatePass } from "@/lib/mm/gate-pass.functions";
+import { fetchGatePass, saveGatePass } from "@/lib/mm/gate-pass.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/gate-pass")({
   component: GatePassPage,
@@ -90,6 +90,55 @@ function GatePassPage() {
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
+  });
+
+  const saveFn = useServerFn(saveGatePass);
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const selectedRows = rows.filter((r, i) => selected.has(rowKey(r, i)));
+      if (selectedRows.length === 0) throw new Error("Select at least one row to save");
+      const h = header ?? {};
+      const res: any = await saveFn({
+        data: {
+          header: {
+            GATEPASS_NUMBER: h.GATEPASS_NUMBER ?? h.GATE_PASS_NUMBER ?? "",
+            GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? "",
+            GATEPASS_DATE: h.GATEPASS_DATE ?? h.GATE_PASS_DATE ?? "",
+            PLANT: h.PLANT ?? "",
+            VEHICLE_NO: h.VEHICLE_NO ?? "",
+            VENDOR: h.VENDOR ?? "",
+            VENDOR_NAME: h.VENDOR_NAME ?? "",
+            PURPOSE: h.PURPOSE ?? "",
+          },
+          data: selectedRows,
+        },
+      });
+      return res as { ok: boolean; message: string; document_number: string | null; error: string | null };
+    },
+    onSuccess: (res) => {
+      const msg = res.document_number
+        ? `${res.message} (Doc: ${res.document_number})`
+        : res.message;
+      if (res.ok) {
+        toast.success(msg);
+        setSelected(new Set());
+        // Refresh the results
+        if (userId.trim()) {
+          mutation.mutate({
+            user_id: userId.trim(),
+            gate_pass_number: gatePassNumber.trim(),
+            hod_approval: hodApproval,
+            store_approval: storeApproval,
+            scm_head: scmHead,
+            plant_head: plantHead,
+            return_receipt: returnReceipt,
+          });
+        }
+      } else {
+        toast.error(res.error ?? msg);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Failed to save"),
   });
 
   function execute() {
@@ -317,10 +366,17 @@ function GatePassPage() {
           <div className="flex justify-end">
             <Button
               size="sm"
-              disabled={selected.size === 0}
-              onClick={() => toast.info(`Save clicked (${selected.size} selected)`)}
+              disabled={selected.size === 0 || saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
             >
-              Save
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save"
+              )}
             </Button>
           </div>
 
