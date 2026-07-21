@@ -1,26 +1,43 @@
-Apply the requested header styling to the shared table component (`CloudscapeApprovalTable`) so every approval screen inherits it, and keep the brand red color for actions only.
+## Goal
+Apply the same table header styling used in the approval tables to every table across the app — including admin screens, approval detail screens, and any Cloudscape-based tables — via global CSS so no per-screen edits are needed.
 
-### What will change
+## Changes
 
-1. Add semantic color tokens in `src/styles.css` for the exact colors requested:
-   - `--table-header-bg: #F8F9FA`
-   - `--table-header-text: #374151`
-   - `--table-header-border: #E5E7EB`
-   - `--table-row-hover: #F1F2F4`
+### 1. `src/styles.css` — add global rules
 
-2. Update `src/components/aws/cloudscape-approval-table.tsx`:
-   - `TableHead` cells: light gray background, dark slate gray bold text, `1px` bottom border, `12px-16px` padding, sticky on scroll (`sticky top-0 z-10`), left-aligned text.
-   - `TableRow` rows: hover background using `--table-row-hover`.
-   - Right-align `TableCell` when `column.align === "right"` (numbers); all other cells remain left-aligned.
-   - No red colors on headers or rows; keep red only on the Accept/Reject buttons and status badges.
+Add app-wide table styling scoped to any `<table>` under the app root, plus an override for Cloudscape:
 
-3. Leave the `Table` wrapper's existing overflow and border behavior intact, only changing header/row presentation.
+- Header cells (`thead th`):
+  - `background: #F8F9FA`
+  - `color: #374151`, `font-weight: 700`
+  - `border-bottom: 1px solid #E5E7EB`
+  - `padding: 12px 16px`
+  - `position: sticky; top: 0; z-index: 10`
+  - Left-align by default; `.num` / `[data-align="right"]` / `[align="right"]` → right-align
+- Body rows: `hover` → `background: #F1F2F4`
+- Body cells: numeric variants (`.num`, `.tabular-nums`) right-aligned (already partly there — consolidate)
+- Keep the existing red accents on buttons/status; explicitly do not touch `button`/`.badge` colors
 
-### What will NOT change
-- No business logic, API payloads, or route behavior.
-- No changes to other table variants unless they share the same component.
-- No color changes to buttons or status badges; brand red (#d4202a) stays where it already is.
+Also update the existing Cloudscape override block so the header uses the new light gray (`#F8F9FA` / `#374151`) instead of the current sidebar-graphite background — the request is that headers are NOT brand-colored.
 
-### Verification
-- Build the project to confirm no type or style errors.
-- Spot-check an approval screen (e.g., PR Release, Gate Pass) to confirm the header is gray, sticky, bold, and row hover is applied; numeric columns remain right-aligned.
+### 2. `src/components/ui/table.tsx` — bake the style into the shadcn primitives
+
+Update default classes so any consumer of `<Table>` inherits the new style without needing overrides:
+- `TableHeader`: sticky, light gray background
+- `TableHead`: `bg-[#F8F9FA] text-[#374151] font-bold border-b border-[#E5E7EB] px-4 py-3`, left-aligned
+- `TableRow`: hover `bg-[#F1F2F4]`
+
+This covers `admin.users.tsx`, `admin.sap-api.$id.tsx`, `approval.$id.tsx`, `sd-approval-shell.tsx`, `mm.pr-release.tsx`, and the shared `cloudscape-approval-table.tsx` (which already uses these primitives).
+
+### 3. Numeric alignment convention
+
+Document (via CSS) that any `<th>` / `<td>` with class `num` or `tabular-nums` is right-aligned. Existing rules already do this; keep them and ensure they win under the new selectors.
+
+## Out of scope
+- No changes to button, badge, or status colors (brand red preserved).
+- No changes to business logic or per-screen table markup.
+- No new components.
+
+## Files touched
+- `src/styles.css`
+- `src/components/ui/table.tsx`
