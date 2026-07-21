@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
-import { fetchMaterialReservation } from "@/lib/mm/material-reservation.functions";
+import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/material-reservation.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
   component: MaterialReservationPage,
@@ -105,6 +105,80 @@ function MaterialReservationPage() {
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
   });
+
+  const saveFn = useServerFn(saveMaterialReservation);
+  const saveMutation = useMutation({
+    mutationFn: async (vars: {
+      user_id: string;
+      header: Record<string, any>;
+      data: Record<string, any>[];
+    }) => {
+      const v: any = await saveFn({ data: vars });
+      return v as { ok: boolean; message: string; documentNumber: string | null };
+    },
+    onSuccess: (res) => {
+      if (res.ok) toast.success(res.message || "Saved successfully");
+      else toast.error(res.message || "Save failed");
+      if (res.ok) {
+        // Refresh list
+        mutation.mutate({
+          user_id: userId.trim(),
+          document_number: docNumber.trim(),
+          hod_approve: hodApprove,
+        });
+        setSelected(new Set());
+      }
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Failed to save"),
+  });
+
+  function onSave() {
+    if (!userId.trim()) {
+      toast.error("User ID is required");
+      return;
+    }
+    if (selected.size === 0) {
+      toast.error("Select at least one row");
+      return;
+    }
+    const items = rows
+      .map((r, i) => ({ r, i, k: rowKey(r, i) }))
+      .filter(({ k }) => selected.has(k))
+      .map(({ r, i, k }) => {
+        const st = rowStates.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "" };
+        return {
+          SNO: String(r.SNO ?? i + 1),
+          GOODS_RECEPIENT: toStr(r.GOODS_RECEPIENT),
+          MATERIAL: toStr(r.MATERIAL),
+          MATERIAL_DESCRIPTION: toStr(r.MATERIAL_DESCRIPTION),
+          UOM: toStr(r.UOM),
+          ORDER_NUMBER: toStr(r.ORDER_NUMBER),
+          COST_CENTER: toStr(r.COST_CENTER),
+          REQUESTED_QUANTITY: Number(r.REQUESTED_QUANTITY ?? 0) || 0,
+          APPROVED_QUANTITY: Number(r.APPROVED_QUANTITY ?? 0) || 0,
+          ISSUED_QUANTITY: Number(r.ISSUED_QUANTITY ?? 0) || 0,
+          STORAGE_LOCATION: toStr(r.STORAGE_LOCATION),
+          TOTAL_STOCK: Number(r.TOTAL_STOCK ?? 0) || 0,
+          COST_CENT_DESC: toStr(r.COST_CENT_DESC),
+          HOD_APRROVAL: st.hodApproval ? "X" : "",
+          HOD_REJECTION: st.hodRejection ? "X" : "",
+          REMARKS: st.remarks ?? "",
+        };
+      });
+
+    saveMutation.mutate({
+      user_id: userId.trim(),
+      header: {
+        DOCUMENT_NUMBER: toStr(header?.DOCUMENT_NUMBER),
+        HOD_APPROVE: hodApprove ? "X" : "",
+        DOCUMENT_DATE: toStr(header?.DOCUMENT_DATE),
+        MOVEMENT_TYPE: toStr(header?.MOVEMENT_TYPE),
+        PLANT: toStr(header?.PLANT),
+        MATERIAL_TYPE: toStr(header?.MATERIAL_TYPE),
+      },
+      data: items,
+    });
+  }
 
   function execute() {
     if (!userId.trim()) {
@@ -276,9 +350,12 @@ function MaterialReservationPage() {
           <div className="flex justify-end">
             <Button
               size="sm"
-              disabled={selected.size === 0}
-              onClick={() => toast.info(`Save clicked (${selected.size} selected)`)}
+              disabled={selected.size === 0 || saveMutation.isPending}
+              onClick={onSave}
             >
+              {saveMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : null}
               Save
             </Button>
           </div>
