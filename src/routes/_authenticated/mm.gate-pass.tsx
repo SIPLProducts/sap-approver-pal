@@ -217,6 +217,30 @@ function GatePassPage() {
             />
           </div>
           <div className="space-y-1.5">
+            <Label className="text-xs">HOD Approval</Label>
+            <div className="h-9 flex items-center">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={hodApproval}
+                  onCheckedChange={(v) => setHodApproval(v === true)}
+                />
+                HOD Approval
+              </label>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Store Approval</Label>
+            <div className="h-9 flex items-center">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={storeApproval}
+                  onCheckedChange={(v) => setStoreApproval(v === true)}
+                />
+                Store Approval
+              </label>
+            </div>
+          </div>
+          <div className="space-y-1.5">
             <Label className="text-xs">SCM Head</Label>
             <div className="h-9 flex items-center">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -249,30 +273,6 @@ function GatePassPage() {
                   onCheckedChange={(v) => setReturnReceipt(v === true)}
                 />
                 Return Receipt
-              </label>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">HOD Approval</Label>
-            <div className="h-9 flex items-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={hodApproval}
-                  onCheckedChange={(v) => setHodApproval(v === true)}
-                />
-                HOD Approval
-              </label>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Store Approval</Label>
-            <div className="h-9 flex items-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={storeApproval}
-                  onCheckedChange={(v) => setStoreApproval(v === true)}
-                />
-                Store Approval
               </label>
             </div>
           </div>

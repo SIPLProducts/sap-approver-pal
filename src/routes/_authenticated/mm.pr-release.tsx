@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2 } from "lucide-react";
+import { Filter, RotateCcw, Loader2, Search } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -127,6 +127,7 @@ function PrReleasePage() {
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
 
   const fetchFn = useServerFn(fetchPrReleaseMultiple);
   const mutation = useMutation({
@@ -166,7 +167,19 @@ function PrReleasePage() {
     setRemarks({});
   }
 
-  const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const withIdx = rows.map((r, i) => ({ r, i }));
+    if (!q) return withIdx;
+    return withIdx.filter(({ r }) =>
+      Object.values(r).some((v) => String(v ?? "").toLowerCase().includes(q)),
+    );
+  }, [rows, search]);
+
+  const allKeys = useMemo(
+    () => filteredRows.map(({ r, i }) => rowKey(r, i)),
+    [filteredRows],
+  );
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
   const someSelected = selected.size > 0 && !allSelected;
 
@@ -388,9 +401,19 @@ function PrReleasePage() {
 
       {showResults && (
         <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-3">
             <div className="text-xs font-semibold text-muted-foreground">
-              RESULTS · {rows.length} row(s) · {selected.size} selected
+              RESULTS · {filteredRows.length}
+              {search.trim() ? ` / ${rows.length}` : ""} row(s) · {selected.size} selected
+            </div>
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search results..."
+                className="h-9 text-sm pl-8"
+              />
             </div>
           </div>
 
@@ -413,14 +436,14 @@ function PrReleasePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.length === 0 ? (
+                {filteredRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={columns.length + 1} className="text-center text-sm text-muted-foreground py-6">
-                      No data available.
+                      {rows.length === 0 ? "No data available." : "No results match your search."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((r, i) => {
+                  filteredRows.map(({ r, i }) => {
                     const k = rowKey(r, i);
                     const checked = selected.has(k);
                     return (
