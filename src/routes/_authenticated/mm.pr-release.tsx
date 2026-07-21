@@ -393,6 +393,7 @@ function PrReleasePage() {
           size="sm"
           onClick={onRelease}
           disabled={selected.size === 0 || releaseMutation.isPending}
+          className="bg-green-600 hover:bg-green-700 text-white"
         >
           {releaseMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           Release
