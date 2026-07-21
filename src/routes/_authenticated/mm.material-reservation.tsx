@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
-import { fetchMaterialReservation } from "@/lib/mm/material-reservation.functions";
+import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/material-reservation.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
   component: MaterialReservationPage,
