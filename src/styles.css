@@ -270,7 +270,7 @@
   font-weight: 700 !important;
 }
 .awsui-app-scope [class*="awsui_resizer"] {
-  background-color: var(--table-header-border) !important;
+  background-color: color-mix(in oklab, #FFFFFF 30%, transparent) !important;
 }
 .awsui-app-scope tbody tr:hover td {
   background-color: var(--table-row-hover) !important;
