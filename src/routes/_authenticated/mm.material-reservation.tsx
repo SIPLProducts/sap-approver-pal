@@ -230,7 +230,8 @@ function MaterialReservationPage() {
       header: "HOD Approval",
       minWidth: 110,
       cell: (item) => {
-        const k = (item as any).__key as string;
+        const idx = rows.indexOf(item);
+        const k = rowKey(item, idx);
         const st = rowStates.get(k);
         return (
           <Checkbox
@@ -245,7 +246,8 @@ function MaterialReservationPage() {
       header: "HOD Rejection",
       minWidth: 110,
       cell: (item) => {
-        const k = (item as any).__key as string;
+        const idx = rows.indexOf(item);
+        const k = rowKey(item, idx);
         const st = rowStates.get(k);
         return (
           <Checkbox
@@ -260,7 +262,8 @@ function MaterialReservationPage() {
       header: "Remarks",
       minWidth: 200,
       cell: (item) => {
-        const k = (item as any).__key as string;
+        const idx = rows.indexOf(item);
+        const k = rowKey(item, idx);
         const st = rowStates.get(k);
         return (
           <div style={{ width: 200 }}>
@@ -276,7 +279,7 @@ function MaterialReservationPage() {
     });
 
     return base;
-  }, [rowStates]);
+  }, [rowStates, rows]);
 
   return (
     <div className="space-y-5">

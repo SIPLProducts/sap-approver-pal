@@ -1,32 +1,24 @@
 ## Problem
 
-In Gate Pass save, `GATE_PASS_TYPE` in the outgoing payload is empty. The fetch response header uses the SAP key `GATEPASS_TYPE` (matching the sibling `GATEPASS_NUMBER` / `GATEPASS_DATE` naming), but both the client and server read `GATE_PASS_TYPE`, so the value is never picked up.
+In Material Reservation, the editable cells (HOD Approval, HOD Rejection, Remarks) read the row key from `(item as any).__key`, but `CloudscapeApprovalTable` passes the raw row object to `cell(item)` — it never attaches `__key`. So `k` is `undefined`, `updateRow` writes state under the key `"undefined"`, and every real row's state stays at the default `{ hodApproval: false, hodRejection: false, remarks: "" }`.
+
+At save time, the payload builder looks up `rowStates.get(rowKey(r, i))` (the real key), finds nothing, and sends `HOD_APRROVAL: ""` and `HOD_REJECTION: ""` regardless of what the user clicked.
 
 ## Fix
 
-Read the value from either key when building the save payload, without touching fetch logic or any other field.
+In `src/routes/_authenticated/mm.material-reservation.tsx`, compute the row key inside each editable cell using the same `rowKey(r, i)` used elsewhere, instead of reading `__key` off the item.
 
-1. `src/routes/_authenticated/mm.gate-pass.tsx` — in the `saveMutation` header mapping, change:
-   ```ts
-   GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? "",
-   ```
-   to:
-   ```ts
-   GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? h.GATEPASS_TYPE ?? "",
-   ```
+In the `columns` `useMemo`, replace the three `const k = (item as any).__key as string;` lines (in the HOD Approval, HOD Rejection, and Remarks cell renderers) with:
 
-2. `src/lib/mm/gate-pass.functions.ts` — in `saveGatePass` handler, when building `payload`, change:
-   ```ts
-   GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? "",
-   ```
-   to:
-   ```ts
-   GATE_PASS_TYPE: (h.GATE_PASS_TYPE ?? (h as any).GATEPASS_TYPE ?? ""),
-   ```
-   (schema already `.passthrough()`, so `GATEPASS_TYPE` survives validation.)
+```ts
+const idx = rows.indexOf(item);
+const k = rowKey(item, idx);
+```
 
-No changes to fetch, business logic, UI, or other fields.
+Add `rows` to the `useMemo` dependency array.
+
+No other changes — save handler, fetch, selection, and business logic stay as-is. Row checkboxes for HOD Approval / HOD Rejection now update the real per-row state, so the outgoing Material_Save_API payload contains `HOD_APRROVAL: "X"` / `HOD_REJECTION: "X"` for the rows the user actually toggled.
 
 ## Verification
 
-Execute Gate Pass, select rows, Save, and confirm the outgoing SAP payload now contains the correct `GATE_PASS_TYPE` value from the header.
+Execute Material Reservation, toggle HOD Approval on one row and HOD Rejection on another, select both rows, click Save, and confirm the outgoing payload sends the correct `HOD_APRROVAL` / `HOD_REJECTION` flags per row.
