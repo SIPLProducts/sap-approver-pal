@@ -1,25 +1,26 @@
-## Problem
-In the Gate Pass results table, the in-cell checkboxes (HOD Approval, HOD Rejection, Store Approval) and text inputs (HOD Remarks, Justification, Remarks) don't respond to clicks — state never updates.
+Apply the requested header styling to the shared table component (`CloudscapeApprovalTable`) so every approval screen inherits it, and keep the brand red color for actions only.
 
-## Root cause
-`updateRowField` in `src/routes/_authenticated/mm.gate-pass.tsx` locates the target row with `prev.indexOf(item)`. But `CloudscapeApprovalTable` wraps each row into a new object (`{ ...row, __key }`) before passing it to `cell`, so the reference no longer exists in `rows` and `indexOf` returns `-1`. The setter early-returns and nothing changes.
+### What will change
 
-## Fix
-Update `updateRowField` in `src/routes/_authenticated/mm.gate-pass.tsx` to match rows by their computed `rowKey` instead of object identity:
+1. Add semantic color tokens in `src/styles.css` for the exact colors requested:
+   - `--table-header-bg: #F8F9FA`
+   - `--table-header-text: #374151`
+   - `--table-header-border: #E5E7EB`
+   - `--table-row-hover: #F1F2F4`
 
-```ts
-function updateRowField(item: DataRow, key: string, value: any) {
-  const targetKey = (item as any).__key ?? rowKey(item, -1);
-  setRows((prev) =>
-    prev.map((r, i) => (rowKey(r, i) === targetKey ? { ...r, [key]: value } : r)),
-  );
-}
-```
+2. Update `src/components/aws/cloudscape-approval-table.tsx`:
+   - `TableHead` cells: light gray background, dark slate gray bold text, `1px` bottom border, `12px-16px` padding, sticky on scroll (`sticky top-0 z-10`), left-aligned text.
+   - `TableRow` rows: hover background using `--table-row-hover`.
+   - Right-align `TableCell` when `column.align === "right"` (numbers); all other cells remain left-aligned.
+   - No red colors on headers or rows; keep red only on the Accept/Reject buttons and status badges.
 
-No other file, styling, API, or business-logic changes.
+3. Leave the `Table` wrapper's existing overflow and border behavior intact, only changing header/row presentation.
 
-## Verification
-- Fetch Gate Pass data.
-- Toggle HOD Approval / HOD Rejection / Store Approval checkboxes in the table — they now check/uncheck.
-- Edit HOD Remarks / Justification / Remarks inputs — values persist.
-- Row-level selection (leftmost column) and Save flow continue to work unchanged.
+### What will NOT change
+- No business logic, API payloads, or route behavior.
+- No changes to other table variants unless they share the same component.
+- No color changes to buttons or status badges; brand red (#d4202a) stays where it already is.
+
+### Verification
+- Build the project to confirm no type or style errors.
+- Spot-check an approval screen (e.g., PR Release, Gate Pass) to confirm the header is gray, sticky, bold, and row hover is applied; numeric columns remain right-aligned.
