@@ -481,8 +481,10 @@ async function invokeSap(cfg, inputs) {
   const t0 = Date.now();
   // GET/DELETE with a body is legal HTTP and Postman does it, but Node's fetch
   // (undici) forbids it — route those through the raw http client instead.
-  const needsRawHttp =
-    body != null && ["GET", "DELETE", "HEAD"].includes(cfg.http_method);
+  // We also route POST/PUT with a body through the raw client so Content-Length
+  // is always set explicitly (some SAP ICF endpoints reject chunked bodies with
+  // "No data entered" when Content-Length is missing).
+  const needsRawHttp = body != null;
   const res = needsRawHttp
     ? await rawHttpRequestWithBody(url.toString(), { method: cfg.http_method, headers, body })
     : await fetchWithTimeout(url.toString(), { method: cfg.http_method, headers, body });
