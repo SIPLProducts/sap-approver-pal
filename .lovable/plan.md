@@ -1,22 +1,26 @@
-## PR Release — wire up Reject button
+## Root cause
 
-Mirror the existing Release flow for Reject, using the `PR_Reject_API` config from SAP API Settings.
+The Reject action never reaches the middleware because rows with an empty `PREQ_ITEM` are silently dropped before the server function is called.
 
-### Server function
-In `src/lib/mm/pr-release.functions.ts`, add `rejectPrItems` alongside `releasePrItems`:
-- Same input shape: `{ relgroup, relcode, items: [{ PREQ_NO, PREQ_ITEM, REMARKS? }] }`.
-- For each item, POST via `/sap/invoke` to the `PR_Reject_API` config with payload:
-  ```json
-  { "REJECT": { "BANFN": PREQ_NO, "BNFPO": PREQ_ITEM, "REL_CODE": relcode, "REL_GRP": relgroup, "REMARKS": remarks ?? "" } }
-  ```
-- Parse response array `[{ MSGTXT, STATUS }]`; treat `STATUS === "TRUE"` (case-insensitive) as success. Return `{ results: [{ preq_no, preq_item, ok, msgtxt, error }] }` — identical shape to release results so the UI reuses the same toast/refresh code.
+Confirmed:
+- `PR_Reject_API` exists in `sap_api_configs`, `is_active=true`, method `POST`, endpoint `/mm_approve_mng/pr_rel/release?sap-client=300` — so config isn't the blocker.
+- User's own example payload uses `"BNFPO": ""` (header-level reject).
+- In `src/routes/_authenticated/mm.pr-release.tsx` `onReject`, items are filtered with `it.PREQ_NO && it.PREQ_ITEM` — any row without a PR item is discarded, `items.length === 0` returns early, no toast, no server call.
+- Even if that filter passed, the shared `prActionInput` Zod validator in `src/lib/mm/pr-release.functions.ts` requires `PREQ_ITEM: z.string().trim().min(1)` and would reject the same payload with a validation error before `fetch`.
 
-### UI (`src/routes/_authenticated/mm.pr-release.tsx`)
-- Add `rejectFn = useServerFn(rejectPrItems)` and a `rejectMutation` that mirrors `releaseMutation`:
-  - On success: toast per row using `MSGTXT`, remove rejected rows (matched by `PREQ_NO`+`PREQ_ITEM`) from `rows`, clear `selected`/`remarks`, and re-run the fetch mutation to refresh the pending list.
-  - On error: toast the error message.
-- Replace the placeholder `onReject` with the mutation call. Guard on `releaseGroup`/`releaseCode` presence, same as Release.
-- Disable the Reject button while `rejectMutation.isPending`; show a spinner just like Release.
+Net effect: clicking Reject on such rows is a no-op — nothing hits `/sap/invoke`, matching "payload is not reaching the middleware."
 
-### Out of scope
-No changes to middleware, other screens, column labels, or Release logic.
+## Fix (UI + server function only, no middleware changes)
+
+1. `src/routes/_authenticated/mm.pr-release.tsx` — in `onReject`, drop the `it.PREQ_ITEM` requirement from the filter (keep the `PREQ_NO` requirement). Do not touch `onRelease`.
+2. `src/lib/mm/pr-release.functions.ts` — split the input schema so Reject allows empty `PREQ_ITEM`:
+   - Keep `prActionInput` (min 1) for `releasePrItems`.
+   - Add `prRejectInput` identical to it but with `PREQ_ITEM: z.string().trim().default("")` and use it in `rejectPrItems.inputValidator`.
+   - `processPrAction` already forwards `PREQ_ITEM` verbatim into `BNFPO`, so empty string flows through unchanged.
+3. If nothing is selected or `PREQ_NO` is missing, keep current silent no-op behavior (existing Release parity).
+
+## Out of scope
+
+- No middleware changes.
+- No changes to Release logic, response parsing, config lookup, or table refresh.
+- No changes to column labels or unrelated screens.

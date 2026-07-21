@@ -353,6 +353,16 @@ const prActionInput = z.object({
   })).min(1),
 });
 
+const prRejectInput = z.object({
+  relgroup: z.string().trim().min(1).max(10),
+  relcode: z.string().trim().min(1).max(10),
+  items: z.array(z.object({
+    PREQ_NO: z.string().trim().min(1),
+    PREQ_ITEM: z.string().trim().default(""),
+    REMARKS: z.string().optional().default(""),
+  })).min(1),
+});
+
 export const releasePrItems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => prActionInput.parse(d))
@@ -360,6 +370,7 @@ export const releasePrItems = createServerFn({ method: "POST" })
 
 export const rejectPrItems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => prActionInput.parse(d))
+  .inputValidator((d) => prRejectInput.parse(d))
   .handler(async ({ data }) => processPrAction(REJECT_CONFIG_NAME, "REJECT", data, "reject"));
+
 
