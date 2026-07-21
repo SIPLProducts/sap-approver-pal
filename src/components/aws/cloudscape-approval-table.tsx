@@ -208,6 +208,7 @@ export function CloudscapeApprovalTable<T>({
               size="sm"
               onClick={onAccept}
               disabled={acceptDisabled}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
               {acceptLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
               Accept
