@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchPrReleaseMultiple, releasePrItems } from "@/lib/mm/pr-release.functions";
+import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems } from "@/lib/mm/pr-release.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/pr-release")({
   component: PrReleasePage,
@@ -257,9 +257,64 @@ function PrReleasePage() {
       items,
     });
   }
+  const rejectFn = useServerFn(rejectPrItems);
+  const rejectMutation = useMutation({
+    mutationFn: (input: {
+      relgroup: string;
+      relcode: string;
+      items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
+    }) => rejectFn({ data: input }),
+    onSuccess: (res) => {
+      const rejectedKeys = new Set<string>();
+      for (const r of res.results) {
+        const label = `PR ${r.preq_no}/${r.preq_item}`;
+        const msg = r.msgtxt || r.error || (r.ok ? "Rejected" : "Failed");
+        if (r.ok) {
+          toast.success(`${label}: ${msg}`);
+          rejectedKeys.add(`${r.preq_no}-${r.preq_item}`);
+        } else {
+          toast.error(`${label}: ${msg}`);
+        }
+      }
+      if (rejectedKeys.size > 0) {
+        setRows((prev) =>
+          prev.filter(
+            (r) => !rejectedKeys.has(`${String(r.PREQ_NO ?? "")}-${String(r.PREQ_ITEM ?? "")}`),
+          ),
+        );
+        setSelected(new Set());
+        setRemarks({});
+      }
+      if (releaseGroup.trim() && releaseCode.trim()) {
+        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim() });
+      }
+    },
+    onError: (e: any) => {
+      toast.error(e?.message ?? "Reject failed.");
+    },
+  });
+
   function onReject() {
     if (selected.size === 0) return;
-    toast(`Reject: ${selected.size} item(s)`);
+    if (!releaseGroup.trim() || !releaseCode.trim()) {
+      toast.error("Release Group and Release Code are required.");
+      return;
+    }
+    const items = rows
+      .map((r, i) => ({ r, k: rowKey(r, i) }))
+      .filter(({ k }) => selected.has(k))
+      .map(({ r, k }) => ({
+        PREQ_NO: String(r.PREQ_NO ?? ""),
+        PREQ_ITEM: String(r.PREQ_ITEM ?? ""),
+        REMARKS: remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS)),
+      }))
+      .filter((it) => it.PREQ_NO && it.PREQ_ITEM);
+    if (items.length === 0) return;
+    rejectMutation.mutate({
+      relgroup: releaseGroup.trim(),
+      relcode: releaseCode.trim(),
+      items,
+    });
   }
 
   const showResults = mutation.isSuccess || rows.length > 0;
@@ -316,8 +371,9 @@ function PrReleasePage() {
           variant="destructive"
           size="sm"
           onClick={onReject}
-          disabled={selected.size === 0}
+          disabled={selected.size === 0 || rejectMutation.isPending}
         >
+          {rejectMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           Reject
         </Button>
         <Button
