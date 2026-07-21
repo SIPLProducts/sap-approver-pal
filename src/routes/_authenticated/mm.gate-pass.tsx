@@ -366,10 +366,17 @@ function GatePassPage() {
           <div className="flex justify-end">
             <Button
               size="sm"
-              disabled={selected.size === 0}
-              onClick={() => toast.info(`Save clicked (${selected.size} selected)`)}
+              disabled={selected.size === 0 || saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
             >
-              Save
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save"
+              )}
             </Button>
           </div>
 
