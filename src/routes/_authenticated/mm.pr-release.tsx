@@ -205,11 +205,25 @@ function PrReleasePage() {
       items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
     }) => releaseFn({ data: input }),
     onSuccess: (res) => {
+      const releasedKeys = new Set<string>();
       for (const r of res.results) {
         const label = `PR ${r.preq_no}/${r.preq_item}`;
         const msg = r.msgtxt || r.error || (r.ok ? "Released" : "Failed");
-        if (r.ok) toast.success(`${label}: ${msg}`);
-        else toast.error(`${label}: ${msg}`);
+        if (r.ok) {
+          toast.success(`${label}: ${msg}`);
+          releasedKeys.add(`${r.preq_no}-${r.preq_item}`);
+        } else {
+          toast.error(`${label}: ${msg}`);
+        }
+      }
+      if (releasedKeys.size > 0) {
+        setRows((prev) =>
+          prev.filter(
+            (r) => !releasedKeys.has(`${String(r.PREQ_NO ?? "")}-${String(r.PREQ_ITEM ?? "")}`),
+          ),
+        );
+        setSelected(new Set());
+        setRemarks({});
       }
       // Refresh the pending list so released rows disappear.
       if (releaseGroup.trim() && releaseCode.trim()) {
