@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
 import { safeParseSapJson } from "./json-repair.js";
+import { mapSapResponse } from "./response-mapper.js";
 
 // ---------- env ----------
 const PORT = parseInt(process.env.PORT || "3005", 10);
@@ -313,32 +314,6 @@ function buildRequestPayload(fields, inputs) {
   return payload;
 }
 
-function getByPath(obj, path) {
-  return path.split(".").reduce((acc, k) => {
-    if (acc && typeof acc === "object") return acc[k];
-    return undefined;
-  }, obj);
-}
-
-function mapResponse(fields, raw) {
-  // List responses: SAP returns { DATA: [...] } or { data: [...] } — pass
-  // the payload through unchanged so the calling app can iterate the rows
-  // and apply per-row mapping itself. Field mapping at the middleware level
-  // only makes sense for single-object responses.
-  if (raw && typeof raw === "object") {
-    if (Array.isArray(raw.DATA) || Array.isArray(raw.data) || Array.isArray(raw)) {
-      return raw;
-    }
-  }
-  if (!fields.length) return raw;
-  const root = raw && typeof raw === "object" ? raw : {};
-  const out = {};
-  for (const f of fields) {
-    out[f.target_column ?? f.field_name] = getByPath(root, f.field_name);
-  }
-  return out;
-}
-
 // ---------- SAP invoker ----------
 const oauthTokenCache = new Map();
 
@@ -567,7 +542,7 @@ async function invokeSap(cfg, inputs) {
     `rows=${rowCount ?? "n/a"} json_repaired=${parsed.repaired}`,
   );
 
-  const data = mapResponse(cfg.responseFields, raw);
+  const data = mapSapResponse(cfg.responseFields, raw);
   return {
     ok: res.ok,
     status: res.status,

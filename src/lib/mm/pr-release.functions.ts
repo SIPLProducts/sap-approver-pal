@@ -264,20 +264,41 @@ export const releasePrItems = createServerFn({ method: "POST" })
             errMsg = `Invalid JSON from SAP: ${text.slice(0, 200)}`;
           }
           if (!errMsg) {
-            const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
-            // Locate MSGTXT & MSGTY anywhere reasonable in the response.
-            const findFirst = (obj: any, key: string): any => {
-              if (!obj || typeof obj !== "object") return undefined;
-              if (key in obj) return obj[key];
-              for (const v of Object.values(obj)) {
-                const found = findFirst(v, key);
-                if (found !== undefined) return found;
+            if (proxied && json?.ok !== true) {
+              errMsg = String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
+            } else {
+              const sapJson: any = proxied ? json?.data : json;
+              const findFirst = (obj: any, keys: string[]): any => {
+                if (!obj || typeof obj !== "object") return undefined;
+                const wanted = new Set(keys.map((key) => key.toUpperCase()));
+                for (const [key, value] of Object.entries(obj)) {
+                  if (wanted.has(key.toUpperCase())) return value;
+                }
+                for (const value of Object.values(obj)) {
+                  const found = findFirst(value, keys);
+                  if (found !== undefined) return found;
+                }
+                return undefined;
+              };
+              msgtxt = String(findFirst(sapJson, ["MSGTXT", "MESSAGE"]) ?? "");
+              const status = String(
+                findFirst(sapJson, ["STATUS", "MSGTY", "TYPE"]) ?? "",
+              ).trim().toUpperCase();
+              const successStatuses = new Set(["S", "I", "SUCCESS", "OK", "RELEASED"]);
+              const hasPayload =
+                sapJson !== null &&
+                typeof sapJson === "object" &&
+                (Array.isArray(sapJson) ? sapJson.length > 0 : Object.keys(sapJson).length > 0);
+
+              if (!hasPayload) {
+                errMsg = "SAP returned an empty response; release success could not be confirmed.";
+              } else if (!status) {
+                errMsg = msgtxt || "SAP response did not include a release status.";
+              } else {
+                ok = successStatuses.has(status);
+                if (!ok) errMsg = msgtxt || `SAP returned release status ${status}.`;
               }
-              return undefined;
-            };
-            msgtxt = String(findFirst(sapJson, "MSGTXT") ?? findFirst(sapJson, "MESSAGE") ?? "");
-            const msgty = String(findFirst(sapJson, "MSGTY") ?? findFirst(sapJson, "TYPE") ?? "").toUpperCase();
-            ok = msgty ? (msgty === "S" || msgty === "I") : true;
+            }
           }
         }
 
