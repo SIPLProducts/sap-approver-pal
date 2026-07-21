@@ -1,47 +1,25 @@
-## Goal
+## Problem
+In the Gate Pass results table, the in-cell checkboxes (HOD Approval, HOD Rejection, Store Approval) and text inputs (HOD Remarks, Justification, Remarks) don't respond to clicks — state never updates.
 
-Make every Cloudscape approval table (MM Gate Pass, Material Reservation, ZNFA Rating, all SD approval screens, Inbox, History, etc.) look like the PR Release shadcn table, and color the table header with the app's primary theme token. No logic, API, or column changes.
+## Root cause
+`updateRowField` in `src/routes/_authenticated/mm.gate-pass.tsx` locates the target row with `prev.indexOf(item)`. But `CloudscapeApprovalTable` wraps each row into a new object (`{ ...row, __key }`) before passing it to `cell`, so the reference no longer exists in `rows` and `indexOf` returns `-1`. The setter early-returns and nothing changes.
 
-## Approach
+## Fix
+Update `updateRowField` in `src/routes/_authenticated/mm.gate-pass.tsx` to match rows by their computed `rowKey` instead of object identity:
 
-Do this purely in CSS by targeting Cloudscape's rendered classes inside the existing `.awsui-app-scope` wrapper already used by `CloudscapeApprovalTable`. This means one file — `src/styles.css` — and zero changes to any route or component.
+```ts
+function updateRowField(item: DataRow, key: string, value: any) {
+  const targetKey = (item as any).__key ?? rowKey(item, -1);
+  setRows((prev) =>
+    prev.map((r, i) => (rowKey(r, i) === targetKey ? { ...r, [key]: value } : r)),
+  );
+}
+```
 
-## Changes
-
-Add a new `.awsui-app-scope` style block in `src/styles.css` that:
-
-1. **Container** — matches PR Release's `border rounded-md` wrap:
-   - Round the outer container, add a 1px `--border` border, hide overflow so header corners clip cleanly.
-
-2. **Header row** — the requested theme-blue (primary) header:
-   - `background: var(--primary)` on the header cells.
-   - `color: var(--primary-foreground)` on header text (including sort labels and the select-all checkbox area).
-   - Slightly bolder weight, `text-xs`-equivalent size, same horizontal padding as PR Release.
-   - Remove Cloudscape's default header divider so the block reads as one solid bar.
-
-3. **Body rows** — match PR Release spacing/typography:
-   - `text-xs` cell font size, `whitespace-nowrap` (already enforced globally — keep).
-   - Row height and vertical padding tightened to match `TableCell` defaults.
-   - Zebra striping switched from Cloudscape's default to `--muted` at ~40% for the odd row, matching the subtle shadcn look.
-   - Selected row uses `--accent` background (matches `data-[state=selected]` in shadcn Table).
-   - Hover row uses `--muted`.
-
-4. **Filter + pagination toolbar** — keep Cloudscape controls but nudge spacing/typography to align with PR Release's results header row (small muted meta text on the left, search input on the right). Achieved by tightening the header container padding.
-
-5. **Checkbox column** — align width and center the checkbox with the row content, matching PR Release's `w-10` checkbox column.
-
-All rules are scoped under `.awsui-app-scope` so they cannot leak into non-Cloudscape tables (shadcn Table, admin screens, dashboards).
-
-## Files touched
-
-- `src/styles.css` — one appended block, ~60 lines of scoped CSS.
-
-Nothing else changes: no component, no route, no `CloudscapeApprovalTable.tsx` props, no business logic.
+No other file, styling, API, or business-logic changes.
 
 ## Verification
-
-- Open MM → Gate Pass, Material Reservation, ZNFA Rating: header bar is theme-red (the app's primary), rows look like PR Release, checkboxes still toggle, Save/Accept/Reject still work.
-- Open SD → Contract, Sales Order, Service Certificate, BMW Status, all Reports: same header color, same row density, filter + pagination still functional.
-- Open Inbox and History: same look.
-- PR Release itself is untouched (it doesn't use Cloudscape) and remains the visual reference.
-- Dark mode: header stays primary with `--primary-foreground` text — contrast preserved via tokens.
+- Fetch Gate Pass data.
+- Toggle HOD Approval / HOD Rejection / Store Approval checkboxes in the table — they now check/uncheck.
+- Edit HOD Remarks / Justification / Remarks inputs — values persist.
+- Row-level selection (leftmost column) and Save flow continue to work unchanged.
