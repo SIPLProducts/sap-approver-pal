@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchPrReleaseMultiple, releasePrItems } from "@/lib/mm/pr-release.functions";
+import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems } from "@/lib/mm/pr-release.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/pr-release")({
   component: PrReleasePage,
