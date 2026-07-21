@@ -1,14 +1,21 @@
-## Changes
+## Change
 
-**SD Approval screens** (Contract, Sales Order, Price, SC-SO, and any shared SD approval shell):
-- Reorder action buttons so **Reject** appears first, followed by **Accept**.
-- Style the **Accept** button with green (e.g. `bg-green-600 hover:bg-green-700 text-white`) instead of the current default/primary color.
+In `src/components/aws/cloudscape-approval-table.tsx`, restructure the card's toolbar row so that on SD approval screens (and any screen using this shared table) the layout is a single row with:
 
-**PR Release screen** (`src/routes/_authenticated/mm.pr-release.tsx`):
-- Style the **Release** button with the same green as above. Reject button stays as-is.
+- **Left:** the search input
+- **Right:** Reject button, then Accept button (green)
 
-## Technical notes
+### Details
 
-- Investigate `src/components/sd/sd-approval-shell.tsx` first — it likely renders the shared Accept/Reject action bar for all four SD screens, so a single edit there covers them all. If any SD screen renders its own action buttons, update those inline too.
-- Use a Tailwind green utility class combo consistent with the app's design tokens; no changes to `src/styles.css` semantic tokens are needed for this one-off action-button accent.
-- No business logic, no handler wiring, no payload changes — presentation only.
+Current toolbar has three logical groups: title + count (left), then search + extras + Reject + Accept (right). This will be reorganized to:
+
+```text
+[ 🔍 Search........... ]                          [ Reject ] [ Accept ]
+```
+
+- Move the title/count line above the toolbar row (or drop into a small header strip) so it doesn't compete for horizontal space — search stays flush left, buttons flush right.
+- Keep the toolbar as a single `flex items-center justify-between` row containing only: search (left) and action buttons (right).
+- `headerExtras` (if any) stays near the buttons on the right.
+- No changes to button colors, ordering (Reject before Accept), business logic, selection, pagination, or any screen files.
+
+This automatically covers all SD approval screens (Contract, Sales Order, Price, SC-SO, BMW Status, Reports) since they all render via `CloudscapeApprovalTable`.
