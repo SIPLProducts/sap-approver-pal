@@ -371,8 +371,9 @@ function PrReleasePage() {
           variant="destructive"
           size="sm"
           onClick={onReject}
-          disabled={selected.size === 0}
+          disabled={selected.size === 0 || rejectMutation.isPending}
         >
+          {rejectMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           Reject
         </Button>
         <Button
