@@ -268,6 +268,16 @@ export const releasePrItems = createServerFn({ method: "POST" })
               errMsg = String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
             } else {
               const sapJson: any = proxied ? json?.data : json;
+              // SAP returns an array like [{ MSGTXT, STATUS }]. Read element 0 directly
+              // when possible; fall back to recursive lookup for object-shaped responses.
+              const primary: any = Array.isArray(sapJson)
+                ? sapJson[0]
+                : Array.isArray(sapJson?.DATA)
+                  ? sapJson.DATA[0]
+                  : Array.isArray(sapJson?.data)
+                    ? sapJson.data[0]
+                    : sapJson;
+
               const findFirst = (obj: any, keys: string[]): any => {
                 if (!obj || typeof obj !== "object") return undefined;
                 const wanted = new Set(keys.map((key) => key.toUpperCase()));
@@ -280,11 +290,15 @@ export const releasePrItems = createServerFn({ method: "POST" })
                 }
                 return undefined;
               };
-              msgtxt = String(findFirst(sapJson, ["MSGTXT", "MESSAGE"]) ?? "");
+              msgtxt = String(findFirst(primary, ["MSGTXT", "MESSAGE"]) ?? "");
               const status = String(
-                findFirst(sapJson, ["STATUS", "MSGTY", "TYPE"]) ?? "",
+                findFirst(primary, ["STATUS", "MSGTY", "TYPE"]) ?? "",
               ).trim().toUpperCase();
-              const successStatuses = new Set(["S", "I", "SUCCESS", "OK", "RELEASED"]);
+              const successStatuses = new Set([
+                "S", "I", "SUCCESS", "OK", "RELEASED",
+                "TRUE", "T", "Y", "YES",
+              ]);
+              const failureStatuses = new Set(["FALSE", "F", "N", "NO", "E"]);
               const hasPayload =
                 sapJson !== null &&
                 typeof sapJson === "object" &&
@@ -294,11 +308,15 @@ export const releasePrItems = createServerFn({ method: "POST" })
                 errMsg = "SAP returned an empty response; release success could not be confirmed.";
               } else if (!status) {
                 errMsg = msgtxt || "SAP response did not include a release status.";
+              } else if (successStatuses.has(status)) {
+                ok = true;
+              } else if (failureStatuses.has(status)) {
+                errMsg = msgtxt || `SAP returned release status ${status}.`;
               } else {
-                ok = successStatuses.has(status);
-                if (!ok) errMsg = msgtxt || `SAP returned release status ${status}.`;
+                errMsg = msgtxt || `SAP returned release status ${status}.`;
               }
             }
+
           }
         }
 
