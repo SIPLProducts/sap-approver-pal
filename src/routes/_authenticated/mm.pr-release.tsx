@@ -127,6 +127,7 @@ function PrReleasePage() {
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
 
   const fetchFn = useServerFn(fetchPrReleaseMultiple);
   const mutation = useMutation({
