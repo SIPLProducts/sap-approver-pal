@@ -1,21 +1,28 @@
 ## Change
 
-In `src/components/aws/cloudscape-approval-table.tsx`, restructure the card's toolbar row so that on SD approval screens (and any screen using this shared table) the layout is a single row with:
+Update table header styling app-wide from the current light gray (#F8F9FA / slate text) to a dark charcoal (#1F2937) background with bold white text, while keeping sticky headers, padding, row hover, and alignment rules intact.
 
-- **Left:** the search input
-- **Right:** Reject button, then Accept button (green)
+All table styling is centralized in `src/styles.css` via CSS variables and rules covering both Cloudscape tables (`.awsui-app-scope`) and native `<table>` / `.data-table` elements. Only that file needs to change.
 
-### Details
+### Edits in `src/styles.css`
 
-Current toolbar has three logical groups: title + count (left), then search + extras + Reject + Accept (right). This will be reorganized to:
+1. Update the table header design tokens:
+   - `--table-header-bg: #1F2937` (was `#F8F9FA`)
+   - `--table-header-text: #FFFFFF` (was `#374151`)
+   - `--table-header-border: #1F2937` (match bg so the divider stays clean on dark)
+   - `--table-row-hover: #F1F2F4` (unchanged)
 
-```text
-[ 🔍 Search........... ]                          [ Reject ] [ Accept ]
-```
+2. Ensure header text weight is bold (`font-weight: 700`) and padding stays in the 12–16px range for both Cloudscape and native tables (already the case; keep as-is).
 
-- Move the title/count line above the toolbar row (or drop into a small header strip) so it doesn't compete for horizontal space — search stays flush left, buttons flush right.
-- Keep the toolbar as a single `flex items-center justify-between` row containing only: search (left) and action buttons (right).
-- `headerExtras` (if any) stays near the buttons on the right.
-- No changes to button colors, ordering (Reject before Accept), business logic, selection, pagination, or any screen files.
+3. Update the Cloudscape resizer color rule so the drag handle remains visible against the new dark header (use a light divider color instead of `--table-header-border`).
 
-This automatically covers all SD approval screens (Contract, Sales Order, Price, SC-SO, BMW Status, Reports) since they all render via `CloudscapeApprovalTable`.
+4. Keep sticky header positioning, left-align default, and right-align for `.num` / `[align="right"]` / `tabular-nums` cells — no changes needed there.
+
+5. Leave the sticky first-column background (`var(--card)`) alone so body cells remain readable; only header cells go dark.
+
+No component files, no business logic, no button styling changes.
+
+### Technical notes
+
+- Cloudscape header cell text color is enforced via the `[class*="awsui_header-cell-text"]` and sorting icon selectors already in place — they read from `--table-header-text`, so updating the token propagates automatically.
+- Uppercase 12px header treatment already applied globally stays; only color/background change.

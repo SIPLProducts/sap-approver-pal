@@ -120,9 +120,9 @@
   --shadow-rim: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
 
   /* Data table header styling */
-  --table-header-bg: #F8F9FA;
-  --table-header-text: #374151;
-  --table-header-border: #E5E7EB;
+  --table-header-bg: #1F2937;
+  --table-header-text: #FFFFFF;
+  --table-header-border: #1F2937;
   --table-row-hover: #F1F2F4;
 }
 
@@ -270,7 +270,7 @@
   font-weight: 700 !important;
 }
 .awsui-app-scope [class*="awsui_resizer"] {
-  background-color: var(--table-header-border) !important;
+  background-color: color-mix(in oklab, #FFFFFF 30%, transparent) !important;
 }
 .awsui-app-scope tbody tr:hover td {
   background-color: var(--table-row-hover) !important;
