@@ -1,0 +1,1 @@
+UPDATE public.sap_api_configs SET endpoint_url = '/mm_approve_mng/pr_rel/release?sap-client=300', http_method = 'PUT' WHERE name = 'PR_Release_API';
