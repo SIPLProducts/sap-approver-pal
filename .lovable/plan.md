@@ -1,29 +1,28 @@
-## Confirmed findings
+## Root cause (confirmed from your middleware log)
 
-- The Release button correctly collects only checked rows and sends `PREQ_NO`, `PREQ_ITEM`, Release Group, Release Code, and Remarks.
-- `PR_Release_API` is active, configured as `POST`, and its request fields correctly map to the required nested `RELEASE.*` payload.
-- Recent integration logs show SAP calls returning HTTP 200, but the middleware records the mapped response as `{}`.
-- The configured response paths are `[].MSGTXT` and `[].STATUS`, while the middleware’s response mapper does not support `[].` paths for a non-top-level array/object. It therefore strips the actual SAP response.
-- The server function then treats the empty response as successful because no status field exists, producing a false-positive release result with no SAP message.
+- App sends: `{"RELEASE":{"BANFN":"8000000204","BNFPO":"10","REL_CODE":"A1","REL_GRP":"S2","REMARKS":""}}`
+- Middleware forwards the exact same JSON to `POST /mm_approve_mng/zgp/zgp?sap-client=300` with the same Basic user (`SARVIINFO`) that works in Postman.
+- SAP replies `{"MESSAGES":[{"TYPE":"E","MESSAGE":"No data entered"}]}` — SAP is receiving the request but reading the body as empty.
 
-## Implementation plan
+Payload, URL, method, and auth are identical to Postman. The only thing that differs is the transport: for POST, the middleware currently uses Node's global `fetch` (undici), which does not always emit a `Content-Length` header — this ABAP ICF endpoint (`/mm_approve_mng/zgp/zgp`) reads the request body length from `Content-Length` and treats a missing/chunked body as "No data entered". The GET variant of the same endpoint already works from the middleware because we bypass undici via `rawHttpRequestWithBody`, which sets `Content-Length` explicitly (that path was added earlier for ZNFA).
 
-1. **Correct middleware response mapping**
-   - Extend the existing mapper to handle configured `[].FIELD` response paths without discarding the SAP response.
-   - Preserve the exact SAP message/status values and support common SAP envelopes or a direct object/array response.
-   - Keep this backward-compatible with existing APIs and do not alter the configured HTTP method or request payload.
+## Fix scope
 
-2. **Harden PR Release response validation**
-   - Check the middleware’s top-level `ok`, `status`, and `error` fields before marking a row successful.
-   - Parse `MSGTXT` and the configured `STATUS` field case-insensitively, while retaining compatibility with `MSGTY`, `TYPE`, and nested response envelopes.
-   - Never infer success from an empty `{}` response; return a clear row-level error instead.
+Middleware only. No app-side changes, no config changes, no business logic changes.
 
-3. **Preserve current UI behavior**
-   - Continue calling the API only from the Release button and only for checked rows.
-   - Keep per-row SAP message toasts and refresh/remove rows only when SAP explicitly reports success.
+### `middleware/server.js` — `invokeSap`
 
-4. **Validate the integration**
-   - Add focused response-mapping tests for direct object, array, and nested-envelope SAP responses.
-   - Verify the outbound payload remains exactly:
-     `{"RELEASE":{"BANFN":"...","BNFPO":"...","REL_CODE":"...","REL_GRP":"...","REMARKS":"..."}}`
-   - Confirm failed/empty middleware responses show an error and successful responses display `MSGTXT` and remove the released row.
+- Change `needsRawHttp` so any request that carries a body goes through `rawHttpRequestWithBody`, not just GET/DELETE/HEAD.
+  - New condition: `const needsRawHttp = body != null;`
+- `rawHttpRequestWithBody` already sets `Content-Length: Buffer.byteLength(body)` when the caller doesn't provide it, so POST/PUT will now include the header the SAP endpoint requires.
+- No other invoker (`invokeSapRaw`, health check) needs to change.
+
+### Verification
+
+- Middleware unit tests (`middleware/*.test.js`) — run `bunx vitest run middleware`. No test changes needed; this only alters transport.
+- Manual: click Release on a valid PR item; expect the middleware `raw sap body` log to now show the real SAP `[{ "MSGTXT": "...", "STATUS": "..." }]` array (matching Postman), and the app to display the toast + drop the row.
+
+## Notes
+
+- The `PR_Release_API` config stays `POST` (matches Postman).
+- The response mapping fix from the previous turn (envelope-preserving `mapSapResponse` + Release success detection) already handles the real SAP response array once transport is corrected — no further app changes.
