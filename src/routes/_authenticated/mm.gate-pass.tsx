@@ -102,7 +102,7 @@ function GatePassPage() {
         data: {
           header: {
             GATEPASS_NUMBER: h.GATEPASS_NUMBER ?? h.GATE_PASS_NUMBER ?? "",
-            GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? "",
+            GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? h.GATEPASS_TYPE ?? "",
             GATEPASS_DATE: h.GATEPASS_DATE ?? h.GATE_PASS_DATE ?? "",
             PLANT: h.PLANT ?? "",
             VEHICLE_NO: h.VEHICLE_NO ?? "",
