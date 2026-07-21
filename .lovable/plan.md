@@ -1,26 +1,24 @@
-## Root cause
+## Current state vs spec
 
-The Reject action never reaches the middleware because rows with an empty `PREQ_ITEM` are silently dropped before the server function is called.
+After the previous edit, the Reject flow already matches this spec:
 
-Confirmed:
-- `PR_Reject_API` exists in `sap_api_configs`, `is_active=true`, method `POST`, endpoint `/mm_approve_mng/pr_rel/release?sap-client=300` — so config isn't the blocker.
-- User's own example payload uses `"BNFPO": ""` (header-level reject).
-- In `src/routes/_authenticated/mm.pr-release.tsx` `onReject`, items are filtered with `it.PREQ_NO && it.PREQ_ITEM` — any row without a PR item is discarded, `items.length === 0` returns early, no toast, no server call.
-- Even if that filter passed, the shared `prActionInput` Zod validator in `src/lib/mm/pr-release.functions.ts` requires `PREQ_ITEM: z.string().trim().min(1)` and would reject the same payload with a validation error before `fetch`.
+- `src/routes/_authenticated/mm.pr-release.tsx` `onReject` maps only rows where `selected.has(k)` and filters by `PREQ_NO` — unselected rows are never included.
+- `src/lib/mm/pr-release.functions.ts` `rejectPrItems` → `processPrAction(..., "REJECT", ...)` sends, for each selected row:
+  ```json
+  { "REJECT": { "BANFN": "<PREQ_NO>", "BNFPO": "<PREQ_ITEM>", "REL_CODE": "<relcode>", "REL_GRP": "<relgroup>", "REMARKS": "<row remarks or ''>" } }
+  ```
+- `PR_Reject_API` is `POST /mm_approve_mng/pr_rel/release?sap-client=300`, `is_active=true` in `sap_api_configs`.
 
-Net effect: clicking Reject on such rows is a no-op — nothing hits `/sap/invoke`, matching "payload is not reaching the middleware."
+The only literal difference from the pasted spec is `REMARKS`: the spec shows `""`, while the UI currently forwards whatever is typed in the row's Remarks input (empty string when untouched).
 
-## Fix (UI + server function only, no middleware changes)
+## Proposed change
 
-1. `src/routes/_authenticated/mm.pr-release.tsx` — in `onReject`, drop the `it.PREQ_ITEM` requirement from the filter (keep the `PREQ_NO` requirement). Do not touch `onRelease`.
-2. `src/lib/mm/pr-release.functions.ts` — split the input schema so Reject allows empty `PREQ_ITEM`:
-   - Keep `prActionInput` (min 1) for `releasePrItems`.
-   - Add `prRejectInput` identical to it but with `PREQ_ITEM: z.string().trim().default("")` and use it in `rejectPrItems.inputValidator`.
-   - `processPrAction` already forwards `PREQ_ITEM` verbatim into `BNFPO`, so empty string flows through unchanged.
-3. If nothing is selected or `PREQ_NO` is missing, keep current silent no-op behavior (existing Release parity).
+Keep the current behavior — forward the row's `REMARKS` value (defaulting to `""`) — since the Remarks column was added earlier specifically to be sent to SAP, and the spec's `""` reads as an example, not a hard override. No code changes.
 
-## Out of scope
+## Confirm before I proceed
 
-- No middleware changes.
-- No changes to Release logic, response parsing, config lookup, or table refresh.
-- No changes to column labels or unrelated screens.
+Should `REMARKS` in the Reject payload be:
+- (A) Left as-is: use the row's Remarks input, `""` when empty (current behavior), or
+- (B) Hard-coded to `""` for Reject regardless of what the user types?
+
+If (A), there is nothing to change and I'll close this out. If (B), I'll update `rejectPrItems` to override `REMARKS` to `""` in `src/lib/mm/pr-release.functions.ts` only.
