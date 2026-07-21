@@ -1,29 +1,32 @@
 ## Problem
 
-In the Gate Pass screen, the editable checkboxes inside the results table (HOD Approval, HOD Rejection, Store Approval) don't toggle when clicked.
-
-## Root cause
-
-`CloudscapeApprovalTable` renders each cell with `c.cell(r)`, passing the raw row object — it does not attach a `__key` property to the row. In `mm.gate-pass.tsx`, `updateRowField` computes the target key as `(item as any).__key ?? rowKey(item, -1)`. Because `__key` is undefined and `-1` is not any row's actual index, the resulting key never matches `rowKey(r, i)` for any `i` in `setRows(...)`, so no row is ever updated and the checkbox appears frozen.
-
-The row-selection checkbox in the leftmost column works because that flow goes through the table's own `toggleRow(k, checked)` using the correct index-based key.
+In Gate Pass save, `GATE_PASS_TYPE` in the outgoing payload is empty. The fetch response header uses the SAP key `GATEPASS_TYPE` (matching the sibling `GATEPASS_NUMBER` / `GATEPASS_DATE` naming), but both the client and server read `GATE_PASS_TYPE`, so the value is never picked up.
 
 ## Fix
 
-Change `updateRowField` in `src/routes/_authenticated/mm.gate-pass.tsx` to match the target row by object reference instead of by computed key:
+Read the value from either key when building the save payload, without touching fetch logic or any other field.
 
-```ts
-function updateRowField(item: DataRow, key: string, value: any) {
-  setRows((prev) => prev.map((r) => (r === item ? { ...r, [key]: value } : r)));
-}
-```
+1. `src/routes/_authenticated/mm.gate-pass.tsx` — in the `saveMutation` header mapping, change:
+   ```ts
+   GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? "",
+   ```
+   to:
+   ```ts
+   GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? h.GATEPASS_TYPE ?? "",
+   ```
 
-The row reference passed into `c.cell(item)` is the same object stored in the `rows` state array (the table wraps it in `{ r, i, k }` but passes `r` back), so reference equality is reliable and avoids the mismatched-index bug.
+2. `src/lib/mm/gate-pass.functions.ts` — in `saveGatePass` handler, when building `payload`, change:
+   ```ts
+   GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? "",
+   ```
+   to:
+   ```ts
+   GATE_PASS_TYPE: (h.GATE_PASS_TYPE ?? (h as any).GATEPASS_TYPE ?? ""),
+   ```
+   (schema already `.passthrough()`, so `GATEPASS_TYPE` survives validation.)
 
-No changes to `CloudscapeApprovalTable`, the API, or any other screen.
+No changes to fetch, business logic, UI, or other fields.
 
 ## Verification
 
-- Open Gate Pass, execute a fetch, click HOD Approval / HOD Rejection / Store Approval checkboxes on rows and confirm they toggle.
-- Confirm row-selection checkboxes (leftmost column) still work.
-- Confirm Save still sends only selected rows with the edited values.
+Execute Gate Pass, select rows, Save, and confirm the outgoing SAP payload now contains the correct `GATE_PASS_TYPE` value from the header.
