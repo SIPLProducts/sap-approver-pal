@@ -1,28 +1,29 @@
-## Change
+## Problem
 
-Update table header styling app-wide from the current light gray (#F8F9FA / slate text) to a dark charcoal (#1F2937) background with bold white text, while keeping sticky headers, padding, row hover, and alignment rules intact.
+In the Gate Pass screen, the editable checkboxes inside the results table (HOD Approval, HOD Rejection, Store Approval) don't toggle when clicked.
 
-All table styling is centralized in `src/styles.css` via CSS variables and rules covering both Cloudscape tables (`.awsui-app-scope`) and native `<table>` / `.data-table` elements. Only that file needs to change.
+## Root cause
 
-### Edits in `src/styles.css`
+`CloudscapeApprovalTable` renders each cell with `c.cell(r)`, passing the raw row object — it does not attach a `__key` property to the row. In `mm.gate-pass.tsx`, `updateRowField` computes the target key as `(item as any).__key ?? rowKey(item, -1)`. Because `__key` is undefined and `-1` is not any row's actual index, the resulting key never matches `rowKey(r, i)` for any `i` in `setRows(...)`, so no row is ever updated and the checkbox appears frozen.
 
-1. Update the table header design tokens:
-   - `--table-header-bg: #1F2937` (was `#F8F9FA`)
-   - `--table-header-text: #FFFFFF` (was `#374151`)
-   - `--table-header-border: #1F2937` (match bg so the divider stays clean on dark)
-   - `--table-row-hover: #F1F2F4` (unchanged)
+The row-selection checkbox in the leftmost column works because that flow goes through the table's own `toggleRow(k, checked)` using the correct index-based key.
 
-2. Ensure header text weight is bold (`font-weight: 700`) and padding stays in the 12–16px range for both Cloudscape and native tables (already the case; keep as-is).
+## Fix
 
-3. Update the Cloudscape resizer color rule so the drag handle remains visible against the new dark header (use a light divider color instead of `--table-header-border`).
+Change `updateRowField` in `src/routes/_authenticated/mm.gate-pass.tsx` to match the target row by object reference instead of by computed key:
 
-4. Keep sticky header positioning, left-align default, and right-align for `.num` / `[align="right"]` / `tabular-nums` cells — no changes needed there.
+```ts
+function updateRowField(item: DataRow, key: string, value: any) {
+  setRows((prev) => prev.map((r) => (r === item ? { ...r, [key]: value } : r)));
+}
+```
 
-5. Leave the sticky first-column background (`var(--card)`) alone so body cells remain readable; only header cells go dark.
+The row reference passed into `c.cell(item)` is the same object stored in the `rows` state array (the table wraps it in `{ r, i, k }` but passes `r` back), so reference equality is reliable and avoids the mismatched-index bug.
 
-No component files, no business logic, no button styling changes.
+No changes to `CloudscapeApprovalTable`, the API, or any other screen.
 
-### Technical notes
+## Verification
 
-- Cloudscape header cell text color is enforced via the `[class*="awsui_header-cell-text"]` and sorting icon selectors already in place — they read from `--table-header-text`, so updating the token propagates automatically.
-- Uppercase 12px header treatment already applied globally stays; only color/background change.
+- Open Gate Pass, execute a fetch, click HOD Approval / HOD Rejection / Store Approval checkboxes on rows and confirm they toggle.
+- Confirm row-selection checkboxes (leftmost column) still work.
+- Confirm Save still sends only selected rows with the edited values.
