@@ -1,45 +1,31 @@
-## Goal
+## Root cause (confirmed)
 
-Make the "Release" button on the PR Release screen call `PR_Release_API` for every checked row using the exact payload shape SAP expects, correctly interpret the array response `[{ "MSGTXT": "...", "STATUS": "TRUE"|"FALSE" }]`, toast each row's `MSGTXT`, and remove only the successfully released rows from the table.
+The middleware is working. The problem is the `PR_Release_API` row in `sap_api_configs`:
 
-## Current state (confirmed from `src/lib/mm/pr-release.functions.ts` and `src/routes/_authenticated/mm.pr-release.tsx`)
+| Config | endpoint_url | method |
+|---|---|---|
+| **PR_Release_API** (used by Release button) | `/mm_approve_mng/zgp/zgp?sap-client=300` | POST |
+| Gate_Pass_Fetch_API | `/mm_approve_mng/zgp/zgp?sap-client=300` | GET |
+| PR_Release_Multiple_Fetch_API | `/mm_approve_mng/pr_rel/release?sap-client=300` | PUT |
 
-- Payload is already built as `{ RELEASE: { BANFN, BNFPO, REL_CODE, REL_GRP, REMARKS } }` per checked row — matches the spec.
-- Response handling uses a recursive `findFirst` that walks into nested objects/arrays looking for `STATUS`/`MSGTXT`. For an array response it descends into element 0, which works, but success detection treats only `S / I / SUCCESS / OK / RELEASED` as success. The real SAP response uses `STATUS: "TRUE"` for success and `"FALSE"` for failure (e.g. "already released"), so genuine successes are currently reported as failures and rows never leave the table.
-- Optimistic removal is keyed off `ok === true`, so with the wrong success set nothing gets filtered out.
-- Middleware transport for POST is already routed through `rawHttpRequestWithBody` (explicit `Content-Length`), so the request itself reaches SAP correctly.
+`PR_Release_API` is pointing at the **Gate Pass** ICF endpoint (`/zgp/zgp`), not the PR release endpoint. That's why SAP replies `{"MESSAGES":[{"TYPE":"E","MESSAGE":"No data entered"}]}` — the gate-pass service doesn't understand a `RELEASE` payload. Postman works because in Postman you are hitting the correct PR release URL directly.
 
-## Fix scope (app code only, `src/lib/mm/pr-release.functions.ts`)
+The trace log confirms this: `outbound POST http://10.150.150.154:8103/mm_approve_mng/zgp/zgp` — that URL is coming straight from the config row, not from the middleware or app code.
 
-1. Response parsing
-   - When the SAP response (post-middleware unwrap via `json.data`) is an array, read element 0 explicitly instead of relying only on recursive descent — this keeps behavior obvious and matches the documented shape `[{ MSGTXT, STATUS }]`.
-   - Continue supporting object-shaped responses via the existing `findFirst` fallback.
+## Fix
 
-2. Success detection
-   - Extend the `successStatuses` set to include SAP's boolean-style values: `TRUE`, `T`, `Y`, `YES` (keeps the existing `S / I / SUCCESS / OK / RELEASED`).
-   - Explicit failure values (`FALSE`, `F`, `N`, `NO`, `E`) map to `ok = false` with `errMsg = msgtxt` so the toast shows SAP's exact reason (e.g. "already released").
-   - Empty/missing status still falls back to the current "empty response" / "no status" error paths — unchanged.
+Update the `PR_Release_API` config to the correct SAP ICF path/method used in Postman. Based on the sibling `PR_Release_Multiple_Fetch_API`, the likely correct values are:
 
-3. Row bookkeeping (no UI change needed)
-   - `releasePrItems` continues to return `{ preq_no, preq_item, ok, msgtxt, error }` per row.
-   - `mm.pr-release.tsx` already:
-     - toasts `PR <BANFN>/<BNFPO>: <MSGTXT or error>` per row,
-     - filters rows where `ok === true` out of local table state,
-     - clears selection + remarks for removed rows,
-     - re-fetches the pending list.
-   - With the corrected success set, successful rows will now actually disappear; failed rows (including "already released") stay in the table with an error toast — matches the requested behavior.
+- **endpoint_url:** `/mm_approve_mng/pr_rel/release?sap-client=300` (or the full URL the Postman request uses)
+- **http_method:** `PUT` (Postman's method — please confirm)
 
-4. Logging
-   - Keep the existing `sap_api_sync_log` insert per row; status becomes `ok` only when `ok && !errMsg`, so logs mirror the new interpretation.
+Two ways to apply:
 
-## Out of scope
+1. **Recommended:** Open **Admin → SAP API → PR_Release_API**, paste the exact URL and method you use in Postman, save.
+2. **Or** I can run a migration that sets `endpoint_url` and `http_method` on the `PR_Release_API` row — I just need the exact URL + method from your Postman request (path + `?sap-client=300` is enough; base URL comes from the middleware).
 
-- No middleware changes (`middleware/server.js`, `response-mapper.js`) — POST transport and `[].FIELD` envelope preservation are already correct.
-- No changes to `PR_Release_API` config, payload shape, or the PR Release UI layout, columns, buttons, or fetch flow.
-- No changes to other MM screens.
+No app or middleware code changes are needed — the earlier PR release response-parsing fixes already handle the array `[{ "MSGTXT": ..., "STATUS": "TRUE" }]` shape.
 
-## Verification
+## What I need from you
 
-- Manual: check a row with a valid PR and click Release → toast shows SAP `MSGTXT`, row disappears, list refreshes.
-- Manual: check an already-released row → toast shows "…already released", row stays.
-- Existing middleware tests (`bunx vitest run middleware`) still pass; no test changes required for this app-side edit.
+Please share (or confirm) the exact **URL** and **HTTP method** of the PR release call in Postman, or approve option 2 with the values above so I can apply the DB update.
