@@ -171,10 +171,7 @@ function GatePassPage() {
   }
 
   function updateRowField(item: DataRow, key: string, value: any) {
-    const targetKey = (item as any).__key ?? rowKey(item, -1);
-    setRows((prev) =>
-      prev.map((r, i) => (rowKey(r, i) === targetKey ? { ...r, [key]: value } : r)),
-    );
+    setRows((prev) => prev.map((r) => (r === item ? { ...r, [key]: value } : r)));
   }
 
   const headerKeys = useMemo<string[]>(() => {
