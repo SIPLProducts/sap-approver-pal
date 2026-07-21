@@ -401,9 +401,19 @@ function PrReleasePage() {
 
       {showResults && (
         <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-3">
             <div className="text-xs font-semibold text-muted-foreground">
-              RESULTS · {rows.length} row(s) · {selected.size} selected
+              RESULTS · {filteredRows.length}
+              {search.trim() ? ` / ${rows.length}` : ""} row(s) · {selected.size} selected
+            </div>
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search results..."
+                className="h-9 text-sm pl-8"
+              />
             </div>
           </div>
 
@@ -426,14 +436,14 @@ function PrReleasePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.length === 0 ? (
+                {filteredRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={columns.length + 1} className="text-center text-sm text-muted-foreground py-6">
-                      No data available.
+                      {rows.length === 0 ? "No data available." : "No results match your search."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((r, i) => {
+                  filteredRows.map(({ r, i }) => {
                     const k = rowKey(r, i);
                     const checked = selected.has(k);
                     return (
