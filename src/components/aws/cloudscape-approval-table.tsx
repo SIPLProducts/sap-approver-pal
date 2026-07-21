@@ -216,12 +216,15 @@ export function CloudscapeApprovalTable<T>({
         </div>
       </div>
 
-      <div className="overflow-x-auto border rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
+      <div
+        className="overflow-auto border rounded-md"
+        style={{ maxHeight: "calc(100vh - 220px)" }}
+      >
+        <table className="w-full caption-bottom text-sm">
+          <TableHeader className="sticky top-0 z-10">
+            <TableRow className="bg-[var(--table-header-bg)] hover:bg-[var(--table-header-bg)] border-b border-[var(--table-header-border)]">
               {showSelect && (
-                <TableHead className="w-10">
+                <TableHead className="w-10 h-12 px-4 py-3 bg-[var(--table-header-bg)] text-[var(--table-header-text)] font-bold border-b border-[var(--table-header-border)]">
                   <Checkbox
                     checked={allSelected ? true : someSelected ? "indeterminate" : false}
                     onCheckedChange={(v) => toggleAll(v === true)}
@@ -232,7 +235,7 @@ export function CloudscapeApprovalTable<T>({
               {allColumns.map((c) => (
                 <TableHead
                   key={c.id}
-                  className="whitespace-nowrap text-xs"
+                  className="whitespace-nowrap text-xs h-12 px-4 py-3 bg-[var(--table-header-bg)] text-[var(--table-header-text)] font-bold border-b border-[var(--table-header-border)]"
                   style={{ minWidth: c.minWidth ?? 120, textAlign: c.align === "right" ? "right" : undefined }}
                 >
                   {c.header}
@@ -245,7 +248,7 @@ export function CloudscapeApprovalTable<T>({
               <TableRow>
                 <TableCell
                   colSpan={allColumns.length + (showSelect ? 1 : 0)}
-                  className="text-center text-sm text-muted-foreground py-8"
+                  className="text-center text-sm text-muted-foreground px-3 py-3"
                 >
                   <Loader2 className="inline h-4 w-4 mr-2 animate-spin" />
                   Fetching from SAP…
@@ -255,7 +258,7 @@ export function CloudscapeApprovalTable<T>({
               <TableRow>
                 <TableCell
                   colSpan={allColumns.length + (showSelect ? 1 : 0)}
-                  className="text-center text-sm text-muted-foreground py-6"
+                  className="text-center text-sm text-muted-foreground px-3 py-3"
                 >
                   {rows.length === 0
                     ? emptyMessage ?? "No records."
@@ -266,9 +269,9 @@ export function CloudscapeApprovalTable<T>({
               paged.map(({ r, i, k }) => {
                 const checked = selectedKeys?.has(k) ?? false;
                 return (
-                  <TableRow key={k} data-state={checked ? "selected" : undefined}>
+                  <TableRow key={k} data-state={checked ? "selected" : undefined} className="hover:bg-[var(--table-row-hover)]">
                     {showSelect && (
-                      <TableCell>
+                      <TableCell className="px-3 py-3">
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) => toggleRow(k, v === true)}
@@ -279,7 +282,7 @@ export function CloudscapeApprovalTable<T>({
                     {allColumns.map((c) => (
                       <TableCell
                         key={c.id}
-                        className="whitespace-nowrap text-xs"
+                        className="whitespace-nowrap text-xs px-3 py-3"
                         style={{ textAlign: c.align === "right" ? "right" : undefined }}
                       >
                         {c.cell(r)}
@@ -290,7 +293,7 @@ export function CloudscapeApprovalTable<T>({
               })
             )}
           </TableBody>
-        </Table>
+        </table>
       </div>
 
       {filtered.length > pageSize && (
