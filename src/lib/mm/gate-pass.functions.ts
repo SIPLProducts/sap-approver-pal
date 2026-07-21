@@ -259,7 +259,7 @@ export const saveGatePass = createServerFn({ method: "POST" })
 
     const payload: Record<string, any> = {
       GATEPASS_NUMBER: gpNumNumeric,
-      GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? "",
+      GATE_PASS_TYPE: h.GATE_PASS_TYPE ?? (h as any).GATEPASS_TYPE ?? "",
       GATEPASS_DATE: h.GATEPASS_DATE ?? "",
       PLANT: h.PLANT ?? "",
       VEHICLE_NO: h.VEHICLE_NO ?? "",
