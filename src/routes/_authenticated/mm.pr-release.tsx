@@ -167,7 +167,19 @@ function PrReleasePage() {
     setRemarks({});
   }
 
-  const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const withIdx = rows.map((r, i) => ({ r, i }));
+    if (!q) return withIdx;
+    return withIdx.filter(({ r }) =>
+      Object.values(r).some((v) => String(v ?? "").toLowerCase().includes(q)),
+    );
+  }, [rows, search]);
+
+  const allKeys = useMemo(
+    () => filteredRows.map(({ r, i }) => rowKey(r, i)),
+    [filteredRows],
+  );
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
   const someSelected = selected.size > 0 && !allSelected;
 
