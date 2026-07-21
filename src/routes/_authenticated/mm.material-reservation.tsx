@@ -350,9 +350,12 @@ function MaterialReservationPage() {
           <div className="flex justify-end">
             <Button
               size="sm"
-              disabled={selected.size === 0}
-              onClick={() => toast.info(`Save clicked (${selected.size} selected)`)}
+              disabled={selected.size === 0 || saveMutation.isPending}
+              onClick={onSave}
             >
+              {saveMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : null}
               Save
             </Button>
           </div>
