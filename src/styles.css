@@ -416,4 +416,66 @@ td.tabular-nums {
   }
 }
 
+/* ---------- Cloudscape approval tables: PR Release look ---------- */
+/* Scoped to .awsui-app-scope so it never leaks to shadcn tables. */
+
+.awsui-app-scope [class*="awsui_wrapper"]:has(> table),
+.awsui-app-scope [class*="awsui_wrapper-content"]:has(table) {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.awsui-app-scope table thead tr,
+.awsui-app-scope table thead th,
+.awsui-app-scope table thead [class*="awsui_header-cell"] {
+  background-color: var(--primary) !important;
+  background-image: none !important;
+  color: var(--primary-foreground) !important;
+  border-color: color-mix(in oklab, var(--primary) 70%, black 15%) !important;
+}
+.awsui-app-scope table thead th,
+.awsui-app-scope table thead [class*="awsui_header-cell-content"],
+.awsui-app-scope table thead [class*="awsui_header-cell-text"] {
+  color: var(--primary-foreground) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+}
+.awsui-app-scope table thead [class*="awsui_sorting-icon"] svg,
+.awsui-app-scope table thead [class*="awsui_resizer"],
+.awsui-app-scope table thead [class*="awsui_header-cell"] svg {
+  color: var(--primary-foreground) !important;
+  fill: currentColor !important;
+}
+.awsui-app-scope table thead [class*="awsui_selection-control"] [class*="awsui_styled-box"] {
+  border-color: var(--primary-foreground) !important;
+  background-color: transparent !important;
+}
+.awsui-app-scope table thead [class*="awsui_selection-control"] [class*="awsui_checkbox-checked"] [class*="awsui_styled-box"] {
+  background-color: var(--primary-foreground) !important;
+}
+.awsui-app-scope table thead [class*="awsui_selection-control"] [class*="awsui_styled-box"] svg {
+  color: var(--primary) !important;
+}
+
+.awsui-app-scope table tbody td,
+.awsui-app-scope table tbody [class*="awsui_body-cell"] {
+  font-size: 12px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+.awsui-app-scope table tbody tr:hover td {
+  background-color: var(--muted) !important;
+}
+.awsui-app-scope table tbody tr[class*="awsui_row-selected"] td,
+.awsui-app-scope table tbody tr[aria-selected="true"] td {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+.awsui-app-scope table tbody tr[class*="awsui_row-striped"] td {
+  background-color: color-mix(in oklab, var(--muted) 45%, transparent) !important;
+}
+
+
 
