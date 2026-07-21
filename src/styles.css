@@ -245,12 +245,12 @@
   }
 }
 
-/* Cloudscape table header: match sidebar background */
+/* Cloudscape table header: light gray, dark slate bold text */
 .awsui-app-scope table thead th,
 .awsui-app-scope [class*="awsui_header-cell"] {
-  background-color: var(--sidebar) !important;
-  color: var(--sidebar-foreground) !important;
-  border-color: var(--sidebar-border) !important;
+  background-color: var(--table-header-bg) !important;
+  color: var(--table-header-text) !important;
+  border-color: var(--table-header-border) !important;
 }
 
 /* Sticky table header: rows scroll inside the table, single real <thead> pinned */
@@ -266,11 +266,42 @@
 .awsui-app-scope [class*="awsui_header-cell"] *,
 .awsui-app-scope [class*="awsui_header-cell-text"],
 .awsui-app-scope [class*="awsui_sorting-icon"] {
-  color: var(--sidebar-foreground) !important;
+  color: var(--table-header-text) !important;
+  font-weight: 700 !important;
 }
 .awsui-app-scope [class*="awsui_resizer"] {
-  background-color: var(--sidebar-border) !important;
+  background-color: var(--table-header-border) !important;
 }
+.awsui-app-scope tbody tr:hover td {
+  background-color: var(--table-row-hover) !important;
+}
+
+/* App-wide plain <table> defaults — light gray sticky header, hover row */
+table thead th {
+  background-color: var(--table-header-bg);
+  color: var(--table-header-text);
+  font-weight: 700;
+  border-bottom: 1px solid var(--table-header-border);
+  padding: 12px 16px;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+table thead th.num,
+table thead th[align="right"],
+table thead th[data-align="right"],
+table tbody td.num,
+table tbody td.tabular-nums,
+table tbody td[align="right"],
+table tbody td[data-align="right"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+table tbody tr:hover td {
+  background-color: var(--table-row-hover);
+}
+
 
 /* Cloudscape Accept (primary) / Reject (normal) buttons in table header actions */
 .awsui-app-scope button[class*="awsui_variant-primary"] {
