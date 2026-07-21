@@ -167,7 +167,7 @@ export function CloudscapeApprovalTable<T>({
 
   return (
     <Card className="p-4">
-      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+      <div className="mb-3 space-y-2">
         <div className="flex items-center gap-3 min-w-0">
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
             {title}
@@ -178,7 +178,7 @@ export function CloudscapeApprovalTable<T>({
             {showSelect && selectedKeys ? ` · ${selectedKeys.size} selected` : ""}
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -191,31 +191,34 @@ export function CloudscapeApprovalTable<T>({
               className="h-9 text-sm pl-8"
             />
           </div>
-          {headerExtras}
-          {showSelect && onReject && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={onReject}
-              disabled={rejectDisabled}
-            >
-              {rejectLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-              Reject
-            </Button>
-          )}
-          {showSelect && onAccept && (
-            <Button
-              size="sm"
-              onClick={onAccept}
-              disabled={acceptDisabled}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {acceptLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-              Accept
-            </Button>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {headerExtras}
+            {showSelect && onReject && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={onReject}
+                disabled={rejectDisabled}
+              >
+                {rejectLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                Reject
+              </Button>
+            )}
+            {showSelect && onAccept && (
+              <Button
+                size="sm"
+                onClick={onAccept}
+                disabled={acceptDisabled}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {acceptLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                Accept
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+
 
       <div
         className="overflow-auto border rounded-md"
