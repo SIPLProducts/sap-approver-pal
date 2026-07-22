@@ -7,6 +7,14 @@ import { sapForgot } from "@/lib/auth/sap-forgot.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
 import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
