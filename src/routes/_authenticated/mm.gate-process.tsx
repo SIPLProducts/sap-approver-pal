@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -49,6 +49,8 @@ function GateProcessPage() {
   const [rows, setRows] = useState<GateRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<ZnfaOutput | null>(null);
+  const [itemRemarks, setItemRemarks] = useState<Record<number, string>>({});
+  const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
@@ -70,6 +72,7 @@ function GateProcessPage() {
       setRows(res.rows);
       setSelected(new Set());
       setOutput(null);
+      setItemRemarks({});
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -100,7 +103,14 @@ function GateProcessPage() {
         toast.error(res.error);
       } else {
         setOutput(res.output);
+        const items = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS : [];
+        const init: Record<number, string> = {};
+        items.forEach((it, i) => (init[i] = toStr(it.REMARKS)));
+        setItemRemarks(init);
         toast.success("Request submitted successfully");
+        requestAnimationFrame(() => {
+          outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
       }
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to submit"),
@@ -119,6 +129,7 @@ function GateProcessPage() {
     setRows([]);
     setSelected(new Set());
     setOutput(null);
+    setItemRemarks({});
   }
 
   function handleAction(action: ZnfaAction) {
@@ -204,6 +215,7 @@ function GateProcessPage() {
                     disabled={selected.size === 0 || createMutation.isPending}
                     onClick={() => handleAction(action)}
                     className={className}
+                    title={action === "RATE" ? "Triggers ZNFA_Create_API" : undefined}
                   >
                     {createMutation.isPending && createMutation.variables?.action === action ? (
                       <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -214,9 +226,12 @@ function GateProcessPage() {
               </div>
             }
           />
+          <div className="text-xs text-muted-foreground -mt-2">
+            <span className="font-medium text-foreground">Rating</span> triggers the <code className="text-[11px]">ZNFA_Create_API</code>.
+          </div>
 
           {output && (
-            <Card className="p-4 space-y-5">
+            <Card ref={outputRef} className="p-4 space-y-5">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
                 <Filter className="h-3.5 w-3.5" /> OUTPUT
               </div>
@@ -261,7 +276,16 @@ function GateProcessPage() {
                             <TableCell className="text-xs">{toStr(item.TENDER_SPEC)}</TableCell>
                             <TableCell className="text-xs">{toStr(item.UOM)}</TableCell>
                             <TableCell className="text-xs">{toStr(item.VENDOR_NAME)}</TableCell>
-                            <TableCell className="text-xs">{toStr(item.REMARKS)}</TableCell>
+                            <TableCell className="text-xs">
+                              <Input
+                                value={itemRemarks[idx] ?? toStr(item.REMARKS)}
+                                onChange={(e) =>
+                                  setItemRemarks((prev) => ({ ...prev, [idx]: e.target.value }))
+                                }
+                                className="h-8 text-xs"
+                                placeholder="Enter remarks"
+                              />
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
