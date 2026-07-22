@@ -492,6 +492,7 @@ export const sapForgot = createServerFn({ method: "POST" })
         return value == null ? "" : String(value);
       };
       const { html, text } = buildCredentialsEmail({ fields, recipient: recipientEmail });
+      const logoAttachment = await fetchLogoAttachment();
       const info = await transport.sendMail({
         from: noReply.from_name
           ? `${noReply.from_name} <${noReply.from_email}>`
@@ -502,6 +503,17 @@ export const sapForgot = createServerFn({ method: "POST" })
 
         html,
         text,
+        attachments: logoAttachment
+          ? [
+              {
+                filename: logoAttachment.filename,
+                content: logoAttachment.content,
+                contentType: logoAttachment.contentType,
+                cid: logoAttachment.cid,
+                contentDisposition: "inline",
+              },
+            ]
+          : [],
       });
 
       const mailInfo = info as {
