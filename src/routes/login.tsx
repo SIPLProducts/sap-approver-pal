@@ -226,10 +226,8 @@ function LoginPage() {
             <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Reset your password</DialogTitle>
-                  <DialogDescription>
-                    Enter your account email and we'll send you a password reset link.
-                  </DialogDescription>
+                  <DialogTitle>Recover your password</DialogTitle>
+                  <DialogDescription>Enter your account email and we'll send you a password.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-2 py-2">
                   <Label htmlFor="forgotEmail" className="text-xs font-medium uppercase tracking-wide">
