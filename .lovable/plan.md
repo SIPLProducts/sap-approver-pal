@@ -1,28 +1,42 @@
-Plan: Fix Forgot Password email logo visibility
+## Plan: Forgot Password Modal Popup
 
-1. Diagnosis
-   - The Forgot Password email in `src/lib/auth/sap-forgot.functions.ts` references the logo with a hardcoded absolute URL: `https://sap-approver-pal.lovable.app/__l5e/assets-v1/...`.
-   - This URL currently returns an HTTP 302 redirect to the custom domain (`smartapps.siplproducts.com`). Many email clients block or do not follow cross-domain redirects for images, causing the top-left logo to appear broken on desktop/laptop clients.
+### Current state
+- `src/routes/login.tsx` contains a small inline "Forgot?" link that, when clicked, expands a panel below the password field with an Email input + Send button.
+- The SAP-based forgot password API (`sapForgot`) already works and must not change.
 
-2. Fix approach
-   - At email send time, fetch the logo image bytes from the asset URL.
-   - Attach the image inline to the nodemailer message using `attachments: [{ cid: 're-logo', ... }]`.
-   - Change the HTML `<img src="...">` to use `src="cid:re-logo"` so the image is embedded and does not rely on external URLs or redirects.
-   - Make the logo image responsive: add `max-width:100%; height:auto;` CSS and keep the explicit `width`/`height` attributes for email-client fallback.
+### Goal
+Open a popup/modal matching the provided reference design when the user clicks "Forgot" on the login page. The modal should contain:
+- Title: "Reset your password"
+- Subtitle: "Enter your account email and we'll send you a password reset link."
+- Email label and input
+- Two bottom-right actions: "Cancel" and "Send reset link" (primary)
+- Close (X) button in the top-right
 
-3. Files to change
-   - `src/lib/auth/sap-forgot.functions.ts`
-     - Add a helper to fetch the logo asset and return it as a Buffer with the correct MIME type.
-     - Update `buildCredentialsEmail` to use `cid:re-logo` instead of the external `LOGO_URL`.
-     - Update `transport.sendMail` to include the inline attachment.
-     - Add responsive image styles (e.g., `style="width:100%;max-width:52px;height:auto;"`).
+### Implementation steps
 
-4. No other changes
-   - This fix only touches the Forgot Password email template and logo embedding logic.
-   - No SAP API, middleware, UI, business logic, or other email templates will be modified.
+1. **Import the shadcn Dialog components** in `src/routes/login.tsx`.
+   - Add `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter` from `@/components/ui/dialog`.
 
-5. Verification
-   - After the change, trigger a Forgot Password flow and inspect the sent email source to confirm:
-     - The `<img>` uses `src="cid:re-logo"`.
-     - The MIME message contains an inline attachment with `Content-ID: <re-logo>`.
-   - Visually confirm the logo renders in the email preview on both desktop and mobile layouts.
+2. **Remove the inline forgot section** (lines ~218-261).
+   - Delete the conditional `forgotOpen && mode === "signin"` block that renders inline.
+
+3. **Wrap the existing forgot handler inside a Dialog**.
+   - Add a `Dialog open={forgotOpen} onOpenChange={setForgotOpen}`.
+   - Use `DialogContent` with `className="sm:max-w-md"`.
+   - Use `DialogHeader` with:
+     - `DialogTitle` = "Reset your password"
+     - `DialogDescription` = "Enter your account email and we'll send you a password reset link."
+   - Add `DialogFooter` with:
+     - "Cancel" button (`variant="outline"`) calling `setForgotOpen(false)`
+     - "Send reset link" button (primary `Button`) that calls the existing `sapForgotFn` handler.
+
+4. **Keep the existing API integration and state logic unchanged**.
+   - Retain `forgotOpen`, `setForgotOpen`, `forgotEmail`, `setForgotEmail`, `forgotBusy`, `setForgotBusy`.
+   - Keep the existing `sapForgotFn({ data: { email: forgotEmail.trim() } })` call and success/error toast handling.
+
+5. **Verify build**.
+   - Run a build check to ensure no TypeScript/import errors and no duplicate JSX tags.
+
+### No changes needed
+- Backend / SAP forgot password logic (`sapForgot` server function).
+- Authentication flow or other login UI elements.

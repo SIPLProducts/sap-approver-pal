@@ -7,6 +7,14 @@ import { sapForgot } from "@/lib/auth/sap-forgot.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
 import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
@@ -215,24 +223,42 @@ function LoginPage() {
                 className="h-11"
               />
             </div>
-            {forgotOpen && mode === "signin" && (
-              <div className="rounded-xl border bg-secondary/40 p-4 space-y-2">
-                <Label htmlFor="forgotEmail" className="text-xs font-medium">
-                  Email
-                </Label>
-                <div className="flex gap-2">
+            <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Reset your password</DialogTitle>
+                  <DialogDescription>
+                    Enter your account email and we'll send you a password reset link.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 py-2">
+                  <Label htmlFor="forgotEmail" className="text-xs font-medium uppercase tracking-wide">
+                    Email
+                  </Label>
                   <Input
                     id="forgotEmail"
                     type="email"
-                    placeholder="Enter your mail"
+                    placeholder="you@company.com"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
-                    className="h-10 flex-1"
+                    className="h-11"
+                    autoFocus
                   />
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setForgotOpen(false)}
+                    disabled={forgotBusy}
+                    className="h-11"
+                  >
+                    Cancel
+                  </Button>
                   <Button
                     type="button"
                     disabled={forgotBusy || !forgotEmail.trim()}
-                    className="h-10"
+                    className="h-11"
                     onClick={async () => {
                       setForgotBusy(true);
                       try {
@@ -251,14 +277,11 @@ function LoginPage() {
                       }
                     }}
                   >
-                    {forgotBusy ? "Sending…" : "Send"}
+                    {forgotBusy ? "Sending…" : "Send reset link"}
                   </Button>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  We'll trigger the SAP password reset for this email.
-                </p>
-              </div>
-            )}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Button type="submit" disabled={busy} className="w-full h-11 font-medium group">
               {busy ? (
                 "Please wait…"
