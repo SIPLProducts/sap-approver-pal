@@ -652,6 +652,7 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
   const parsed = InvokeBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.message });
   const { configId, inputs, raw } = parsed.data;
+  console.log("[/sap/invoke] raw flag =", raw === true, "skipMapping will be", raw === true);
 
   try {
     const cfg = await loadConfig(configId);
