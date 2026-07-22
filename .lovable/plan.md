@@ -1,42 +1,53 @@
-## Diagnosis (verified from middleware logs)
+## Why the previous fix appears not to work
 
-The middleware log line
-```
-[/sap/invoke] sap status=200 ... body= {"pr_number":"1000056124","pr_date":"2026-06-29","ter_sub_id":"TER2026/300011"}
-```
-is the **mapped** body, not what SAP actually returned. `invokeSap` runs the SAP response through `mapSapResponse(cfg.responseFields, raw)` (middleware/server.js:547).
+With middleware redeployed, this is the expected flow:
+1. `createZnfa` sends `{ configId, inputs, raw: true }` to `/sap/invoke`.
+2. Middleware skips `mapSapResponse` and returns `{ ok, status, data: <raw SAP JSON>, trace }`.
+3. Client reads `json.data.OUTPUT` and builds `ZnfaOutput`.
 
-`mapSapResponse` (middleware/response-mapper.js) behavior:
-- If any configured field starts with `[].` → return raw (untouched).
-- Else if response is `{DATA:[…]}` / `{data:[…]}` / array → return raw.
-- Otherwise → build a NEW flat object containing only the configured `field_name` paths.
+You confirmed the middleware is redeployed and the SAP raw JSON is `{ "OUTPUT": { "PR_NUMBER": ..., "ITEMS": [...], "RATINGS": [...] } }`. That matches the client parser. So something between those steps is silently dropping the payload — either the middleware isn't actually forwarding the raw body, or the client fetch is hitting the non-proxy branch, or an exception is turning it into `error` and the toast is hidden.
 
-The ZNFA_Create_API config in `sap_api_configs.response_fields` currently has just `pr_number`, `pr_date`, `ter_sub_id` (flat, no `[].`), so the mapper strips `OUTPUT`, `ITEMS`, and `RATINGS` before returning. The client handler (`src/lib/mm/gate-process.functions.ts:351`) then reads `sapJson?.OUTPUT ?? sapJson?.output ?? {}` and gets `{}`, so the ITEMS/RATINGS tables render empty and downstream code errors.
+I need runtime evidence before changing more logic.
 
-Also, the client handler currently looks only at uppercase `OUTPUT`, but SAP for ZNFA returns lowercase top-level keys (`pr_number`, `items`, `ratings`) based on the mapped output we can see.
+## Step 1 — Add targeted diagnostics (no behavior change)
 
-## Fix
+**`src/lib/mm/gate-process.functions.ts` — `createZnfa` handler**
 
-**1. `src/lib/mm/gate-process.functions.ts` — `createZnfa` handler**
+Right after `text = await res.text()...` and after `json = JSON.parse(text)`, log:
+- `proxied`, `useProxy`, `target` (redacted of query string)
+- `res.status`, `res.ok`
+- `typeof json`, `Object.keys(json)`, `Object.keys(json?.data ?? {})`
+- First 500 chars of `text`
 
-- When calling via proxy, add a flag in the request body telling middleware to skip response mapping for this call: `{ configId, inputs: payload, raw: true }`.
-- Read the SAP response defensively:
-  - `const root = proxied ? (json?.data ?? {}) : json;`
-  - `const output = root?.OUTPUT ?? root?.output ?? root;` (fall back to root itself, since SAP returns keys at top level for ZNFA)
-  - Build `ZnfaOutput` by case-insensitive picking of `PR_NUMBER/pr_number`, `PR_DATE/pr_date`, `TER_SUB_ID/ter_sub_id`, `ITEMS/items`, `RATINGS/ratings`, and per-item fields (`MATERIAL/material`, etc.). No change to the exported `ZnfaOutput` type shape.
+Prefix all logs with `[znfa-create]` so they're easy to grep.
 
-**2. `middleware/server.js` — `/sap/invoke`**
+Also log the derived `outputRoot`'s keys and `ITEMS.length` / `RATINGS.length` right before `return`.
 
-- Extend `InvokeBody` zod schema with `raw: z.boolean().optional()`.
-- When `raw === true`, call `invokeSap` and return the un-mapped SAP JSON (skip `mapSapResponse`). Concretely, inside `invokeSap` accept an options arg `{ skipMapping }` and, when true, set `data = raw` instead of `data = mapSapResponse(...)`. Everything else (logging, latency, HTML detection, JSON repair) stays the same.
-- Behavior for existing callers is unchanged — they don't pass `raw`.
+**`middleware/server.js` — `/sap/invoke`**
 
-**3. Verification**
+Log the parsed `raw` flag once at the top of the handler:
+`console.log("[/sap/invoke] raw flag =", raw === true, "skipMapping will be", raw === true);`
 
-- After deploying middleware + app changes, click Rating on ZNFA screen; middleware `raw sap body` log line already prints the pre-mapping SAP body. Confirm it contains the `ITEMS`/`RATINGS` (or lowercase equivalents), and that the ZNFA screen response card populates the two tables.
-- Regression check: Search Term F4 and other SAP screens still work (they don't pass `raw`, so mapping path is unchanged).
+## Step 2 — Reproduce and read the logs
+
+1. Redeploy middleware with the extra log line.
+2. Trigger a Rating action in the UI.
+3. Fetch:
+   - `stack_modern--server-function-logs` filtered by `znfa-create` for the app-side view.
+   - You share the middleware console for the corresponding request (the `[/sap/invoke] raw flag =` line plus the existing `raw sap body` line).
+
+## Step 3 — Fix based on the evidence
+
+The logs will narrow it to exactly one of:
+
+- **A. `raw flag = false` in middleware log** → client isn't sending `raw: true`. Likely means the deployed app bundle is stale; force a fresh deploy of the app. No code change needed.
+- **B. `raw flag = true` but `json.data` has only `pr_number/pr_date/ter_sub_id`** → middleware `skipMapping` branch isn't being taken. Fix `invokeSap` call site / redeploy.
+- **C. `json.data.OUTPUT` present in server-fn log but tables still empty** → parsing/rendering bug. Adjust `outputRoot` derivation (e.g. handle a double-wrapped `{data:{OUTPUT:...}}` from the middleware if that turns out to be the shape).
+- **D. `res.ok === false` or non-JSON body** → surface the real error message to the toast instead of the current generic one; the fix is to include `text.slice(0,300)` in the returned `error` string.
+
+Only Step 3's chosen sub-fix ships to production. Steps 1–2 are diagnostic and stay in the code briefly; the log lines will be removed once the root cause is confirmed.
 
 ## Non-goals
 
-- No DB / `sap_api_configs.response_fields` edits — leaves other integrations untouched.
-- No UI changes on the ZNFA Rating screen beyond what already exists.
+- No UI changes on the ZNFA Rating screen.
+- No DB / `sap_api_configs` edits.
