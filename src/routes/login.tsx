@@ -275,7 +275,7 @@ function LoginPage() {
                       }
                     }}
                   >
-                    {forgotBusy ? "Sending…" : "Send reset link"}
+                    {forgotBusy ? "Sending…" : "Send"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
