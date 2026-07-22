@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -50,7 +50,21 @@ function GateProcessPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<ZnfaOutput | null>(null);
   const [itemRemarks, setItemRemarks] = useState<Record<number, string>>({});
+  const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
+
+  const outputTitle = useMemo(() => {
+    switch (lastAction) {
+      case "RATE":
+        return "Rating Result";
+      case "CHANGE":
+        return "Change Result";
+      case "DISPLAY":
+        return "Display Result";
+      default:
+        return "Output";
+    }
+  }, [lastAction]);
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
@@ -73,6 +87,7 @@ function GateProcessPage() {
       setSelected(new Set());
       setOutput(null);
       setItemRemarks({});
+      setLastAction(null);
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -98,10 +113,11 @@ function GateProcessPage() {
         error: v?.error ?? null,
       };
     },
-    onSuccess: (res) => {
+    onSuccess: (res, vars) => {
       if (res.error) {
         toast.error(res.error);
       } else {
+        setLastAction(vars.action);
         setOutput(res.output);
         const items = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS : [];
         const init: Record<number, string> = {};
@@ -130,6 +146,7 @@ function GateProcessPage() {
     setSelected(new Set());
     setOutput(null);
     setItemRemarks({});
+    setLastAction(null);
   }
 
   function handleAction(action: ZnfaAction) {
@@ -215,7 +232,6 @@ function GateProcessPage() {
                     disabled={selected.size === 0 || createMutation.isPending}
                     onClick={() => handleAction(action)}
                     className={className}
-                    title={action === "RATE" ? "Triggers ZNFA_Create_API" : undefined}
                   >
                     {createMutation.isPending && createMutation.variables?.action === action ? (
                       <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -226,14 +242,11 @@ function GateProcessPage() {
               </div>
             }
           />
-          <div className="text-xs text-muted-foreground -mt-2">
-            <span className="font-medium text-foreground">Rating</span> triggers the <code className="text-[11px]">ZNFA_Create_API</code>.
-          </div>
 
           {output && (
             <Card ref={outputRef} className="p-4 space-y-5">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
-                <Filter className="h-3.5 w-3.5" /> OUTPUT
+                <Filter className="h-3.5 w-3.5" /> {outputTitle}
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
