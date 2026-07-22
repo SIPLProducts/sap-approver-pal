@@ -81,10 +81,11 @@ export const fetchGateProcess = createServerFn({ method: "POST" })
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
       .select("*")
-      .eq("name", CONFIG_NAME)
+      .eq("name", FETCH_CONFIG_NAME)
       .maybeSingle();
-    if (!cfg) throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
-    if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
+    if (!cfg) throw new Error(`SAP API config "${FETCH_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${FETCH_CONFIG_NAME}" is disabled.`);
+
 
     const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
