@@ -434,7 +434,7 @@ async function rawHttpRequestWithBody(urlStr, { method, headers, body }) {
 
 
 
-async function invokeSap(cfg, inputs) {
+async function invokeSap(cfg, inputs, opts = {}) {
   const payload = buildRequestPayload(cfg.requestFields, inputs);
   const url = new URL(cfg.endpoint_url);
 
