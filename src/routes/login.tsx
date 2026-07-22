@@ -17,10 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
-import { ShieldCheck, ArrowRight } from "lucide-react";
-import mockupInbox from "@/assets/login-mockup-inbox.jpg";
-import mockupApproval from "@/assets/login-mockup-approval.jpg";
-import mockupKpi from "@/assets/login-mockup-kpi.jpg";
+import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -134,26 +131,20 @@ function LoginPage() {
             fully audit-ready.
           </p>
 
-          <div className="mt-10 relative hidden sm:block max-w-md" aria-hidden>
-            <img
-              src={mockupKpi}
-              alt=""
-              aria-hidden
-              className="absolute -top-4 right-0 w-64 rounded-xl border border-white/10 shadow-2xl rotate-2 opacity-90"
-            />
-            <img
-              src={mockupInbox}
-              alt="SAP approvals inbox preview"
-              className="relative w-[92%] rounded-2xl border border-white/10 shadow-2xl -rotate-2"
-            />
-            <img
-              src={mockupApproval}
-              alt=""
-              aria-hidden
-              className="absolute -bottom-8 right-2 w-64 rounded-xl border border-white/10 shadow-2xl rotate-3"
-            />
-          </div>
-
+          <ul className="mt-10 space-y-3 max-w-md text-sm text-white/75">
+            <li className="flex items-start gap-3">
+              <Lock className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Enterprise-grade authentication with encrypted sessions.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Role-based access aligned to your SAP authorizations.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <FileCheck2 className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Every approval signed, timestamped and audit-logged.</span>
+            </li>
+          </ul>
         </div>
 
         <div className="relative flex items-center justify-between gap-4 text-[11px] text-white/55">
