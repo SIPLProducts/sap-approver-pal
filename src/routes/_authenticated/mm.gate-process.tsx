@@ -129,6 +129,7 @@ function GateProcessPage() {
     setRows([]);
     setSelected(new Set());
     setOutput(null);
+    setItemRemarks({});
   }
 
   function handleAction(action: ZnfaAction) {
