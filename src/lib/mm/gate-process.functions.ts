@@ -318,6 +318,10 @@ export const createZnfa = createServerFn({ method: "POST" })
     const message = `${res.status} ${res.statusText}`;
     const latency_ms = Date.now() - t0;
 
+    console.log("[znfa-create] proxied=", proxied, "useProxy=", useProxy, "target=", target.split("?")[0]);
+    console.log("[znfa-create] res.status=", res.status, "res.ok=", res.ok, "text.len=", text.length);
+    console.log("[znfa-create] text.preview=", text.slice(0, 500));
+
     if (!res.ok) {
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
@@ -348,7 +352,9 @@ export const createZnfa = createServerFn({ method: "POST" })
     }
 
     const sapJson: any = proxied ? (json?.data ?? {}) : json;
+    console.log("[znfa-create] json.keys=", Object.keys(json ?? {}), "sapJson.keys=", Object.keys(sapJson ?? {}));
     const outputRoot: any = sapJson?.OUTPUT ?? sapJson?.output ?? sapJson ?? {};
+    console.log("[znfa-create] outputRoot.keys=", Object.keys(outputRoot ?? {}));
     const itemsRaw: any[] = Array.isArray(outputRoot?.ITEMS)
       ? outputRoot.ITEMS
       : Array.isArray(outputRoot?.items)
@@ -377,6 +383,7 @@ export const createZnfa = createServerFn({ method: "POST" })
         RATE: pick(r, "RATE"),
       })),
     };
+    console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "PR_NUMBER=", output.PR_NUMBER);
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
