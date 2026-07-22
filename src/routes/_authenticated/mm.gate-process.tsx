@@ -136,11 +136,11 @@ function GateProcessPage() {
 
   const hasResults = rows.length > 0 || output !== null;
 
-  const actionButtons: Array<{ label: string; action: ZnfaAction }> = [
-    { label: "Rating", action: "RATE" },
-    { label: "Change", action: "CHANGE" },
-    { label: "Display", action: "DISPLAY" },
-    { label: "Attachments", action: "ATTACHMENTS" },
+  const actionButtons: Array<{ label: string; action: ZnfaAction; className: string }> = [
+    { label: "Rating", action: "RATE", className: "bg-primary hover:bg-primary/90 text-primary-foreground" },
+    { label: "Change", action: "CHANGE", className: "bg-blue-600 hover:bg-blue-700 text-white" },
+    { label: "Display", action: "DISPLAY", className: "bg-amber-500 hover:bg-amber-600 text-white" },
+    { label: "Attachments", action: "ATTACHMENTS", className: "bg-green-600 hover:bg-green-700 text-white" },
   ];
 
   return (
