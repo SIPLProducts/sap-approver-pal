@@ -9,7 +9,25 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import reLogo from "@/assets/re-logo.png.asset.json";
 
-const LOGO_URL = `https://sap-approver-pal.lovable.app${reLogo.url}`;
+type LogoAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+  cid: string;
+};
+
+async function fetchLogoAttachment(): Promise<LogoAttachment | null> {
+  try {
+    const url = `https://sap-approver-pal.lovable.app${reLogo.url}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const content = Buffer.from(await res.arrayBuffer());
+    const contentType = res.headers.get("content-type") || "image/png";
+    return { filename: "re-logo.png", content, contentType, cid: "re-logo" };
+  } catch {
+    return null;
+  }
+}
 
 type SapForgotResult = {
   ok: boolean;
