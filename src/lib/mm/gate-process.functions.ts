@@ -352,7 +352,9 @@ export const createZnfa = createServerFn({ method: "POST" })
     }
 
     const sapJson: any = proxied ? (json?.data ?? {}) : json;
+    console.log("[znfa-create] json.keys=", Object.keys(json ?? {}), "sapJson.keys=", Object.keys(sapJson ?? {}));
     const outputRoot: any = sapJson?.OUTPUT ?? sapJson?.output ?? sapJson ?? {};
+    console.log("[znfa-create] outputRoot.keys=", Object.keys(outputRoot ?? {}));
     const itemsRaw: any[] = Array.isArray(outputRoot?.ITEMS)
       ? outputRoot.ITEMS
       : Array.isArray(outputRoot?.items)
