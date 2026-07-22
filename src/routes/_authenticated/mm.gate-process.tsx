@@ -225,11 +225,10 @@ function GateProcessPage() {
                 ))}
               </div>
             }
-            footerNote={
-              <span className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Rating</span> triggers the <code className="text-[11px]">ZNFA_Create_API</code>.
-              </span>
-            }
+          />
+          <div className="text-xs text-muted-foreground -mt-2">
+            <span className="font-medium text-foreground">Rating</span> triggers the <code className="text-[11px]">ZNFA_Create_API</code>.
+          </div>
           />
 
           {output && (
