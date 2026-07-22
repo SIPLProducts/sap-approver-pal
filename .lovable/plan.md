@@ -1,17 +1,42 @@
+## Goal
+Update the ZNFA Rating screen so the output card title reflects the action that triggered the API, and remove the "Rating triggers the ZNFA_Create_API" caption.
+
 ## Changes to `src/routes/_authenticated/mm.gate-process.tsx`
 
-1. **Editable Remarks in Items table**
-   - Track item remarks in local state keyed by item index (e.g. `itemRemarks: Record<number, string>`), initialized whenever a new `output` is set from the ZNFA response.
-   - Replace the read-only `Remarks` `<TableCell>` with an `<Input>` bound to that state (same styling as Material Reservation's editable cells: `h-8 text-xs`).
-   - Reset the remarks state on Reset and on every new fetch/action.
+1. Track the action that produced the output
+   - Add a state: `const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);`
+   - Reset it on `Execute`/`Reset`/`onSuccess` of the fetch mutation.
+   - Set it inside `createMutation.onSuccess` before storing the output, e.g.:
+     ```ts
+     setLastAction(createMutation.variables?.action ?? null);
+     ```
+     (Store it from the mutation variables because the action was already passed to `handleAction`.)
 
-2. **Indicate which button triggers `ZNFA_Create_API`**
-   - The Rating button is the one that calls `ZNFA_Create_API` (action `"RATE"`). Add a small helper caption under/next to the action-button row (e.g. muted text "Rating triggers ZNFA_Create_API") and a tooltip/`title` attribute on the Rating button so it's clearly identified in the UI.
+2. Dynamic output title
+   - Derive the title from `lastAction`:
+     ```ts
+     const outputTitle = useMemo(() => {
+       switch (lastAction) {
+         case "RATE": return "Rating Result";
+         case "CHANGE": return "Change Result";
+         case "DISPLAY": return "Display Result";
+         default: return "Output";
+       }
+     }, [lastAction]);
+     ```
+   - Replace the static `OUTPUT` card label (lines 235–237) with:
+     ```tsx
+     <Filter className="h-3.5 w-3.5" /> {outputTitle}
+     ```
 
-3. **Auto-scroll to output on success**
-   - Add a `outputRef = useRef<HTMLDivElement>(null)` and attach it to the OUTPUT `<Card>` wrapper.
-   - In `createMutation.onSuccess`, after `setOutput(res.output)`, if `res.output` is non-null, call `outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })` inside a `requestAnimationFrame` (so the node exists after render).
+3. Remove the API caption
+   - Delete lines 229–231 (the `<div className="text-xs text-muted-foreground -mt-2">…` caption).
+   - Remove the `title={action === "RATE" ? "Triggers ZNFA_Create_API" : undefined}` tooltip from the Rating button (line 218) so no leftover indication remains.
+
+4. Reset state consistency
+   - Ensure `setLastAction(null)` is called in the fetch mutation `onSuccess` and in the `reset()` function.
 
 ## Out of scope
-- No server function, payload, or middleware changes. Remarks stay UI-only for now (no send-back API was specified).
-- No other buttons or screens touched.
+- No changes to the SAP API payload or server functions.
+- No changes to the table layout, button colors, or editable Remarks behavior.
+- No new routes or components.
