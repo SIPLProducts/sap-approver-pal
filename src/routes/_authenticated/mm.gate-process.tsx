@@ -276,7 +276,16 @@ function GateProcessPage() {
                             <TableCell className="text-xs">{toStr(item.TENDER_SPEC)}</TableCell>
                             <TableCell className="text-xs">{toStr(item.UOM)}</TableCell>
                             <TableCell className="text-xs">{toStr(item.VENDOR_NAME)}</TableCell>
-                            <TableCell className="text-xs">{toStr(item.REMARKS)}</TableCell>
+                            <TableCell className="text-xs">
+                              <Input
+                                value={itemRemarks[idx] ?? toStr(item.REMARKS)}
+                                onChange={(e) =>
+                                  setItemRemarks((prev) => ({ ...prev, [idx]: e.target.value }))
+                                }
+                                className="h-8 text-xs"
+                                placeholder="Enter remarks"
+                              />
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
