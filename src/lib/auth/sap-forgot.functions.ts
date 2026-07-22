@@ -9,7 +9,25 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import reLogo from "@/assets/re-logo.png.asset.json";
 
-const LOGO_URL = `https://sap-approver-pal.lovable.app${reLogo.url}`;
+type LogoAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+  cid: string;
+};
+
+async function fetchLogoAttachment(): Promise<LogoAttachment | null> {
+  try {
+    const url = `https://sap-approver-pal.lovable.app${reLogo.url}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const content = Buffer.from(await res.arrayBuffer());
+    const contentType = res.headers.get("content-type") || "image/png";
+    return { filename: "re-logo.png", content, contentType, cid: "re-logo" };
+  } catch {
+    return null;
+  }
+}
 
 type SapForgotResult = {
   ok: boolean;
@@ -204,7 +222,7 @@ function buildCredentialsEmail(args: {
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td style="vertical-align:middle;padding-right:14px;">
-                      <img src="${LOGO_URL}" width="52" height="52" alt="Re Sustainability" style="display:block;border:0;outline:none;text-decoration:none;" />
+                      <img src="cid:re-logo" width="52" height="52" alt="Re Sustainability" style="display:block;max-width:52px;width:100%;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" />
                     </td>
                     <td style="vertical-align:middle;">
                       <div style="font-size:22px;font-weight:800;color:#d4202a;line-height:1.1;">Re Sustainability</div>
@@ -474,6 +492,7 @@ export const sapForgot = createServerFn({ method: "POST" })
         return value == null ? "" : String(value);
       };
       const { html, text } = buildCredentialsEmail({ fields, recipient: recipientEmail });
+      const logoAttachment = await fetchLogoAttachment();
       const info = await transport.sendMail({
         from: noReply.from_name
           ? `${noReply.from_name} <${noReply.from_email}>`
@@ -484,6 +503,17 @@ export const sapForgot = createServerFn({ method: "POST" })
 
         html,
         text,
+        attachments: logoAttachment
+          ? [
+              {
+                filename: logoAttachment.filename,
+                content: logoAttachment.content,
+                contentType: logoAttachment.contentType,
+                cid: logoAttachment.cid,
+                contentDisposition: "inline",
+              },
+            ]
+          : [],
       });
 
       const mailInfo = info as {

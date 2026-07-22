@@ -1,24 +1,28 @@
-## Problem
+Plan: Fix Forgot Password email logo visibility
 
-In Material Reservation, the editable cells (HOD Approval, HOD Rejection, Remarks) read the row key from `(item as any).__key`, but `CloudscapeApprovalTable` passes the raw row object to `cell(item)` — it never attaches `__key`. So `k` is `undefined`, `updateRow` writes state under the key `"undefined"`, and every real row's state stays at the default `{ hodApproval: false, hodRejection: false, remarks: "" }`.
+1. Diagnosis
+   - The Forgot Password email in `src/lib/auth/sap-forgot.functions.ts` references the logo with a hardcoded absolute URL: `https://sap-approver-pal.lovable.app/__l5e/assets-v1/...`.
+   - This URL currently returns an HTTP 302 redirect to the custom domain (`smartapps.siplproducts.com`). Many email clients block or do not follow cross-domain redirects for images, causing the top-left logo to appear broken on desktop/laptop clients.
 
-At save time, the payload builder looks up `rowStates.get(rowKey(r, i))` (the real key), finds nothing, and sends `HOD_APRROVAL: ""` and `HOD_REJECTION: ""` regardless of what the user clicked.
+2. Fix approach
+   - At email send time, fetch the logo image bytes from the asset URL.
+   - Attach the image inline to the nodemailer message using `attachments: [{ cid: 're-logo', ... }]`.
+   - Change the HTML `<img src="...">` to use `src="cid:re-logo"` so the image is embedded and does not rely on external URLs or redirects.
+   - Make the logo image responsive: add `max-width:100%; height:auto;` CSS and keep the explicit `width`/`height` attributes for email-client fallback.
 
-## Fix
+3. Files to change
+   - `src/lib/auth/sap-forgot.functions.ts`
+     - Add a helper to fetch the logo asset and return it as a Buffer with the correct MIME type.
+     - Update `buildCredentialsEmail` to use `cid:re-logo` instead of the external `LOGO_URL`.
+     - Update `transport.sendMail` to include the inline attachment.
+     - Add responsive image styles (e.g., `style="width:100%;max-width:52px;height:auto;"`).
 
-In `src/routes/_authenticated/mm.material-reservation.tsx`, compute the row key inside each editable cell using the same `rowKey(r, i)` used elsewhere, instead of reading `__key` off the item.
+4. No other changes
+   - This fix only touches the Forgot Password email template and logo embedding logic.
+   - No SAP API, middleware, UI, business logic, or other email templates will be modified.
 
-In the `columns` `useMemo`, replace the three `const k = (item as any).__key as string;` lines (in the HOD Approval, HOD Rejection, and Remarks cell renderers) with:
-
-```ts
-const idx = rows.indexOf(item);
-const k = rowKey(item, idx);
-```
-
-Add `rows` to the `useMemo` dependency array.
-
-No other changes — save handler, fetch, selection, and business logic stay as-is. Row checkboxes for HOD Approval / HOD Rejection now update the real per-row state, so the outgoing Material_Save_API payload contains `HOD_APRROVAL: "X"` / `HOD_REJECTION: "X"` for the rows the user actually toggled.
-
-## Verification
-
-Execute Material Reservation, toggle HOD Approval on one row and HOD Rejection on another, select both rows, click Save, and confirm the outgoing payload sends the correct `HOD_APRROVAL` / `HOD_REJECTION` flags per row.
+5. Verification
+   - After the change, trigger a Forgot Password flow and inspect the sent email source to confirm:
+     - The `<img>` uses `src="cid:re-logo"`.
+     - The MIME message contains an inline attachment with `Content-ID: <re-logo>`.
+   - Visually confirm the logo renders in the email preview on both desktop and mobile layouts.
