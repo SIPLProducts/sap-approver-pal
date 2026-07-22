@@ -156,10 +156,10 @@ function LoginPage() {
 
           <div className="mb-8">
             <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-              {mode === "signin" ? "Welcome back" : "Get started"}
+              {mode === "signin" ? "Welcome To Re Sustainability" : "Get started"}
             </p>
             <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
-              {mode === "signin" ? "Sign in to your console" : "Create your account"}
+              {mode === "signin" ? "Sign in to your Account" : "Create your account"}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">Use your Re Sustainability corporate credentials.</p>
           </div>
@@ -275,10 +275,8 @@ function LoginPage() {
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
             className="mt-5 w-full text-center text-sm text-muted-foreground hover:text-foreground"
           ></button>
-
         </div>
       </div>
     </div>
   );
 }
-
