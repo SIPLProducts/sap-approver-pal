@@ -50,7 +50,21 @@ function GateProcessPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<ZnfaOutput | null>(null);
   const [itemRemarks, setItemRemarks] = useState<Record<number, string>>({});
+  const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
+
+  const outputTitle = useMemo(() => {
+    switch (lastAction) {
+      case "RATE":
+        return "Rating Result";
+      case "CHANGE":
+        return "Change Result";
+      case "DISPLAY":
+        return "Display Result";
+      default:
+        return "Output";
+    }
+  }, [lastAction]);
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
