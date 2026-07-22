@@ -207,9 +207,9 @@ function LoginPage() {
                       setForgotEmail(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId) ? userId : "");
                       setForgotOpen((v) => !v);
                     }}
-                    className="text-[11px] text-muted-foreground hover:text-foreground"
+                    className="text-[11px] font-medium text-primary hover:text-primary/80"
                   >
-                    Forgot?
+                    Forgot Password?
                   </button>
                 )}
               </div>
