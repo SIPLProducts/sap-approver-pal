@@ -136,11 +136,11 @@ function GateProcessPage() {
 
   const hasResults = rows.length > 0 || output !== null;
 
-  const actionButtons: Array<{ label: string; action: ZnfaAction }> = [
-    { label: "Rating", action: "RATE" },
-    { label: "Change", action: "CHANGE" },
-    { label: "Display", action: "DISPLAY" },
-    { label: "Attachments", action: "ATTACHMENTS" },
+  const actionButtons: Array<{ label: string; action: ZnfaAction; className: string }> = [
+    { label: "Rating", action: "RATE", className: "bg-primary hover:bg-primary/90 text-primary-foreground" },
+    { label: "Change", action: "CHANGE", className: "bg-blue-600 hover:bg-blue-700 text-white" },
+    { label: "Display", action: "DISPLAY", className: "bg-amber-500 hover:bg-amber-600 text-white" },
+    { label: "Attachments", action: "ATTACHMENTS", className: "bg-green-600 hover:bg-green-700 text-white" },
   ];
 
   return (
@@ -195,24 +195,25 @@ function GateProcessPage() {
             onSelectionChange={setSelected}
             emptyMessage={rows.length === 0 ? "Click Execute to load ZNFA Rating records from SAP." : "No records."}
             columns={buildDynamicColumns(rows)}
+            headerExtras={
+              <div className="flex items-center gap-2">
+                {actionButtons.map(({ label, action, className }) => (
+                  <Button
+                    key={action}
+                    size="sm"
+                    disabled={selected.size === 0 || createMutation.isPending}
+                    onClick={() => handleAction(action)}
+                    className={className}
+                  >
+                    {createMutation.isPending && createMutation.variables?.action === action ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : null}
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            }
           />
-
-          <div className="flex flex-wrap gap-2">
-            {actionButtons.map(({ label, action }) => (
-              <Button
-                key={action}
-                size="sm"
-                variant="outline"
-                disabled={selected.size === 0 || createMutation.isPending}
-                onClick={() => handleAction(action)}
-              >
-                {createMutation.isPending && createMutation.variables?.action === action ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : null}
-                {label}
-              </Button>
-            ))}
-          </div>
 
           {output && (
             <Card className="p-4 space-y-5">
