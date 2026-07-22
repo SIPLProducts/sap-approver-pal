@@ -318,6 +318,10 @@ export const createZnfa = createServerFn({ method: "POST" })
     const message = `${res.status} ${res.statusText}`;
     const latency_ms = Date.now() - t0;
 
+    console.log("[znfa-create] proxied=", proxied, "useProxy=", useProxy, "target=", target.split("?")[0]);
+    console.log("[znfa-create] res.status=", res.status, "res.ok=", res.ok, "text.len=", text.length);
+    console.log("[znfa-create] text.preview=", text.slice(0, 500));
+
     if (!res.ok) {
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
