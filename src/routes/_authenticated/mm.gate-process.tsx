@@ -113,10 +113,11 @@ function GateProcessPage() {
         error: v?.error ?? null,
       };
     },
-    onSuccess: (res) => {
+    onSuccess: (res, vars) => {
       if (res.error) {
         toast.error(res.error);
       } else {
+        setLastAction(vars.action);
         setOutput(res.output);
         const items = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS : [];
         const init: Record<number, string> = {};
