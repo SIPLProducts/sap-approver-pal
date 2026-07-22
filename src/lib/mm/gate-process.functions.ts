@@ -209,3 +209,155 @@ export const fetchGateProcess = createServerFn({ method: "POST" })
 
     return { rows, fetched_at: new Date().toISOString(), count: rows.length, user_id: userId, error: null as string | null };
   });
+
+export const createZnfa = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      action: z.enum(["RATE", "CHANGE", "DISPLAY", "ATTACHMENTS"]),
+      user_id: z.string().trim().min(1, "User ID is required").max(60),
+      data: z.array(
+        z.object({
+          CHECK: z.string().default("X"),
+          BANFN: z.string().default(""),
+          ANFNR: z.string().default(""),
+          TITLE: z.string().default(""),
+          NAME1: z.string().default(""),
+          TER_SUB_ID: z.string().default(""),
+        }),
+      ).min(1, "Select at least one row"),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", CREATE_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg) throw new Error(`SAP API config "${CREATE_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${CREATE_CONFIG_NAME}" is disabled.`);
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+    ]);
+
+    const userId = data.user_id.trim();
+    const action = data.action;
+
+    const payload = {
+      RATE: action === "RATE" ? "X" : "",
+      CHANGE: action === "CHANGE" ? "X" : "",
+      DISPLAY: action === "DISPLAY" ? "X" : "",
+      ATTACHMENTS: action === "ATTACHMENTS" ? "X" : "",
+      USER_ID: userId,
+      DATA: data.data,
+    };
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" &&
+      !!(globalSettings?.middleware_url);
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
+
+    let target: string;
+    let method: string = cfg.http_method ?? "POST";
+    let bodyOut: string | undefined;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    let proxied = false;
+
+    if (useProxy) {
+      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      target = `${middlewareUrl.replace(/\/+$/, "")}/sap/invoke`;
+      method = "POST";
+      headers["Content-Type"] = "application/json";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload });
+      proxied = true;
+    } else {
+      target = cfg.endpoint_url;
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization =
+          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+      bodyOut = JSON.stringify(payload);
+      headers["Content-Type"] = "application/json";
+    }
+
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      headers[k] = v;
+    }
+
+    const t0 = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(target, { method, headers, body: bodyOut });
+    } catch (e) {
+      const errMsg = (e as Error).message || "fetch failed";
+      const latency_ms = Date.now() - t0;
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `znfa-create network: ${errMsg}`,
+      });
+      return {
+        output: null as ZnfaOutput | null,
+        error: `Could not reach SAP at ${cfg.endpoint_url.split("?")[0]}. ${errMsg}. The endpoint may be on a private network not accessible from this server.`,
+      };
+    }
+
+    const text = await res.text().catch(() => "");
+    const message = `${res.status} ${res.statusText}`;
+    const latency_ms = Date.now() - t0;
+
+    if (!res.ok) {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `znfa-create: ${message} ${text.slice(0, 500)}`,
+      });
+      return {
+        output: null as ZnfaOutput | null,
+        error: `SAP returned ${message}: ${text.slice(0, 200)}`,
+      };
+    }
+
+    let json: any = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `znfa-create: invalid JSON ${text.slice(0, 500)}`,
+      });
+      return {
+        output: null as ZnfaOutput | null,
+        error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
+      };
+    }
+
+    const sapJson: any = proxied ? (json?.data ?? {}) : json;
+    const output: ZnfaOutput = sapJson?.OUTPUT ?? sapJson?.output ?? {};
+
+    await supabaseAdmin.from("sap_api_sync_log").insert({
+      config_id: cfg.id,
+      status: "ok",
+      latency_ms,
+      rows_processed: (output.ITEMS?.length ?? 0) + (output.RATINGS?.length ?? 0),
+      message: `znfa-create: ${action} ${message}`,
+    });
+
+    return { output, error: null as string | null };
+  });
+
