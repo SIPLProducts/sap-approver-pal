@@ -232,7 +232,6 @@ function GateProcessPage() {
                     disabled={selected.size === 0 || createMutation.isPending}
                     onClick={() => handleAction(action)}
                     className={className}
-                    title={action === "RATE" ? "Triggers ZNFA_Create_API" : undefined}
                   >
                     {createMutation.isPending && createMutation.variables?.action === action ? (
                       <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
