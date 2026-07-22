@@ -544,7 +544,7 @@ async function invokeSap(cfg, inputs, opts = {}) {
     `rows=${rowCount ?? "n/a"} json_repaired=${parsed.repaired}`,
   );
 
-  const data = mapSapResponse(cfg.responseFields, raw);
+  const data = opts.skipMapping ? raw : mapSapResponse(cfg.responseFields, raw);
   return {
     ok: res.ok,
     status: res.status,
