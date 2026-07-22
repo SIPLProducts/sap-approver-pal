@@ -17,7 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
-import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
+import { ShieldCheck, ArrowRight } from "lucide-react";
+import loginImg1 from "@/assets/login-approvals-1.jpg.asset.json";
+import loginImg2 from "@/assets/login-approvals-2.jpg.asset.json";
+import loginImg3 from "@/assets/login-approvals-3.jpg.asset.json";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
