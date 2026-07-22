@@ -17,7 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
-import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
+import { ShieldCheck, ArrowRight } from "lucide-react";
+import mockupInbox from "@/assets/login-mockup-inbox.jpg";
+import mockupApproval from "@/assets/login-mockup-approval.jpg";
+import mockupKpi from "@/assets/login-mockup-kpi.jpg";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
