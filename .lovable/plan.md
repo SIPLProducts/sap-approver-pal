@@ -27,8 +27,8 @@ Open a popup/modal matching the provided reference design when the user clicks "
    - Add a `Dialog open={forgotOpen} onOpenChange={setForgotOpen}`.
    - Use `DialogContent` with `className="sm:max-w-md"`.
    - Use `DialogHeader` with:
-     - `DialogTitle` = "Reset your password"
-     - `DialogDescription` = "Enter your account email and we'll send you a password reset link."
+     - `DialogTitle` = "Recover your password"
+     - `DialogDescription` = "Enter your account email and we'll send you a password."
    - Add `DialogFooter` with:
      - "Cancel" button (`variant="outline"`) calling `setForgotOpen(false)`
      - "Send reset link" button (primary `Button`) that calls the existing `sapForgotFn` handler.
