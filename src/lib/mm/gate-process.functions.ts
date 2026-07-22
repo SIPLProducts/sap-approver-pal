@@ -1,5 +1,6 @@
 /**
- * MM Gate Process — live SAP fetch via the configured Gate_Pass_Fetch_API.
+ * MM Gate Process / ZNFA Rating — live SAP fetch via the configured ZNFA_Fetch_API
+ * and create/update via ZNFA_Create_API.
  * Reads the admin-managed sap_api_configs row, calls the SAP endpoint
  * (basic or proxy), and returns DATA[] rows as plain DTOs.
  */
@@ -16,7 +17,38 @@ export type GateRow = {
   ter_sub_id: string | null;
 };
 
-const CONFIG_NAME = "ZNFA_Fetch_API";
+export type ZnfaAction = "RATE" | "CHANGE" | "DISPLAY" | "ATTACHMENTS";
+
+export type ZnfaCreateRow = {
+  CHECK: string;
+  BANFN: string;
+  ANFNR: string;
+  TITLE: string;
+  NAME1: string;
+  TER_SUB_ID: string;
+};
+
+export type ZnfaOutput = {
+  PR_NUMBER?: string | null;
+  PR_DATE?: string | null;
+  TER_SUB_ID?: string | null;
+  ITEMS?: Array<{
+    SR_NO?: string | null;
+    MATERIAL?: string | null;
+    DESCRIPTION?: string | null;
+    TENDER_SPEC?: string | null;
+    UOM?: string | null;
+    VENDOR_NAME?: string | null;
+    REMARKS?: string | null;
+  }>;
+  RATINGS?: Array<{
+    VENDOR?: string | null;
+    RATE?: string | null;
+  }>;
+};
+
+const FETCH_CONFIG_NAME = "ZNFA_Fetch_API";
+const CREATE_CONFIG_NAME = "ZNFA_Create_API";
 
 function pick(o: any, k: string) {
   if (!o || typeof o !== "object") return null;
@@ -34,6 +66,7 @@ function mapRow(raw: any): GateRow {
     ter_sub_id: pick(raw, "TER_SUB_ID"),
   };
 }
+
 
 export const fetchGateProcess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
