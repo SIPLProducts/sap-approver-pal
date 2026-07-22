@@ -72,6 +72,7 @@ function GateProcessPage() {
       setRows(res.rows);
       setSelected(new Set());
       setOutput(null);
+      setItemRemarks({});
       if (res.error) {
         toast.error(res.error);
       } else {
