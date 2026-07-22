@@ -49,6 +49,8 @@ function GateProcessPage() {
   const [rows, setRows] = useState<GateRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<ZnfaOutput | null>(null);
+  const [itemRemarks, setItemRemarks] = useState<Record<number, string>>({});
+  const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
