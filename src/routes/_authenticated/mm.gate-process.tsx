@@ -246,7 +246,7 @@ function GateProcessPage() {
           {output && (
             <Card ref={outputRef} className="p-4 space-y-5">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
-                <Filter className="h-3.5 w-3.5" /> OUTPUT
+                <Filter className="h-3.5 w-3.5" /> {outputTitle}
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
