@@ -383,6 +383,7 @@ export const createZnfa = createServerFn({ method: "POST" })
         RATE: pick(r, "RATE"),
       })),
     };
+    console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "PR_NUMBER=", output.PR_NUMBER);
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
