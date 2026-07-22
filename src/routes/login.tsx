@@ -17,10 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
-import { ShieldCheck, ArrowRight } from "lucide-react";
-import loginImg1 from "@/assets/login-approvals-1.jpg.asset.json";
-import loginImg2 from "@/assets/login-approvals-2.jpg.asset.json";
-import loginImg3 from "@/assets/login-approvals-3.jpg.asset.json";
+import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -120,43 +117,35 @@ function LoginPage() {
           </div>
         </div>
 
-        <div className="relative w-full max-w-2xl">
+        <div className="relative max-w-xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/75">
             <span className="h-1.5 w-1.5 rounded-full bg-gold" /> Secure SAP Approvals
           </div>
-          <h2 className="mt-5 font-display text-3xl sm:text-4xl font-semibold leading-tight tracking-tight">
-            Approve with <span className="text-white/55">confidence.</span>
-          </h2>
+          <h1 className="mt-5 font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.02] tracking-tight">
+            Approve with
+            <br />
+            <span className="text-white/55">confidence.</span>
+          </h1>
+          <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/70">
+            A secure, single sign-on gateway to review and approve your SAP transactions — protected end-to-end and
+            fully audit-ready.
+          </p>
 
-          <div className="mt-8 grid grid-cols-5 grid-rows-2 gap-3 h-[20rem] sm:h-[24rem]">
-            <div className="col-span-3 row-span-2 relative overflow-hidden rounded-2xl ring-1 ring-white/10 shadow-2xl">
-              <img
-                src={loginImg1.url}
-                alt="Executive approving SAP documents"
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-transparent" />
-            </div>
-            <div className="col-span-2 relative overflow-hidden rounded-2xl ring-1 ring-white/10 shadow-2xl">
-              <img
-                src={loginImg2.url}
-                alt="Digital approval signature"
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="col-span-2 relative overflow-hidden rounded-2xl ring-1 ring-white/10 shadow-2xl">
-              <img
-                src={loginImg3.url}
-                alt="Secure audit-ready approvals"
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            </div>
-          </div>
+          <ul className="mt-10 space-y-3 max-w-md text-sm text-white/75">
+            <li className="flex items-start gap-3">
+              <Lock className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Enterprise-grade authentication with encrypted sessions.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Role-based access aligned to your SAP authorizations.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <FileCheck2 className="mt-0.5 h-4 w-4 text-gold shrink-0" />
+              <span>Every approval signed, timestamped and audit-logged.</span>
+            </li>
+          </ul>
         </div>
-
 
         <div className="relative flex items-center justify-between gap-4 text-[11px] text-white/55">
           <span className="inline-flex items-center gap-1.5">
