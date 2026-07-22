@@ -103,7 +103,14 @@ function GateProcessPage() {
         toast.error(res.error);
       } else {
         setOutput(res.output);
+        const items = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS : [];
+        const init: Record<number, string> = {};
+        items.forEach((it, i) => (init[i] = toStr(it.REMARKS)));
+        setItemRemarks(init);
         toast.success("Request submitted successfully");
+        requestAnimationFrame(() => {
+          outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
       }
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to submit"),
