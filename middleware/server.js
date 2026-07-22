@@ -434,7 +434,7 @@ async function rawHttpRequestWithBody(urlStr, { method, headers, body }) {
 
 
 
-async function invokeSap(cfg, inputs) {
+async function invokeSap(cfg, inputs, opts = {}) {
   const payload = buildRequestPayload(cfg.requestFields, inputs);
   const url = new URL(cfg.endpoint_url);
 
@@ -544,7 +544,7 @@ async function invokeSap(cfg, inputs) {
     `rows=${rowCount ?? "n/a"} json_repaired=${parsed.repaired}`,
   );
 
-  const data = mapSapResponse(cfg.responseFields, raw);
+  const data = opts.skipMapping ? raw : mapSapResponse(cfg.responseFields, raw);
   return {
     ok: res.ok,
     status: res.status,
@@ -646,17 +646,18 @@ app.post("/sap/test", requireSharedSecret, async (req, res) => {
 const InvokeBody = z.object({
   configId: z.string().uuid(),
   inputs: z.record(z.string(), z.unknown()).optional().default({}),
+  raw: z.boolean().optional(),
 });
 app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
   const parsed = InvokeBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.message });
-  const { configId, inputs } = parsed.data;
+  const { configId, inputs, raw } = parsed.data;
 
   try {
     const cfg = await loadConfig(configId);
     console.log(`[/sap/invoke] config name=${cfg.name} id=${cfg.id} url=${cfg.endpoint_url} method=${cfg.http_method}`);
     console.log(`[/sap/invoke] inputs from app =`, JSON.stringify(inputs));
-    const result = await invokeSap(cfg, inputs);
+    const result = await invokeSap(cfg, inputs, { skipMapping: raw === true });
     const fullBody = typeof result.data === "string"
       ? result.data
       : JSON.stringify(result.data);
