@@ -348,7 +348,35 @@ export const createZnfa = createServerFn({ method: "POST" })
     }
 
     const sapJson: any = proxied ? (json?.data ?? {}) : json;
-    const output: ZnfaOutput = sapJson?.OUTPUT ?? sapJson?.output ?? {};
+    const outputRoot: any = sapJson?.OUTPUT ?? sapJson?.output ?? sapJson ?? {};
+    const itemsRaw: any[] = Array.isArray(outputRoot?.ITEMS)
+      ? outputRoot.ITEMS
+      : Array.isArray(outputRoot?.items)
+        ? outputRoot.items
+        : [];
+    const ratingsRaw: any[] = Array.isArray(outputRoot?.RATINGS)
+      ? outputRoot.RATINGS
+      : Array.isArray(outputRoot?.ratings)
+        ? outputRoot.ratings
+        : [];
+    const output: ZnfaOutput = {
+      PR_NUMBER: pick(outputRoot, "PR_NUMBER"),
+      PR_DATE: pick(outputRoot, "PR_DATE"),
+      TER_SUB_ID: pick(outputRoot, "TER_SUB_ID"),
+      ITEMS: itemsRaw.map((it: any) => ({
+        SR_NO: pick(it, "SR_NO"),
+        MATERIAL: pick(it, "MATERIAL"),
+        DESCRIPTION: pick(it, "DESCRIPTION"),
+        TENDER_SPEC: pick(it, "TENDER_SPEC"),
+        UOM: pick(it, "UOM"),
+        VENDOR_NAME: pick(it, "VENDOR_NAME"),
+        REMARKS: pick(it, "REMARKS"),
+      })),
+      RATINGS: ratingsRaw.map((r: any) => ({
+        VENDOR: pick(r, "VENDOR"),
+        RATE: pick(r, "RATE"),
+      })),
+    };
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
