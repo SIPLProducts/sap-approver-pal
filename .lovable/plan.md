@@ -31,7 +31,7 @@ Open a popup/modal matching the provided reference design when the user clicks "
      - `DialogDescription` = "Enter your account email and we'll send you a password."
    - Add `DialogFooter` with:
      - "Cancel" button (`variant="outline"`) calling `setForgotOpen(false)`
-     - "Send reset link" button (primary `Button`) that calls the existing `sapForgotFn` handler.
+     - "Send" button (primary `Button`) that calls the existing `sapForgotFn` handler.
 
 4. **Keep the existing API integration and state logic unchanged**.
    - Retain `forgotOpen`, `setForgotOpen`, `forgotEmail`, `setForgotEmail`, `forgotBusy`, `setForgotBusy`.
