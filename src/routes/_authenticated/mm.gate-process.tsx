@@ -195,24 +195,25 @@ function GateProcessPage() {
             onSelectionChange={setSelected}
             emptyMessage={rows.length === 0 ? "Click Execute to load ZNFA Rating records from SAP." : "No records."}
             columns={buildDynamicColumns(rows)}
+            headerExtras={
+              <div className="flex items-center gap-2">
+                {actionButtons.map(({ label, action, className }) => (
+                  <Button
+                    key={action}
+                    size="sm"
+                    disabled={selected.size === 0 || createMutation.isPending}
+                    onClick={() => handleAction(action)}
+                    className={className}
+                  >
+                    {createMutation.isPending && createMutation.variables?.action === action ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : null}
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            }
           />
-
-          <div className="flex flex-wrap gap-2">
-            {actionButtons.map(({ label, action }) => (
-              <Button
-                key={action}
-                size="sm"
-                variant="outline"
-                disabled={selected.size === 0 || createMutation.isPending}
-                onClick={() => handleAction(action)}
-              >
-                {createMutation.isPending && createMutation.variables?.action === action ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : null}
-                {label}
-              </Button>
-            ))}
-          </div>
 
           {output && (
             <Card className="p-4 space-y-5">
