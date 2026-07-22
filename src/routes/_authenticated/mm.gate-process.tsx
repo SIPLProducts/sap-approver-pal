@@ -229,7 +229,6 @@ function GateProcessPage() {
           <div className="text-xs text-muted-foreground -mt-2">
             <span className="font-medium text-foreground">Rating</span> triggers the <code className="text-[11px]">ZNFA_Create_API</code>.
           </div>
-          />
 
           {output && (
             <Card className="p-4 space-y-5">
