@@ -176,6 +176,66 @@ function GateProcessPage() {
     onError: (e: Error) => toast.error(e.message ?? "Failed to submit"),
   });
 
+  const saveMutation = useMutation({
+    mutationFn: async (vars: {
+      action: "RATE" | "CHANGE";
+      user_id: string;
+      pr_number: string;
+      pr_date: string;
+      ter_sub_id: string;
+      items: Array<{ SR_NO: string; MATERIAL: string; DESCRIPTION: string; TENDER_SPEC: string; UOM: string; VENDOR_NAME: string; REMARKS: string }>;
+      ratings: Array<{ VENDOR: string; RATE: string }>;
+    }) => {
+      const v: any = await saveFn({ data: vars });
+      return v as { ok: boolean; ter_sub_id: string | null; message: string | null; error: string | null };
+    },
+    onSuccess: (res) => {
+      if (res.ok) {
+        if (res.ter_sub_id) setHeader((p) => ({ ...p, TER_SUB_ID: res.ter_sub_id! }));
+        toast.success(res.message ?? "Saved successfully");
+      } else {
+        toast.error(res.error ?? "Save failed");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Failed to save"),
+  });
+
+  function handleSave() {
+    if (lastAction !== "RATE" && lastAction !== "CHANGE") return;
+    if (!userId.trim()) {
+      toast.error("User ID is required");
+      return;
+    }
+    const itemsArr = Array.isArray(output?.ITEMS) ? output!.ITEMS!.map((it, idx) => {
+      const f = items[idx];
+      return {
+        SR_NO: f?.SR_NO ?? toStr(it.SR_NO),
+        MATERIAL: f?.MATERIAL ?? toStr(it.MATERIAL),
+        DESCRIPTION: f?.DESCRIPTION ?? toStr(it.DESCRIPTION),
+        TENDER_SPEC: f?.TENDER_SPEC ?? toStr(it.TENDER_SPEC),
+        UOM: f?.UOM ?? toStr(it.UOM),
+        VENDOR_NAME: f?.VENDOR_NAME ?? toStr(it.VENDOR_NAME),
+        REMARKS: f?.REMARKS ?? toStr(it.REMARKS),
+      };
+    }) : [];
+    const ratingsArr = Array.isArray(output?.RATINGS) ? output!.RATINGS!.map((rt, idx) => {
+      const f = ratings[idx];
+      return {
+        VENDOR: f?.VENDOR ?? toStr(rt.VENDOR),
+        RATE: f?.RATE ?? toStr(rt.RATE),
+      };
+    }) : [];
+    saveMutation.mutate({
+      action: lastAction,
+      user_id: userId.trim(),
+      pr_number: header.PR_NUMBER,
+      pr_date: header.PR_DATE,
+      ter_sub_id: header.TER_SUB_ID,
+      items: itemsArr,
+      ratings: ratingsArr,
+    });
+  }
+
   function execute() {
     if (!userId.trim()) {
       toast.error("User ID is required");
