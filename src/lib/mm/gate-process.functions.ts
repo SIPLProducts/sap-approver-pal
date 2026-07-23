@@ -372,6 +372,8 @@ export const createZnfa = createServerFn({ method: "POST" })
       : Array.isArray(outputRoot?.ratings)
         ? outputRoot.ratings
         : [];
+    const attachmentsRaw: any[] =
+      action === "ATTACHMENTS" && Array.isArray(outputRoot) ? outputRoot : [];
     const output: ZnfaOutput = {
       PR_NUMBER: pick(outputRoot, "PR_NUMBER"),
       PR_DATE: pick(outputRoot, "PR_DATE"),
@@ -389,8 +391,13 @@ export const createZnfa = createServerFn({ method: "POST" })
         VENDOR: pick(r, "VENDOR"),
         RATE: pick(r, "RATE"),
       })),
+      ATTACHMENTS: attachmentsRaw.map((a: any) => ({
+        NAME: pick(a, "NAME"),
+        CREATED_BY: pick(a, "CREATED_BY"),
+        CREATED_ON: pick(a, "CREATED_ON"),
+      })),
     };
-    console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "PR_NUMBER=", output.PR_NUMBER);
+    console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "output.ATTACHMENTS.len=", output.ATTACHMENTS?.length, "PR_NUMBER=", output.PR_NUMBER);
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
