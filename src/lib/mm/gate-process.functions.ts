@@ -403,7 +403,7 @@ export const createZnfa = createServerFn({ method: "POST" })
       config_id: cfg.id,
       status: "ok",
       latency_ms,
-      rows_processed: (output.ITEMS?.length ?? 0) + (output.RATINGS?.length ?? 0),
+      rows_processed: (output.ITEMS?.length ?? 0) + (output.RATINGS?.length ?? 0) + (output.ATTACHMENTS?.length ?? 0),
       message: `znfa-create: ${action} ${message}`,
     });
 
