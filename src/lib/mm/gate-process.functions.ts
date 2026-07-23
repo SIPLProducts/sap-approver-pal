@@ -28,6 +28,12 @@ export type ZnfaCreateRow = {
   TER_SUB_ID: string;
 };
 
+export type ZnfaAttachment = {
+  NAME?: string | null;
+  CREATED_BY?: string | null;
+  CREATED_ON?: string | null;
+};
+
 export type ZnfaOutput = {
   PR_NUMBER?: string | null;
   PR_DATE?: string | null;
@@ -45,6 +51,7 @@ export type ZnfaOutput = {
     VENDOR?: string | null;
     RATE?: string | null;
   }>;
+  ATTACHMENTS?: ZnfaAttachment[];
 };
 
 const FETCH_CONFIG_NAME = "ZNFA_Fetch_API";

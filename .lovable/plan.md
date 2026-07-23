@@ -1,42 +1,19 @@
-## Goal
-Update the ZNFA Rating screen so the output card title reflects the action that triggered the API, and remove the "Rating triggers the ZNFA_Create_API" caption.
+Update the ZNFA Rating screen to render the Attachments API response as a dedicated table with only Name, Created By, and Created On columns.
 
-## Changes to `src/routes/_authenticated/mm.gate-process.tsx`
+Changes to `src/lib/mm/gate-process.functions.ts`
+1. Add an attachment type:
+   - `ZnfaAttachment` with `NAME`, `CREATED_BY`, and `CREATED_ON`.
+2. Extend `ZnfaOutput` with an optional `ATTACHMENTS?: ZnfaAttachment[]` array.
+3. In `createZnfa` handler, after parsing the SAP response, detect the `ATTACHMENTS` action and read the response root (which arrives as an array of objects). Map each item to `ZnfaAttachment` and populate `output.ATTACHMENTS`. For non-attachment actions, keep the existing `ITEMS`/`RATINGS` parsing unchanged.
 
-1. Track the action that produced the output
-   - Add a state: `const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);`
-   - Reset it on `Execute`/`Reset`/`onSuccess` of the fetch mutation.
-   - Set it inside `createMutation.onSuccess` before storing the output, e.g.:
-     ```ts
-     setLastAction(createMutation.variables?.action ?? null);
-     ```
-     (Store it from the mutation variables because the action was already passed to `handleAction`.)
+Changes to `src/routes/_authenticated/mm.gate-process.tsx`
+1. Update `outputTitle` useMemo to return `"Attachments Result"` when `lastAction === "ATTACHMENTS"`.
+2. In the output card:
+   - When `lastAction === "ATTACHMENTS"`, render only the Attachments Result table with columns Name, Created By, Created On.
+   - For all other actions (`RATE`, `CHANGE`, `DISPLAY`), keep the existing PR details grid, Items table (with editable Remarks), and Ratings table.
+3. Clear/initialize `itemRemarks` and `lastAction` consistently in reset and mutation `onSuccess` callbacks.
 
-2. Dynamic output title
-   - Derive the title from `lastAction`:
-     ```ts
-     const outputTitle = useMemo(() => {
-       switch (lastAction) {
-         case "RATE": return "Rating Result";
-         case "CHANGE": return "Change Result";
-         case "DISPLAY": return "Display Result";
-         default: return "Output";
-       }
-     }, [lastAction]);
-     ```
-   - Replace the static `OUTPUT` card label (lines 235–237) with:
-     ```tsx
-     <Filter className="h-3.5 w-3.5" /> {outputTitle}
-     ```
-
-3. Remove the API caption
-   - Delete lines 229–231 (the `<div className="text-xs text-muted-foreground -mt-2">…` caption).
-   - Remove the `title={action === "RATE" ? "Triggers ZNFA_Create_API" : undefined}` tooltip from the Rating button (line 218) so no leftover indication remains.
-
-4. Reset state consistency
-   - Ensure `setLastAction(null)` is called in the fetch mutation `onSuccess` and in the `reset()` function.
-
-## Out of scope
-- No changes to the SAP API payload or server functions.
-- No changes to the table layout, button colors, or editable Remarks behavior.
-- No new routes or components.
+Out of scope
+- No changes to the ZNFA fetch, SAP payload, or action buttons.
+- No changes to the middleware.
+- No changes to other screens or table layouts.
