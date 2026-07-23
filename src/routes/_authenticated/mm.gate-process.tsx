@@ -534,10 +534,36 @@ function GateProcessPage() {
                                 ) : (
                                   <span>{rt[k] || "—"}</span>
                                 );
+                              const renderRateCell = () => {
+                                if (!isEditable) return <span>{rt.RATE || "—"}</span>;
+                                if (ratingOptions.length === 0) {
+                                  return (
+                                    <Input
+                                      value={rt.RATE}
+                                      onChange={(e) => setField("RATE", e.target.value)}
+                                      className="h-8 text-xs"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <Select value={rt.RATE || undefined} onValueChange={(v) => setField("RATE", v)}>
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Select rate" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {ratingOptions.map((opt) => (
+                                        <SelectItem key={opt} value={opt} className="text-xs">
+                                          {opt}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                );
+                              };
                               return (
                                 <TableRow key={idx}>
                                   <TableCell className="text-xs">{renderCell("VENDOR")}</TableCell>
-                                  <TableCell className="text-xs">{renderCell("RATE")}</TableCell>
+                                  <TableCell className="text-xs">{renderRateCell()}</TableCell>
                                 </TableRow>
                               );
                             })
