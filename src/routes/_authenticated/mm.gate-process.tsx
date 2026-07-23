@@ -374,26 +374,41 @@ function GateProcessPage() {
                         </TableHeader>
                         <TableBody>
                           {Array.isArray(output.ITEMS) && output.ITEMS.length > 0 ? (
-                            output.ITEMS.map((item, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell className="text-xs">{toStr(item.SR_NO)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.MATERIAL)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.DESCRIPTION)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.TENDER_SPEC)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.UOM)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.VENDOR_NAME)}</TableCell>
-                                <TableCell className="text-xs">
+                            output.ITEMS.map((item, idx) => {
+                              const it = items[idx] ?? {
+                                SR_NO: toStr(item.SR_NO),
+                                MATERIAL: toStr(item.MATERIAL),
+                                DESCRIPTION: toStr(item.DESCRIPTION),
+                                TENDER_SPEC: toStr(item.TENDER_SPEC),
+                                UOM: toStr(item.UOM),
+                                VENDOR_NAME: toStr(item.VENDOR_NAME),
+                                REMARKS: toStr(item.REMARKS),
+                              };
+                              const setField = (k: keyof ItemFields, val: string) =>
+                                setItems((prev) => ({ ...prev, [idx]: { ...it, ...prev[idx], [k]: val } }));
+                              const renderCell = (k: keyof ItemFields, editable: boolean, placeholder?: string) =>
+                                editable ? (
                                   <Input
-                                    value={itemRemarks[idx] ?? toStr(item.REMARKS)}
-                                    onChange={(e) =>
-                                      setItemRemarks((prev) => ({ ...prev, [idx]: e.target.value }))
-                                    }
+                                    value={it[k]}
+                                    onChange={(e) => setField(k, e.target.value)}
                                     className="h-8 text-xs"
-                                    placeholder="Enter remarks"
+                                    placeholder={placeholder}
                                   />
-                                </TableCell>
-                              </TableRow>
-                            ))
+                                ) : (
+                                  <span>{it[k] || "—"}</span>
+                                );
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell className="text-xs">{renderCell("SR_NO", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("MATERIAL", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("DESCRIPTION", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("TENDER_SPEC", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("UOM", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("VENDOR_NAME", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("REMARKS", isEditable, "Enter remarks")}</TableCell>
+                                </TableRow>
+                              );
+                            })
                           ) : (
                             <TableRow>
                               <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-4">
