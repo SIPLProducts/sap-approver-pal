@@ -61,6 +61,8 @@ function GateProcessPage() {
         return "Change Result";
       case "DISPLAY":
         return "Display Result";
+      case "ATTACHMENTS":
+        return "Attachments Result";
       default:
         return "Output";
     }
@@ -249,99 +251,134 @@ function GateProcessPage() {
                 <Filter className="h-3.5 w-3.5" /> {outputTitle}
               </div>
 
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">PR Number</Label>
-                  <Input value={toStr(output.PR_NUMBER)} readOnly className="h-9 text-sm bg-muted/40" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">PR Date</Label>
-                  <Input value={toStr(output.PR_DATE)} readOnly className="h-9 text-sm bg-muted/40" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">TER SUB ID</Label>
-                  <Input value={toStr(output.TER_SUB_ID)} readOnly className="h-9 text-sm bg-muted/40" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Items</div>
-                <div className="overflow-x-auto rounded-md border">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow>
-                        <TableHead className="text-xs">Sr. No</TableHead>
-                        <TableHead className="text-xs">Material</TableHead>
-                        <TableHead className="text-xs">Description</TableHead>
-                        <TableHead className="text-xs">Tender Spec</TableHead>
-                        <TableHead className="text-xs">UoM</TableHead>
-                        <TableHead className="text-xs">Vendor Name</TableHead>
-                        <TableHead className="text-xs">Remarks</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Array.isArray(output.ITEMS) && output.ITEMS.length > 0 ? (
-                        output.ITEMS.map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="text-xs">{toStr(item.SR_NO)}</TableCell>
-                            <TableCell className="text-xs">{toStr(item.MATERIAL)}</TableCell>
-                            <TableCell className="text-xs">{toStr(item.DESCRIPTION)}</TableCell>
-                            <TableCell className="text-xs">{toStr(item.TENDER_SPEC)}</TableCell>
-                            <TableCell className="text-xs">{toStr(item.UOM)}</TableCell>
-                            <TableCell className="text-xs">{toStr(item.VENDOR_NAME)}</TableCell>
-                            <TableCell className="text-xs">
-                              <Input
-                                value={itemRemarks[idx] ?? toStr(item.REMARKS)}
-                                onChange={(e) =>
-                                  setItemRemarks((prev) => ({ ...prev, [idx]: e.target.value }))
-                                }
-                                className="h-8 text-xs"
-                                placeholder="Enter remarks"
-                              />
+              {lastAction === "ATTACHMENTS" ? (
+                <div className="space-y-2">
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow>
+                          <TableHead className="text-xs">Name</TableHead>
+                          <TableHead className="text-xs">Created By</TableHead>
+                          <TableHead className="text-xs">Created On</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Array.isArray(output.ATTACHMENTS) && output.ATTACHMENTS.length > 0 ? (
+                          output.ATTACHMENTS.map((att, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="text-xs">{toStr(att.NAME)}</TableCell>
+                              <TableCell className="text-xs">{toStr(att.CREATED_BY)}</TableCell>
+                              <TableCell className="text-xs">{toStr(att.CREATED_ON)}</TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center text-xs text-muted-foreground py-4">
+                              No attachments.
                             </TableCell>
                           </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-4">
-                            No items.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">PR Number</Label>
+                      <Input value={toStr(output.PR_NUMBER)} readOnly className="h-9 text-sm bg-muted/40" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">PR Date</Label>
+                      <Input value={toStr(output.PR_DATE)} readOnly className="h-9 text-sm bg-muted/40" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">TER SUB ID</Label>
+                      <Input value={toStr(output.TER_SUB_ID)} readOnly className="h-9 text-sm bg-muted/40" />
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ratings</div>
-                <div className="overflow-x-auto rounded-md border">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow>
-                        <TableHead className="text-xs">Vendor</TableHead>
-                        <TableHead className="text-xs">Rate</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Array.isArray(output.RATINGS) && output.RATINGS.length > 0 ? (
-                        output.RATINGS.map((rating, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="text-xs">{toStr(rating.VENDOR)}</TableCell>
-                            <TableCell className="text-xs">{toStr(rating.RATE)}</TableCell>
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Items</div>
+                    <div className="overflow-x-auto rounded-md border">
+                      <Table>
+                        <TableHeader className="bg-muted/50">
+                          <TableRow>
+                            <TableHead className="text-xs">Sr. No</TableHead>
+                            <TableHead className="text-xs">Material</TableHead>
+                            <TableHead className="text-xs">Description</TableHead>
+                            <TableHead className="text-xs">Tender Spec</TableHead>
+                            <TableHead className="text-xs">UoM</TableHead>
+                            <TableHead className="text-xs">Vendor Name</TableHead>
+                            <TableHead className="text-xs">Remarks</TableHead>
                           </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={2} className="text-center text-xs text-muted-foreground py-4">
-                            No ratings.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
+                        </TableHeader>
+                        <TableBody>
+                          {Array.isArray(output.ITEMS) && output.ITEMS.length > 0 ? (
+                            output.ITEMS.map((item, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="text-xs">{toStr(item.SR_NO)}</TableCell>
+                                <TableCell className="text-xs">{toStr(item.MATERIAL)}</TableCell>
+                                <TableCell className="text-xs">{toStr(item.DESCRIPTION)}</TableCell>
+                                <TableCell className="text-xs">{toStr(item.TENDER_SPEC)}</TableCell>
+                                <TableCell className="text-xs">{toStr(item.UOM)}</TableCell>
+                                <TableCell className="text-xs">{toStr(item.VENDOR_NAME)}</TableCell>
+                                <TableCell className="text-xs">
+                                  <Input
+                                    value={itemRemarks[idx] ?? toStr(item.REMARKS)}
+                                    onChange={(e) =>
+                                      setItemRemarks((prev) => ({ ...prev, [idx]: e.target.value }))
+                                    }
+                                    className="h-8 text-xs"
+                                    placeholder="Enter remarks"
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-4">
+                                No items.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ratings</div>
+                    <div className="overflow-x-auto rounded-md border">
+                      <Table>
+                        <TableHeader className="bg-muted/50">
+                          <TableRow>
+                            <TableHead className="text-xs">Vendor</TableHead>
+                            <TableHead className="text-xs">Rate</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Array.isArray(output.RATINGS) && output.RATINGS.length > 0 ? (
+                            output.RATINGS.map((rating, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="text-xs">{toStr(rating.VENDOR)}</TableCell>
+                                <TableCell className="text-xs">{toStr(rating.RATE)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-center text-xs text-muted-foreground py-4">
+                                No ratings.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </>
+              )}
             </Card>
           )}
         </>

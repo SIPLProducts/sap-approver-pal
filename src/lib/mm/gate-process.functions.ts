@@ -28,6 +28,12 @@ export type ZnfaCreateRow = {
   TER_SUB_ID: string;
 };
 
+export type ZnfaAttachment = {
+  NAME?: string | null;
+  CREATED_BY?: string | null;
+  CREATED_ON?: string | null;
+};
+
 export type ZnfaOutput = {
   PR_NUMBER?: string | null;
   PR_DATE?: string | null;
@@ -45,6 +51,7 @@ export type ZnfaOutput = {
     VENDOR?: string | null;
     RATE?: string | null;
   }>;
+  ATTACHMENTS?: ZnfaAttachment[];
 };
 
 const FETCH_CONFIG_NAME = "ZNFA_Fetch_API";
@@ -365,6 +372,8 @@ export const createZnfa = createServerFn({ method: "POST" })
       : Array.isArray(outputRoot?.ratings)
         ? outputRoot.ratings
         : [];
+    const attachmentsRaw: any[] =
+      action === "ATTACHMENTS" && Array.isArray(outputRoot) ? outputRoot : [];
     const output: ZnfaOutput = {
       PR_NUMBER: pick(outputRoot, "PR_NUMBER"),
       PR_DATE: pick(outputRoot, "PR_DATE"),
@@ -382,14 +391,19 @@ export const createZnfa = createServerFn({ method: "POST" })
         VENDOR: pick(r, "VENDOR"),
         RATE: pick(r, "RATE"),
       })),
+      ATTACHMENTS: attachmentsRaw.map((a: any) => ({
+        NAME: pick(a, "NAME"),
+        CREATED_BY: pick(a, "CREATED_BY"),
+        CREATED_ON: pick(a, "CREATED_ON"),
+      })),
     };
-    console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "PR_NUMBER=", output.PR_NUMBER);
+    console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "output.ATTACHMENTS.len=", output.ATTACHMENTS?.length, "PR_NUMBER=", output.PR_NUMBER);
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
       status: "ok",
       latency_ms,
-      rows_processed: (output.ITEMS?.length ?? 0) + (output.RATINGS?.length ?? 0),
+      rows_processed: (output.ITEMS?.length ?? 0) + (output.RATINGS?.length ?? 0) + (output.ATTACHMENTS?.length ?? 0),
       message: `znfa-create: ${action} ${message}`,
     });
 
