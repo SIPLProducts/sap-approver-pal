@@ -56,6 +56,7 @@ export type ZnfaOutput = {
 
 const FETCH_CONFIG_NAME = "ZNFA_Fetch_API";
 const CREATE_CONFIG_NAME = "ZNFA_Create_API";
+const SAVE_CONFIG_NAME = "ZNFA_SAVE_API";
 
 function pick(o: any, k: string) {
   if (!o || typeof o !== "object") return null;
