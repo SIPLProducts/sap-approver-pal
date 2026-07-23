@@ -41,6 +41,7 @@ function GateProcessPage() {
   const userIdFn = useServerFn(getMySapUserId);
   const createFn = useServerFn(createZnfa);
   const saveFn = useServerFn(saveZnfa);
+  const ratingF4Fn = useServerFn(fetchZnfaRatingF4);
 
   const { data: userIdData } = useQuery({
     queryKey: ["mm-gate-process", "sap-user-id"],
