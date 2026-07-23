@@ -349,6 +349,22 @@ function GateProcessPage() {
             }
           />
 
+          {output && isEditable && (
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : null}
+                Save
+              </Button>
+            </div>
+          )}
+
           {output && (
             <Card ref={outputRef} className="p-4 space-y-5">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
