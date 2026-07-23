@@ -568,3 +568,99 @@ export const saveZnfa = createServerFn({ method: "POST" })
     return { ok: false as const, ter_sub_id: null, message: null, error: errMsg };
   });
 
+const RATING_F4_CONFIG_NAME = "ZNFA_RATINGS_F4s_API";
+
+export const fetchZnfaRatingF4 = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", RATING_F4_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg) return { options: [] as string[], error: `SAP API config "${RATING_F4_CONFIG_NAME}" not found.` };
+    if (!cfg.is_active) return { options: [] as string[], error: `SAP API config "${RATING_F4_CONFIG_NAME}" is disabled.` };
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+    ]);
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" && !!globalSettings?.middleware_url;
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
+
+    let target: string;
+    let method: string = cfg.http_method ?? "GET";
+    let bodyOut: string | undefined;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    let proxied = false;
+
+    if (useProxy) {
+      if (!middlewareUrl) return { options: [], error: "Proxy mode is on but no middleware URL is configured." };
+      target = `${middlewareUrl.replace(/\/+$/, "")}/sap/invoke`;
+      method = "POST";
+      headers["Content-Type"] = "application/json";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs: {}, raw: true });
+      proxied = true;
+    } else {
+      target = cfg.endpoint_url;
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization =
+          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+    }
+
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      headers[k] = v;
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(target, { method, headers, body: bodyOut });
+    } catch (e) {
+      return { options: [] as string[], error: `Could not reach SAP: ${(e as Error).message}` };
+    }
+    const text = await res.text().catch(() => "");
+    if (!res.ok) return { options: [] as string[], error: `SAP returned ${res.status}: ${text.slice(0, 200)}` };
+
+    let json: any = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      return { options: [] as string[], error: `Invalid JSON from SAP: ${text.slice(0, 200)}` };
+    }
+
+    const sapJson: any = proxied ? (json?.data ?? json) : json;
+    const arr: any[] = Array.isArray(sapJson)
+      ? sapJson
+      : Array.isArray(sapJson?.DATA)
+        ? sapJson.DATA
+        : Array.isArray(sapJson?.data)
+          ? sapJson.data
+          : [];
+
+    const set = new Set<string>();
+    const options: string[] = [];
+    for (const row of arr) {
+      if (!row || typeof row !== "object") continue;
+      const vals = Object.values(row);
+      const v = vals.length > 0 ? vals[0] : null;
+      if (v == null) continue;
+      const s = String(v).trim();
+      if (!s || set.has(s)) continue;
+      set.add(s);
+      options.push(s);
+    }
+    return { options, error: null as string | null };
+  });
+

@@ -20,7 +20,8 @@ import {
 import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
-import { fetchGateProcess, createZnfa, saveZnfa, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
+import { fetchGateProcess, createZnfa, saveZnfa, fetchZnfaRatingF4, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/mm/gate-process")({
   component: GateProcessPage,
@@ -40,6 +41,7 @@ function GateProcessPage() {
   const userIdFn = useServerFn(getMySapUserId);
   const createFn = useServerFn(createZnfa);
   const saveFn = useServerFn(saveZnfa);
+  const ratingF4Fn = useServerFn(fetchZnfaRatingF4);
 
   const { data: userIdData } = useQuery({
     queryKey: ["mm-gate-process", "sap-user-id"],
@@ -71,6 +73,14 @@ function GateProcessPage() {
   const outputRef = useRef<HTMLDivElement>(null);
 
   const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
+
+  const { data: ratingF4Data } = useQuery({
+    queryKey: ["mm-gate-process", "rating-f4"],
+    queryFn: () => ratingF4Fn(),
+    enabled: isEditable && !!output && Array.isArray(output?.RATINGS) && output.RATINGS.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+  const ratingOptions: string[] = Array.isArray(ratingF4Data?.options) ? ratingF4Data!.options : [];
 
   const outputTitle = useMemo(() => {
     switch (lastAction) {
@@ -524,10 +534,36 @@ function GateProcessPage() {
                                 ) : (
                                   <span>{rt[k] || "—"}</span>
                                 );
+                              const renderRateCell = () => {
+                                if (!isEditable) return <span>{rt.RATE || "—"}</span>;
+                                if (ratingOptions.length === 0) {
+                                  return (
+                                    <Input
+                                      value={rt.RATE}
+                                      onChange={(e) => setField("RATE", e.target.value)}
+                                      className="h-8 text-xs"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <Select value={rt.RATE || undefined} onValueChange={(v) => setField("RATE", v)}>
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Select rate" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {ratingOptions.map((opt) => (
+                                        <SelectItem key={opt} value={opt} className="text-xs">
+                                          {opt}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                );
+                              };
                               return (
                                 <TableRow key={idx}>
                                   <TableCell className="text-xs">{renderCell("VENDOR")}</TableCell>
-                                  <TableCell className="text-xs">{renderCell("RATE")}</TableCell>
+                                  <TableCell className="text-xs">{renderRateCell()}</TableCell>
                                 </TableRow>
                               );
                             })
