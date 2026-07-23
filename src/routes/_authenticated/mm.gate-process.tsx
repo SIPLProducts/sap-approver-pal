@@ -20,7 +20,8 @@ import {
 import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
-import { fetchGateProcess, createZnfa, saveZnfa, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
+import { fetchGateProcess, createZnfa, saveZnfa, fetchZnfaRatingF4, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/mm/gate-process")({
   component: GateProcessPage,
