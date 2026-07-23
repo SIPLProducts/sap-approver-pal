@@ -74,6 +74,14 @@ function GateProcessPage() {
 
   const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
 
+  const { data: ratingF4Data } = useQuery({
+    queryKey: ["mm-gate-process", "rating-f4"],
+    queryFn: () => ratingF4Fn(),
+    enabled: isEditable && !!output && Array.isArray(output?.RATINGS) && output.RATINGS.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+  const ratingOptions: string[] = Array.isArray(ratingF4Data?.options) ? ratingF4Data!.options : [];
+
   const outputTitle = useMemo(() => {
     switch (lastAction) {
       case "RATE":
