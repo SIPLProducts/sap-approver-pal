@@ -56,6 +56,7 @@ export type ZnfaOutput = {
 
 const FETCH_CONFIG_NAME = "ZNFA_Fetch_API";
 const CREATE_CONFIG_NAME = "ZNFA_Create_API";
+const SAVE_CONFIG_NAME = "ZNFA_SAVE_API";
 
 function pick(o: any, k: string) {
   if (!o || typeof o !== "object") return null;
@@ -408,5 +409,162 @@ export const createZnfa = createServerFn({ method: "POST" })
     });
 
     return { output, error: null as string | null };
+  });
+
+const ItemSchema = z.object({
+  SR_NO: z.string().default(""),
+  MATERIAL: z.string().default(""),
+  DESCRIPTION: z.string().default(""),
+  TENDER_SPEC: z.string().default(""),
+  UOM: z.string().default(""),
+  VENDOR_NAME: z.string().default(""),
+  REMARKS: z.string().default(""),
+});
+const RatingSchema = z.object({
+  VENDOR: z.string().default(""),
+  RATE: z.string().default(""),
+});
+
+export const saveZnfa = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      action: z.enum(["RATE", "CHANGE"]),
+      user_id: z.string().trim().min(1, "User ID is required").max(60),
+      pr_number: z.string().default(""),
+      pr_date: z.string().default(""),
+      ter_sub_id: z.string().default(""),
+      items: z.array(ItemSchema).default([]),
+      ratings: z.array(RatingSchema).default([]),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", SAVE_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg) throw new Error(`SAP API config "${SAVE_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${SAVE_CONFIG_NAME}" is disabled.`);
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+    ]);
+
+    const userId = data.user_id.trim();
+    const payload = {
+      PR_NUMBER: data.pr_number,
+      PR_DATE: data.pr_date,
+      TER_SUB_ID: data.ter_sub_id,
+      USER_ID: userId,
+      RATE: data.action === "RATE" ? "X" : "",
+      CHANGE: data.action === "CHANGE" ? "X" : "",
+      SAVE: "X",
+      ITEMS: data.items,
+      RATINGS: data.ratings,
+    };
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" &&
+      !!(globalSettings?.middleware_url);
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
+
+    let target: string;
+    let method: string = cfg.http_method ?? "POST";
+    let bodyOut: string | undefined;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    let proxied = false;
+
+    if (useProxy) {
+      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      target = `${middlewareUrl.replace(/\/+$/, "")}/sap/invoke`;
+      method = "POST";
+      headers["Content-Type"] = "application/json";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload, raw: true });
+      proxied = true;
+    } else {
+      target = cfg.endpoint_url;
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization =
+          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+      bodyOut = JSON.stringify(payload);
+      headers["Content-Type"] = "application/json";
+    }
+
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      headers[k] = v;
+    }
+
+    const t0 = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(target, { method, headers, body: bodyOut });
+    } catch (e) {
+      const errMsg = (e as Error).message || "fetch failed";
+      const latency_ms = Date.now() - t0;
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `znfa-save network: ${errMsg}`,
+      });
+      return { ok: false as const, ter_sub_id: null as string | null, message: null as string | null, error: `Could not reach SAP. ${errMsg}` };
+    }
+
+    const text = await res.text().catch(() => "");
+    const message = `${res.status} ${res.statusText}`;
+    const latency_ms = Date.now() - t0;
+
+    if (!res.ok) {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `znfa-save: ${message} ${text.slice(0, 500)}`,
+      });
+      return { ok: false as const, ter_sub_id: null, message: null, error: `SAP returned ${message}: ${text.slice(0, 200)}` };
+    }
+
+    let json: any = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      return { ok: false as const, ter_sub_id: null, message: null, error: `Invalid JSON from SAP: ${text.slice(0, 200)}` };
+    }
+
+    const sapJson: any = proxied ? (json?.data ?? json) : json;
+    // Failure array: [{ TYPE:"E", MSG:"..." }]
+    const first = Array.isArray(sapJson) ? sapJson[0] : sapJson;
+    const type = pick(first, "TYPE");
+    const isSuccess = typeof type === "string" && type.toUpperCase() === "S";
+
+    await supabaseAdmin.from("sap_api_sync_log").insert({
+      config_id: cfg.id,
+      status: isSuccess ? "ok" : "error",
+      latency_ms,
+      message: `znfa-save: ${message} ${text.slice(0, 300)}`,
+    });
+
+    if (isSuccess) {
+      return {
+        ok: true as const,
+        ter_sub_id: (pick(first, "TER_SUB_ID") as string) ?? null,
+        message: (pick(first, "MESSAGE") as string) ?? "Saved successfully",
+        error: null as string | null,
+      };
+    }
+    const errMsg = (pick(first, "MSG") as string) || (pick(first, "MESSAGE") as string) || "Save failed";
+    return { ok: false as const, ter_sub_id: null, message: null, error: errMsg };
   });
 
