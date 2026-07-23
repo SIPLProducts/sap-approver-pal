@@ -330,15 +330,30 @@ function GateProcessPage() {
                   <div className="grid gap-3 md:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs">PR Number</Label>
-                      <Input value={toStr(output.PR_NUMBER)} readOnly className="h-9 text-sm bg-muted/40" />
+                      <Input
+                        value={header.PR_NUMBER}
+                        onChange={(e) => setHeader((p) => ({ ...p, PR_NUMBER: e.target.value }))}
+                        readOnly={!isEditable}
+                        className={`h-9 text-sm ${isEditable ? "" : "bg-muted/40"}`}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">PR Date</Label>
-                      <Input value={toStr(output.PR_DATE)} readOnly className="h-9 text-sm bg-muted/40" />
+                      <Input
+                        value={header.PR_DATE}
+                        onChange={(e) => setHeader((p) => ({ ...p, PR_DATE: e.target.value }))}
+                        readOnly={!isEditable}
+                        className={`h-9 text-sm ${isEditable ? "" : "bg-muted/40"}`}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">TER SUB ID</Label>
-                      <Input value={toStr(output.TER_SUB_ID)} readOnly className="h-9 text-sm bg-muted/40" />
+                      <Input
+                        value={header.TER_SUB_ID}
+                        onChange={(e) => setHeader((p) => ({ ...p, TER_SUB_ID: e.target.value }))}
+                        readOnly={!isEditable}
+                        className={`h-9 text-sm ${isEditable ? "" : "bg-muted/40"}`}
+                      />
                     </div>
                   </div>
 
