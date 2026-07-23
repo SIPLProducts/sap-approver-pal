@@ -49,9 +49,27 @@ function GateProcessPage() {
   const [rows, setRows] = useState<GateRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<ZnfaOutput | null>(null);
-  const [itemRemarks, setItemRemarks] = useState<Record<number, string>>({});
+  const [header, setHeader] = useState<{ PR_NUMBER: string; PR_DATE: string; TER_SUB_ID: string }>({
+    PR_NUMBER: "",
+    PR_DATE: "",
+    TER_SUB_ID: "",
+  });
+  type ItemFields = {
+    SR_NO: string;
+    MATERIAL: string;
+    DESCRIPTION: string;
+    TENDER_SPEC: string;
+    UOM: string;
+    VENDOR_NAME: string;
+    REMARKS: string;
+  };
+  type RatingFields = { VENDOR: string; RATE: string };
+  const [items, setItems] = useState<Record<number, ItemFields>>({});
+  const [ratings, setRatings] = useState<Record<number, RatingFields>>({});
   const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
+
+  const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
 
   const outputTitle = useMemo(() => {
     switch (lastAction) {
