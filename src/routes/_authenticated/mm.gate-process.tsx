@@ -141,10 +141,31 @@ function GateProcessPage() {
       } else {
         setLastAction(vars.action);
         setOutput(res.output);
-        const items = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS : [];
-        const init: Record<number, string> = {};
-        items.forEach((it, i) => (init[i] = toStr(it.REMARKS)));
-        setItemRemarks(init);
+        setHeader({
+          PR_NUMBER: toStr(res.output?.PR_NUMBER),
+          PR_DATE: toStr(res.output?.PR_DATE),
+          TER_SUB_ID: toStr(res.output?.TER_SUB_ID),
+        });
+        const itemsArr = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS! : [];
+        const itemsInit: Record<number, ItemFields> = {};
+        itemsArr.forEach((it, i) => {
+          itemsInit[i] = {
+            SR_NO: toStr(it.SR_NO),
+            MATERIAL: toStr(it.MATERIAL),
+            DESCRIPTION: toStr(it.DESCRIPTION),
+            TENDER_SPEC: toStr(it.TENDER_SPEC),
+            UOM: toStr(it.UOM),
+            VENDOR_NAME: toStr(it.VENDOR_NAME),
+            REMARKS: toStr(it.REMARKS),
+          };
+        });
+        setItems(itemsInit);
+        const ratingsArr = Array.isArray(res.output?.RATINGS) ? res.output!.RATINGS! : [];
+        const ratingsInit: Record<number, RatingFields> = {};
+        ratingsArr.forEach((rt, i) => {
+          ratingsInit[i] = { VENDOR: toStr(rt.VENDOR), RATE: toStr(rt.RATE) };
+        });
+        setRatings(ratingsInit);
         toast.success("Request submitted successfully");
         requestAnimationFrame(() => {
           outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
