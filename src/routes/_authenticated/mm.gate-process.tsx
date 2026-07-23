@@ -433,12 +433,27 @@ function GateProcessPage() {
                         </TableHeader>
                         <TableBody>
                           {Array.isArray(output.RATINGS) && output.RATINGS.length > 0 ? (
-                            output.RATINGS.map((rating, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell className="text-xs">{toStr(rating.VENDOR)}</TableCell>
-                                <TableCell className="text-xs">{toStr(rating.RATE)}</TableCell>
-                              </TableRow>
-                            ))
+                            output.RATINGS.map((rating, idx) => {
+                              const rt = ratings[idx] ?? { VENDOR: toStr(rating.VENDOR), RATE: toStr(rating.RATE) };
+                              const setField = (k: keyof RatingFields, val: string) =>
+                                setRatings((prev) => ({ ...prev, [idx]: { ...rt, ...prev[idx], [k]: val } }));
+                              const renderCell = (k: keyof RatingFields) =>
+                                isEditable ? (
+                                  <Input
+                                    value={rt[k]}
+                                    onChange={(e) => setField(k, e.target.value)}
+                                    className="h-8 text-xs"
+                                  />
+                                ) : (
+                                  <span>{rt[k] || "—"}</span>
+                                );
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell className="text-xs">{renderCell("VENDOR")}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("RATE")}</TableCell>
+                                </TableRow>
+                              );
+                            })
                           ) : (
                             <TableRow>
                               <TableCell colSpan={2} className="text-center text-xs text-muted-foreground py-4">
