@@ -61,6 +61,8 @@ function GateProcessPage() {
         return "Change Result";
       case "DISPLAY":
         return "Display Result";
+      case "ATTACHMENTS":
+        return "Attachments Result";
       default:
         return "Output";
     }
