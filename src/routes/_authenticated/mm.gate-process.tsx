@@ -49,9 +49,27 @@ function GateProcessPage() {
   const [rows, setRows] = useState<GateRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<ZnfaOutput | null>(null);
-  const [itemRemarks, setItemRemarks] = useState<Record<number, string>>({});
+  const [header, setHeader] = useState<{ PR_NUMBER: string; PR_DATE: string; TER_SUB_ID: string }>({
+    PR_NUMBER: "",
+    PR_DATE: "",
+    TER_SUB_ID: "",
+  });
+  type ItemFields = {
+    SR_NO: string;
+    MATERIAL: string;
+    DESCRIPTION: string;
+    TENDER_SPEC: string;
+    UOM: string;
+    VENDOR_NAME: string;
+    REMARKS: string;
+  };
+  type RatingFields = { VENDOR: string; RATE: string };
+  const [items, setItems] = useState<Record<number, ItemFields>>({});
+  const [ratings, setRatings] = useState<Record<number, RatingFields>>({});
   const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
+
+  const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
 
   const outputTitle = useMemo(() => {
     switch (lastAction) {
@@ -88,7 +106,9 @@ function GateProcessPage() {
       setRows(res.rows);
       setSelected(new Set());
       setOutput(null);
-      setItemRemarks({});
+      setHeader({ PR_NUMBER: "", PR_DATE: "", TER_SUB_ID: "" });
+      setItems({});
+      setRatings({});
       setLastAction(null);
       if (res.error) {
         toast.error(res.error);
@@ -121,10 +141,31 @@ function GateProcessPage() {
       } else {
         setLastAction(vars.action);
         setOutput(res.output);
-        const items = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS : [];
-        const init: Record<number, string> = {};
-        items.forEach((it, i) => (init[i] = toStr(it.REMARKS)));
-        setItemRemarks(init);
+        setHeader({
+          PR_NUMBER: toStr(res.output?.PR_NUMBER),
+          PR_DATE: toStr(res.output?.PR_DATE),
+          TER_SUB_ID: toStr(res.output?.TER_SUB_ID),
+        });
+        const itemsArr = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS! : [];
+        const itemsInit: Record<number, ItemFields> = {};
+        itemsArr.forEach((it, i) => {
+          itemsInit[i] = {
+            SR_NO: toStr(it.SR_NO),
+            MATERIAL: toStr(it.MATERIAL),
+            DESCRIPTION: toStr(it.DESCRIPTION),
+            TENDER_SPEC: toStr(it.TENDER_SPEC),
+            UOM: toStr(it.UOM),
+            VENDOR_NAME: toStr(it.VENDOR_NAME),
+            REMARKS: toStr(it.REMARKS),
+          };
+        });
+        setItems(itemsInit);
+        const ratingsArr = Array.isArray(res.output?.RATINGS) ? res.output!.RATINGS! : [];
+        const ratingsInit: Record<number, RatingFields> = {};
+        ratingsArr.forEach((rt, i) => {
+          ratingsInit[i] = { VENDOR: toStr(rt.VENDOR), RATE: toStr(rt.RATE) };
+        });
+        setRatings(ratingsInit);
         toast.success("Request submitted successfully");
         requestAnimationFrame(() => {
           outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -147,7 +188,9 @@ function GateProcessPage() {
     setRows([]);
     setSelected(new Set());
     setOutput(null);
-    setItemRemarks({});
+    setHeader({ PR_NUMBER: "", PR_DATE: "", TER_SUB_ID: "" });
+    setItems({});
+    setRatings({});
     setLastAction(null);
   }
 
@@ -287,15 +330,30 @@ function GateProcessPage() {
                   <div className="grid gap-3 md:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs">PR Number</Label>
-                      <Input value={toStr(output.PR_NUMBER)} readOnly className="h-9 text-sm bg-muted/40" />
+                      <Input
+                        value={header.PR_NUMBER}
+                        onChange={(e) => setHeader((p) => ({ ...p, PR_NUMBER: e.target.value }))}
+                        readOnly={!isEditable}
+                        className={`h-9 text-sm ${isEditable ? "" : "bg-muted/40"}`}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">PR Date</Label>
-                      <Input value={toStr(output.PR_DATE)} readOnly className="h-9 text-sm bg-muted/40" />
+                      <Input
+                        value={header.PR_DATE}
+                        onChange={(e) => setHeader((p) => ({ ...p, PR_DATE: e.target.value }))}
+                        readOnly={!isEditable}
+                        className={`h-9 text-sm ${isEditable ? "" : "bg-muted/40"}`}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">TER SUB ID</Label>
-                      <Input value={toStr(output.TER_SUB_ID)} readOnly className="h-9 text-sm bg-muted/40" />
+                      <Input
+                        value={header.TER_SUB_ID}
+                        onChange={(e) => setHeader((p) => ({ ...p, TER_SUB_ID: e.target.value }))}
+                        readOnly={!isEditable}
+                        className={`h-9 text-sm ${isEditable ? "" : "bg-muted/40"}`}
+                      />
                     </div>
                   </div>
 
@@ -316,26 +374,41 @@ function GateProcessPage() {
                         </TableHeader>
                         <TableBody>
                           {Array.isArray(output.ITEMS) && output.ITEMS.length > 0 ? (
-                            output.ITEMS.map((item, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell className="text-xs">{toStr(item.SR_NO)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.MATERIAL)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.DESCRIPTION)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.TENDER_SPEC)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.UOM)}</TableCell>
-                                <TableCell className="text-xs">{toStr(item.VENDOR_NAME)}</TableCell>
-                                <TableCell className="text-xs">
+                            output.ITEMS.map((item, idx) => {
+                              const it = items[idx] ?? {
+                                SR_NO: toStr(item.SR_NO),
+                                MATERIAL: toStr(item.MATERIAL),
+                                DESCRIPTION: toStr(item.DESCRIPTION),
+                                TENDER_SPEC: toStr(item.TENDER_SPEC),
+                                UOM: toStr(item.UOM),
+                                VENDOR_NAME: toStr(item.VENDOR_NAME),
+                                REMARKS: toStr(item.REMARKS),
+                              };
+                              const setField = (k: keyof ItemFields, val: string) =>
+                                setItems((prev) => ({ ...prev, [idx]: { ...it, ...prev[idx], [k]: val } }));
+                              const renderCell = (k: keyof ItemFields, editable: boolean, placeholder?: string) =>
+                                editable ? (
                                   <Input
-                                    value={itemRemarks[idx] ?? toStr(item.REMARKS)}
-                                    onChange={(e) =>
-                                      setItemRemarks((prev) => ({ ...prev, [idx]: e.target.value }))
-                                    }
+                                    value={it[k]}
+                                    onChange={(e) => setField(k, e.target.value)}
                                     className="h-8 text-xs"
-                                    placeholder="Enter remarks"
+                                    placeholder={placeholder}
                                   />
-                                </TableCell>
-                              </TableRow>
-                            ))
+                                ) : (
+                                  <span>{it[k] || "—"}</span>
+                                );
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell className="text-xs">{renderCell("SR_NO", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("MATERIAL", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("DESCRIPTION", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("TENDER_SPEC", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("UOM", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("VENDOR_NAME", isEditable)}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("REMARKS", isEditable, "Enter remarks")}</TableCell>
+                                </TableRow>
+                              );
+                            })
                           ) : (
                             <TableRow>
                               <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-4">
@@ -360,12 +433,27 @@ function GateProcessPage() {
                         </TableHeader>
                         <TableBody>
                           {Array.isArray(output.RATINGS) && output.RATINGS.length > 0 ? (
-                            output.RATINGS.map((rating, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell className="text-xs">{toStr(rating.VENDOR)}</TableCell>
-                                <TableCell className="text-xs">{toStr(rating.RATE)}</TableCell>
-                              </TableRow>
-                            ))
+                            output.RATINGS.map((rating, idx) => {
+                              const rt = ratings[idx] ?? { VENDOR: toStr(rating.VENDOR), RATE: toStr(rating.RATE) };
+                              const setField = (k: keyof RatingFields, val: string) =>
+                                setRatings((prev) => ({ ...prev, [idx]: { ...rt, ...prev[idx], [k]: val } }));
+                              const renderCell = (k: keyof RatingFields) =>
+                                isEditable ? (
+                                  <Input
+                                    value={rt[k]}
+                                    onChange={(e) => setField(k, e.target.value)}
+                                    className="h-8 text-xs"
+                                  />
+                                ) : (
+                                  <span>{rt[k] || "—"}</span>
+                                );
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell className="text-xs">{renderCell("VENDOR")}</TableCell>
+                                  <TableCell className="text-xs">{renderCell("RATE")}</TableCell>
+                                </TableRow>
+                              );
+                            })
                           ) : (
                             <TableRow>
                               <TableCell colSpan={2} className="text-center text-xs text-muted-foreground py-4">

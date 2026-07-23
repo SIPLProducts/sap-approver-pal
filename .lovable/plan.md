@@ -1,19 +1,38 @@
-Update the ZNFA Rating screen to render the Attachments API response as a dedicated table with only Name, Created By, and Created On columns.
+## Goal
+On the ZNFA Rating screen, when the user clicks **Rate** or **Change**, make the header fields (PR Number, PR Date, TER SUB ID) and every column in the **Items** and **Ratings** tables editable inputs. In **Display** mode, everything stays read-only. Attachments mode is unchanged.
 
-Changes to `src/lib/mm/gate-process.functions.ts`
-1. Add an attachment type:
-   - `ZnfaAttachment` with `NAME`, `CREATED_BY`, and `CREATED_ON`.
-2. Extend `ZnfaOutput` with an optional `ATTACHMENTS?: ZnfaAttachment[]` array.
-3. In `createZnfa` handler, after parsing the SAP response, detect the `ATTACHMENTS` action and read the response root (which arrives as an array of objects). Map each item to `ZnfaAttachment` and populate `output.ATTACHMENTS`. For non-attachment actions, keep the existing `ITEMS`/`RATINGS` parsing unchanged.
+## Scope
+Single file: `src/routes/_authenticated/mm.gate-process.tsx`. No changes to server functions, payload shape, or middleware — this is a UI-only edit as requested.
 
-Changes to `src/routes/_authenticated/mm.gate-process.tsx`
-1. Update `outputTitle` useMemo to return `"Attachments Result"` when `lastAction === "ATTACHMENTS"`.
-2. In the output card:
-   - When `lastAction === "ATTACHMENTS"`, render only the Attachments Result table with columns Name, Created By, Created On.
-   - For all other actions (`RATE`, `CHANGE`, `DISPLAY`), keep the existing PR details grid, Items table (with editable Remarks), and Ratings table.
-3. Clear/initialize `itemRemarks` and `lastAction` consistently in reset and mutation `onSuccess` callbacks.
+## Changes
 
-Out of scope
-- No changes to the ZNFA fetch, SAP payload, or action buttons.
-- No changes to the middleware.
-- No changes to other screens or table layouts.
+1. **Editable-mode flag**
+   - Derive `isEditable = lastAction === "RATE" || lastAction === "CHANGE"`.
+
+2. **Editable state**
+   - Extend the existing `itemRemarks` pattern into per-field state maps, seeded from the API response in `createMutation.onSuccess` and cleared in `reset()`:
+     - `header`: `{ PR_NUMBER, PR_DATE, TER_SUB_ID }`
+     - `items`: `Record<number, { SR_NO, MATERIAL, DESCRIPTION, TENDER_SPEC, UOM, VENDOR_NAME, REMARKS }>` (replaces `itemRemarks`)
+     - `ratings`: `Record<number, { VENDOR, RATE }>`
+   - Re-seed on every successful response so switching Rate ↔ Change ↔ Display resets values to the latest server data.
+
+3. **Rendering**
+   - Header fields: render `<Input>` with `readOnly={!isEditable}` and keep the `bg-muted/40` styling when read-only; normal input styling when editable.
+   - Items table: replace each `<TableCell>{toStr(item.X)}</TableCell>` with either a plain text cell (Display) or an `<Input className="h-8 text-xs">` bound to `items[idx].X` (Rate/Change). Remarks stays an input in all three modes to preserve current behavior.
+   - Ratings table: same treatment for `VENDOR` and `RATE`.
+
+4. **Behavior preserved**
+   - No change to the payload sent to `ZNFA_Create_API` (edits are local UI state only, matching how Remarks works today).
+   - Attachments result table unchanged.
+   - Auto-scroll, dynamic title, and toolbar buttons unchanged.
+
+## Out of scope
+- Sending the edited header/items/ratings back to SAP (not requested).
+- Field validation.
+
+## Verification
+- Typecheck.
+- Click **Rating** → header + all Items/Ratings cells become inputs.
+- Click **Change** → same editable behavior.
+- Click **Display** → header and all cells render as read-only text (only the card is visible; no inputs except the existing read-only header inputs styled muted).
+- Click **Attachments** → unchanged.
