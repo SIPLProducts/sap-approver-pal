@@ -188,7 +188,9 @@ function GateProcessPage() {
     setRows([]);
     setSelected(new Set());
     setOutput(null);
-    setItemRemarks({});
+    setHeader({ PR_NUMBER: "", PR_DATE: "", TER_SUB_ID: "" });
+    setItems({});
+    setRatings({});
     setLastAction(null);
   }
 
