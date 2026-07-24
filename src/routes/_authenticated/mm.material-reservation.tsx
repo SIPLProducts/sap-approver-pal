@@ -220,6 +220,21 @@ function MaterialReservationPage() {
       minWidth: c.minWidth,
       align: c.align,
       cell: (item) => {
+        if (c.key === "APPROVED_QUANTITY") {
+          const idx = rows.indexOf(item);
+          const k = rowKey(item, idx);
+          const st = rowStates.get(k);
+          return (
+            <div style={{ width: 110 }}>
+              <Input
+                type="number"
+                value={st?.approvedQty ?? ""}
+                onChange={(e) => updateRow(k, { approvedQty: e.target.value })}
+                className="h-8 text-sm text-right"
+              />
+            </div>
+          );
+        }
         const v = (item as any)[c.key];
         if (v == null || v === "") return "—";
         return String(v);
