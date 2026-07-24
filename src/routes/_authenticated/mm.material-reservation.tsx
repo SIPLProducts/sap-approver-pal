@@ -207,7 +207,7 @@ function MaterialReservationPage() {
   function updateRow(k: string, patch: Partial<RowState>) {
     setRowStates((prev) => {
       const next = new Map(prev);
-      const cur = next.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "" };
+      const cur = next.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "", approvedQty: "" };
       next.set(k, { ...cur, ...patch });
       return next;
     });
