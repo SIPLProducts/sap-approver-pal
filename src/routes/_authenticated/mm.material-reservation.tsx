@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/mm/material-reservation")(
 });
 
 type DataRow = Record<string, any> & { __key?: string };
-type RowState = { hodApproval: boolean; hodRejection: boolean; remarks: string };
+type RowState = { hodApproval: boolean; hodRejection: boolean; remarks: string; approvedQty: string };
 
 function rowKey(r: DataRow, i: number) {
   return [r.DOCUMENT_NUMBER, r.SNO, r.MATERIAL, i].map((x) => x ?? "").join("|");
@@ -97,6 +97,7 @@ function MaterialReservationPage() {
           hodApproval: String(r.HOD_APRROVAL ?? r.HOD_APPROVAL ?? "").toUpperCase() === "X",
           hodRejection: String(r.HOD_REJECTION ?? "").toUpperCase() === "X",
           remarks: toStr(r.REMARKS),
+          approvedQty: toStr(r.APPROVED_QUANTITY ?? ""),
         });
       });
       setRowStates(seeded);
@@ -145,7 +146,7 @@ function MaterialReservationPage() {
       .map((r, i) => ({ r, i, k: rowKey(r, i) }))
       .filter(({ k }) => selected.has(k))
       .map(({ r, i, k }) => {
-        const st = rowStates.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "" };
+        const st = rowStates.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "", approvedQty: "" };
         return {
           SNO: String(r.SNO ?? i + 1),
           GOODS_RECEPIENT: toStr(r.GOODS_RECEPIENT),
@@ -155,7 +156,7 @@ function MaterialReservationPage() {
           ORDER_NUMBER: toStr(r.ORDER_NUMBER),
           COST_CENTER: toStr(r.COST_CENTER),
           REQUESTED_QUANTITY: Number(r.REQUESTED_QUANTITY ?? 0) || 0,
-          APPROVED_QUANTITY: Number(r.APPROVED_QUANTITY ?? 0) || 0,
+          APPROVED_QUANTITY: Number(st.approvedQty !== "" ? st.approvedQty : r.APPROVED_QUANTITY ?? 0) || 0,
           ISSUED_QUANTITY: Number(r.ISSUED_QUANTITY ?? 0) || 0,
           STORAGE_LOCATION: toStr(r.STORAGE_LOCATION),
           TOTAL_STOCK: Number(r.TOTAL_STOCK ?? 0) || 0,
@@ -206,7 +207,7 @@ function MaterialReservationPage() {
   function updateRow(k: string, patch: Partial<RowState>) {
     setRowStates((prev) => {
       const next = new Map(prev);
-      const cur = next.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "" };
+      const cur = next.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "", approvedQty: "" };
       next.set(k, { ...cur, ...patch });
       return next;
     });
@@ -219,6 +220,21 @@ function MaterialReservationPage() {
       minWidth: c.minWidth,
       align: c.align,
       cell: (item) => {
+        if (c.key === "APPROVED_QUANTITY") {
+          const idx = rows.indexOf(item);
+          const k = rowKey(item, idx);
+          const st = rowStates.get(k);
+          return (
+            <div style={{ width: 110 }}>
+              <Input
+                type="number"
+                value={st?.approvedQty ?? ""}
+                onChange={(e) => updateRow(k, { approvedQty: e.target.value })}
+                className="h-8 text-sm text-right"
+              />
+            </div>
+          );
+        }
         const v = (item as any)[c.key];
         if (v == null || v === "") return "—";
         return String(v);
