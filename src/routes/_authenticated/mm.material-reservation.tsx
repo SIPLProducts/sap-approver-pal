@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/mm/material-reservation")(
 });
 
 type DataRow = Record<string, any> & { __key?: string };
-type RowState = { hodApproval: boolean; hodRejection: boolean; remarks: string };
+type RowState = { hodApproval: boolean; hodRejection: boolean; remarks: string; approvedQty: string };
 
 function rowKey(r: DataRow, i: number) {
   return [r.DOCUMENT_NUMBER, r.SNO, r.MATERIAL, i].map((x) => x ?? "").join("|");
