@@ -1,26 +1,14 @@
 ## Goal
-Add F4 dropdown for the Rating column in the ZNFA Rating output table's Ratings section, populated from `ZNFA_RATINGS_F4s_API`. Show dropdown only in Rate/Change modes; keep Display mode read-only.
+Make the "Approved Qty" column in the Material Reservation items table editable, and include the user-edited value in the Save payload.
 
 ## Changes
 
-### 1. `src/lib/mm/gate-process.functions.ts`
-Add a new server function `fetchZnfaRatingF4` that:
-- Reads the `ZNFA_RATINGS_F4s_API` sap_api_configs row (config name constant).
-- Calls SAP via proxy/basic, same pattern as `fetchGateProcess`.
-- Parses response array `[{ "VEN1_RATE1": "T1" }, ...]` — extracts the value from whatever the single key is per row (case-insensitive), dedupes, returns `{ options: string[], error: string | null }`.
+**`src/routes/_authenticated/mm.material-reservation.tsx`**
 
-### 2. `src/routes/_authenticated/mm.gate-process.tsx`
-- Add `useQuery` for rating F4 options, enabled only when `isEditable && output?.RATINGS?.length > 0`. Query key includes `lastAction` so it refetches on Rate/Change.
-- Replace the RATE `<Input>` in the Ratings table with a shadcn `<Select>` when `isEditable`:
-  - Options from the query result.
-  - Value bound to `rt.RATE`; onChange updates `ratings[idx].RATE`.
-  - Falls back to plain `<Input>` if the query returned no options (so users aren't blocked).
-- Display mode keeps the read-only span (unchanged).
-- Vendor column stays as input in editable modes (unchanged).
-
-## Response parsing detail
-Since keys vary (`VEN1_RATE1`, possibly `VEN2_RATE1`, etc.), extract `Object.values(row)[0]` per row and coerce to string; skip empty values.
+1. Extend `RowState` to include `approvedQty: string` (kept as string for input control; parsed to number on save).
+2. Seed `approvedQty` from `r.APPROVED_QUANTITY` when rows load (in `onSuccess`).
+3. In the columns memo, replace the default cell renderer for `APPROVED_QUANTITY` with a numeric `<Input>` (type="number", right-aligned, ~110px wide, h-8 text-sm) wired to `rowStates` via `updateRow(k, { approvedQty: ... })`, mirroring the Remarks pattern.
+4. In `onSave`, use `Number(st.approvedQty ?? r.APPROVED_QUANTITY ?? 0) || 0` for `APPROVED_QUANTITY` instead of reading only from the original row.
 
 ## Out of scope
-- No changes to Items table, header fields, or Attachments view.
-- No changes to save payload shape (RATE string still submitted as-is).
+No other columns, no styling changes elsewhere, no server-function changes.
