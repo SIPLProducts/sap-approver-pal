@@ -156,7 +156,7 @@ function MaterialReservationPage() {
           ORDER_NUMBER: toStr(r.ORDER_NUMBER),
           COST_CENTER: toStr(r.COST_CENTER),
           REQUESTED_QUANTITY: Number(r.REQUESTED_QUANTITY ?? 0) || 0,
-          APPROVED_QUANTITY: Number(r.APPROVED_QUANTITY ?? 0) || 0,
+          APPROVED_QUANTITY: Number(st.approvedQty !== "" ? st.approvedQty : r.APPROVED_QUANTITY ?? 0) || 0,
           ISSUED_QUANTITY: Number(r.ISSUED_QUANTITY ?? 0) || 0,
           STORAGE_LOCATION: toStr(r.STORAGE_LOCATION),
           TOTAL_STOCK: Number(r.TOTAL_STOCK ?? 0) || 0,
