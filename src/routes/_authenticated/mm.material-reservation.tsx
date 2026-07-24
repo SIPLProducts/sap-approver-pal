@@ -97,6 +97,7 @@ function MaterialReservationPage() {
           hodApproval: String(r.HOD_APRROVAL ?? r.HOD_APPROVAL ?? "").toUpperCase() === "X",
           hodRejection: String(r.HOD_REJECTION ?? "").toUpperCase() === "X",
           remarks: toStr(r.REMARKS),
+          approvedQty: toStr(r.APPROVED_QUANTITY ?? ""),
         });
       });
       setRowStates(seeded);
