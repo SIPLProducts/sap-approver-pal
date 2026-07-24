@@ -146,7 +146,7 @@ function MaterialReservationPage() {
       .map((r, i) => ({ r, i, k: rowKey(r, i) }))
       .filter(({ k }) => selected.has(k))
       .map(({ r, i, k }) => {
-        const st = rowStates.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "" };
+        const st = rowStates.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "", approvedQty: "" };
         return {
           SNO: String(r.SNO ?? i + 1),
           GOODS_RECEPIENT: toStr(r.GOODS_RECEPIENT),
