@@ -503,6 +503,65 @@ function PoReleasePage() {
           </div>
         </Card>
       )}
+
+      <Dialog
+        open={!!responseDialog?.open}
+        onOpenChange={(open) =>
+          setResponseDialog((prev) => (prev ? { ...prev, open } : prev))
+        }
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>PO Release Response</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto space-y-4">
+            <div className="overflow-x-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">PO Number</TableHead>
+                    <TableHead className="text-xs">MSGTXT</TableHead>
+                    <TableHead className="text-xs">STATUS</TableHead>
+                    <TableHead className="text-xs">RELSTATUS</TableHead>
+                    <TableHead className="text-xs">INDICATOR</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {responseDialog?.results.map((r) => (
+                    <TableRow key={r.ebeln}>
+                      <TableCell className="text-xs font-medium">{r.ebeln}</TableCell>
+                      <TableCell className="text-xs">{r.MSGTXT ?? r.error ?? "-"}</TableCell>
+                      <TableCell className="text-xs">{r.STATUS ?? "-"}</TableCell>
+                      <TableCell className="text-xs">{r.RELSTATUS ?? "-"}</TableCell>
+                      <TableCell className="text-xs">{r.INDICATOR ?? "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {responseDialog?.results.map((r) => (
+              <details key={`raw-${r.ebeln}`} className="border rounded-md">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted-foreground">
+                  Raw response — PO {r.ebeln}
+                </summary>
+                <pre className="text-xs font-mono bg-muted/50 p-3 overflow-x-auto whitespace-pre">
+{JSON.stringify(r.response ?? { error: r.error }, null, 2)}
+                </pre>
+              </details>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              size="sm"
+              onClick={() =>
+                setResponseDialog((prev) => (prev ? { ...prev, open: false } : prev))
+              }
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
