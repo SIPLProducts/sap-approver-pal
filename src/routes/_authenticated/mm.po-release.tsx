@@ -86,6 +86,21 @@ function PoReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const [responseDialog, setResponseDialog] = useState<
+    | {
+        open: boolean;
+        results: Array<{
+          ebeln: string;
+          MSGTXT?: string;
+          STATUS?: string;
+          RELSTATUS?: string;
+          INDICATOR?: string;
+          response?: any;
+          error?: string;
+        }>;
+      }
+    | null
+  >(null);
 
   useEffect(() => {
     setPlants((prev) => {
