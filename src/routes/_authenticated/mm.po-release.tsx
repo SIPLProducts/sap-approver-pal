@@ -31,8 +31,13 @@ export const Route = createFileRoute("/_authenticated/mm/po-release")({
 });
 
 const COLUMN_LABELS: Record<string, string> = {
-  EBELN: "PO Number",
+  EBELN: "Purchase Order Number",
   EBELP: "PO Item",
+  BATXT: "Document Type",
+  PLANT_NAME: "Plant",
+  VENDOR_NAME: "Vendor Name",
+  RLWRT: "Net Value",
+  WAERS: "Currency",
   BUKRS: "Company Code",
   BSTYP: "PO Category",
   BSART: "Document Type",
@@ -40,7 +45,6 @@ const COLUMN_LABELS: Record<string, string> = {
   LIFNR_NAME: "Vendor Name",
   EKORG: "Purchasing Organization",
   EKGRP: "Purchasing Group",
-  WAERS: "Currency",
   BEDAT: "PO Date",
   ERNAM: "Created By",
   MATERIAL: "Material Number",
@@ -57,6 +61,8 @@ const COLUMN_LABELS: Record<string, string> = {
   EEIND: "Delivery Date",
   REMARKS: "Remarks",
 };
+
+const NUMERIC_COLUMNS = new Set(["RLWRT", "NETPR", "NETWR", "MENGE"]);
 
 function rowKey(r: Record<string, any>, idx: number) {
   const ebeln = r.EBELN ?? "";
