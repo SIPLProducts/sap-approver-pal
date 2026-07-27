@@ -217,16 +217,13 @@ function PoReleasePage() {
           seenPo.add(r.ebeln);
           dialogItems.push({
             ebeln: r.ebeln,
-            MSGTXT: r.MSGTXT ?? r.msgtxt,
-            STATUS: r.STATUS,
-            RELSTATUS: r.RELSTATUS,
-            INDICATOR: r.INDICATOR,
+            message: r.MSGTXT ?? r.msgtxt ?? r.error ?? (r.ok ? "Released" : "Failed"),
+            ok: r.ok,
             response: r.response,
-            error: r.error,
           });
         }
       }
-      setResponseDialog({ open: true, results: dialogItems });
+      setResponseDialog({ open: true, title: "PO Release Response", results: dialogItems });
       if (releasedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
