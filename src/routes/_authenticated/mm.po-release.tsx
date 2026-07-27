@@ -278,16 +278,21 @@ function PoReleasePage() {
     }) => rejectFn({ data: input }),
     onSuccess: (res) => {
       const rejectedKeys = new Set<string>();
+      const seenPo = new Set<string>();
+      const dialogItems: NonNullable<typeof responseDialog>["results"] = [];
       for (const r of res.results) {
-        const label = `PO ${r.ebeln}/${r.ebelp}`;
-        const msg = r.msgtxt || r.error || (r.ok ? "Rejected" : "Failed");
-        if (r.ok) {
-          toast.success(`${label}: ${msg}`);
-          rejectedKeys.add(`${r.ebeln}-${r.ebelp}`);
-        } else {
-          toast.error(`${label}: ${msg}`);
+        if (r.ok) rejectedKeys.add(`${r.ebeln}-${r.ebelp}`);
+        if (!seenPo.has(r.ebeln)) {
+          seenPo.add(r.ebeln);
+          dialogItems.push({
+            ebeln: r.ebeln,
+            message: r.MSGTXT ?? r.msgtxt ?? r.error ?? (r.ok ? "Rejected" : "Failed"),
+            ok: r.ok,
+            response: r.response,
+          });
         }
       }
+      setResponseDialog({ open: true, title: "PO Reject Response", results: dialogItems });
       if (rejectedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
