@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Filter, RotateCcw, Loader2 } from "lucide-react";
@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
-import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchMigo, saveMigo } from "@/lib/mm/migo-release.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/migo-release")({
@@ -22,7 +21,7 @@ type DataRow = Record<string, any> & { __key?: string };
 type RowState = { hodApproval: boolean; hodRejection: boolean; remarks: string };
 
 function rowKey(r: DataRow, i: number) {
-  return [r.MATERIAL_DOC_NUMBER, r.MATERIAL_DOC_YEAR, r.SNO, r.MATERIAL, i].map((x) => x ?? "").join("|");
+  return [r.MAT_DOC, r.DOC_YEAR, r.MATDOC_ITM, r.MATERIAL, r.LINE_ID, i].map((x) => x ?? "").join("|");
 }
 
 function toStr(v: any): string {
@@ -32,14 +31,7 @@ function toStr(v: any): string {
 
 function MigoReleasePage() {
   const fetchFn = useServerFn(fetchMigo);
-  const userIdFn = useServerFn(getMySapUserId);
 
-  const { data: userIdData } = useQuery({
-    queryKey: ["mm-migo-release", "sap-user-id"],
-    queryFn: () => userIdFn(),
-  });
-
-  const [userId, setUserId] = useState("");
   const [matDocNo, setMatDocNo] = useState("");
   const [matDocYear, setMatDocYear] = useState("");
   const [header, setHeader] = useState<Record<string, any> | null>(null);
@@ -48,13 +40,8 @@ function MigoReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const hasResults = header !== null || rows.length > 0;
 
-  useEffect(() => {
-    if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userIdData?.sap_user_id]);
-
   const mutation = useMutation({
-    mutationFn: async (vars: { user_id: string; mat_doc_number: string; mat_doc_year: string }) => {
+    mutationFn: async (vars: { mat_doc_number: string; mat_doc_year: string }) => {
       const v: any = await fetchFn({ data: vars });
       const data = Array.isArray(v?.data) ? (v.data as DataRow[]) : [];
       return {
@@ -85,7 +72,6 @@ function MigoReleasePage() {
   const saveFn = useServerFn(saveMigo);
   const saveMutation = useMutation({
     mutationFn: async (vars: {
-      user_id: string;
       header: Record<string, any>;
       data: Record<string, any>[];
     }) => {
@@ -97,7 +83,6 @@ function MigoReleasePage() {
       else toast.error(res.message || "Save failed");
       if (res.ok) {
         mutation.mutate({
-          user_id: userId.trim(),
           mat_doc_number: matDocNo.trim(),
           mat_doc_year: matDocYear.trim(),
         });
@@ -108,10 +93,6 @@ function MigoReleasePage() {
   });
 
   function onSave() {
-    if (!userId.trim()) {
-      toast.error("User ID is required");
-      return;
-    }
     if (selected.size === 0) {
       toast.error("Select at least one row");
       return;
@@ -130,30 +111,27 @@ function MigoReleasePage() {
       });
 
     saveMutation.mutate({
-      user_id: userId.trim(),
       header: { ...(header ?? {}) },
       data: items,
     });
   }
 
   function execute() {
-    if (!userId.trim()) {
-      toast.error("User ID is required");
-      return;
-    }
     if (!matDocNo.trim()) {
       toast.error("Material Document Number is required");
       return;
     }
+    if (!matDocYear.trim()) {
+      toast.error("Material Document Year is required");
+      return;
+    }
     mutation.mutate({
-      user_id: userId.trim(),
       mat_doc_number: matDocNo.trim(),
       mat_doc_year: matDocYear.trim(),
     });
   }
 
   function reset() {
-    setUserId(userIdData?.sap_user_id ?? "");
     setMatDocNo("");
     setMatDocYear("");
     setHeader(null);
@@ -171,7 +149,6 @@ function MigoReleasePage() {
     });
   }
 
-  // Dynamic columns from row keys, plus HOD Approval / Rejection / Remarks controls.
   const columns = useMemo<CloudscapeColumn<DataRow>[]>(() => {
     const skip = new Set(["HOD_APRROVAL", "HOD_APPROVAL", "HOD_REJECTION", "REMARKS"]);
     const dataKeys: string[] = [];
@@ -181,7 +158,7 @@ function MigoReleasePage() {
       }
     }
 
-    const numericHint = /(QTY|QUANTITY|AMOUNT|VALUE|PRICE|STOCK|NETWR|RLWRT)/i;
+    const numericHint = /(QTY|QUANTITY|AMOUNT|VALUE|PRICE|STOCK|NETWR|RLWRT|QNT)/i;
 
     const base: CloudscapeColumn<DataRow>[] = dataKeys.map((key) => ({
       id: key,
@@ -263,7 +240,7 @@ function MigoReleasePage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-        <div className="grid gap-3 md:grid-cols-[240px_180px_200px_1fr_auto] items-end">
+        <div className="grid gap-3 md:grid-cols-[240px_180px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Material Document Number</Label>
             <Input
@@ -284,13 +261,9 @@ function MigoReleasePage() {
               className="h-9 text-sm"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">User ID</Label>
-            <Input value={userId} readOnly className="h-9 text-sm bg-muted/40" />
-          </div>
           <div />
           <div className="flex gap-2">
-            <Button size="sm" onClick={execute} disabled={!userId.trim() || mutation.isPending}>
+            <Button size="sm" onClick={execute} disabled={mutation.isPending}>
               {mutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : (
