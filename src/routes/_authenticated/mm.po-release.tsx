@@ -441,7 +441,10 @@ function PoReleasePage() {
                           />
                         </TableCell>
                         {columns.map((key) => (
-                          <TableCell key={key} className="whitespace-nowrap text-xs">
+                          <TableCell
+                            key={key}
+                            className={`whitespace-nowrap text-xs${NUMERIC_COLUMNS.has(key) ? " text-right" : ""}`}
+                          >
                             {key === "REMARKS" ? (
                               <Input
                                 value={remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS))}
