@@ -225,16 +225,47 @@ async function processPoAction(
 
   const results: PoReleaseResult[] = [];
 
-  for (const item of data.items) {
-    const inputs = {
-      [payloadKey]: {
-        EBELN: item.EBELN,
-        EBELP: item.EBELP,
-        REL_CODE: data.relcode.trim(),
-        REL_GRP: data.relgroup.trim(),
-        REMARKS: item.REMARKS ?? "",
-      },
-    };
+  // For RELEASE, payload is header-level (one call per EBELN). Dedupe by EBELN
+  // and remember every selected EBELP so the UI can clear all matching rows.
+  const isRelease = payloadKey === "RELEASE";
+  const groups = new Map<string, { ebelps: string[]; remarks: string }>();
+  if (isRelease) {
+    for (const it of data.items) {
+      const g = groups.get(it.EBELN);
+      if (g) {
+        g.ebelps.push(it.EBELP);
+        if (!g.remarks && it.REMARKS) g.remarks = it.REMARKS;
+      } else {
+        groups.set(it.EBELN, { ebelps: [it.EBELP], remarks: it.REMARKS ?? "" });
+      }
+    }
+  } else {
+    for (const it of data.items) {
+      groups.set(`${it.EBELN}::${it.EBELP}`, { ebelps: [it.EBELP], remarks: it.REMARKS ?? "" });
+    }
+  }
+
+  for (const [key, grp] of groups) {
+    const ebeln = isRelease ? key : key.split("::")[0];
+    const ebelp = isRelease ? "" : grp.ebelps[0];
+
+    const inputs = isRelease
+      ? {
+          RELEASE: {
+            EBELN: ebeln,
+            FRGCO: data.relcode.trim(),
+            REMARKS: grp.remarks,
+          },
+        }
+      : {
+          [payloadKey]: {
+            EBELN: ebeln,
+            EBELP: ebelp,
+            REL_CODE: data.relcode.trim(),
+            REL_GRP: data.relgroup.trim(),
+            REMARKS: grp.remarks,
+          },
+        };
 
     let target: string;
     let method: string = cfg.http_method ?? "POST";
@@ -256,6 +287,8 @@ async function processPoAction(
     let msgtxt = "";
     let ok = false;
     let errMsg: string | undefined;
+    let sapResponse: any = undefined;
+    let primaryOut: any = undefined;
 
     try {
       const res = await fetch(target, { method, headers: baseHeaders, body: bodyOut });
@@ -276,6 +309,7 @@ async function processPoAction(
             errMsg = String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
           } else {
             const sapJson: any = proxied ? json?.data : json;
+            sapResponse = sapJson;
             const primary: any = Array.isArray(sapJson)
               ? sapJson[0]
               : Array.isArray(sapJson?.DATA)
@@ -283,6 +317,7 @@ async function processPoAction(
                 : Array.isArray(sapJson?.data)
                   ? sapJson.data[0]
                   : sapJson;
+            primaryOut = primary;
 
             const findFirst = (obj: any, keys: string[]): any => {
               if (!obj || typeof obj !== "object") return undefined;
@@ -330,7 +365,7 @@ async function processPoAction(
         status: ok && !errMsg ? "ok" : "error",
         latency_ms,
         rows_processed: 1,
-        message: `po-${logTag} ${item.EBELN}/${item.EBELP}: ${errMsg ?? msgtxt ?? "done"}`.slice(0, 500),
+        message: `po-${logTag} ${ebeln}${ebelp ? `/${ebelp}` : ""}: ${errMsg ?? msgtxt ?? "done"}`.slice(0, 500),
       });
     } catch (e) {
       errMsg = (e as Error).message || "fetch failed";
@@ -338,17 +373,37 @@ async function processPoAction(
         config_id: cfg.id,
         status: "error",
         latency_ms: Date.now() - t0,
-        message: `po-${logTag} network ${item.EBELN}/${item.EBELP}: ${errMsg}`.slice(0, 500),
+        message: `po-${logTag} network ${ebeln}: ${errMsg}`.slice(0, 500),
       });
     }
 
-    results.push({
-      ebeln: item.EBELN,
-      ebelp: item.EBELP,
+    const pick = (k: string): string | undefined => {
+      const src = primaryOut;
+      if (!src || typeof src !== "object") return undefined;
+      for (const [key, value] of Object.entries(src)) {
+        if (key.toUpperCase() === k) return value == null ? undefined : String(value);
+      }
+      return undefined;
+    };
+    const common = {
       ok: ok && !errMsg,
       msgtxt,
       error: errMsg,
-    });
+      response: sapResponse,
+      MSGTXT: pick("MSGTXT"),
+      STATUS: pick("STATUS"),
+      RELSTATUS: pick("RELSTATUS"),
+      INDICATOR: pick("INDICATOR"),
+    };
+
+    if (isRelease) {
+      // Report the same header-level result for every selected line under this PO.
+      for (const ep of grp.ebelps) {
+        results.push({ ebeln, ebelp: ep, ...common });
+      }
+    } else {
+      results.push({ ebeln, ebelp, ...common });
+    }
   }
 
   return { results, error: null };
