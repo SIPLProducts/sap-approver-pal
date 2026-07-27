@@ -1,17 +1,33 @@
-## Root cause
+## MIGO Release screen
 
-The Reject button errors with `SAP API config "PO_Reject_API" not found` because `src/lib/mm/po-release.functions.ts` looks up the config by the exact name `PO_Reject_API`, but the row in `sap_api_configs` is stored as `PO_REJECT_API` (all caps). The lookup is case-sensitive, so the config is never found and the request never leaves the app — nothing hits the middleware.
+The previous turn only proposed the plan — no code was written yet, so no MIGO entry exists in the sidebar or routes. This plan builds it.
 
-Verified: `select name from sap_api_configs where name ilike '%reject%'` returns `PO_REJECT_API` (and `PO_Release_API` matches the Release constant, which is why Release works).
+### Sidebar & route
+- Add sidebar entry in `src/routes/_authenticated.tsx` under `mmChildren`, immediately after Gate Pass:
+  `{ to: "/mm/migo-release", label: "MIGO Release", icon: <existing lucide icon>, screen: "approvals.inbox.mm" }`.
+- New route file `src/routes/_authenticated/mm.migo-release.tsx` — cloned from `mm.material-reservation.tsx` layout (SELECTION SCREEN card, HEADER card, results table with row selection + HOD Approval / HOD Rejection / Remarks columns + Save button).
 
-## Fix
+### Selection screen fields
+Replace Material Reservation's inputs with:
+- **Material Document Number** (text)
+- **Material Document Year** (text, 4 digits)
+- **User ID** (auto-filled from active SAP user, read-only, same pattern as ZNFA Rating / Gate Pass)
 
-In `src/lib/mm/po-release.functions.ts`:
+Buttons: Execute + Reset, same as Material Reservation.
 
-- Change `const REJECT_CONFIG_NAME = "PO_Reject_API"` to `"PO_REJECT_API"` so the name matches the configured row exactly.
+### Data layer
+New file `src/lib/mm/migo-release.functions.ts` with two server functions mirroring `material-reservation.functions.ts`:
+- `fetchMigo({ matDocNo, matDocYear, userId })` → calls SAP config **`MIGO_FETCH_API`**.
+- `saveMigo({ rows })` → calls SAP config **`MIGO_SAVE_API`**.
 
-No other changes — payload shape, dialog, and reject flow already match the API spec from the previous turn.
+Payload/response shape: reuse Material Reservation's shape (SAP driver returns rows; unknown columns render dynamically via the existing dynamic-column helper). If SAP returns fewer/different columns, the table renders whatever comes back — same behaviour as Material Reservation today.
 
-## Out of scope
+### Permissions
+Gate the route under existing `approvals.inbox.mm` screen key (same as other MM screens). No new screen key, no migration.
 
-- No DB rename, no other config edits, no UI changes.
+### Out of scope
+- No changes to Material Reservation, Gate Pass, or other MM screens.
+- No new SAP API config rows — the admin must add `MIGO_FETCH_API` and `MIGO_SAVE_API` in Admin → SAP API Settings; the screen will show the standard "config not found" toast until they exist.
+
+### Open question (please confirm before I build)
+Are the SAP API config names **`MIGO_FETCH_API`** and **`MIGO_SAVE_API`**, or do you use different names? I'll use these defaults unless you say otherwise.
