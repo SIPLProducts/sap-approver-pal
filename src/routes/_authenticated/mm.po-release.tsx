@@ -89,14 +89,12 @@ function PoReleasePage() {
   const [responseDialog, setResponseDialog] = useState<
     | {
         open: boolean;
+        title: string;
         results: Array<{
           ebeln: string;
-          MSGTXT?: string;
-          STATUS?: string;
-          RELSTATUS?: string;
-          INDICATOR?: string;
+          message: string;
+          ok: boolean;
           response?: any;
-          error?: string;
         }>;
       }
     | null
