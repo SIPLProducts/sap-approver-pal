@@ -837,14 +837,29 @@ function CreateUserDialog({
     );
   }, [sortedPlants, customRoles]);
 
-  // Drop selected roles that are no longer available.
+  // Drop selected roles that are no longer available. Compare case-insensitively
+  // and normalize each stored value to the option's canonical composite so
+  // pre-selection from SAP (which uppercases role names) still matches.
   useEffect(() => {
-    const valid = new Set(roleOptions.map((o) => o.value));
+    if (rolesQuery.isLoading) return;
+    if (roleOptions.length === 0) return;
+    const byKey = new Map(roleOptions.map((o) => [o.value.toUpperCase(), o.value]));
     setRoles((prev) => {
-      const filtered = prev.filter((r) => valid.has(r));
-      return filtered.length === prev.length ? prev : filtered;
+      let changed = false;
+      const next: string[] = [];
+      for (const r of prev) {
+        const canonical = byKey.get(r.toUpperCase());
+        if (canonical) {
+          if (canonical !== r) changed = true;
+          next.push(canonical);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? Array.from(new Set(next)) : prev;
     });
-  }, [roleOptions]);
+  }, [roleOptions, rolesQuery.isLoading]);
+
 
   // Surface role-fetch errors so failures aren't silent.
   const lastErrRef = useRef<string | null>(null);
