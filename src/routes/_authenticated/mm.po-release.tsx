@@ -211,16 +211,24 @@ function PoReleasePage() {
     }) => releaseFn({ data: input }),
     onSuccess: (res) => {
       const releasedKeys = new Set<string>();
+      const seenPo = new Set<string>();
+      const dialogItems: NonNullable<typeof responseDialog>["results"] = [];
       for (const r of res.results) {
-        const label = `PO ${r.ebeln}/${r.ebelp}`;
-        const msg = r.msgtxt || r.error || (r.ok ? "Released" : "Failed");
-        if (r.ok) {
-          toast.success(`${label}: ${msg}`);
-          releasedKeys.add(`${r.ebeln}-${r.ebelp}`);
-        } else {
-          toast.error(`${label}: ${msg}`);
+        if (r.ok) releasedKeys.add(`${r.ebeln}-${r.ebelp}`);
+        if (!seenPo.has(r.ebeln)) {
+          seenPo.add(r.ebeln);
+          dialogItems.push({
+            ebeln: r.ebeln,
+            MSGTXT: r.MSGTXT ?? r.msgtxt,
+            STATUS: r.STATUS,
+            RELSTATUS: r.RELSTATUS,
+            INDICATOR: r.INDICATOR,
+            response: r.response,
+            error: r.error,
+          });
         }
       }
+      setResponseDialog({ open: true, results: dialogItems });
       if (releasedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
