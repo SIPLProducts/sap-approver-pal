@@ -1,38 +1,38 @@
-
 ## Goal
 
-When the user selects rows in the PO Release results table and clicks **Release**, call the `PO_Release_API` (already configured in SAP API Settings) with the new payload shape and display the exact SAP response in the application.
+Wire the **Reject** button on the PO Release screen to call `PO_REJECT_API` with the new simplified payload (one call per PO), and show the exact SAP response message in the same popup used by Release — displaying only the message text, not the key names.
 
-## Current state (verified)
+## Current state (verified this turn)
 
-- `src/lib/mm/po-release.functions.ts` already has `releasePoItems` calling `PO_Release_API` via middleware proxy.
-- Today it sends `{ RELEASE: { EBELN, EBELP, REL_CODE, REL_GRP, REMARKS } }` per selected row and toasts a short message. Raw SAP response is not shown to the user.
-- The Release button lives in `src/routes/_authenticated/mm.po-release.tsx` and consumes `results[]` from the mutation.
+- `src/lib/mm/po-release.functions.ts` already has `rejectPoItems` → `processPoAction("REJECT", …)`. Today the REJECT branch builds `{ REJECT: { EBELN, EBELP, REL_CODE, REL_GRP, REMARKS } }` per line item.
+- Release was just refactored to be header-level (one call per `EBELN`) and to return `response`, `MSGTXT`, `STATUS`, `RELSTATUS`, `INDICATOR` on each `PoReleaseResult`.
+- `src/routes/_authenticated/mm.po-release.tsx` opens a response dialog for Release results and shows a table with MSGTXT / STATUS / RELSTATUS / INDICATOR columns plus raw JSON.
+- Reject currently only toasts; there is no popup and no shared response viewer.
 
-## Required payload / response
+## Required payload / response (per user)
 
-- Request: `{ "RELEASE": { "EBELN": "<po>", "FRGCO": "<release code>", "REMARKS": "<text>" } }` — one call per **PO number** (no `EBELP`, no `REL_GRP`, no `REL_CODE`).
-- Response: `[ { "MSGTXT": "...", "STATUS": "TRUE", "RELSTATUS": "X", "INDICATOR": "B" } ]`.
+- Request: `{ "REJECT": { "EBELN": "<po>", "REMARKS": "<text>" } }` — one call per PO (no `EBELP`, no `REL_CODE`, no `REL_GRP`).
+- Response: `[ { "MSGTXT": "PO Rejected Successfully", "STATUS": "TRUE" } ]` (no `RELSTATUS` / `INDICATOR` for reject).
 
 ## Changes
 
-### 1. `src/lib/mm/po-release.functions.ts` — release payload + return raw response
+### 1. `src/lib/mm/po-release.functions.ts` — reject payload becomes header-level
 
-- In `processPoAction`, when `payloadKey === "RELEASE"`, build inputs as `{ RELEASE: { EBELN, FRGCO: data.relcode, REMARKS } }` (drop `EBELP` / `REL_CODE` / `REL_GRP`). Keep the existing `REJECT` shape untouched.
-- Dedupe selected rows by `EBELN` before iterating so one release call is made per PO even when multiple line items are selected. The result for that PO is reported back for every selected `EBELP` (so the UI clears all its rows on success).
-- Extend `PoReleaseResult` with a `response` field carrying the parsed SAP JSON (the array or object returned) plus `MSGTXT`, `STATUS`, `RELSTATUS`, `INDICATOR` extracted for convenience. Return it from `releasePoItems`. Reject flow stays as-is (adds `response` too for symmetry but no behavior change).
-- Success detection continues to accept `STATUS === "TRUE"` (already in the success set).
+- In `processPoAction`, treat `REJECT` the same way as `RELEASE`: dedupe selected rows by `EBELN`, then send `{ REJECT: { EBELN, REMARKS } }` once per PO.
+- Report the resulting `PoReleaseResult` (with `response`, `MSGTXT`, `STATUS`) back against every selected `EBELP` under that PO so the UI clears all matching rows on success.
+- Keep the existing success detection (`STATUS === "TRUE"` already handled). No new fields required — `RELSTATUS` / `INDICATOR` will simply be `undefined` for reject and won't be shown.
 
-### 2. `src/routes/_authenticated/mm.po-release.tsx` — show exact response
+### 2. `src/routes/_authenticated/mm.po-release.tsx` — reject popup + message-only display
 
-- After the release mutation resolves, open a modal dialog listing each PO with its exact SAP response:
-  - Columns: PO Number, MSGTXT, STATUS, RELSTATUS, INDICATOR.
-  - Below the table, a collapsible “Raw response” block per PO showing the JSON returned by SAP (pretty-printed, monospace, scrollable).
-- Keep the existing toast + row-removal behavior for successful releases so the results table stays in sync.
-- Reject flow: unchanged UI (still toast-only).
+- Route the reject mutation's `onSuccess` into the same `responseDialog` state used by Release, with an action label of "Reject". Keep the row-removal + refetch behavior.
+- Change the dialog body so it does **not** show field names (MSGTXT / STATUS / RELSTATUS / INDICATOR). For each PO show:
+  - PO Number (heading).
+  - The response **message** text only (prefer `MSGTXT`, fall back to `msgtxt` / `error`), rendered as a single line/paragraph.
+  - Keep the collapsible "Raw response" block (unchanged) so the exact SAP JSON is still available on demand.
+- No changes to toasts or the results table besides removing successfully rejected rows (already in place).
 
 ## Out of scope
 
-- No changes to `PO_Get`/`PO_Reject` payloads.
+- No changes to `PO_Get` or `PO_Release` payloads (Release payload was already updated in the previous turn).
 - No middleware changes; existing `/sap/invoke` proxy path is reused.
 - No schema/RLS changes.

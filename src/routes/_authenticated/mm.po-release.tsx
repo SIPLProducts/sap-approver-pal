@@ -89,14 +89,12 @@ function PoReleasePage() {
   const [responseDialog, setResponseDialog] = useState<
     | {
         open: boolean;
+        title: string;
         results: Array<{
           ebeln: string;
-          MSGTXT?: string;
-          STATUS?: string;
-          RELSTATUS?: string;
-          INDICATOR?: string;
+          message: string;
+          ok: boolean;
           response?: any;
-          error?: string;
         }>;
       }
     | null
@@ -219,16 +217,13 @@ function PoReleasePage() {
           seenPo.add(r.ebeln);
           dialogItems.push({
             ebeln: r.ebeln,
-            MSGTXT: r.MSGTXT ?? r.msgtxt,
-            STATUS: r.STATUS,
-            RELSTATUS: r.RELSTATUS,
-            INDICATOR: r.INDICATOR,
+            message: r.MSGTXT ?? r.msgtxt ?? r.error ?? (r.ok ? "Released" : "Failed"),
+            ok: r.ok,
             response: r.response,
-            error: r.error,
           });
         }
       }
-      setResponseDialog({ open: true, results: dialogItems });
+      setResponseDialog({ open: true, title: "PO Release Response", results: dialogItems });
       if (releasedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
@@ -283,16 +278,21 @@ function PoReleasePage() {
     }) => rejectFn({ data: input }),
     onSuccess: (res) => {
       const rejectedKeys = new Set<string>();
+      const seenPo = new Set<string>();
+      const dialogItems: NonNullable<typeof responseDialog>["results"] = [];
       for (const r of res.results) {
-        const label = `PO ${r.ebeln}/${r.ebelp}`;
-        const msg = r.msgtxt || r.error || (r.ok ? "Rejected" : "Failed");
-        if (r.ok) {
-          toast.success(`${label}: ${msg}`);
-          rejectedKeys.add(`${r.ebeln}-${r.ebelp}`);
-        } else {
-          toast.error(`${label}: ${msg}`);
+        if (r.ok) rejectedKeys.add(`${r.ebeln}-${r.ebelp}`);
+        if (!seenPo.has(r.ebeln)) {
+          seenPo.add(r.ebeln);
+          dialogItems.push({
+            ebeln: r.ebeln,
+            message: r.MSGTXT ?? r.msgtxt ?? r.error ?? (r.ok ? "Rejected" : "Failed"),
+            ok: r.ok,
+            response: r.response,
+          });
         }
       }
+      setResponseDialog({ open: true, title: "PO Reject Response", results: dialogItems });
       if (rejectedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
@@ -510,30 +510,30 @@ function PoReleasePage() {
           setResponseDialog((prev) => (prev ? { ...prev, open } : prev))
         }
       >
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>PO Release Response</DialogTitle>
+            <DialogTitle>{responseDialog?.title ?? "PO Response"}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto space-y-4">
+          <div className="max-h-[60vh] overflow-y-auto space-y-3">
             <div className="overflow-x-auto border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">PO Number</TableHead>
-                    <TableHead className="text-xs">MSGTXT</TableHead>
-                    <TableHead className="text-xs">STATUS</TableHead>
-                    <TableHead className="text-xs">RELSTATUS</TableHead>
-                    <TableHead className="text-xs">INDICATOR</TableHead>
+                    <TableHead className="text-xs">Message</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {responseDialog?.results.map((r) => (
                     <TableRow key={r.ebeln}>
-                      <TableCell className="text-xs font-medium">{r.ebeln}</TableCell>
-                      <TableCell className="text-xs">{r.MSGTXT ?? r.error ?? "-"}</TableCell>
-                      <TableCell className="text-xs">{r.STATUS ?? "-"}</TableCell>
-                      <TableCell className="text-xs">{r.RELSTATUS ?? "-"}</TableCell>
-                      <TableCell className="text-xs">{r.INDICATOR ?? "-"}</TableCell>
+                      <TableCell className="text-xs font-medium whitespace-nowrap align-top">
+                        {r.ebeln}
+                      </TableCell>
+                      <TableCell
+                        className={`text-xs ${r.ok ? "text-green-700" : "text-destructive"}`}
+                      >
+                        {r.message || "-"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -545,7 +545,7 @@ function PoReleasePage() {
                   Raw response — PO {r.ebeln}
                 </summary>
                 <pre className="text-xs font-mono bg-muted/50 p-3 overflow-x-auto whitespace-pre">
-{JSON.stringify(r.response ?? { error: r.error }, null, 2)}
+{JSON.stringify(r.response ?? { message: r.message }, null, 2)}
                 </pre>
               </details>
             ))}
