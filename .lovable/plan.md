@@ -1,37 +1,33 @@
 ## Goal
-Add a new "PO Release" screen under MM Approvals, listed immediately after "PR Release". Layout mirrors PR Release, with a Plant field (restricted to the logged-in user's assigned plants, matching Price Approvals) inserted as the first input, followed by Release Group and Release Code.
+Switch the PO Release screen's Execute action to call `PO_GET_API` with the new payload shape, and render the new response columns with row-select + editable Remarks.
 
-## New files
+## Changes
 
-**`src/lib/mm/po-release.functions.ts`** — clone of `src/lib/mm/pr-release.functions.ts` with:
-- `fetchPoReleaseMultiple` → SAP config `PO_Release_Multiple_Fetch_API`, payload `{ RELGROUP, RELCODE, PLANTS: string[] }` (server sends plants as `PLANT` per-row via `URLSearchParams` for direct mode / inputs object for proxy mode).
-- `releasePoItems` → config `PO_Release_API`, payload key `RELEASE` with `{ EBELN, EBELP, REL_CODE, REL_GRP, REMARKS }` per item.
-- `rejectPoItems` → config `PO_Reject_API`, same shape with `REJECT`.
-- Item identifier fields: `EBELN` (PO Number) and `EBELP` (PO Item) instead of `PREQ_NO` / `PREQ_ITEM`.
+### 1. New server function — `src/lib/mm/po-release.functions.ts`
+Add `fetchPoGet` (alongside existing `fetchPoReleaseMultiple`):
+- Config name: `PO_GET_API`
+- Input: `{ plants: string[], relgroup: string, relcode: string }`
+- For each plant, POST payload `{ GET: { WERKS, FRGGR: relgroup, FRGCO: relcode } }` through the same proxy/direct path used by the other MM functions (mirror `processPoAction` transport, but no per-item loop over items — one call per plant).
+- Merge all plants' response arrays into a single `rows: Record<string, any>[]`.
+- Return `{ data, fetched_at, error }` (same shape as `fetchPoReleaseMultiple`).
+- Log to `sap_api_sync_log` per plant.
 
-Assumption: the three SAP API configs above already exist in Admin → SAP API. If names differ, they can be adjusted in one place (top constants).
+Keep `releasePoItems` / `rejectPoItems` unchanged. Since the new response has no `EBELP`, they will send `EBELP: ""` (already handled by the current zod default).
 
-**`src/routes/_authenticated/mm.po-release.tsx`** — clone of `mm.pr-release.tsx` with:
-- `createFileRoute("/_authenticated/mm/po-release")`, component `PoReleasePage`.
-- Import `PlantMultiSelect` and `useActiveContext`; add `plants` state seeded from `activePlants`, with the same "clip to allowed / fallback to all active" effect used in `sd.price.tsx`.
-- Selection screen grid becomes `[280px_240px_240px_1fr_auto]`: Plant (required) → Release Group → Release Code → spacer → Execute/Reset.
-- `execute()` validates at least one plant selected in addition to group/code, and passes `plants` to `fetchPoReleaseMultiple`.
-- Row key uses `EBELN`/`EBELP`; column labels map PO fields (EBELN "PO Number", EBELP "PO Item", plus common fields — REMARKS stays editable like PR Release).
-- Release/Reject mutations send `{ EBELN, EBELP, REMARKS }` items; success flow refetches with current plants+group+code and clears released/rejected rows.
-- Page title: "PO Release".
-
-## Menu / permissions
-
-**`src/routes/_authenticated.tsx`** — add a nav entry immediately after the PR Release entry (line 157):
-```
-{ to: "/mm/po-release", label: "PO Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" }
-```
-Reuses the existing `approvals.inbox.mm` permission key; no schema or role changes.
+### 2. UI — `src/routes/_authenticated/mm.po-release.tsx`
+- Replace `fetchPoReleaseMultiple` import/use with `fetchPoGet`.
+- Extend `COLUMN_LABELS`:
+  - `EBELN` → `Purchase Order Number`
+  - `BATXT` → `Document Type`
+  - `PLANT_NAME` → `Plant`
+  - `VENDOR_NAME` → `Vendor Name`
+  - `RLWRT` → `Net Value`
+  - `WAERS` → `Currency`
+  - (keep existing `REMARKS`)
+- Row key: since there is no `EBELP`, use `${EBELN}-${idx}`.
+- Right-align `RLWRT` cell (numeric); other columns unchanged.
+- Everything else (selection checkboxes, editable Remarks input, search, Release/Reject buttons, header, reset) stays as-is.
 
 ## Out of scope
-- No changes to PR Release, other MM screens, middleware, or DB.
-- No new permission/screen key.
-- No new SAP API config rows; user must ensure `PO_Release_Multiple_Fetch_API`, `PO_Release_API`, `PO_Reject_API` are configured (or tell me the actual names to wire in).
-
-## Confirm before build
-- Are the SAP API config names `PO_Release_Multiple_Fetch_API` / `PO_Release_API` / `PO_Reject_API`, and are the PO document/item fields `EBELN` / `EBELP`? If different, share the names and I'll wire them in.
+- No changes to Release/Reject server functions or their API configs.
+- No navigation, permission, or styling changes beyond the numeric right-align on Net Value.
