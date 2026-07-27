@@ -275,7 +275,7 @@ export function CloudscapeApprovalTable<T>({
                 return (
                   <TableRow key={k} data-state={checked ? "selected" : undefined} className="hover:bg-[var(--table-row-hover)]">
                     {showSelect && (
-                      <TableCell className="px-3 py-3">
+                      <TableCell className="w-10 px-4 py-3">
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) => toggleRow(k, v === true)}
@@ -286,8 +286,11 @@ export function CloudscapeApprovalTable<T>({
                     {allColumns.map((c) => (
                       <TableCell
                         key={c.id}
-                        className="whitespace-nowrap text-xs px-3 py-3"
-                        style={{ textAlign: c.align === "right" ? "right" : undefined }}
+                        className="whitespace-nowrap text-xs px-4 py-3"
+                        style={{
+                          minWidth: c.minWidth ?? 120,
+                          textAlign: c.align === "right" ? "right" : undefined,
+                        }}
                       >
                         {c.cell(r)}
                       </TableCell>
