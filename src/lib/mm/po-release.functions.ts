@@ -368,3 +368,143 @@ export const rejectPoItems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => poActionInput.parse(d))
   .handler(async ({ data }) => processPoAction(REJECT_CONFIG_NAME, "REJECT", data, "reject"));
+
+const PO_GET_CONFIG_NAME = "PO_GET_API";
+
+export const fetchPoGet = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      relgroup: z.string().trim().min(1, "Release Group is required").max(10),
+      relcode: z.string().trim().min(1, "Release Code is required").max(10),
+      plants: z.array(z.string().trim().min(1)).min(1, "At least one plant is required"),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", PO_GET_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg) throw new Error(`SAP API config "${PO_GET_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${PO_GET_CONFIG_NAME}" is disabled.`);
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+    ]);
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" && !!(globalSettings?.middleware_url);
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
+
+    const baseHeaders: Record<string, string> = { Accept: "application/json", "Content-Type": "application/json" };
+    if (useProxy) {
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) baseHeaders["x-shared-secret"] = secret;
+    } else if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+      baseHeaders.Authorization =
+        "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+    }
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      baseHeaders[k] = v;
+    }
+
+    const allRows: Record<string, any>[] = [];
+    let firstError: string | null = null;
+
+    for (const plant of data.plants) {
+      const inputs = {
+        GET: {
+          WERKS: plant.trim(),
+          FRGGR: data.relgroup.trim(),
+          FRGCO: data.relcode.trim(),
+        },
+      };
+
+      let target: string;
+      let method: string = cfg.http_method ?? "POST";
+      let bodyOut: string;
+      let proxied = false;
+
+      if (useProxy) {
+        if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+        target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
+        method = "POST";
+        bodyOut = JSON.stringify({ configId: cfg.id, inputs, raw: true });
+        proxied = true;
+      } else {
+        target = cfg.endpoint_url;
+        bodyOut = JSON.stringify(inputs);
+      }
+
+      const t0 = Date.now();
+      try {
+        const res = await fetch(target, { method, headers: baseHeaders, body: bodyOut });
+        const text = await res.text().catch(() => "");
+        const latency_ms = Date.now() - t0;
+
+        if (!res.ok) {
+          const msg = `SAP ${res.status} ${res.statusText}: ${text.slice(0, 200)}`;
+          if (!firstError) firstError = msg;
+          await supabaseAdmin.from("sap_api_sync_log").insert({
+            config_id: cfg.id,
+            status: "error",
+            latency_ms,
+            message: `po-get ${plant}: ${msg}`.slice(0, 500),
+          });
+          continue;
+        }
+
+        let json: any = {};
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch {
+          const msg = `Invalid JSON from SAP: ${text.slice(0, 200)}`;
+          if (!firstError) firstError = msg;
+          continue;
+        }
+        const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+        const arr: any[] = Array.isArray(sapJson)
+          ? sapJson
+          : Array.isArray(sapJson?.DATA)
+            ? sapJson.DATA
+            : Array.isArray(sapJson?.data)
+              ? sapJson.data
+              : [];
+        for (const r of arr) {
+          if (r && typeof r === "object") allRows.push({ ...r });
+        }
+
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "ok",
+          latency_ms,
+          rows_processed: arr.length,
+          message: `po-get ${plant}: ${res.status} ${res.statusText}`.slice(0, 500),
+        });
+      } catch (e) {
+        const errMsg = (e as Error).message || "fetch failed";
+        if (!firstError) firstError = `Could not reach SAP. ${errMsg}.`;
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          latency_ms: Date.now() - t0,
+          message: `po-get network ${plant}: ${errMsg}`.slice(0, 500),
+        });
+      }
+    }
+
+    return {
+      data: allRows,
+      fetched_at: new Date().toISOString(),
+      error: allRows.length === 0 ? firstError : null,
+    };
+  });
