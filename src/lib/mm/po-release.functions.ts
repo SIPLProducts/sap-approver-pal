@@ -170,6 +170,11 @@ export type PoReleaseResult = {
   ok: boolean;
   msgtxt: string;
   error?: string;
+  response?: any;
+  MSGTXT?: string;
+  STATUS?: string;
+  RELSTATUS?: string;
+  INDICATOR?: string;
 };
 
 async function processPoAction(
