@@ -165,7 +165,7 @@ export const fetchMigo = createServerFn({ method: "POST" })
     };
   });
 
-const SAVE_CONFIG_NAME = "MIGO_SAVE_API";
+const SAVE_CONFIG_NAME = "MIGO_Save_API";
 
 export const saveMigo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
