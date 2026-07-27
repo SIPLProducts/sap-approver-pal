@@ -21,7 +21,7 @@ import {
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
-  fetchPoReleaseMultiple,
+  fetchPoGet,
   releasePoItems,
   rejectPoItems,
 } from "@/lib/mm/po-release.functions";
@@ -31,8 +31,13 @@ export const Route = createFileRoute("/_authenticated/mm/po-release")({
 });
 
 const COLUMN_LABELS: Record<string, string> = {
-  EBELN: "PO Number",
+  EBELN: "Purchase Order Number",
   EBELP: "PO Item",
+  BATXT: "Document Type",
+  PLANT_NAME: "Plant",
+  VENDOR_NAME: "Vendor Name",
+  RLWRT: "Net Value",
+  WAERS: "Currency",
   BUKRS: "Company Code",
   BSTYP: "PO Category",
   BSART: "Document Type",
@@ -40,7 +45,6 @@ const COLUMN_LABELS: Record<string, string> = {
   LIFNR_NAME: "Vendor Name",
   EKORG: "Purchasing Organization",
   EKGRP: "Purchasing Group",
-  WAERS: "Currency",
   BEDAT: "PO Date",
   ERNAM: "Created By",
   MATERIAL: "Material Number",
@@ -57,6 +61,8 @@ const COLUMN_LABELS: Record<string, string> = {
   EEIND: "Delivery Date",
   REMARKS: "Remarks",
 };
+
+const NUMERIC_COLUMNS = new Set(["RLWRT", "NETPR", "NETWR", "MENGE"]);
 
 function rowKey(r: Record<string, any>, idx: number) {
   const ebeln = r.EBELN ?? "";
@@ -84,7 +90,7 @@ function PoReleasePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlants.join(",")]);
 
-  const fetchFn = useServerFn(fetchPoReleaseMultiple);
+  const fetchFn = useServerFn(fetchPoGet);
   const mutation = useMutation({
     mutationFn: (input: { relgroup: string; relcode: string; plants: string[] }) =>
       fetchFn({ data: input }),
@@ -408,7 +414,10 @@ function PoReleasePage() {
                     />
                   </TableHead>
                   {columns.map((key) => (
-                    <TableHead key={key} className="whitespace-nowrap text-xs">
+                    <TableHead
+                      key={key}
+                      className={`whitespace-nowrap text-xs${NUMERIC_COLUMNS.has(key) ? " text-right" : ""}`}
+                    >
                       {COLUMN_LABELS[key] ?? key}
                     </TableHead>
                   ))}
@@ -435,7 +444,10 @@ function PoReleasePage() {
                           />
                         </TableCell>
                         {columns.map((key) => (
-                          <TableCell key={key} className="whitespace-nowrap text-xs">
+                          <TableCell
+                            key={key}
+                            className={`whitespace-nowrap text-xs${NUMERIC_COLUMNS.has(key) ? " text-right" : ""}`}
+                          >
                             {key === "REMARKS" ? (
                               <Input
                                 value={remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS))}
