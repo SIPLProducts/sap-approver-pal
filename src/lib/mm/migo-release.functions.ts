@@ -9,7 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const CONFIG_NAME = "MIGO_FETCH_API";
+const CONFIG_NAME = "MIGO_Fetch_API";
 
 export const fetchMigo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -165,7 +165,7 @@ export const fetchMigo = createServerFn({ method: "POST" })
     };
   });
 
-const SAVE_CONFIG_NAME = "MIGO_SAVE_API";
+const SAVE_CONFIG_NAME = "MIGO_Save_API";
 
 export const saveMigo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
