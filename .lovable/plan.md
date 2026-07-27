@@ -1,33 +1,24 @@
-## MIGO Release screen
+## MIGO Release — align payload & UI
 
-The previous turn only proposed the plan — no code was written yet, so no MIGO entry exists in the sidebar or routes. This plan builds it.
+### Server (`src/lib/mm/migo-release.functions.ts`)
+- `fetchMigo` inputValidator: drop `user_id`; keep `mat_doc_number` (required) and `mat_doc_year` (required).
+- Build payload as `{ mblnr: <matDocNo>, mjahr: <matDocYear> }` (lowercase keys, exact shape).
+- Send as POST JSON to the SAP endpoint (both direct and via proxy). Remove GET querystring path and the `USER_ID` field.
+- Response parsing already handles `{ HEADER: {...}, DATA: [...] }` where HEADER can be an object OR array — keep current normalization (HEADER object → wrap; DATA → rows). Drop `user_id` from return.
+- `saveMigo`: remove `user_id` requirement (leave the rest untouched to preserve existing save flow).
 
-### Sidebar & route
-- Add sidebar entry in `src/routes/_authenticated.tsx` under `mmChildren`, immediately after Gate Pass:
-  `{ to: "/mm/migo-release", label: "MIGO Release", icon: <existing lucide icon>, screen: "approvals.inbox.mm" }`.
-- New route file `src/routes/_authenticated/mm.migo-release.tsx` — cloned from `mm.material-reservation.tsx` layout (SELECTION SCREEN card, HEADER card, results table with row selection + HOD Approval / HOD Rejection / Remarks columns + Save button).
-
-### Selection screen fields
-Replace Material Reservation's inputs with:
-- **Material Document Number** (text)
-- **Material Document Year** (text, 4 digits)
-- **User ID** (auto-filled from active SAP user, read-only, same pattern as ZNFA Rating / Gate Pass)
-
-Buttons: Execute + Reset, same as Material Reservation.
-
-### Data layer
-New file `src/lib/mm/migo-release.functions.ts` with two server functions mirroring `material-reservation.functions.ts`:
-- `fetchMigo({ matDocNo, matDocYear, userId })` → calls SAP config **`MIGO_FETCH_API`**.
-- `saveMigo({ rows })` → calls SAP config **`MIGO_SAVE_API`**.
-
-Payload/response shape: reuse Material Reservation's shape (SAP driver returns rows; unknown columns render dynamically via the existing dynamic-column helper). If SAP returns fewer/different columns, the table renders whatever comes back — same behaviour as Material Reservation today.
-
-### Permissions
-Gate the route under existing `approvals.inbox.mm` screen key (same as other MM screens). No new screen key, no migration.
+### UI (`src/routes/_authenticated/mm.migo-release.tsx`)
+- Remove the User ID input field and related state, query for `getMySapUserId`, and the readonly rendering.
+- Adjust selection-screen grid to two inputs + actions (mirroring Material Reservation's layout without the plant field).
+- Execute validates only Material Document Number (year optional or required — keep required to match example; will use required).
+- Remove `user_id` from `fetchFn` and `saveFn` mutation payloads.
+- Header card: render HEADER object fields as read-only inputs (already implemented) — unchanged.
+- Results table: unchanged (dynamic columns + HOD Approval/Rejection + Remarks + Save).
 
 ### Out of scope
-- No changes to Material Reservation, Gate Pass, or other MM screens.
-- No new SAP API config rows — the admin must add `MIGO_FETCH_API` and `MIGO_SAVE_API` in Admin → SAP API Settings; the screen will show the standard "config not found" toast until they exist.
+- No changes to Material Reservation, sidebar, or other screens.
+- No business-logic changes to save flow beyond removing `user_id`.
 
-### Open question (please confirm before I build)
-Are the SAP API config names **`MIGO_FETCH_API`** and **`MIGO_SAVE_API`**, or do you use different names? I'll use these defaults unless you say otherwise.
+### Technical notes
+- Endpoint config lookup remains `MIGO_FETCH_API` (fetch) and `MIGO_SAVE_API` (save) from `sap_api_configs`.
+- Proxy body becomes `{ configId, inputs: { mblnr, mjahr } }`; middleware forwards `inputs` as JSON body to SAP.
