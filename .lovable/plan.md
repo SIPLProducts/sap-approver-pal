@@ -1,42 +1,38 @@
-## Problem
 
-Custom Roles tab shows "No custom roles yet" even though 7 rows exist in `custom_roles`. Cause: the recent security migration tightened the SELECT policy to:
+## Goal
 
-```
-is_admin(auth.uid()) OR EXISTS (user_tenants where tenant_id = custom_roles.tenant_id AND user_id = auth.uid())
-```
+When the user selects rows in the PO Release results table and clicks **Release**, call the `PO_Release_API` (already configured in SAP API Settings) with the new payload shape and display the exact SAP response in the application.
 
-The signed-in SAP user (`SHARVI_RSSPL`) has no row in `public.user_roles`, so `is_admin()` returns false. All existing `custom_roles` rows have `tenant_id IS NULL` (global roles), so the `user_tenants` sub-select never matches either. RLS filters everything out → the tab renders empty. Same policy shape is on `role_permissions`, `approval_matrix`, and `approval_strategies`, so those tabs are affected identically for SAP-authenticated admins.
+## Current state (verified)
 
-## Fix (database only, one migration)
+- `src/lib/mm/po-release.functions.ts` already has `releasePoItems` calling `PO_Release_API` via middleware proxy.
+- Today it sends `{ RELEASE: { EBELN, EBELP, REL_CODE, REL_GRP, REMARKS } }` per selected row and toasts a short message. Raw SAP response is not shown to the user.
+- The Release button lives in `src/routes/_authenticated/mm.po-release.tsx` and consumes `results[]` from the mutation.
 
-Update the read policies on the four admin-config tables so global rows (`tenant_id IS NULL`) remain visible to any authenticated user, while tenant-scoped rows stay restricted to members of that tenant. Admin-write policies are unchanged.
+## Required payload / response
 
-Tables and new SELECT rule (drop-and-recreate the existing "read" policy on each):
+- Request: `{ "RELEASE": { "EBELN": "<po>", "FRGCO": "<release code>", "REMARKS": "<text>" } }` — one call per **PO number** (no `EBELP`, no `REL_GRP`, no `REL_CODE`).
+- Response: `[ { "MSGTXT": "...", "STATUS": "TRUE", "RELSTATUS": "X", "INDICATOR": "B" } ]`.
 
-- `public.custom_roles`
-- `public.role_permissions` (join to `custom_roles.tenant_id`)
-- `public.approval_matrix`
-- `public.approval_strategies`
+## Changes
 
-New USING expression pattern:
+### 1. `src/lib/mm/po-release.functions.ts` — release payload + return raw response
 
-```sql
-is_admin(auth.uid())
-OR tenant_id IS NULL
-OR EXISTS (
-  SELECT 1 FROM public.user_tenants ut
-  WHERE ut.user_id = auth.uid() AND ut.tenant_id = <table>.tenant_id
-)
-```
+- In `processPoAction`, when `payloadKey === "RELEASE"`, build inputs as `{ RELEASE: { EBELN, FRGCO: data.relcode, REMARKS } }` (drop `EBELP` / `REL_CODE` / `REL_GRP`). Keep the existing `REJECT` shape untouched.
+- Dedupe selected rows by `EBELN` before iterating so one release call is made per PO even when multiple line items are selected. The result for that PO is reported back for every selected `EBELP` (so the UI clears all its rows on success).
+- Extend `PoReleaseResult` with a `response` field carrying the parsed SAP JSON (the array or object returned) plus `MSGTXT`, `STATUS`, `RELSTATUS`, `INDICATOR` extracted for convenience. Return it from `releasePoItems`. Reject flow stays as-is (adds `response` too for symmetry but no behavior change).
+- Success detection continues to accept `STATUS === "TRUE"` (already in the success set).
 
-For `role_permissions`, the tenant scope is derived from its parent `custom_roles.tenant_id` via an EXISTS join (same shape as the current policy).
+### 2. `src/routes/_authenticated/mm.po-release.tsx` — show exact response
 
-No app/frontend code changes. No changes to write policies, GRANTs, or table shape.
+- After the release mutation resolves, open a modal dialog listing each PO with its exact SAP response:
+  - Columns: PO Number, MSGTXT, STATUS, RELSTATUS, INDICATOR.
+  - Below the table, a collapsible “Raw response” block per PO showing the JSON returned by SAP (pretty-printed, monospace, scrollable).
+- Keep the existing toast + row-removal behavior for successful releases so the results table stays in sync.
+- Reject flow: unchanged UI (still toast-only).
 
-## Verification
+## Out of scope
 
-- Reload `/admin/users` → Custom Roles tab, as `SHARVI_RSSPL`: all 7 roles list.
-- Role Permissions tab: role dropdown populated; toggles still persist (write policy still admin-only).
-- Approval Matrix and Release Strategies tabs continue to load rows they previously loaded; tenant-scoped rows still hidden from non-members (spot-check by querying with a non-admin session).
-- Users tab and edit flow unaffected.
+- No changes to `PO_Get`/`PO_Reject` payloads.
+- No middleware changes; existing `/sap/invoke` proxy path is reused.
+- No schema/RLS changes.
