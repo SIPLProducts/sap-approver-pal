@@ -387,13 +387,9 @@ async function processPoAction(
       INDICATOR: pick("INDICATOR"),
     };
 
-    if (isRelease) {
-      // Report the same header-level result for every selected line under this PO.
-      for (const ep of grp.ebelps) {
-        results.push({ ebeln, ebelp: ep, ...common });
-      }
-    } else {
-      results.push({ ebeln, ebelp, ...common });
+    // Report the same header-level result for every selected line under this PO.
+    for (const ep of grp.ebelps) {
+      results.push({ ebeln, ebelp: ep, ...common });
     }
   }
 
