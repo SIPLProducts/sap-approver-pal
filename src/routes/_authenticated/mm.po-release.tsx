@@ -21,7 +21,7 @@ import {
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
-  fetchPoReleaseMultiple,
+  fetchPoGet,
   releasePoItems,
   rejectPoItems,
 } from "@/lib/mm/po-release.functions";
