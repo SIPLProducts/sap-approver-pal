@@ -2,8 +2,8 @@
  * MM MIGO Release — live SAP fetch via the configured
  * MIGO_FETCH_API sap_api_configs row.
  *
- * Sends payload: { MATERIAL_DOC_NUMBER, MATERIAL_DOC_YEAR, USER_ID }
- * Parses response { HEADER: [...], DATA: [...] } and returns { header, data }.
+ * Sends payload: { mblnr, mjahr }
+ * Parses response { HEADER: {...}, DATA: [...] } and returns { header, data }.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -15,9 +15,8 @@ export const fetchMigo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
-      user_id: z.string().trim().min(1, "User ID is required").max(60),
-      mat_doc_number: z.string().trim().max(40).optional().default(""),
-      mat_doc_year: z.string().trim().max(4).optional().default(""),
+      mat_doc_number: z.string().trim().min(1, "Material Document Number is required").max(40),
+      mat_doc_year: z.string().trim().min(4, "Material Document Year is required").max(4),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -37,14 +36,12 @@ export const fetchMigo = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const userId = data.user_id.trim();
-    const matDocNo = (data.mat_doc_number ?? "").trim();
-    const matDocYear = (data.mat_doc_year ?? "").trim();
+    const matDocNo = data.mat_doc_number.trim();
+    const matDocYear = data.mat_doc_year.trim();
 
     const inputs: Record<string, string> = {
-      MATERIAL_DOC_NUMBER: matDocNo,
-      MATERIAL_DOC_YEAR: matDocYear,
-      USER_ID: userId,
+      mblnr: matDocNo,
+      mjahr: matDocYear,
     };
 
     const globalProxy =
@@ -54,7 +51,7 @@ export const fetchMigo = createServerFn({ method: "POST" })
     const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
 
     let target: string;
-    let method: string = cfg.http_method ?? "GET";
+    let method: string = "POST";
     let bodyOut: string | undefined;
     const headers: Record<string, string> = { Accept: "application/json" };
     let proxied = false;
@@ -62,7 +59,6 @@ export const fetchMigo = createServerFn({ method: "POST" })
     if (useProxy) {
       if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
       target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
-      method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
         (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
@@ -72,9 +68,9 @@ export const fetchMigo = createServerFn({ method: "POST" })
       bodyOut = JSON.stringify({ configId: cfg.id, inputs });
       proxied = true;
     } else {
-      const qs = new URLSearchParams(inputs).toString();
-      const join = cfg.endpoint_url.includes("?") ? "&" : "?";
-      target = `${cfg.endpoint_url}${join}${qs}`;
+      target = cfg.endpoint_url;
+      headers["Content-Type"] = "application/json";
+      bodyOut = JSON.stringify(inputs);
       if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
         headers.Authorization =
           "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
@@ -102,7 +98,6 @@ export const fetchMigo = createServerFn({ method: "POST" })
         header: null as Record<string, any> | null,
         data: [] as Record<string, any>[],
         fetched_at: new Date().toISOString(),
-        user_id: userId,
         error: `Could not reach SAP. ${errMsg}.`,
       };
     }
@@ -122,7 +117,6 @@ export const fetchMigo = createServerFn({ method: "POST" })
         header: null as Record<string, any> | null,
         data: [] as Record<string, any>[],
         fetched_at: new Date().toISOString(),
-        user_id: userId,
         error: `SAP returned ${message}: ${text.slice(0, 200)}`,
       };
     }
@@ -135,27 +129,22 @@ export const fetchMigo = createServerFn({ method: "POST" })
         header: null as Record<string, any> | null,
         data: [] as Record<string, any>[],
         fetched_at: new Date().toISOString(),
-        user_id: userId,
         error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
       };
     }
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
-    const headerArr: any[] = Array.isArray(sapJson?.HEADER)
-      ? sapJson.HEADER
-      : Array.isArray(sapJson?.header)
-        ? sapJson.header
-        : [];
+    const rawHeader = sapJson?.HEADER ?? sapJson?.header ?? null;
+    const header: Record<string, any> | null =
+      Array.isArray(rawHeader)
+        ? (rawHeader[0] && typeof rawHeader[0] === "object" ? { ...rawHeader[0] } : null)
+        : (rawHeader && typeof rawHeader === "object" ? { ...rawHeader } : null);
+
     const dataArr: any[] = Array.isArray(sapJson?.DATA)
       ? sapJson.DATA
       : Array.isArray(sapJson?.data)
         ? sapJson.data
         : [];
-
-    const header: Record<string, any> | null =
-      headerArr.length > 0 && headerArr[0] && typeof headerArr[0] === "object"
-        ? { ...headerArr[0] }
-        : null;
     const rows: Record<string, any>[] = dataArr.map((r) =>
       r && typeof r === "object" ? { ...r } : {},
     );
@@ -172,7 +161,6 @@ export const fetchMigo = createServerFn({ method: "POST" })
       header,
       data: rows,
       fetched_at: new Date().toISOString(),
-      user_id: userId,
       error: null as string | null,
     };
   });
@@ -183,7 +171,6 @@ export const saveMigo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
-      user_id: z.string().trim().min(1, "User ID is required").max(60),
       header: z.record(z.string(), z.any()),
       data: z.array(z.record(z.string(), z.any())).min(1, "At least one row is required"),
     }).parse(d),
@@ -205,10 +192,8 @@ export const saveMigo = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const userId = data.user_id.trim();
     const payload: Record<string, any> = {
       ...data.header,
-      USER_ID: userId,
       DATA: data.data,
     };
 
