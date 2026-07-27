@@ -28,6 +28,7 @@ import { Route as AuthenticatedSdContractReportsRouteImport } from './routes/_au
 import { Route as AuthenticatedSdContractRouteImport } from './routes/_authenticated/sd.contract'
 import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
 import { Route as AuthenticatedMmPrReleaseRouteImport } from './routes/_authenticated/mm.pr-release'
+import { Route as AuthenticatedMmPoReleaseRouteImport } from './routes/_authenticated/mm.po-release'
 import { Route as AuthenticatedMmMaterialReservationRouteImport } from './routes/_authenticated/mm.material-reservation'
 import { Route as AuthenticatedMmGateProcessRouteImport } from './routes/_authenticated/mm.gate-process'
 import { Route as AuthenticatedMmGatePassRouteImport } from './routes/_authenticated/mm.gate-pass'
@@ -147,6 +148,12 @@ const AuthenticatedMmPrReleaseRoute =
     path: '/mm/pr-release',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMmPoReleaseRoute =
+  AuthenticatedMmPoReleaseRouteImport.update({
+    id: '/mm/po-release',
+    path: '/mm/po-release',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMmMaterialReservationRoute =
   AuthenticatedMmMaterialReservationRouteImport.update({
     id: '/mm/material-reservation',
@@ -243,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
+  '/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
@@ -277,6 +285,7 @@ export interface FileRoutesByTo {
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
+  '/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
@@ -313,6 +322,7 @@ export interface FileRoutesById {
   '/_authenticated/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/_authenticated/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/_authenticated/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
+  '/_authenticated/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/_authenticated/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
   '/_authenticated/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/_authenticated/sd/contract': typeof AuthenticatedSdContractRoute
@@ -349,6 +359,7 @@ export interface FileRouteTypes {
     | '/mm/gate-pass'
     | '/mm/gate-process'
     | '/mm/material-reservation'
+    | '/mm/po-release'
     | '/mm/pr-release'
     | '/sd/bmw-status'
     | '/sd/contract'
@@ -383,6 +394,7 @@ export interface FileRouteTypes {
     | '/mm/gate-pass'
     | '/mm/gate-process'
     | '/mm/material-reservation'
+    | '/mm/po-release'
     | '/mm/pr-release'
     | '/sd/bmw-status'
     | '/sd/contract'
@@ -418,6 +430,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mm/gate-pass'
     | '/_authenticated/mm/gate-process'
     | '/_authenticated/mm/material-reservation'
+    | '/_authenticated/mm/po-release'
     | '/_authenticated/mm/pr-release'
     | '/_authenticated/sd/bmw-status'
     | '/_authenticated/sd/contract'
@@ -581,6 +594,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMmPrReleaseRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mm/po-release': {
+      id: '/_authenticated/mm/po-release'
+      path: '/mm/po-release'
+      fullPath: '/mm/po-release'
+      preLoaderRoute: typeof AuthenticatedMmPoReleaseRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/mm/material-reservation': {
       id: '/_authenticated/mm/material-reservation'
       path: '/mm/material-reservation'
@@ -696,6 +716,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMmGatePassRoute: typeof AuthenticatedMmGatePassRoute
   AuthenticatedMmGateProcessRoute: typeof AuthenticatedMmGateProcessRoute
   AuthenticatedMmMaterialReservationRoute: typeof AuthenticatedMmMaterialReservationRoute
+  AuthenticatedMmPoReleaseRoute: typeof AuthenticatedMmPoReleaseRoute
   AuthenticatedMmPrReleaseRoute: typeof AuthenticatedMmPrReleaseRoute
   AuthenticatedSdBmwStatusRoute: typeof AuthenticatedSdBmwStatusRoute
   AuthenticatedSdContractRoute: typeof AuthenticatedSdContractRoute
@@ -727,6 +748,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMmGateProcessRoute: AuthenticatedMmGateProcessRoute,
   AuthenticatedMmMaterialReservationRoute:
     AuthenticatedMmMaterialReservationRoute,
+  AuthenticatedMmPoReleaseRoute: AuthenticatedMmPoReleaseRoute,
   AuthenticatedMmPrReleaseRoute: AuthenticatedMmPrReleaseRoute,
   AuthenticatedSdBmwStatusRoute: AuthenticatedSdBmwStatusRoute,
   AuthenticatedSdContractRoute: AuthenticatedSdContractRoute,

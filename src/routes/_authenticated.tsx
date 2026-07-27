@@ -155,6 +155,7 @@ function AuthenticatedLayout() {
   const mmChildren = [
     { to: "/mm/dashboard", label: "MM Dashboard", icon: BarChart3, screen: "approvals.inbox.mm" },
     { to: "/mm/pr-release", label: "PR Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
+    { to: "/mm/po-release", label: "PO Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
     { to: "/mm/material-reservation", label: "Material Reservation", icon: Package, screen: "approvals.inbox.mm" },
     { to: "/mm/gate-process", label: "ZNFA Rating", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
     { to: "/mm/gate-pass", label: "Gate Pass", icon: Truck, screen: "approvals.inbox.mm" },
