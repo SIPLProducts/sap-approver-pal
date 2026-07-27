@@ -225,29 +225,23 @@ async function processPoAction(
 
   const results: PoReleaseResult[] = [];
 
-  // For RELEASE, payload is header-level (one call per EBELN). Dedupe by EBELN
-  // and remember every selected EBELP so the UI can clear all matching rows.
+  // Both RELEASE and REJECT are header-level (one call per EBELN). Dedupe by
+  // EBELN and remember every selected EBELP so the UI can clear all matching
+  // rows against a single header result.
   const isRelease = payloadKey === "RELEASE";
   const groups = new Map<string, { ebelps: string[]; remarks: string }>();
-  if (isRelease) {
-    for (const it of data.items) {
-      const g = groups.get(it.EBELN);
-      if (g) {
-        g.ebelps.push(it.EBELP);
-        if (!g.remarks && it.REMARKS) g.remarks = it.REMARKS;
-      } else {
-        groups.set(it.EBELN, { ebelps: [it.EBELP], remarks: it.REMARKS ?? "" });
-      }
-    }
-  } else {
-    for (const it of data.items) {
-      groups.set(`${it.EBELN}::${it.EBELP}`, { ebelps: [it.EBELP], remarks: it.REMARKS ?? "" });
+  for (const it of data.items) {
+    const g = groups.get(it.EBELN);
+    if (g) {
+      g.ebelps.push(it.EBELP);
+      if (!g.remarks && it.REMARKS) g.remarks = it.REMARKS;
+    } else {
+      groups.set(it.EBELN, { ebelps: [it.EBELP], remarks: it.REMARKS ?? "" });
     }
   }
 
-  for (const [key, grp] of groups) {
-    const ebeln = isRelease ? key : key.split("::")[0];
-    const ebelp = isRelease ? "" : grp.ebelps[0];
+  for (const [ebeln, grp] of groups) {
+    const ebelp = "";
 
     const inputs = isRelease
       ? {
@@ -258,11 +252,8 @@ async function processPoAction(
           },
         }
       : {
-          [payloadKey]: {
+          REJECT: {
             EBELN: ebeln,
-            EBELP: ebelp,
-            REL_CODE: data.relcode.trim(),
-            REL_GRP: data.relgroup.trim(),
             REMARKS: grp.remarks,
           },
         };
