@@ -162,7 +162,7 @@ export const fetchPoReleaseMultiple = createServerFn({ method: "POST" })
   });
 
 const RELEASE_CONFIG_NAME = "PO_Release_API";
-const REJECT_CONFIG_NAME = "PO_Reject_API";
+const REJECT_CONFIG_NAME = "PO_REJECT_API";
 
 export type PoReleaseResult = {
   ebeln: string;

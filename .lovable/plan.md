@@ -1,38 +1,17 @@
-## Goal
+## Root cause
 
-Wire the **Reject** button on the PO Release screen to call `PO_REJECT_API` with the new simplified payload (one call per PO), and show the exact SAP response message in the same popup used by Release — displaying only the message text, not the key names.
+The Reject button errors with `SAP API config "PO_Reject_API" not found` because `src/lib/mm/po-release.functions.ts` looks up the config by the exact name `PO_Reject_API`, but the row in `sap_api_configs` is stored as `PO_REJECT_API` (all caps). The lookup is case-sensitive, so the config is never found and the request never leaves the app — nothing hits the middleware.
 
-## Current state (verified this turn)
+Verified: `select name from sap_api_configs where name ilike '%reject%'` returns `PO_REJECT_API` (and `PO_Release_API` matches the Release constant, which is why Release works).
 
-- `src/lib/mm/po-release.functions.ts` already has `rejectPoItems` → `processPoAction("REJECT", …)`. Today the REJECT branch builds `{ REJECT: { EBELN, EBELP, REL_CODE, REL_GRP, REMARKS } }` per line item.
-- Release was just refactored to be header-level (one call per `EBELN`) and to return `response`, `MSGTXT`, `STATUS`, `RELSTATUS`, `INDICATOR` on each `PoReleaseResult`.
-- `src/routes/_authenticated/mm.po-release.tsx` opens a response dialog for Release results and shows a table with MSGTXT / STATUS / RELSTATUS / INDICATOR columns plus raw JSON.
-- Reject currently only toasts; there is no popup and no shared response viewer.
+## Fix
 
-## Required payload / response (per user)
+In `src/lib/mm/po-release.functions.ts`:
 
-- Request: `{ "REJECT": { "EBELN": "<po>", "REMARKS": "<text>" } }` — one call per PO (no `EBELP`, no `REL_CODE`, no `REL_GRP`).
-- Response: `[ { "MSGTXT": "PO Rejected Successfully", "STATUS": "TRUE" } ]` (no `RELSTATUS` / `INDICATOR` for reject).
+- Change `const REJECT_CONFIG_NAME = "PO_Reject_API"` to `"PO_REJECT_API"` so the name matches the configured row exactly.
 
-## Changes
-
-### 1. `src/lib/mm/po-release.functions.ts` — reject payload becomes header-level
-
-- In `processPoAction`, treat `REJECT` the same way as `RELEASE`: dedupe selected rows by `EBELN`, then send `{ REJECT: { EBELN, REMARKS } }` once per PO.
-- Report the resulting `PoReleaseResult` (with `response`, `MSGTXT`, `STATUS`) back against every selected `EBELP` under that PO so the UI clears all matching rows on success.
-- Keep the existing success detection (`STATUS === "TRUE"` already handled). No new fields required — `RELSTATUS` / `INDICATOR` will simply be `undefined` for reject and won't be shown.
-
-### 2. `src/routes/_authenticated/mm.po-release.tsx` — reject popup + message-only display
-
-- Route the reject mutation's `onSuccess` into the same `responseDialog` state used by Release, with an action label of "Reject". Keep the row-removal + refetch behavior.
-- Change the dialog body so it does **not** show field names (MSGTXT / STATUS / RELSTATUS / INDICATOR). For each PO show:
-  - PO Number (heading).
-  - The response **message** text only (prefer `MSGTXT`, fall back to `msgtxt` / `error`), rendered as a single line/paragraph.
-  - Keep the collapsible "Raw response" block (unchanged) so the exact SAP JSON is still available on demand.
-- No changes to toasts or the results table besides removing successfully rejected rows (already in place).
+No other changes — payload shape, dialog, and reject flow already match the API spec from the previous turn.
 
 ## Out of scope
 
-- No changes to `PO_Get` or `PO_Release` payloads (Release payload was already updated in the previous turn).
-- No middleware changes; existing `/sap/invoke` proxy path is reused.
-- No schema/RLS changes.
+- No DB rename, no other config edits, no UI changes.
