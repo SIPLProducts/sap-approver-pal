@@ -90,7 +90,7 @@ function PoReleasePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlants.join(",")]);
 
-  const fetchFn = useServerFn(fetchPoReleaseMultiple);
+  const fetchFn = useServerFn(fetchPoGet);
   const mutation = useMutation({
     mutationFn: (input: { relgroup: string; relcode: string; plants: string[] }) =>
       fetchFn({ data: input }),
