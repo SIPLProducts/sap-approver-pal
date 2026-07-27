@@ -414,7 +414,10 @@ function PoReleasePage() {
                     />
                   </TableHead>
                   {columns.map((key) => (
-                    <TableHead key={key} className="whitespace-nowrap text-xs">
+                    <TableHead
+                      key={key}
+                      className={`whitespace-nowrap text-xs${NUMERIC_COLUMNS.has(key) ? " text-right" : ""}`}
+                    >
                       {COLUMN_LABELS[key] ?? key}
                     </TableHead>
                   ))}
