@@ -287,6 +287,13 @@ table thead th {
   position: sticky;
   top: 0;
   z-index: 10;
+  box-sizing: border-box;
+}
+/* Mirror header horizontal padding on body cells so columns line up. */
+table tbody td {
+  padding-left: 16px;
+  padding-right: 16px;
+  box-sizing: border-box;
 }
 table thead th.num,
 table thead th[align="right"],
