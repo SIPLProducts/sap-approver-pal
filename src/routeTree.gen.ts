@@ -29,6 +29,7 @@ import { Route as AuthenticatedSdContractRouteImport } from './routes/_authentic
 import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
 import { Route as AuthenticatedMmPrReleaseRouteImport } from './routes/_authenticated/mm.pr-release'
 import { Route as AuthenticatedMmPoReleaseRouteImport } from './routes/_authenticated/mm.po-release'
+import { Route as AuthenticatedMmMigoReleaseRouteImport } from './routes/_authenticated/mm.migo-release'
 import { Route as AuthenticatedMmMaterialReservationRouteImport } from './routes/_authenticated/mm.material-reservation'
 import { Route as AuthenticatedMmGateProcessRouteImport } from './routes/_authenticated/mm.gate-process'
 import { Route as AuthenticatedMmGatePassRouteImport } from './routes/_authenticated/mm.gate-pass'
@@ -154,6 +155,12 @@ const AuthenticatedMmPoReleaseRoute =
     path: '/mm/po-release',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMmMigoReleaseRoute =
+  AuthenticatedMmMigoReleaseRouteImport.update({
+    id: '/mm/migo-release',
+    path: '/mm/migo-release',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMmMaterialReservationRoute =
   AuthenticatedMmMaterialReservationRouteImport.update({
     id: '/mm/material-reservation',
@@ -250,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
+  '/mm/migo-release': typeof AuthenticatedMmMigoReleaseRoute
   '/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
@@ -285,6 +293,7 @@ export interface FileRoutesByTo {
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
+  '/mm/migo-release': typeof AuthenticatedMmMigoReleaseRoute
   '/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
@@ -322,6 +331,7 @@ export interface FileRoutesById {
   '/_authenticated/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
   '/_authenticated/mm/gate-process': typeof AuthenticatedMmGateProcessRoute
   '/_authenticated/mm/material-reservation': typeof AuthenticatedMmMaterialReservationRoute
+  '/_authenticated/mm/migo-release': typeof AuthenticatedMmMigoReleaseRoute
   '/_authenticated/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/_authenticated/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
   '/_authenticated/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/mm/gate-pass'
     | '/mm/gate-process'
     | '/mm/material-reservation'
+    | '/mm/migo-release'
     | '/mm/po-release'
     | '/mm/pr-release'
     | '/sd/bmw-status'
@@ -394,6 +405,7 @@ export interface FileRouteTypes {
     | '/mm/gate-pass'
     | '/mm/gate-process'
     | '/mm/material-reservation'
+    | '/mm/migo-release'
     | '/mm/po-release'
     | '/mm/pr-release'
     | '/sd/bmw-status'
@@ -430,6 +442,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mm/gate-pass'
     | '/_authenticated/mm/gate-process'
     | '/_authenticated/mm/material-reservation'
+    | '/_authenticated/mm/migo-release'
     | '/_authenticated/mm/po-release'
     | '/_authenticated/mm/pr-release'
     | '/_authenticated/sd/bmw-status'
@@ -601,6 +614,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMmPoReleaseRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mm/migo-release': {
+      id: '/_authenticated/mm/migo-release'
+      path: '/mm/migo-release'
+      fullPath: '/mm/migo-release'
+      preLoaderRoute: typeof AuthenticatedMmMigoReleaseRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/mm/material-reservation': {
       id: '/_authenticated/mm/material-reservation'
       path: '/mm/material-reservation'
@@ -716,6 +736,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMmGatePassRoute: typeof AuthenticatedMmGatePassRoute
   AuthenticatedMmGateProcessRoute: typeof AuthenticatedMmGateProcessRoute
   AuthenticatedMmMaterialReservationRoute: typeof AuthenticatedMmMaterialReservationRoute
+  AuthenticatedMmMigoReleaseRoute: typeof AuthenticatedMmMigoReleaseRoute
   AuthenticatedMmPoReleaseRoute: typeof AuthenticatedMmPoReleaseRoute
   AuthenticatedMmPrReleaseRoute: typeof AuthenticatedMmPrReleaseRoute
   AuthenticatedSdBmwStatusRoute: typeof AuthenticatedSdBmwStatusRoute
@@ -748,6 +769,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMmGateProcessRoute: AuthenticatedMmGateProcessRoute,
   AuthenticatedMmMaterialReservationRoute:
     AuthenticatedMmMaterialReservationRoute,
+  AuthenticatedMmMigoReleaseRoute: AuthenticatedMmMigoReleaseRoute,
   AuthenticatedMmPoReleaseRoute: AuthenticatedMmPoReleaseRoute,
   AuthenticatedMmPrReleaseRoute: AuthenticatedMmPrReleaseRoute,
   AuthenticatedSdBmwStatusRoute: AuthenticatedSdBmwStatusRoute,
@@ -780,13 +802,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
