@@ -1,24 +1,42 @@
 ## Problem
 
-In the Edit User popup, the Roles multi-select never shows the user's currently assigned roles. The list of dropdown options is built from active `custom_roles` (case-preserved, e.g. `3801::Admin`), but the prefill logic uppercases the incoming role names from SAP (`3801::ADMIN`). A subsequent effect prunes any selected value that isn't in the options list, so every pre-selected role is silently dropped. In addition, if `custom_roles` hasn't finished loading when `editUser` is set, the same pruner wipes the selection before options exist.
+Custom Roles tab shows "No custom roles yet" even though 7 rows exist in `custom_roles`. Cause: the recent security migration tightened the SELECT policy to:
 
-## Fix (frontend only, `src/routes/_authenticated/admin.users.tsx`)
+```
+is_admin(auth.uid()) OR EXISTS (user_tenants where tenant_id = custom_roles.tenant_id AND user_id = auth.uid())
+```
 
-1. Prefill effect that reacts to `editUser`
-   - Also depend on `customRoles` (and its loading state) so the effect re-runs once roles are available.
-   - Build a case-insensitive lookup: `roleByUpper = Map<UPPERCASE(name), canonicalName>` from `customRoles`.
-   - For each entry in `editUser.role_assignments` (and the `roles`-only fallback), resolve the role via `roleByUpper` and emit the composite as `${werks}::${canonicalName}` (matching option values exactly). If the role can't be resolved yet (roles still loading) leave the pre-selected raw value untouched so the pruner won't yet run against it.
-   - Keep plants/status/password behaviour unchanged.
+The signed-in SAP user (`SHARVI_RSSPL`) has no row in `public.user_roles`, so `is_admin()` returns false. All existing `custom_roles` rows have `tenant_id IS NULL` (global roles), so the `user_tenants` sub-select never matches either. RLS filters everything out → the tab renders empty. Same policy shape is on `role_permissions`, `approval_matrix`, and `approval_strategies`, so those tabs are affected identically for SAP-authenticated admins.
 
-2. Pruner effect (drops selections not in `roleOptions`)
-   - Wait until `customRoles` has loaded (`!rolesQuery.isLoading && customRoles.length >= 0`) before pruning, so the initial prefill isn't cleared during the first render.
-   - Compare case-insensitively: split the composite into `plant::role`, and keep the value if there exists an option with the same plant and a role name whose uppercase matches — replacing the stored value with the option's canonical composite so subsequent renders match exactly.
+## Fix (database only, one migration)
 
-3. No changes to server functions, payload shape, save flow, password/change-password logic, or the create-user path. Custom Roles tab and permissions logic are untouched.
+Update the read policies on the four admin-config tables so global rows (`tenant_id IS NULL`) remain visible to any authenticated user, while tenant-scoped rows stay restricted to members of that tenant. Admin-write policies are unchanged.
+
+Tables and new SELECT rule (drop-and-recreate the existing "read" policy on each):
+
+- `public.custom_roles`
+- `public.role_permissions` (join to `custom_roles.tenant_id`)
+- `public.approval_matrix`
+- `public.approval_strategies`
+
+New USING expression pattern:
+
+```sql
+is_admin(auth.uid())
+OR tenant_id IS NULL
+OR EXISTS (
+  SELECT 1 FROM public.user_tenants ut
+  WHERE ut.user_id = auth.uid() AND ut.tenant_id = <table>.tenant_id
+)
+```
+
+For `role_permissions`, the tenant scope is derived from its parent `custom_roles.tenant_id` via an EXISTS join (same shape as the current policy).
+
+No app/frontend code changes. No changes to write policies, GRANTs, or table shape.
 
 ## Verification
 
-- Open Edit User for a SAP-synced user with assigned roles: the Roles field renders chips for each `plant - role` from `role_assignments`, matching casing from `custom_roles`.
-- Change something unrelated (e.g. first name) and Save: outgoing payload's `roles` array is identical to what was preloaded (verified via network tab), so no roles are lost.
-- Open a user with no assignments: field remains empty, "No custom roles configured" behaviour unchanged.
-- Create User (no `editUser`): starts empty, unaffected.
+- Reload `/admin/users` → Custom Roles tab, as `SHARVI_RSSPL`: all 7 roles list.
+- Role Permissions tab: role dropdown populated; toggles still persist (write policy still admin-only).
+- Approval Matrix and Release Strategies tabs continue to load rows they previously loaded; tenant-scoped rows still hidden from non-members (spot-check by querying with a non-admin session).
+- Users tab and edit flow unaffected.
