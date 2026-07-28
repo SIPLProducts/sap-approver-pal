@@ -33,6 +33,16 @@ function isCheckboxKey(k: string) {
   return u === "WARRANTY" || u === "OK";
 }
 
+function isEditableTextKey(k: string) {
+  const u = k.toUpperCase();
+  return u === "STGE_LOC" || u === "STGELOC" || u === "LGORT";
+}
+
+function isLineIdKey(k: string) {
+  const u = k.toUpperCase();
+  return u === "LINE_ID" || u === "LINEID";
+}
+
 function MigoReleasePage() {
   const fetchFn = useServerFn(fetchMigo);
 
