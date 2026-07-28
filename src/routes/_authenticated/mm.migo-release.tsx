@@ -75,6 +75,7 @@ function MigoReleasePage() {
         seeded.set(rowKey(r, i), { ...r });
       });
       setEdits(seeded);
+      setCustomFields(null);
       if (res.error) toast.error(res.error);
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
