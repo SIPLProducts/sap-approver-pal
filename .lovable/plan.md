@@ -1,13 +1,16 @@
-## Problem
+## Change
 
-The MIGO Release screen errors with `SAP API config "MIGO_FETCH_API" not found`, and no payload reaches the middleware.
+In `src/routes/_authenticated/mm.migo-release.tsx`:
 
-Root cause (verified via DB): the SAP API config is stored as **`MIGO_Fetch_API`** (mixed case), but `src/lib/mm/migo-release.functions.ts` looks up `MIGO_FETCH_API` with an exact-match query. This is the same case-sensitivity issue we hit before with `PO_REJECT_API`.
+1. Remove the three appended columns: **HOD Approval**, **HOD Rejection**, and **Remarks**.
+2. In the auto-generated data columns, detect keys `WARRANTY` and `OK` (case-insensitive) and render them as checkboxes instead of text. The checkbox reflects whether the SAP value equals `"X"` and toggles the in-memory row value between `"X"` and `""`.
+3. Remove the now-unused `rowStates` / `RowState` / `updateRow` logic and the `skip` set that hid these columns from the auto-generated list.
+4. Update the Save payload builder to send each selected row as-is (including the toggled `WARRANTY` / `OK` values), dropping the HOD/Remarks overrides.
 
-## Fix
+No changes to `src/lib/mm/migo-release.functions.ts`, the middleware, or the fetch/save server functions — Save still posts through `saveMigo` with the same header + data shape, only the per-row fields differ.
 
-In `src/lib/mm/migo-release.functions.ts`, change the config name constants from `MIGO_FETCH_API` / `MIGO_SAVE_API` to match what's actually configured:
-- `MIGO_FETCH_API` → `MIGO_Fetch_API`
-- `MIGO_SAVE_API` → `MIGO_Save_API` (will confirm exact save-config name; if the user hasn't created it yet, we'll leave the string but note it must be added)
+### Technical notes
 
-No UI, business logic, or middleware changes.
+- Track edits in a `Map<string, Record<string, any>>` keyed by `rowKey`, seeded from the fetched rows. Cell renderers read/write into this map so table re-renders don't lose toggles.
+- Column detection: treat any column whose key uppercased is `WARRANTY` or `OK` as a checkbox column; keep its original header text.
+- Selection, header card, Execute/Reset, and Save button behavior stay unchanged.
