@@ -1,16 +1,7 @@
-## Change
+## Changes in `src/routes/_authenticated/mm.migo-release.tsx`
 
-In `src/routes/_authenticated/mm.migo-release.tsx`:
+1. **Line ID first column**: When building `dataKeys` for the columns memo, hoist any key whose uppercased name is `LINE_ID` (fallback: `LINEID`) to the front of the array before mapping to `CloudscapeColumn`s. Preserve original ordering of all other keys.
 
-1. Remove the three appended columns: **HOD Approval**, **HOD Rejection**, and **Remarks**.
-2. In the auto-generated data columns, detect keys `WARRANTY` and `OK` (case-insensitive) and render them as checkboxes instead of text. The checkbox reflects whether the SAP value equals `"X"` and toggles the in-memory row value between `"X"` and `""`.
-3. Remove the now-unused `rowStates` / `RowState` / `updateRow` logic and the `skip` set that hid these columns from the auto-generated list.
-4. Update the Save payload builder to send each selected row as-is (including the toggled `WARRANTY` / `OK` values), dropping the HOD/Remarks overrides.
+2. **STGE_LOC as editable input**: Add a helper `isEditableTextKey(k)` that returns true when the uppercased key is `STGE_LOC` (also accept `STGELOC` / `LGORT` if present). In the column mapping, when a key matches, render a small `<Input>` (h-8 text-xs) whose value comes from `edits.get(k)?.[key] ?? item[key]` and whose `onChange` calls the existing `updateCell(k, key, value)`. Checkbox handling for `WARRANTY`/`OK` stays as-is; plain-text rendering stays as fallback.
 
-No changes to `src/lib/mm/migo-release.functions.ts`, the middleware, or the fetch/save server functions — Save still posts through `saveMigo` with the same header + data shape, only the per-row fields differ.
-
-### Technical notes
-
-- Track edits in a `Map<string, Record<string, any>>` keyed by `rowKey`, seeded from the fetched rows. Cell renderers read/write into this map so table re-renders don't lose toggles.
-- Column detection: treat any column whose key uppercased is `WARRANTY` or `OK` as a checkbox column; keep its original header text.
-- Selection, header card, Execute/Reset, and Save button behavior stay unchanged.
+Save payload already merges `edits` into each selected row, so the edited STGE_LOC value flows to `saveMigo` unchanged. No changes to server functions, middleware, or the shared table component.
