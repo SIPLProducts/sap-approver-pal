@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -16,6 +17,8 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedEmailConfigRouteImport } from './routes/_authenticated/email-config'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
 import { Route as AuthenticatedSdScSoReportsRouteImport } from './routes/_authenticated/sd.sc-so-reports'
 import { Route as AuthenticatedSdScSoRouteImport } from './routes/_authenticated/sd.sc-so'
@@ -39,12 +42,19 @@ import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
 import { Route as AuthenticatedAdminIntegrationsRouteImport } from './routes/_authenticated/admin.integrations'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AuthenticatedAdminSapApiIndexRouteImport } from './routes/_authenticated/admin.sap-api.index'
 import { Route as ApiPublicMiddlewareLogRouteImport } from './routes/api/public/middleware/log'
 import { Route as ApiPublicMiddlewareConfigRouteImport } from './routes/api/public/middleware/config'
 import { Route as ApiPublicHooksSapSyncRouteImport } from './routes/api/public/hooks/sap-sync'
 import { Route as AuthenticatedAdminSapApiIdRouteImport } from './routes/_authenticated/admin.sap-api.$id'
 
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -80,6 +90,18 @@ const AuthenticatedEmailConfigRoute =
     id: '/email-config',
     path: '/email-config',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedInboxIndexRoute = AuthenticatedInboxIndexRouteImport.update({
   id: '/inbox/',
@@ -212,6 +234,17 @@ const AuthenticatedAdminIntegrationsRoute =
     path: '/admin/integrations',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminSapApiIndexRoute =
   AuthenticatedAdminSapApiIndexRouteImport.update({
     id: '/admin/sap-api/',
@@ -244,10 +277,15 @@ const AuthenticatedAdminSapApiIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/email-config': typeof AuthenticatedEmailConfigRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -280,10 +318,15 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/email-config': typeof AuthenticatedEmailConfigRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -318,10 +361,15 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/email-config': typeof AuthenticatedEmailConfigRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/admin/integrations': typeof AuthenticatedAdminIntegrationsRoute
   '/_authenticated/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -356,10 +404,15 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/mcp'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/email-config'
     | '/history'
     | '/notifications'
     | '/settings'
+    | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/admin/integrations'
     | '/admin/strategies'
     | '/admin/users'
@@ -392,10 +445,15 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/mcp'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/email-config'
     | '/history'
     | '/notifications'
     | '/settings'
+    | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/admin/integrations'
     | '/admin/strategies'
     | '/admin/users'
@@ -429,10 +487,15 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/mcp'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/_authenticated/email-config'
     | '/_authenticated/history'
     | '/_authenticated/notifications'
     | '/_authenticated/settings'
+    | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/admin/integrations'
     | '/_authenticated/admin/strategies'
     | '/_authenticated/admin/users'
@@ -467,6 +530,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  McpRoute: typeof McpRoute
+  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicHooksSapSyncRoute: typeof ApiPublicHooksSapSyncRoute
   ApiPublicMiddlewareConfigRoute: typeof ApiPublicMiddlewareConfigRoute
   ApiPublicMiddlewareLogRoute: typeof ApiPublicMiddlewareLogRoute
@@ -474,6 +542,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -522,6 +597,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/email-config'
       preLoaderRoute: typeof AuthenticatedEmailConfigRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/list-tools': {
+      id: '/.mcp/list-tools'
+      path: '/.mcp/list-tools'
+      fullPath: '/.mcp/list-tools'
+      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/inbox/': {
       id: '/_authenticated/inbox/'
@@ -684,6 +773,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIntegrationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/sap-api/': {
       id: '/_authenticated/admin/sap-api/'
       path: '/admin/sap-api'
@@ -795,6 +898,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  McpRoute: McpRoute,
+  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicHooksSapSyncRoute: ApiPublicHooksSapSyncRoute,
   ApiPublicMiddlewareConfigRoute: ApiPublicMiddlewareConfigRoute,
   ApiPublicMiddlewareLogRoute: ApiPublicMiddlewareLogRoute,
