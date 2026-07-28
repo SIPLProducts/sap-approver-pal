@@ -159,9 +159,13 @@ function MigoReleasePage() {
       }
     }
 
+    const lineIdKeys = dataKeys.filter(isLineIdKey);
+    const otherKeys = dataKeys.filter((k) => !isLineIdKey(k));
+    const orderedKeys = [...lineIdKeys, ...otherKeys];
+
     const numericHint = /(QTY|QUANTITY|AMOUNT|VALUE|PRICE|STOCK|NETWR|RLWRT|QNT)/i;
 
-    return dataKeys.map((key) => {
+    return orderedKeys.map((key) => {
       if (isCheckboxKey(key)) {
         return {
           id: key,
@@ -172,6 +176,34 @@ function MigoReleasePage() {
             const k = rowKey(item, idx);
             const cur = edits.get(k) ?? item;
             const checked = String(cur?.[key] ?? "").toUpperCase() === "X";
+            return (
+              <Checkbox
+                checked={checked}
+                onCheckedChange={(v) => updateCell(k, key, v === true ? "X" : "")}
+              />
+            );
+          },
+        } as CloudscapeColumn<DataRow>;
+      }
+      if (isEditableTextKey(key)) {
+        return {
+          id: key,
+          header: key.replace(/_/g, " "),
+          minWidth: 140,
+          cell: (item: DataRow) => {
+            const idx = rows.indexOf(item);
+            const k = rowKey(item, idx);
+            const cur = edits.get(k) ?? item;
+            return (
+              <Input
+                value={toStr(cur?.[key])}
+                onChange={(e) => updateCell(k, key, e.target.value)}
+                className="h-8 text-xs"
+              />
+            );
+          },
+        } as CloudscapeColumn<DataRow>;
+      }
             return (
               <Checkbox
                 checked={checked}
