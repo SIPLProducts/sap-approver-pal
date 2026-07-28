@@ -18,7 +18,6 @@ export const Route = createFileRoute("/_authenticated/mm/migo-release")({
 });
 
 type DataRow = Record<string, any> & { __key?: string };
-type RowState = { hodApproval: boolean; hodRejection: boolean; remarks: string };
 
 function rowKey(r: DataRow, i: number) {
   return [r.MAT_DOC, r.DOC_YEAR, r.MATDOC_ITM, r.MATERIAL, r.LINE_ID, i].map((x) => x ?? "").join("|");
@@ -29,6 +28,11 @@ function toStr(v: any): string {
   return String(v);
 }
 
+function isCheckboxKey(k: string) {
+  const u = k.toUpperCase();
+  return u === "WARRANTY" || u === "OK";
+}
+
 function MigoReleasePage() {
   const fetchFn = useServerFn(fetchMigo);
 
@@ -36,7 +40,7 @@ function MigoReleasePage() {
   const [matDocYear, setMatDocYear] = useState("");
   const [header, setHeader] = useState<Record<string, any> | null>(null);
   const [rows, setRows] = useState<DataRow[]>([]);
-  const [rowStates, setRowStates] = useState<Map<string, RowState>>(new Map());
+  const [edits, setEdits] = useState<Map<string, Record<string, any>>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const hasResults = header !== null || rows.length > 0;
 
@@ -54,15 +58,11 @@ function MigoReleasePage() {
     onSuccess: (res) => {
       setHeader(res.header);
       setRows(res.data);
-      const seeded = new Map<string, RowState>();
+      const seeded = new Map<string, Record<string, any>>();
       res.data.forEach((r, i) => {
-        seeded.set(rowKey(r, i), {
-          hodApproval: String(r.HOD_APRROVAL ?? r.HOD_APPROVAL ?? "").toUpperCase() === "X",
-          hodRejection: String(r.HOD_REJECTION ?? "").toUpperCase() === "X",
-          remarks: toStr(r.REMARKS),
-        });
+        seeded.set(rowKey(r, i), { ...r });
       });
-      setRowStates(seeded);
+      setEdits(seeded);
       if (res.error) toast.error(res.error);
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
@@ -100,15 +100,7 @@ function MigoReleasePage() {
     const items = rows
       .map((r, i) => ({ r, i, k: rowKey(r, i) }))
       .filter(({ k }) => selected.has(k))
-      .map(({ r, k }) => {
-        const st = rowStates.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "" };
-        return {
-          ...r,
-          HOD_APRROVAL: st.hodApproval ? "X" : "",
-          HOD_REJECTION: st.hodRejection ? "X" : "",
-          REMARKS: st.remarks ?? "",
-        };
-      });
+      .map(({ r, k }) => ({ ...r, ...(edits.get(k) ?? {}) }));
 
     saveMutation.mutate({
       header: { ...(header ?? {}) },
@@ -136,97 +128,62 @@ function MigoReleasePage() {
     setMatDocYear("");
     setHeader(null);
     setRows([]);
-    setRowStates(new Map());
+    setEdits(new Map());
     setSelected(new Set());
   }
 
-  function updateRow(k: string, patch: Partial<RowState>) {
-    setRowStates((prev) => {
+  function updateCell(k: string, field: string, value: any) {
+    setEdits((prev) => {
       const next = new Map(prev);
-      const cur = next.get(k) ?? { hodApproval: false, hodRejection: false, remarks: "" };
-      next.set(k, { ...cur, ...patch });
+      const cur = next.get(k) ?? {};
+      next.set(k, { ...cur, [field]: value });
       return next;
     });
   }
 
   const columns = useMemo<CloudscapeColumn<DataRow>[]>(() => {
-    const skip = new Set(["HOD_APRROVAL", "HOD_APPROVAL", "HOD_REJECTION", "REMARKS"]);
     const dataKeys: string[] = [];
     for (const r of rows) {
       for (const k of Object.keys(r)) {
-        if (!skip.has(k) && !dataKeys.includes(k)) dataKeys.push(k);
+        if (!dataKeys.includes(k)) dataKeys.push(k);
       }
     }
 
     const numericHint = /(QTY|QUANTITY|AMOUNT|VALUE|PRICE|STOCK|NETWR|RLWRT|QNT)/i;
 
-    const base: CloudscapeColumn<DataRow>[] = dataKeys.map((key) => ({
-      id: key,
-      header: key.replace(/_/g, " "),
-      minWidth: 120,
-      align: numericHint.test(key) ? ("right" as const) : undefined,
-      cell: (item) => {
-        const v = (item as any)[key];
-        if (v == null || v === "") return "—";
-        return String(v);
-      },
-    }));
-
-    base.push({
-      id: "HOD_APPROVAL",
-      header: "HOD Approval",
-      minWidth: 110,
-      cell: (item) => {
-        const idx = rows.indexOf(item);
-        const k = rowKey(item, idx);
-        const st = rowStates.get(k);
-        return (
-          <Checkbox
-            checked={st?.hodApproval ?? false}
-            onCheckedChange={(v) => updateRow(k, { hodApproval: v === true })}
-          />
-        );
-      },
+    return dataKeys.map((key) => {
+      if (isCheckboxKey(key)) {
+        return {
+          id: key,
+          header: key.replace(/_/g, " "),
+          minWidth: 100,
+          cell: (item: DataRow) => {
+            const idx = rows.indexOf(item);
+            const k = rowKey(item, idx);
+            const cur = edits.get(k) ?? item;
+            const checked = String(cur?.[key] ?? "").toUpperCase() === "X";
+            return (
+              <Checkbox
+                checked={checked}
+                onCheckedChange={(v) => updateCell(k, key, v === true ? "X" : "")}
+              />
+            );
+          },
+        } as CloudscapeColumn<DataRow>;
+      }
+      return {
+        id: key,
+        header: key.replace(/_/g, " "),
+        minWidth: 120,
+        align: numericHint.test(key) ? ("right" as const) : undefined,
+        cell: (item: DataRow) => {
+          const v = (item as any)[key];
+          if (v == null || v === "") return "—";
+          return String(v);
+        },
+      } as CloudscapeColumn<DataRow>;
     });
-    base.push({
-      id: "HOD_REJECTION",
-      header: "HOD Rejection",
-      minWidth: 110,
-      cell: (item) => {
-        const idx = rows.indexOf(item);
-        const k = rowKey(item, idx);
-        const st = rowStates.get(k);
-        return (
-          <Checkbox
-            checked={st?.hodRejection ?? false}
-            onCheckedChange={(v) => updateRow(k, { hodRejection: v === true })}
-          />
-        );
-      },
-    });
-    base.push({
-      id: "REMARKS",
-      header: "Remarks",
-      minWidth: 200,
-      cell: (item) => {
-        const idx = rows.indexOf(item);
-        const k = rowKey(item, idx);
-        const st = rowStates.get(k);
-        return (
-          <div style={{ width: 200 }}>
-            <Input
-              value={st?.remarks ?? ""}
-              onChange={(e) => updateRow(k, { remarks: e.target.value })}
-              placeholder="Enter remarks"
-              className="h-8 text-sm"
-            />
-          </div>
-        );
-      },
-    });
-
-    return base;
-  }, [rowStates, rows]);
+  }, [rows, edits]);
 
   const headerFields = useMemo(() => Object.keys(header ?? {}), [header]);
 
