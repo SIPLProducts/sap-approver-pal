@@ -45,6 +45,7 @@ function isLineIdKey(k: string) {
 
 function MigoReleasePage() {
   const fetchFn = useServerFn(fetchMigo);
+  const checkFn = useServerFn(checkMigo);
 
   const [matDocNo, setMatDocNo] = useState("");
   const [matDocYear, setMatDocYear] = useState("");
@@ -52,6 +53,7 @@ function MigoReleasePage() {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [edits, setEdits] = useState<Map<string, Record<string, any>>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [customFields, setCustomFields] = useState<Record<string, any> | null>(null);
   const hasResults = header !== null || rows.length > 0;
 
   const mutation = useMutation({
