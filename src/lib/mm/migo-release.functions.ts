@@ -165,6 +165,152 @@ export const fetchMigo = createServerFn({ method: "POST" })
     };
   });
 
+const CHECK_CONFIG_NAME = "MIGO_Check_API";
+
+export const checkMigo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      mat_doc_number: z.string().trim().min(1, "Material Document Number is required").max(40),
+      mat_doc_year: z.string().trim().min(4, "Material Document Year is required").max(4),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", CHECK_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg) throw new Error(`SAP API config "${CHECK_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${CHECK_CONFIG_NAME}" is disabled.`);
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+    ]);
+
+    const inputs: Record<string, string> = {
+      mblnr: data.mat_doc_number.trim(),
+      mjahr: data.mat_doc_year.trim(),
+      Check: "X",
+    };
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" &&
+      !!(globalSettings?.middleware_url);
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
+
+    let target: string;
+    let method: string = "POST";
+    let bodyOut: string | undefined;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    let proxied = false;
+
+    if (useProxy) {
+      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
+      headers["Content-Type"] = "application/json";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs });
+      proxied = true;
+    } else {
+      target = cfg.endpoint_url;
+      headers["Content-Type"] = "application/json";
+      bodyOut = JSON.stringify(inputs);
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization =
+          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+    }
+
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      headers[k] = v;
+    }
+
+    const t0 = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(target, { method, headers, body: bodyOut });
+    } catch (e) {
+      const errMsg = (e as Error).message || "fetch failed";
+      const latency_ms = Date.now() - t0;
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `migo-check network: ${errMsg}`,
+      });
+      return {
+        fields: null as Record<string, any> | null,
+        raw: [] as Record<string, any>[],
+        error: `Could not reach SAP. ${errMsg}.`,
+      };
+    }
+
+    const text = await res.text().catch(() => "");
+    const message = `${res.status} ${res.statusText}`;
+    const latency_ms = Date.now() - t0;
+
+    if (!res.ok) {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `migo-check: ${message} ${text.slice(0, 500)}`,
+      });
+      return {
+        fields: null as Record<string, any> | null,
+        raw: [] as Record<string, any>[],
+        error: `SAP returned ${message}: ${text.slice(0, 200)}`,
+      };
+    }
+
+    let json: any = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      return {
+        fields: null as Record<string, any> | null,
+        raw: [] as Record<string, any>[],
+        error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
+      };
+    }
+    const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+
+    const arr: any[] = Array.isArray(sapJson)
+      ? sapJson
+      : Array.isArray(sapJson?.DATA)
+        ? sapJson.DATA
+        : Array.isArray(sapJson?.data)
+          ? sapJson.data
+          : [];
+
+    const first =
+      arr.length > 0 && arr[0] && typeof arr[0] === "object" ? { ...arr[0] } : null;
+
+    await supabaseAdmin.from("sap_api_sync_log").insert({
+      config_id: cfg.id,
+      status: "ok",
+      latency_ms,
+      rows_processed: arr.length,
+      message: `migo-check: ${message}`,
+    });
+
+    return {
+      fields: first,
+      raw: arr as Record<string, any>[],
+      error: null as string | null,
+    };
+  });
+
 const SAVE_CONFIG_NAME = "MIGO_Save_API";
 
 export const saveMigo = createServerFn({ method: "POST" })

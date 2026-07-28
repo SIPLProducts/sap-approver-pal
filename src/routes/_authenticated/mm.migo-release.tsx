@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
-import { fetchMigo, saveMigo } from "@/lib/mm/migo-release.functions";
+import { fetchMigo, saveMigo, checkMigo } from "@/lib/mm/migo-release.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/migo-release")({
   component: MigoReleasePage,
@@ -45,6 +45,7 @@ function isLineIdKey(k: string) {
 
 function MigoReleasePage() {
   const fetchFn = useServerFn(fetchMigo);
+  const checkFn = useServerFn(checkMigo);
 
   const [matDocNo, setMatDocNo] = useState("");
   const [matDocYear, setMatDocYear] = useState("");
@@ -52,6 +53,7 @@ function MigoReleasePage() {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [edits, setEdits] = useState<Map<string, Record<string, any>>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [customFields, setCustomFields] = useState<Record<string, any> | null>(null);
   const hasResults = header !== null || rows.length > 0;
 
   const mutation = useMutation({
@@ -73,6 +75,7 @@ function MigoReleasePage() {
         seeded.set(rowKey(r, i), { ...r });
       });
       setEdits(seeded);
+      setCustomFields(null);
       if (res.error) toast.error(res.error);
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
@@ -140,11 +143,36 @@ function MigoReleasePage() {
     setRows([]);
     setEdits(new Map());
     setSelected(new Set());
+    setCustomFields(null);
   }
 
+  const checkMutation = useMutation({
+    mutationFn: async (vars: { mat_doc_number: string; mat_doc_year: string }) => {
+      const v: any = await checkFn({ data: vars });
+      return v as { fields: Record<string, any> | null; raw: any[]; error: string | null };
+    },
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      setCustomFields(res.fields ?? {});
+      toast.success("Check completed");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Check failed"),
+  });
+
   function check() {
-    toast.info("Check action is not yet configured");
+    if (!matDocNo.trim() || !matDocYear.trim()) {
+      toast.error("Material Document Number and Year are required");
+      return;
+    }
+    checkMutation.mutate({
+      mat_doc_number: matDocNo.trim(),
+      mat_doc_year: matDocYear.trim(),
+    });
   }
+
 
 
   function updateCell(k: string, field: string, value: any) {
@@ -265,7 +293,15 @@ function MigoReleasePage() {
                 )}
                 Get Details
               </Button>
-              <Button size="sm" variant="outline" onClick={check}>
+              <Button
+                size="sm"
+                onClick={check}
+                disabled={!hasResults || checkMutation.isPending}
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                {checkMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : null}
                 Check
               </Button>
               <Button variant="ghost" size="sm" onClick={reset}>
@@ -297,6 +333,27 @@ function MigoReleasePage() {
               </div>
             </Card>
           )}
+
+          {customFields && (
+            <Card className="p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
+                <Filter className="h-3.5 w-3.5" /> CUSTOM FIELDS
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {["GAT_NO","GAT_DATE","GIR_NO","GIR_DATE","VEHICLE_NO","INVOICE_NO","TRANSPORT_NO","ZINSP","ZNSP","ZMTSNR"].map((k) => (
+                  <div key={k} className="space-y-1.5">
+                    <Label className="text-xs">{k.replace(/_/g, " ")}</Label>
+                    <Input
+                      value={toStr(customFields?.[k])}
+                      readOnly
+                      className="h-9 text-sm bg-muted/40"
+                    />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
 
           <div className="flex justify-end">
             <Button
