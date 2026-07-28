@@ -204,15 +204,6 @@ function MigoReleasePage() {
           },
         } as CloudscapeColumn<DataRow>;
       }
-            return (
-              <Checkbox
-                checked={checked}
-                onCheckedChange={(v) => updateCell(k, key, v === true ? "X" : "")}
-              />
-            );
-          },
-        } as CloudscapeColumn<DataRow>;
-      }
       return {
         id: key,
         header: key.replace(/_/g, " "),
