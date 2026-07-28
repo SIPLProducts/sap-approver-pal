@@ -293,7 +293,15 @@ function MigoReleasePage() {
                 )}
                 Get Details
               </Button>
-              <Button size="sm" variant="outline" onClick={check}>
+              <Button
+                size="sm"
+                onClick={check}
+                disabled={!hasResults || checkMutation.isPending}
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                {checkMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : null}
                 Check
               </Button>
               <Button variant="ghost" size="sm" onClick={reset}>
