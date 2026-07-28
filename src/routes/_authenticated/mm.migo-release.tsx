@@ -142,11 +142,36 @@ function MigoReleasePage() {
     setRows([]);
     setEdits(new Map());
     setSelected(new Set());
+    setCustomFields(null);
   }
 
+  const checkMutation = useMutation({
+    mutationFn: async (vars: { mat_doc_number: string; mat_doc_year: string }) => {
+      const v: any = await checkFn({ data: vars });
+      return v as { fields: Record<string, any> | null; raw: any[]; error: string | null };
+    },
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      setCustomFields(res.fields ?? {});
+      toast.success("Check completed");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Check failed"),
+  });
+
   function check() {
-    toast.info("Check action is not yet configured");
+    if (!matDocNo.trim() || !matDocYear.trim()) {
+      toast.error("Material Document Number and Year are required");
+      return;
+    }
+    checkMutation.mutate({
+      mat_doc_number: matDocNo.trim(),
+      mat_doc_year: matDocYear.trim(),
+    });
   }
+
 
 
   function updateCell(k: string, field: string, value: any) {
