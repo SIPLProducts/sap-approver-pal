@@ -1,7 +1,22 @@
-## Changes in `src/routes/_authenticated/mm.migo-release.tsx`
+Goal: Update the MIGO Release selection screen so the current "Execute" button is renamed to "Get Details", placed immediately after the "Material Document Year" field, and a new "Check" button is added right after it.
 
-1. **Line ID first column**: When building `dataKeys` for the columns memo, hoist any key whose uppercased name is `LINE_ID` (fallback: `LINEID`) to the front of the array before mapping to `CloudscapeColumn`s. Preserve original ordering of all other keys.
+Scope: Frontend-only change in the MIGO Release route; no server-function or API changes.
 
-2. **STGE_LOC as editable input**: Add a helper `isEditableTextKey(k)` that returns true when the uppercased key is `STGE_LOC` (also accept `STGELOC` / `LGORT` if present). In the column mapping, when a key matches, render a small `<Input>` (h-8 text-xs) whose value comes from `edits.get(k)?.[key] ?? item[key]` and whose `onChange` calls the existing `updateCell(k, key, value)`. Checkbox handling for `WARRANTY`/`OK` stays as-is; plain-text rendering stays as fallback.
+Changes to make:
 
-Save payload already merges `edits` into each selected row, so the edited STGE_LOC value flows to `saveMigo` unchanged. No changes to server functions, middleware, or the shared table component.
+1. Open `src/routes/_authenticated/mm.migo-release.tsx`.
+2. In the selection-screen grid:
+   - Change the existing "Execute" button label to "Get Details".
+   - Keep the existing click behavior (`execute()`) intact on "Get Details".
+   - Add a new "Check" button immediately after "Get Details".
+   - Re-arrange the grid so the two buttons sit directly after the "Material Document Year" input, and the "Reset" button remains in the same row.
+3. Since no backend action is specified for "Check", wire it to a placeholder handler that shows an informational toast (e.g., "Check action is not yet configured") so the button is clickable but does not break the flow.
+4. Preserve responsive styling: keep the same Tailwind input/button classes and ensure the row still wraps cleanly on smaller screens.
+
+Verification:
+- Load the MIGO Release page in the preview.
+- Confirm the button after "Material Document Year" reads "Get Details" and still fetches data.
+- Confirm a "Check" button appears directly after "Get Details".
+- Confirm the "Reset" button remains present and functional.
+
+No changes to data fetching, save logic, table rendering, or other screens.
