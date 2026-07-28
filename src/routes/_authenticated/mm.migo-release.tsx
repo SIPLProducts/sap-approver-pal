@@ -334,6 +334,27 @@ function MigoReleasePage() {
             </Card>
           )}
 
+          {customFields && (
+            <Card className="p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
+                <Filter className="h-3.5 w-3.5" /> CUSTOM FIELDS
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {["GAT_NO","GAT_DATE","GIR_NO","GIR_DATE","VEHICLE_NO","INVOICE_NO","TRANSPORT_NO","ZINSP","ZNSP","ZMTSNR"].map((k) => (
+                  <div key={k} className="space-y-1.5">
+                    <Label className="text-xs">{k.replace(/_/g, " ")}</Label>
+                    <Input
+                      value={toStr(customFields?.[k])}
+                      readOnly
+                      className="h-9 text-sm bg-muted/40"
+                    />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+
           <div className="flex justify-end">
             <Button
               size="sm"
