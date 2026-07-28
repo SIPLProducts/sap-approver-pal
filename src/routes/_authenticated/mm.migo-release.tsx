@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
-import { fetchMigo, saveMigo } from "@/lib/mm/migo-release.functions";
+import { fetchMigo, saveMigo, checkMigo } from "@/lib/mm/migo-release.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/migo-release")({
   component: MigoReleasePage,
