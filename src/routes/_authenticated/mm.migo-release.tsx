@@ -11,7 +11,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo } from "@/lib/mm/migo-release.functions";
+
+const STCK_TYPE_OPTIONS = [
+  { value: "1", label: "1 Unrestricted" },
+  { value: "2", label: "2 Quality Inspection" },
+  { value: "3", label: "3 Blocked" },
+];
+
+function isStckTypeKey(k: string) {
+  const u = k.toUpperCase();
+  return u === "STCK_TYPE" || u === "STCKTYPE";
+}
 
 export const Route = createFileRoute("/_authenticated/mm/migo-release")({
   component: MigoReleasePage,
