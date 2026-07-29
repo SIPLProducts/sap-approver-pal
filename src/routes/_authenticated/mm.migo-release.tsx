@@ -180,8 +180,8 @@ function MigoReleasePage() {
   });
 
   function check() {
-    if (!matDocNo.trim() || !matDocYear.trim()) {
-      toast.error("Material Document Number and Year are required");
+    if (!matDocNo.trim()) {
+      toast.error("Material Document Number is required");
       return;
     }
     checkMutation.mutate({
