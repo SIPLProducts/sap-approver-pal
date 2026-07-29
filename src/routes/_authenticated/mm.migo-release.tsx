@@ -432,49 +432,6 @@ function MigoReleasePage() {
         </>
       )}
 
-      <Dialog
-        open={!!postResult?.open}
-        onOpenChange={(open) =>
-          setPostResult((prev) => (prev ? { ...prev, open } : prev))
-        }
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>MIGO Post Result</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div
-              className={
-                "rounded-md border p-3 text-sm " +
-                (postResult?.ok
-                  ? "border-green-200 bg-green-50 text-green-800"
-                  : "border-red-200 bg-red-50 text-red-800")
-              }
-            >
-              {postResult?.message}
-            </div>
-            <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground">
-                View raw response
-              </summary>
-              <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-[11px]">
-{JSON.stringify(postResult?.raw ?? {}, null, 2)}
-              </pre>
-            </details>
-          </div>
-          <DialogFooter>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setPostResult((prev) => (prev ? { ...prev, open: false } : prev))
-              }
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
