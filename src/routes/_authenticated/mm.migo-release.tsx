@@ -408,13 +408,14 @@ function MigoReleasePage() {
           <div className="flex justify-end">
             <Button
               size="sm"
-              disabled={selected.size === 0 || saveMutation.isPending}
-              onClick={onSave}
+              disabled={selected.size === 0 || postMutation.isPending}
+              onClick={onPost}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {saveMutation.isPending ? (
+              {postMutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : null}
-              Save
+              Post
             </Button>
           </div>
 
