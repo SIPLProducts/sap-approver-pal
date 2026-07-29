@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import Swal from "sweetalert2";
 
 const STCK_TYPE_OPTIONS = [
   { value: "1", label: "1 Unrestricted" },
@@ -96,13 +96,6 @@ function MigoReleasePage() {
   });
 
   const postFn = useServerFn(postMigo);
-  const [postResult, setPostResult] = useState<{
-    open: boolean;
-    ok: boolean;
-    type: string;
-    message: string;
-    raw: any;
-  } | null>(null);
 
   const postMutation = useMutation({
     mutationFn: async (vars: {
@@ -113,7 +106,12 @@ function MigoReleasePage() {
       return v as { ok: boolean; type: string; message: string; mat_doc: string; doc_year: number; raw: any };
     },
     onSuccess: (res) => {
-      setPostResult({ open: true, ok: res.ok, type: res.type, message: res.message, raw: res.raw });
+      Swal.fire({
+        icon: res.ok ? "success" : "error",
+        title: res.ok ? "Success" : "Failed",
+        text: res.message,
+        confirmButtonColor: res.ok ? "#16a34a" : "#dc2626",
+      });
       if (res.ok) {
         toast.success(res.message || "Posted successfully");
         mutation.mutate({
@@ -149,10 +147,6 @@ function MigoReleasePage() {
       toast.error("Material Document Number is required");
       return;
     }
-    if (!matDocYear.trim()) {
-      toast.error("Material Document Year is required");
-      return;
-    }
     mutation.mutate({
       mat_doc_number: matDocNo.trim(),
       mat_doc_year: matDocYear.trim(),
@@ -186,8 +180,8 @@ function MigoReleasePage() {
   });
 
   function check() {
-    if (!matDocNo.trim() || !matDocYear.trim()) {
-      toast.error("Material Document Number and Year are required");
+    if (!matDocNo.trim()) {
+      toast.error("Material Document Number is required");
       return;
     }
     checkMutation.mutate({
@@ -434,49 +428,6 @@ function MigoReleasePage() {
         </>
       )}
 
-      <Dialog
-        open={!!postResult?.open}
-        onOpenChange={(open) =>
-          setPostResult((prev) => (prev ? { ...prev, open } : prev))
-        }
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>MIGO Post Result</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div
-              className={
-                "rounded-md border p-3 text-sm " +
-                (postResult?.ok
-                  ? "border-green-200 bg-green-50 text-green-800"
-                  : "border-red-200 bg-red-50 text-red-800")
-              }
-            >
-              {postResult?.message}
-            </div>
-            <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground">
-                View raw response
-              </summary>
-              <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-[11px]">
-{JSON.stringify(postResult?.raw ?? {}, null, 2)}
-              </pre>
-            </details>
-          </div>
-          <DialogFooter>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setPostResult((prev) => (prev ? { ...prev, open: false } : prev))
-              }
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
