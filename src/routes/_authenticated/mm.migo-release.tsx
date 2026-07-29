@@ -106,10 +106,15 @@ function MigoReleasePage() {
       return v as { ok: boolean; type: string; message: string; mat_doc: string; doc_year: number; raw: any };
     },
     onSuccess: (res) => {
+      const parts: string[] = [res.message];
+      if (res.mat_doc) parts.push(`Material Document: ${res.mat_doc}`);
+      if (res.doc_year) parts.push(`Document Year: ${res.doc_year}`);
+      const swalText = parts.join("\n");
+
       Swal.fire({
         icon: res.ok ? "success" : "error",
         title: res.ok ? "Success" : "Failed",
-        text: res.message,
+        text: swalText,
         confirmButtonColor: res.ok ? "#16a34a" : "#dc2626",
       });
       if (res.ok) {
