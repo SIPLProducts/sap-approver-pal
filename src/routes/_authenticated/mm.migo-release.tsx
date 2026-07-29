@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import Swal from "sweetalert2";
 
 const STCK_TYPE_OPTIONS = [
   { value: "1", label: "1 Unrestricted" },
