@@ -95,30 +95,40 @@ function MigoReleasePage() {
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
   });
 
-  const saveFn = useServerFn(saveMigo);
-  const saveMutation = useMutation({
+  const postFn = useServerFn(postMigo);
+  const [postResult, setPostResult] = useState<{
+    open: boolean;
+    ok: boolean;
+    type: string;
+    message: string;
+    raw: any;
+  } | null>(null);
+
+  const postMutation = useMutation({
     mutationFn: async (vars: {
       header: Record<string, any>;
       data: Record<string, any>[];
     }) => {
-      const v: any = await saveFn({ data: vars });
-      return v as { ok: boolean; message: string; documentNumber: string | null };
+      const v: any = await postFn({ data: vars });
+      return v as { ok: boolean; type: string; message: string; mat_doc: string; doc_year: number; raw: any };
     },
     onSuccess: (res) => {
-      if (res.ok) toast.success(res.message || "Saved successfully");
-      else toast.error(res.message || "Save failed");
+      setPostResult({ open: true, ok: res.ok, type: res.type, message: res.message, raw: res.raw });
       if (res.ok) {
+        toast.success(res.message || "Posted successfully");
         mutation.mutate({
           mat_doc_number: matDocNo.trim(),
           mat_doc_year: matDocYear.trim(),
         });
         setSelected(new Set());
+      } else {
+        toast.error(res.message || "Post failed");
       }
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to save"),
+    onError: (e: Error) => toast.error(e.message ?? "Failed to post"),
   });
 
-  function onSave() {
+  function onPost() {
     if (selected.size === 0) {
       toast.error("Select at least one row");
       return;
@@ -128,7 +138,7 @@ function MigoReleasePage() {
       .filter(({ k }) => selected.has(k))
       .map(({ r, k }) => ({ ...r, ...(edits.get(k) ?? {}) }));
 
-    saveMutation.mutate({
+    postMutation.mutate({
       header: { ...(header ?? {}) },
       data: items,
     });
