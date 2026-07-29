@@ -114,11 +114,13 @@ function MigoReleasePage() {
       });
       if (res.ok) {
         toast.success(res.message || "Posted successfully");
-        mutation.mutate({
-          mat_doc_number: matDocNo.trim(),
-          mat_doc_year: matDocYear.trim(),
-        });
+        setMatDocNo("");
+        setMatDocYear("");
+        setHeader(null);
+        setRows([]);
+        setEdits(new Map());
         setSelected(new Set());
+        setCustomFields(null);
       } else {
         toast.error(res.message || "Post failed");
       }
