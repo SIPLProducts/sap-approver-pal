@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { fetchMigo, saveMigo, checkMigo } from "@/lib/mm/migo-release.functions";
+import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const STCK_TYPE_OPTIONS = [
   { value: "1", label: "1 Unrestricted" },
@@ -94,30 +95,40 @@ function MigoReleasePage() {
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
   });
 
-  const saveFn = useServerFn(saveMigo);
-  const saveMutation = useMutation({
+  const postFn = useServerFn(postMigo);
+  const [postResult, setPostResult] = useState<{
+    open: boolean;
+    ok: boolean;
+    type: string;
+    message: string;
+    raw: any;
+  } | null>(null);
+
+  const postMutation = useMutation({
     mutationFn: async (vars: {
       header: Record<string, any>;
       data: Record<string, any>[];
     }) => {
-      const v: any = await saveFn({ data: vars });
-      return v as { ok: boolean; message: string; documentNumber: string | null };
+      const v: any = await postFn({ data: vars });
+      return v as { ok: boolean; type: string; message: string; mat_doc: string; doc_year: number; raw: any };
     },
     onSuccess: (res) => {
-      if (res.ok) toast.success(res.message || "Saved successfully");
-      else toast.error(res.message || "Save failed");
+      setPostResult({ open: true, ok: res.ok, type: res.type, message: res.message, raw: res.raw });
       if (res.ok) {
+        toast.success(res.message || "Posted successfully");
         mutation.mutate({
           mat_doc_number: matDocNo.trim(),
           mat_doc_year: matDocYear.trim(),
         });
         setSelected(new Set());
+      } else {
+        toast.error(res.message || "Post failed");
       }
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to save"),
+    onError: (e: Error) => toast.error(e.message ?? "Failed to post"),
   });
 
-  function onSave() {
+  function onPost() {
     if (selected.size === 0) {
       toast.error("Select at least one row");
       return;
@@ -127,7 +138,7 @@ function MigoReleasePage() {
       .filter(({ k }) => selected.has(k))
       .map(({ r, k }) => ({ ...r, ...(edits.get(k) ?? {}) }));
 
-    saveMutation.mutate({
+    postMutation.mutate({
       header: { ...(header ?? {}) },
       data: items,
     });
@@ -397,13 +408,14 @@ function MigoReleasePage() {
           <div className="flex justify-end">
             <Button
               size="sm"
-              disabled={selected.size === 0 || saveMutation.isPending}
-              onClick={onSave}
+              disabled={selected.size === 0 || postMutation.isPending}
+              onClick={onPost}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {saveMutation.isPending ? (
+              {postMutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : null}
-              Save
+              Post
             </Button>
           </div>
 
@@ -421,6 +433,50 @@ function MigoReleasePage() {
           />
         </>
       )}
+
+      <Dialog
+        open={!!postResult?.open}
+        onOpenChange={(open) =>
+          setPostResult((prev) => (prev ? { ...prev, open } : prev))
+        }
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>MIGO Post Result</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div
+              className={
+                "rounded-md border p-3 text-sm " +
+                (postResult?.ok
+                  ? "border-green-200 bg-green-50 text-green-800"
+                  : "border-red-200 bg-red-50 text-red-800")
+              }
+            >
+              {postResult?.message}
+            </div>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground">
+                View raw response
+              </summary>
+              <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-[11px]">
+{JSON.stringify(postResult?.raw ?? {}, null, 2)}
+              </pre>
+            </details>
+          </div>
+          <DialogFooter>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setPostResult((prev) => (prev ? { ...prev, open: false } : prev))
+              }
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
