@@ -96,13 +96,6 @@ function MigoReleasePage() {
   });
 
   const postFn = useServerFn(postMigo);
-  const [postResult, setPostResult] = useState<{
-    open: boolean;
-    ok: boolean;
-    type: string;
-    message: string;
-    raw: any;
-  } | null>(null);
 
   const postMutation = useMutation({
     mutationFn: async (vars: {
@@ -113,7 +106,12 @@ function MigoReleasePage() {
       return v as { ok: boolean; type: string; message: string; mat_doc: string; doc_year: number; raw: any };
     },
     onSuccess: (res) => {
-      setPostResult({ open: true, ok: res.ok, type: res.type, message: res.message, raw: res.raw });
+      Swal.fire({
+        icon: res.ok ? "success" : "error",
+        title: res.ok ? "Success" : "Failed",
+        text: res.message,
+        confirmButtonColor: res.ok ? "#16a34a" : "#dc2626",
+      });
       if (res.ok) {
         toast.success(res.message || "Posted successfully");
         mutation.mutate({
