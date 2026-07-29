@@ -9,50 +9,54 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as McpRouteImport } from './routes/mcp'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
-import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
-import { Route as AuthenticatedEmailConfigRouteImport } from './routes/_authenticated/email-config'
-import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
-import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
-import { Route as AuthenticatedSdScSoReportsRouteImport } from './routes/_authenticated/sd.sc-so-reports'
-import { Route as AuthenticatedSdScSoRouteImport } from './routes/_authenticated/sd.sc-so'
-import { Route as AuthenticatedSdSalesOrderReportsRouteImport } from './routes/_authenticated/sd.sales-order-reports'
-import { Route as AuthenticatedSdSalesOrderRouteImport } from './routes/_authenticated/sd.sales-order'
-import { Route as AuthenticatedSdPriceReportsRouteImport } from './routes/_authenticated/sd.price-reports'
-import { Route as AuthenticatedSdPriceRouteImport } from './routes/_authenticated/sd.price'
-import { Route as AuthenticatedSdDashboardRouteImport } from './routes/_authenticated/sd.dashboard'
-import { Route as AuthenticatedSdContractReportsRouteImport } from './routes/_authenticated/sd.contract-reports'
-import { Route as AuthenticatedSdContractRouteImport } from './routes/_authenticated/sd.contract'
-import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
-import { Route as AuthenticatedMmPrReleaseRouteImport } from './routes/_authenticated/mm.pr-release'
-import { Route as AuthenticatedMmPoReleaseRouteImport } from './routes/_authenticated/mm.po-release'
-import { Route as AuthenticatedMmMigoReleaseRouteImport } from './routes/_authenticated/mm.migo-release'
-import { Route as AuthenticatedMmMaterialReservationRouteImport } from './routes/_authenticated/mm.material-reservation'
-import { Route as AuthenticatedMmGateProcessRouteImport } from './routes/_authenticated/mm.gate-process'
-import { Route as AuthenticatedMmGatePassRouteImport } from './routes/_authenticated/mm.gate-pass'
-import { Route as AuthenticatedMmDashboardRouteImport } from './routes/_authenticated/mm.dashboard'
-import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
-import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
-import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
-import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
-import { Route as AuthenticatedAdminIntegrationsRouteImport } from './routes/_authenticated/admin.integrations'
-import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedEmailConfigRouteImport } from './routes/_authenticated/email-config'
+import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as AuthenticatedAdminIntegrationsRouteImport } from './routes/_authenticated/admin.integrations'
+import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
+import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
+import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
+import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
+import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
+import { Route as AuthenticatedMmDashboardRouteImport } from './routes/_authenticated/mm.dashboard'
+import { Route as AuthenticatedMmGatePassRouteImport } from './routes/_authenticated/mm.gate-pass'
+import { Route as AuthenticatedMmGateProcessRouteImport } from './routes/_authenticated/mm.gate-process'
+import { Route as AuthenticatedMmMaterialReservationRouteImport } from './routes/_authenticated/mm.material-reservation'
+import { Route as AuthenticatedMmMigoReleaseRouteImport } from './routes/_authenticated/mm.migo-release'
+import { Route as AuthenticatedMmPoReleaseRouteImport } from './routes/_authenticated/mm.po-release'
+import { Route as AuthenticatedMmPrReleaseRouteImport } from './routes/_authenticated/mm.pr-release'
+import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
+import { Route as AuthenticatedSdContractRouteImport } from './routes/_authenticated/sd.contract'
+import { Route as AuthenticatedSdContractReportsRouteImport } from './routes/_authenticated/sd.contract-reports'
+import { Route as AuthenticatedSdDashboardRouteImport } from './routes/_authenticated/sd.dashboard'
+import { Route as AuthenticatedSdPriceRouteImport } from './routes/_authenticated/sd.price'
+import { Route as AuthenticatedSdPriceReportsRouteImport } from './routes/_authenticated/sd.price-reports'
+import { Route as AuthenticatedSdSalesOrderRouteImport } from './routes/_authenticated/sd.sales-order'
+import { Route as AuthenticatedSdSalesOrderReportsRouteImport } from './routes/_authenticated/sd.sales-order-reports'
+import { Route as AuthenticatedSdScSoRouteImport } from './routes/_authenticated/sd.sc-so'
+import { Route as AuthenticatedSdScSoReportsRouteImport } from './routes/_authenticated/sd.sc-so-reports'
 import { Route as AuthenticatedAdminSapApiIndexRouteImport } from './routes/_authenticated/admin.sap-api.index'
-import { Route as ApiPublicMiddlewareLogRouteImport } from './routes/api/public/middleware/log'
-import { Route as ApiPublicMiddlewareConfigRouteImport } from './routes/api/public/middleware/config'
-import { Route as ApiPublicHooksSapSyncRouteImport } from './routes/api/public/hooks/sap-sync'
 import { Route as AuthenticatedAdminSapApiIdRouteImport } from './routes/_authenticated/admin.sap-api.$id'
+import { Route as ApiPublicHooksSapSyncRouteImport } from './routes/api/public/hooks/sap-sync'
+import { Route as ApiPublicMiddlewareConfigRouteImport } from './routes/api/public/middleware/config'
+import { Route as ApiPublicMiddlewareLogRouteImport } from './routes/api/public/middleware/log'
 
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -60,18 +64,32 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedEmailConfigRoute =
+  AuthenticatedEmailConfigRouteImport.update({
+    id: '/email-config',
+    path: '/email-config',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -80,107 +98,70 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedEmailConfigRoute =
-  AuthenticatedEmailConfigRouteImport.update({
-    id: '/email-config',
-    path: '/email-config',
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAdminIntegrationsRoute =
+  AuthenticatedAdminIntegrationsRouteImport.update({
+    id: '/admin/integrations',
+    path: '/admin/integrations',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const Char91DotwellKnownChar93OauthProtectedResourceRoute =
-  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
-    id: '/.well-known/oauth-protected-resource',
-    path: '/.well-known/oauth-protected-resource',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedAdminStrategiesRoute =
+  AuthenticatedAdminStrategiesRouteImport.update({
+    id: '/admin/strategies',
+    path: '/admin/strategies',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
+const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedApprovalIdRoute = AuthenticatedApprovalIdRouteImport.update({
+  id: '/approval/$id',
+  path: '/approval/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedInboxIndexRoute = AuthenticatedInboxIndexRouteImport.update({
   id: '/inbox/',
   path: '/inbox/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSdScSoReportsRoute =
-  AuthenticatedSdScSoReportsRouteImport.update({
-    id: '/sd/sc-so-reports',
-    path: '/sd/sc-so-reports',
+const AuthenticatedInboxModuleRoute =
+  AuthenticatedInboxModuleRouteImport.update({
+    id: '/inbox/$module',
+    path: '/inbox/$module',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedSdScSoRoute = AuthenticatedSdScSoRouteImport.update({
-  id: '/sd/sc-so',
-  path: '/sd/sc-so',
+const AuthenticatedMmDashboardRoute =
+  AuthenticatedMmDashboardRouteImport.update({
+    id: '/mm/dashboard',
+    path: '/mm/dashboard',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMmGatePassRoute = AuthenticatedMmGatePassRouteImport.update({
+  id: '/mm/gate-pass',
+  path: '/mm/gate-pass',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSdSalesOrderReportsRoute =
-  AuthenticatedSdSalesOrderReportsRouteImport.update({
-    id: '/sd/sales-order-reports',
-    path: '/sd/sales-order-reports',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSdSalesOrderRoute =
-  AuthenticatedSdSalesOrderRouteImport.update({
-    id: '/sd/sales-order',
-    path: '/sd/sales-order',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSdPriceReportsRoute =
-  AuthenticatedSdPriceReportsRouteImport.update({
-    id: '/sd/price-reports',
-    path: '/sd/price-reports',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSdPriceRoute = AuthenticatedSdPriceRouteImport.update({
-  id: '/sd/price',
-  path: '/sd/price',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedSdDashboardRoute =
-  AuthenticatedSdDashboardRouteImport.update({
-    id: '/sd/dashboard',
-    path: '/sd/dashboard',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSdContractReportsRoute =
-  AuthenticatedSdContractReportsRouteImport.update({
-    id: '/sd/contract-reports',
-    path: '/sd/contract-reports',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSdContractRoute = AuthenticatedSdContractRouteImport.update({
-  id: '/sd/contract',
-  path: '/sd/contract',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedSdBmwStatusRoute =
-  AuthenticatedSdBmwStatusRouteImport.update({
-    id: '/sd/bmw-status',
-    path: '/sd/bmw-status',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedMmPrReleaseRoute =
-  AuthenticatedMmPrReleaseRouteImport.update({
-    id: '/mm/pr-release',
-    path: '/mm/pr-release',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedMmPoReleaseRoute =
-  AuthenticatedMmPoReleaseRouteImport.update({
-    id: '/mm/po-release',
-    path: '/mm/po-release',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedMmMigoReleaseRoute =
-  AuthenticatedMmMigoReleaseRouteImport.update({
-    id: '/mm/migo-release',
-    path: '/mm/migo-release',
+const AuthenticatedMmGateProcessRoute =
+  AuthenticatedMmGateProcessRouteImport.update({
+    id: '/mm/gate-process',
+    path: '/mm/gate-process',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedMmMaterialReservationRoute =
@@ -189,71 +170,96 @@ const AuthenticatedMmMaterialReservationRoute =
     path: '/mm/material-reservation',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedMmGateProcessRoute =
-  AuthenticatedMmGateProcessRouteImport.update({
-    id: '/mm/gate-process',
-    path: '/mm/gate-process',
+const AuthenticatedMmMigoReleaseRoute =
+  AuthenticatedMmMigoReleaseRouteImport.update({
+    id: '/mm/migo-release',
+    path: '/mm/migo-release',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedMmGatePassRoute = AuthenticatedMmGatePassRouteImport.update({
-  id: '/mm/gate-pass',
-  path: '/mm/gate-pass',
+const AuthenticatedMmPoReleaseRoute =
+  AuthenticatedMmPoReleaseRouteImport.update({
+    id: '/mm/po-release',
+    path: '/mm/po-release',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMmPrReleaseRoute =
+  AuthenticatedMmPrReleaseRouteImport.update({
+    id: '/mm/pr-release',
+    path: '/mm/pr-release',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSdBmwStatusRoute =
+  AuthenticatedSdBmwStatusRouteImport.update({
+    id: '/sd/bmw-status',
+    path: '/sd/bmw-status',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSdContractRoute = AuthenticatedSdContractRouteImport.update({
+  id: '/sd/contract',
+  path: '/sd/contract',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedMmDashboardRoute =
-  AuthenticatedMmDashboardRouteImport.update({
-    id: '/mm/dashboard',
-    path: '/mm/dashboard',
+const AuthenticatedSdContractReportsRoute =
+  AuthenticatedSdContractReportsRouteImport.update({
+    id: '/sd/contract-reports',
+    path: '/sd/contract-reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedInboxModuleRoute =
-  AuthenticatedInboxModuleRouteImport.update({
-    id: '/inbox/$module',
-    path: '/inbox/$module',
+const AuthenticatedSdDashboardRoute =
+  AuthenticatedSdDashboardRouteImport.update({
+    id: '/sd/dashboard',
+    path: '/sd/dashboard',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedApprovalIdRoute = AuthenticatedApprovalIdRouteImport.update({
-  id: '/approval/$id',
-  path: '/approval/$id',
+const AuthenticatedSdPriceRoute = AuthenticatedSdPriceRouteImport.update({
+  id: '/sd/price',
+  path: '/sd/price',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
-  id: '/admin/users',
-  path: '/admin/users',
+const AuthenticatedSdPriceReportsRoute =
+  AuthenticatedSdPriceReportsRouteImport.update({
+    id: '/sd/price-reports',
+    path: '/sd/price-reports',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSdSalesOrderRoute =
+  AuthenticatedSdSalesOrderRouteImport.update({
+    id: '/sd/sales-order',
+    path: '/sd/sales-order',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSdSalesOrderReportsRoute =
+  AuthenticatedSdSalesOrderReportsRouteImport.update({
+    id: '/sd/sales-order-reports',
+    path: '/sd/sales-order-reports',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSdScSoRoute = AuthenticatedSdScSoRouteImport.update({
+  id: '/sd/sc-so',
+  path: '/sd/sc-so',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAdminStrategiesRoute =
-  AuthenticatedAdminStrategiesRouteImport.update({
-    id: '/admin/strategies',
-    path: '/admin/strategies',
+const AuthenticatedSdScSoReportsRoute =
+  AuthenticatedSdScSoReportsRouteImport.update({
+    id: '/sd/sc-so-reports',
+    path: '/sd/sc-so-reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminIntegrationsRoute =
-  AuthenticatedAdminIntegrationsRouteImport.update({
-    id: '/admin/integrations',
-    path: '/admin/integrations',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const Char91DotmcpChar93InvokeToolToolRoute =
-  Char91DotmcpChar93InvokeToolToolRouteImport.update({
-    id: '/.mcp/invoke-tool/$tool',
-    path: '/.mcp/invoke-tool/$tool',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
-  id: '/.lovable/oauth/consent',
-  path: '/.lovable/oauth/consent',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedAdminSapApiIndexRoute =
   AuthenticatedAdminSapApiIndexRouteImport.update({
     id: '/admin/sap-api/',
     path: '/admin/sap-api/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const ApiPublicMiddlewareLogRoute = ApiPublicMiddlewareLogRouteImport.update({
-  id: '/api/public/middleware/log',
-  path: '/api/public/middleware/log',
+const AuthenticatedAdminSapApiIdRoute =
+  AuthenticatedAdminSapApiIdRouteImport.update({
+    id: '/admin/sap-api/$id',
+    path: '/admin/sap-api/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiPublicHooksSapSyncRoute = ApiPublicHooksSapSyncRouteImport.update({
+  id: '/api/public/hooks/sap-sync',
+  path: '/api/public/hooks/sap-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicMiddlewareConfigRoute =
@@ -262,17 +268,11 @@ const ApiPublicMiddlewareConfigRoute =
     path: '/api/public/middleware/config',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksSapSyncRoute = ApiPublicHooksSapSyncRouteImport.update({
-  id: '/api/public/hooks/sap-sync',
-  path: '/api/public/hooks/sap-sync',
+const ApiPublicMiddlewareLogRoute = ApiPublicMiddlewareLogRouteImport.update({
+  id: '/api/public/middleware/log',
+  path: '/api/public/middleware/log',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminSapApiIdRoute =
-  AuthenticatedAdminSapApiIdRouteImport.update({
-    id: '/admin/sap-api/$id',
-    path: '/admin/sap-api/$id',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -542,18 +542,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -563,46 +556,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/notifications': {
-      id: '/_authenticated/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/history': {
-      id: '/_authenticated/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/email-config': {
-      id: '/_authenticated/email-config'
-      path: '/email-config'
-      fullPath: '/email-config'
-      preLoaderRoute: typeof AuthenticatedEmailConfigRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/.well-known/oauth-protected-resource': {
-      id: '/.well-known/oauth-protected-resource'
-      path: '/.well-known/oauth-protected-resource'
-      fullPath: '/.well-known/oauth-protected-resource'
-      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.mcp/list-tools': {
@@ -612,151 +577,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/inbox/': {
-      id: '/_authenticated/inbox/'
-      path: '/inbox'
-      fullPath: '/inbox/'
-      preLoaderRoute: typeof AuthenticatedInboxIndexRouteImport
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/email-config': {
+      id: '/_authenticated/email-config'
+      path: '/email-config'
+      fullPath: '/email-config'
+      preLoaderRoute: typeof AuthenticatedEmailConfigRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/sd/sc-so-reports': {
-      id: '/_authenticated/sd/sc-so-reports'
-      path: '/sd/sc-so-reports'
-      fullPath: '/sd/sc-so-reports'
-      preLoaderRoute: typeof AuthenticatedSdScSoReportsRouteImport
+    '/_authenticated/history': {
+      id: '/_authenticated/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/sd/sc-so': {
-      id: '/_authenticated/sd/sc-so'
-      path: '/sd/sc-so'
-      fullPath: '/sd/sc-so'
-      preLoaderRoute: typeof AuthenticatedSdScSoRouteImport
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/sd/sales-order-reports': {
-      id: '/_authenticated/sd/sales-order-reports'
-      path: '/sd/sales-order-reports'
-      fullPath: '/sd/sales-order-reports'
-      preLoaderRoute: typeof AuthenticatedSdSalesOrderReportsRouteImport
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/sd/sales-order': {
-      id: '/_authenticated/sd/sales-order'
-      path: '/sd/sales-order'
-      fullPath: '/sd/sales-order'
-      preLoaderRoute: typeof AuthenticatedSdSalesOrderRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/sd/price-reports': {
-      id: '/_authenticated/sd/price-reports'
-      path: '/sd/price-reports'
-      fullPath: '/sd/price-reports'
-      preLoaderRoute: typeof AuthenticatedSdPriceReportsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/sd/price': {
-      id: '/_authenticated/sd/price'
-      path: '/sd/price'
-      fullPath: '/sd/price'
-      preLoaderRoute: typeof AuthenticatedSdPriceRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/sd/dashboard': {
-      id: '/_authenticated/sd/dashboard'
-      path: '/sd/dashboard'
-      fullPath: '/sd/dashboard'
-      preLoaderRoute: typeof AuthenticatedSdDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/sd/contract-reports': {
-      id: '/_authenticated/sd/contract-reports'
-      path: '/sd/contract-reports'
-      fullPath: '/sd/contract-reports'
-      preLoaderRoute: typeof AuthenticatedSdContractReportsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/sd/contract': {
-      id: '/_authenticated/sd/contract'
-      path: '/sd/contract'
-      fullPath: '/sd/contract'
-      preLoaderRoute: typeof AuthenticatedSdContractRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/sd/bmw-status': {
-      id: '/_authenticated/sd/bmw-status'
-      path: '/sd/bmw-status'
-      fullPath: '/sd/bmw-status'
-      preLoaderRoute: typeof AuthenticatedSdBmwStatusRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mm/pr-release': {
-      id: '/_authenticated/mm/pr-release'
-      path: '/mm/pr-release'
-      fullPath: '/mm/pr-release'
-      preLoaderRoute: typeof AuthenticatedMmPrReleaseRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mm/po-release': {
-      id: '/_authenticated/mm/po-release'
-      path: '/mm/po-release'
-      fullPath: '/mm/po-release'
-      preLoaderRoute: typeof AuthenticatedMmPoReleaseRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mm/migo-release': {
-      id: '/_authenticated/mm/migo-release'
-      path: '/mm/migo-release'
-      fullPath: '/mm/migo-release'
-      preLoaderRoute: typeof AuthenticatedMmMigoReleaseRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mm/material-reservation': {
-      id: '/_authenticated/mm/material-reservation'
-      path: '/mm/material-reservation'
-      fullPath: '/mm/material-reservation'
-      preLoaderRoute: typeof AuthenticatedMmMaterialReservationRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mm/gate-process': {
-      id: '/_authenticated/mm/gate-process'
-      path: '/mm/gate-process'
-      fullPath: '/mm/gate-process'
-      preLoaderRoute: typeof AuthenticatedMmGateProcessRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mm/gate-pass': {
-      id: '/_authenticated/mm/gate-pass'
-      path: '/mm/gate-pass'
-      fullPath: '/mm/gate-pass'
-      preLoaderRoute: typeof AuthenticatedMmGatePassRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mm/dashboard': {
-      id: '/_authenticated/mm/dashboard'
-      path: '/mm/dashboard'
-      fullPath: '/mm/dashboard'
-      preLoaderRoute: typeof AuthenticatedMmDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/inbox/$module': {
-      id: '/_authenticated/inbox/$module'
-      path: '/inbox/$module'
-      fullPath: '/inbox/$module'
-      preLoaderRoute: typeof AuthenticatedInboxModuleRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/approval/$id': {
-      id: '/_authenticated/approval/$id'
-      path: '/approval/$id'
-      fullPath: '/approval/$id'
-      preLoaderRoute: typeof AuthenticatedApprovalIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/users': {
-      id: '/_authenticated/admin/users'
-      path: '/admin/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+    '/_authenticated/admin/integrations': {
+      id: '/_authenticated/admin/integrations'
+      path: '/admin/integrations'
+      fullPath: '/admin/integrations'
+      preLoaderRoute: typeof AuthenticatedAdminIntegrationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/strategies': {
@@ -766,26 +640,152 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminStrategiesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin/integrations': {
-      id: '/_authenticated/admin/integrations'
-      path: '/admin/integrations'
-      fullPath: '/admin/integrations'
-      preLoaderRoute: typeof AuthenticatedAdminIntegrationsRouteImport
+    '/_authenticated/admin/users': {
+      id: '/_authenticated/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/approval/$id': {
+      id: '/_authenticated/approval/$id'
+      path: '/approval/$id'
+      fullPath: '/approval/$id'
+      preLoaderRoute: typeof AuthenticatedApprovalIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/.lovable/oauth/consent': {
-      id: '/.lovable/oauth/consent'
-      path: '/.lovable/oauth/consent'
-      fullPath: '/.lovable/oauth/consent'
-      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/inbox/': {
+      id: '/_authenticated/inbox/'
+      path: '/inbox'
+      fullPath: '/inbox/'
+      preLoaderRoute: typeof AuthenticatedInboxIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inbox/$module': {
+      id: '/_authenticated/inbox/$module'
+      path: '/inbox/$module'
+      fullPath: '/inbox/$module'
+      preLoaderRoute: typeof AuthenticatedInboxModuleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mm/dashboard': {
+      id: '/_authenticated/mm/dashboard'
+      path: '/mm/dashboard'
+      fullPath: '/mm/dashboard'
+      preLoaderRoute: typeof AuthenticatedMmDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mm/gate-pass': {
+      id: '/_authenticated/mm/gate-pass'
+      path: '/mm/gate-pass'
+      fullPath: '/mm/gate-pass'
+      preLoaderRoute: typeof AuthenticatedMmGatePassRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mm/gate-process': {
+      id: '/_authenticated/mm/gate-process'
+      path: '/mm/gate-process'
+      fullPath: '/mm/gate-process'
+      preLoaderRoute: typeof AuthenticatedMmGateProcessRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mm/material-reservation': {
+      id: '/_authenticated/mm/material-reservation'
+      path: '/mm/material-reservation'
+      fullPath: '/mm/material-reservation'
+      preLoaderRoute: typeof AuthenticatedMmMaterialReservationRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mm/migo-release': {
+      id: '/_authenticated/mm/migo-release'
+      path: '/mm/migo-release'
+      fullPath: '/mm/migo-release'
+      preLoaderRoute: typeof AuthenticatedMmMigoReleaseRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mm/po-release': {
+      id: '/_authenticated/mm/po-release'
+      path: '/mm/po-release'
+      fullPath: '/mm/po-release'
+      preLoaderRoute: typeof AuthenticatedMmPoReleaseRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mm/pr-release': {
+      id: '/_authenticated/mm/pr-release'
+      path: '/mm/pr-release'
+      fullPath: '/mm/pr-release'
+      preLoaderRoute: typeof AuthenticatedMmPrReleaseRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/bmw-status': {
+      id: '/_authenticated/sd/bmw-status'
+      path: '/sd/bmw-status'
+      fullPath: '/sd/bmw-status'
+      preLoaderRoute: typeof AuthenticatedSdBmwStatusRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/contract': {
+      id: '/_authenticated/sd/contract'
+      path: '/sd/contract'
+      fullPath: '/sd/contract'
+      preLoaderRoute: typeof AuthenticatedSdContractRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/contract-reports': {
+      id: '/_authenticated/sd/contract-reports'
+      path: '/sd/contract-reports'
+      fullPath: '/sd/contract-reports'
+      preLoaderRoute: typeof AuthenticatedSdContractReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/dashboard': {
+      id: '/_authenticated/sd/dashboard'
+      path: '/sd/dashboard'
+      fullPath: '/sd/dashboard'
+      preLoaderRoute: typeof AuthenticatedSdDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/price': {
+      id: '/_authenticated/sd/price'
+      path: '/sd/price'
+      fullPath: '/sd/price'
+      preLoaderRoute: typeof AuthenticatedSdPriceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/price-reports': {
+      id: '/_authenticated/sd/price-reports'
+      path: '/sd/price-reports'
+      fullPath: '/sd/price-reports'
+      preLoaderRoute: typeof AuthenticatedSdPriceReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/sales-order': {
+      id: '/_authenticated/sd/sales-order'
+      path: '/sd/sales-order'
+      fullPath: '/sd/sales-order'
+      preLoaderRoute: typeof AuthenticatedSdSalesOrderRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/sales-order-reports': {
+      id: '/_authenticated/sd/sales-order-reports'
+      path: '/sd/sales-order-reports'
+      fullPath: '/sd/sales-order-reports'
+      preLoaderRoute: typeof AuthenticatedSdSalesOrderReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/sc-so': {
+      id: '/_authenticated/sd/sc-so'
+      path: '/sd/sc-so'
+      fullPath: '/sd/sc-so'
+      preLoaderRoute: typeof AuthenticatedSdScSoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sd/sc-so-reports': {
+      id: '/_authenticated/sd/sc-so-reports'
+      path: '/sd/sc-so-reports'
+      fullPath: '/sd/sc-so-reports'
+      preLoaderRoute: typeof AuthenticatedSdScSoReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/sap-api/': {
       id: '/_authenticated/admin/sap-api/'
@@ -794,11 +794,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSapApiIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/api/public/middleware/log': {
-      id: '/api/public/middleware/log'
-      path: '/api/public/middleware/log'
-      fullPath: '/api/public/middleware/log'
-      preLoaderRoute: typeof ApiPublicMiddlewareLogRouteImport
+    '/_authenticated/admin/sap-api/$id': {
+      id: '/_authenticated/admin/sap-api/$id'
+      path: '/admin/sap-api/$id'
+      fullPath: '/admin/sap-api/$id'
+      preLoaderRoute: typeof AuthenticatedAdminSapApiIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/hooks/sap-sync': {
+      id: '/api/public/hooks/sap-sync'
+      path: '/api/public/hooks/sap-sync'
+      fullPath: '/api/public/hooks/sap-sync'
+      preLoaderRoute: typeof ApiPublicHooksSapSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/middleware/config': {
@@ -808,19 +815,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMiddlewareConfigRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/sap-sync': {
-      id: '/api/public/hooks/sap-sync'
-      path: '/api/public/hooks/sap-sync'
-      fullPath: '/api/public/hooks/sap-sync'
-      preLoaderRoute: typeof ApiPublicHooksSapSyncRouteImport
+    '/api/public/middleware/log': {
+      id: '/api/public/middleware/log'
+      path: '/api/public/middleware/log'
+      fullPath: '/api/public/middleware/log'
+      preLoaderRoute: typeof ApiPublicMiddlewareLogRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/admin/sap-api/$id': {
-      id: '/_authenticated/admin/sap-api/$id'
-      path: '/admin/sap-api/$id'
-      fullPath: '/admin/sap-api/$id'
-      preLoaderRoute: typeof AuthenticatedAdminSapApiIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
