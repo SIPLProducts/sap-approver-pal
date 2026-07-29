@@ -11,7 +11,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo } from "@/lib/mm/migo-release.functions";
+
+const STCK_TYPE_OPTIONS = [
+  { value: "1", label: "1 Unrestricted" },
+  { value: "2", label: "2 Quality Inspection" },
+  { value: "3", label: "3 Blocked" },
+];
+
+function isStckTypeKey(k: string) {
+  const u = k.toUpperCase();
+  return u === "STCK_TYPE" || u === "STCKTYPE";
+}
 
 export const Route = createFileRoute("/_authenticated/mm/migo-release")({
   component: MigoReleasePage,
@@ -233,6 +245,33 @@ function MigoReleasePage() {
                 onChange={(e) => updateCell(k, key, e.target.value)}
                 className="h-8 text-xs"
               />
+            );
+          },
+        } as CloudscapeColumn<DataRow>;
+      }
+      if (isStckTypeKey(key)) {
+        return {
+          id: key,
+          header: key.replace(/_/g, " "),
+          minWidth: 200,
+          cell: (item: DataRow) => {
+            const idx = rows.indexOf(item);
+            const k = rowKey(item, idx);
+            const cur = edits.get(k) ?? item;
+            const val = toStr(cur?.[key]);
+            return (
+              <Select value={val} onValueChange={(v) => updateCell(k, key, v)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STCK_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             );
           },
         } as CloudscapeColumn<DataRow>;
