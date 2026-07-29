@@ -1,18 +1,24 @@
 ## Problem
 
-SAP returned `{"type":"S","mat_doc":"5000432747","doc_year":2026,"message":"Material document posted successfully"}` (lowercase keys), but `postMigo` in `src/lib/mm/migo-release.functions.ts` only reads uppercase `TYPE`/`MESSAGE`/`MAT_DOC`/`DOC_YEAR`. Result: `type === ""`, `ok = false`, popup shows "Failed / SAP returned 200".
+In the MIGO Release screen, the Post response popup currently shows only the `MESSAGE` text. The user wants the success popup to also display the returned `MAT_DOC` and `DOC_YEAR` values from the SAP response.
 
-## Fix
+## Current state
 
-In `src/lib/mm/migo-release.functions.ts` (`postMigo` handler, ~line 556-575), make key lookup case-insensitive by falling back to lowercase variants:
+- `src/lib/mm/migo-release.functions.ts` already extracts and returns `mat_doc` and `doc_year` from the SAP response (case-insensitive), so no server-side change is needed.
+- `src/routes/_authenticated/mm.migo-release.tsx` currently calls `Swal.fire({ text: res.message })` in the `postMutation.onSuccess` handler and ignores the document fields.
 
-- `type` = `rawResp.TYPE ?? rawResp.type`
-- `message` = `rawResp.MESSAGE ?? rawResp.message`
-- `mat_doc` = `rawResp.MAT_DOC ?? rawResp.mat_doc`
-- `doc_year` = `rawResp.DOC_YEAR ?? rawResp.doc_year`
+## Plan
 
-Success condition unchanged (`res.ok && type.toUpperCase() === "S"`).
+1. Update the `postMutation.onSuccess` handler in `src/routes/_authenticated/mm.migo-release.tsx` to build a formatted message that includes:
+   - `res.message`
+   - `Material Document: <res.mat_doc>` (when `res.mat_doc` is present)
+   - `Document Year: <res.doc_year>` (when `res.doc_year` is present and non-zero)
+2. Keep the existing SweetAlert icon/title/colour logic unchanged (`success` when `res.ok`, `error` otherwise).
+3. Preserve the existing screen reset behaviour after a successful post.
+4. Verify the change builds and the popup text is rendered correctly.
 
-In `src/routes/_authenticated/mm.migo-release.tsx`, the SweetAlert already shows only `res.message` — no key names — so no change needed there. It will now display the exact SAP `message` text ("Material document posted successfully" or the failure message) verbatim.
+## Scope
 
-No business logic changes; only response key mapping is broadened.
+- Only the MIGO Release Post response popup text changes.
+- No server function, API payload, or business logic changes.
+- No changes to other screens or tables.
