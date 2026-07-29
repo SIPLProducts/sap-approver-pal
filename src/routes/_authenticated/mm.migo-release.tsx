@@ -147,10 +147,6 @@ function MigoReleasePage() {
       toast.error("Material Document Number is required");
       return;
     }
-    if (!matDocYear.trim()) {
-      toast.error("Material Document Year is required");
-      return;
-    }
     mutation.mutate({
       mat_doc_number: matDocNo.trim(),
       mat_doc_year: matDocYear.trim(),
