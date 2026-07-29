@@ -1,21 +1,16 @@
-## MIGO Release — optional year + SweetAlert-style post response
+## MIGO Release — post-success reset + column reorder
 
 ### Changes to `src/routes/_authenticated/mm.migo-release.tsx`
 
-1. **Make Material Document Year optional**
-   - Remove the "Material Document Year is required" toast/guard in `execute()`.
-   - Remove the same guard in `check()` (only Material Document Number stays mandatory).
-   - Keep the input field itself (no layout change), just no validation.
+1. **Reset screen after successful Post**
+   - In `postMutation.onSuccess`, when `res.ok` is true, replace the current "re-run Get Details + clear selection" behavior with a full reset equivalent to the `reset()` function: clear `matDocNo`, `matDocYear`, `header`, `rows`, `edits`, `selected`, and `customFields`.
+   - Keep the SweetAlert success popup and toast unchanged.
+   - Failure path unchanged.
 
-2. **Replace the Post result Dialog with a SweetAlert-style popup**
-   - Add `sweetalert2` dependency (lightweight, standard for this pattern).
-   - On `postMutation.onSuccess`, call `Swal.fire({ icon: res.ok ? 'success' : 'error', title: res.ok ? 'Success' : 'Failed', text: res.message, confirmButtonColor: res.ok ? '#16a34a' : '#dc2626' })`.
-   - Show ONLY `res.message` as the body text. No `TYPE`, `MAT_DOC`, `DOC_YEAR`, `MESSAGE` labels, no raw JSON viewer.
-   - Remove the existing `<Dialog>` block, `postResult` state, and related setters.
-   - Keep the existing toast calls as-is (they already show only `res.message`).
-   - Keep post-success behavior: re-run Get Details and clear selection.
+2. **Reorder Items table columns**
+   - In the `columns` useMemo, after placing `LINE_ID` keys first, ensure `ENTRY_QNT` appears immediately after `MATERIAL`.
+   - Build ordering: `[...lineIdKeys, "MATERIAL" (if present), "ENTRY_QNT" (if present), ...remaining keys in original order excluding those already placed]`. Case-insensitive match, preserve original key casing.
 
 ### Out of scope
-- No changes to `postMigo` server function, payload, or `MIGO_POST_API` wiring.
-- No changes to fetch/check flows, table, header, or custom fields cards.
-- No changes to other screens.
+- No changes to server functions, payloads, or APIs.
+- No changes to other screens or table component.
