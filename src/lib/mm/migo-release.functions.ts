@@ -451,3 +451,127 @@ export const saveMigo = createServerFn({ method: "POST" })
       documentNumber: sapJson?.DOCUMENT_NUMBER ?? null,
     };
   });
+
+const POST_CONFIG_NAME = "MIGO_POST_API";
+
+export const postMigo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      header: z.record(z.string(), z.any()),
+      data: z.array(z.record(z.string(), z.any())).min(1, "At least one row is required"),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", POST_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg) throw new Error(`SAP API config "${POST_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${POST_CONFIG_NAME}" is disabled.`);
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin.from("sap_global_settings").select("connection_mode, middleware_url").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+    ]);
+
+    const payload: Record<string, any> = {
+      HEADER: { ...data.header, POST: "X" },
+      DATA: data.data,
+    };
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" &&
+      !!(globalSettings?.middleware_url);
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
+
+    let target: string;
+    let method: string = cfg.http_method ?? "POST";
+    let bodyOut: string | undefined;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    let proxied = false;
+
+    if (useProxy) {
+      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
+      method = "POST";
+      headers["Content-Type"] = "application/json";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload });
+      proxied = true;
+    } else {
+      target = cfg.endpoint_url;
+      headers["Content-Type"] = "application/json";
+      bodyOut = JSON.stringify(payload);
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization =
+          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+    }
+
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      headers[k] = v;
+    }
+
+    const t0 = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(target, { method, headers, body: bodyOut });
+    } catch (e) {
+      const errMsg = (e as Error).message || "fetch failed";
+      const latency_ms = Date.now() - t0;
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `migo-post network: ${errMsg}`,
+      });
+      return { ok: false, type: "E", message: `Could not reach SAP: ${errMsg}`, mat_doc: "", doc_year: 0, raw: null as any };
+    }
+
+    const text = await res.text().catch(() => "");
+    const latency_ms = Date.now() - t0;
+
+    let json: any = {};
+    try { json = text ? JSON.parse(text) : {}; } catch {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `migo-post: invalid JSON ${text.slice(0, 300)}`,
+      });
+      return { ok: false, type: "E", message: `Invalid JSON from SAP: ${text.slice(0, 200)}`, mat_doc: "", doc_year: 0, raw: text };
+    }
+
+    const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+    const rawResp: any = Array.isArray(sapJson) ? (sapJson[0] ?? {}) : sapJson;
+
+    const type = String(rawResp?.TYPE ?? "").toUpperCase();
+    const message = String(rawResp?.MESSAGE ?? "").trim();
+    const ok = res.ok && type === "S";
+
+    await supabaseAdmin.from("sap_api_sync_log").insert({
+      config_id: cfg.id,
+      status: ok ? "ok" : "error",
+      latency_ms,
+      message: `migo-post: ${type || "?"} ${message || text.slice(0, 200)}`,
+    });
+
+    return {
+      ok,
+      type: type || "",
+      message: message || (ok ? "Posted successfully" : `SAP returned ${res.status}`),
+      mat_doc: String(rawResp?.MAT_DOC ?? ""),
+      doc_year: Number(rawResp?.DOC_YEAR ?? 0),
+      raw: rawResp,
+    };
+  });
