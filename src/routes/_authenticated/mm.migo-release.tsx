@@ -212,8 +212,11 @@ function MigoReleasePage() {
     }
 
     const lineIdKeys = dataKeys.filter(isLineIdKey);
-    const otherKeys = dataKeys.filter((k) => !isLineIdKey(k));
-    const orderedKeys = [...lineIdKeys, ...otherKeys];
+    const materialKey = dataKeys.find((k) => k.toUpperCase() === "MATERIAL");
+    const entryQtyKey = dataKeys.find((k) => k.toUpperCase() === "ENTRY_QNT");
+    const priorityKeys = [...lineIdKeys, ...(materialKey ? [materialKey] : []), ...(entryQtyKey ? [entryQtyKey] : [])];
+    const otherKeys = dataKeys.filter((k) => !priorityKeys.includes(k));
+    const orderedKeys = [...priorityKeys, ...otherKeys];
 
     const numericHint = /(QTY|QUANTITY|AMOUNT|VALUE|PRICE|STOCK|NETWR|RLWRT|QNT)/i;
 
