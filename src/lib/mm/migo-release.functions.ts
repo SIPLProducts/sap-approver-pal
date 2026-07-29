@@ -555,8 +555,10 @@ export const postMigo = createServerFn({ method: "POST" })
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
     const rawResp: any = Array.isArray(sapJson) ? (sapJson[0] ?? {}) : sapJson;
 
-    const type = String(rawResp?.TYPE ?? "").toUpperCase();
-    const message = String(rawResp?.MESSAGE ?? "").trim();
+    const type = String(rawResp?.TYPE ?? rawResp?.type ?? "").toUpperCase();
+    const message = String(rawResp?.MESSAGE ?? rawResp?.message ?? "").trim();
+    const matDoc = String(rawResp?.MAT_DOC ?? rawResp?.mat_doc ?? "");
+    const docYear = Number(rawResp?.DOC_YEAR ?? rawResp?.doc_year ?? 0);
     const ok = res.ok && type === "S";
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
@@ -570,8 +572,8 @@ export const postMigo = createServerFn({ method: "POST" })
       ok,
       type: type || "",
       message: message || (ok ? "Posted successfully" : `SAP returned ${res.status}`),
-      mat_doc: String(rawResp?.MAT_DOC ?? ""),
-      doc_year: Number(rawResp?.DOC_YEAR ?? 0),
+      mat_doc: matDoc,
+      doc_year: docYear,
       raw: rawResp,
     };
   });

@@ -1,16 +1,18 @@
-## MIGO Release — post-success reset + column reorder
+## Problem
 
-### Changes to `src/routes/_authenticated/mm.migo-release.tsx`
+SAP returned `{"type":"S","mat_doc":"5000432747","doc_year":2026,"message":"Material document posted successfully"}` (lowercase keys), but `postMigo` in `src/lib/mm/migo-release.functions.ts` only reads uppercase `TYPE`/`MESSAGE`/`MAT_DOC`/`DOC_YEAR`. Result: `type === ""`, `ok = false`, popup shows "Failed / SAP returned 200".
 
-1. **Reset screen after successful Post**
-   - In `postMutation.onSuccess`, when `res.ok` is true, replace the current "re-run Get Details + clear selection" behavior with a full reset equivalent to the `reset()` function: clear `matDocNo`, `matDocYear`, `header`, `rows`, `edits`, `selected`, and `customFields`.
-   - Keep the SweetAlert success popup and toast unchanged.
-   - Failure path unchanged.
+## Fix
 
-2. **Reorder Items table columns**
-   - In the `columns` useMemo, after placing `LINE_ID` keys first, ensure `ENTRY_QNT` appears immediately after `MATERIAL`.
-   - Build ordering: `[...lineIdKeys, "MATERIAL" (if present), "ENTRY_QNT" (if present), ...remaining keys in original order excluding those already placed]`. Case-insensitive match, preserve original key casing.
+In `src/lib/mm/migo-release.functions.ts` (`postMigo` handler, ~line 556-575), make key lookup case-insensitive by falling back to lowercase variants:
 
-### Out of scope
-- No changes to server functions, payloads, or APIs.
-- No changes to other screens or table component.
+- `type` = `rawResp.TYPE ?? rawResp.type`
+- `message` = `rawResp.MESSAGE ?? rawResp.message`
+- `mat_doc` = `rawResp.MAT_DOC ?? rawResp.mat_doc`
+- `doc_year` = `rawResp.DOC_YEAR ?? rawResp.doc_year`
+
+Success condition unchanged (`res.ok && type.toUpperCase() === "S"`).
+
+In `src/routes/_authenticated/mm.migo-release.tsx`, the SweetAlert already shows only `res.message` — no key names — so no change needed there. It will now display the exact SAP `message` text ("Material document posted successfully" or the failure message) verbatim.
+
+No business logic changes; only response key mapping is broadened.
