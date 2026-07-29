@@ -249,6 +249,33 @@ function MigoReleasePage() {
           },
         } as CloudscapeColumn<DataRow>;
       }
+      if (isStckTypeKey(key)) {
+        return {
+          id: key,
+          header: key.replace(/_/g, " "),
+          minWidth: 200,
+          cell: (item: DataRow) => {
+            const idx = rows.indexOf(item);
+            const k = rowKey(item, idx);
+            const cur = edits.get(k) ?? item;
+            const val = toStr(cur?.[key]);
+            return (
+              <Select value={val} onValueChange={(v) => updateCell(k, key, v)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STCK_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          },
+        } as CloudscapeColumn<DataRow>;
+      }
       return {
         id: key,
         header: key.replace(/_/g, " "),
