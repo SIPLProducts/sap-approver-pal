@@ -87,9 +87,24 @@ exposes two public endpoints — `POST /api/public/middleware/config` and
 `MIDDLEWARE_SHARED_SECRET`. The app uses its server-side admin client to
 read the SAP tables, so SAP credentials stay behind RLS.
 
-## Docker
+## Docker Compose (Linux server deployment)
+
+For production deployment on a Linux server with two isolated instances (Quality + Production), use the root-level `docker-compose.yml`:
 
 ```bash
+# From the project root, not the middleware folder
+cp .env.quality.example .env.quality
+cp .env.prod.example .env.prod
+# Edit both files with real values, then:
+docker compose up -d --build
+```
+
+See `DEPLOYMENT.md` in the project root for Nginx, SSL, Lovable wiring, and troubleshooting.
+
+## Docker (single container)
+
+```bash
+cd middleware
 docker build -t sap-middleware .
 docker run -p 3005:3005 --env-file .env sap-middleware
 ```
