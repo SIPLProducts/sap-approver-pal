@@ -1,28 +1,19 @@
-## Goal
+Modernize the action buttons in the ZNFA Release screen (`src/routes/_authenticated/mm.znfa-release.tsx`) while keeping the existing Creation/Release logic and placeholder button behavior unchanged.
 
-Add a new **ZNFA Release** screen under MM Approvals, listed right after MIGO Release, with a Creation/Release mode switch that changes which action buttons are shown.
+What will change:
+- Layout: render the action buttons in a clean two-row grid instead of the current single wrapping row.
+- Sizing: give every button the same fixed height and a consistent minimum width so the grid looks uniform.
+- Rounded corners: use a medium-to-large radius (`rounded-lg` or `rounded-xl`) to match the card radius.
+- Soft colors: default buttons use muted/secondary/ghost variants tinted with the existing theme (ivory, soft slate, subtle RESL red accent) rather than the stark `default`/`outline` toggles. The currently active action button keeps the primary red accent for clear selection state.
+- Hover effects: add `transition` with a subtle lift, soft shadow, and background color shift on hover.
+- Responsive: on narrow viewports the buttons remain readable and touch-friendly, collapsing to a single column or wrapping gracefully without breaking the card layout.
+- Theme: stay within the existing design tokens in `src/styles.css` (RESL red, executive ivory, graphite, gold accents) — no hardcoded hex classes.
 
-## What gets built
+What will not change:
+- The mode radio group (Creation vs Release) and the list of actions shown per mode.
+- The existing `onAction` placeholder behavior and toast notifications.
+- Any other MM screens or the `_authenticated` navigation.
 
-**New route:** `src/routes/_authenticated/mm.znfa-release.tsx` → URL `/mm/znfa-release`
-
-Layout follows the existing MM screens (MIGO Release / Material Reservation pattern):
-- Page header: title "ZNFA Release"
-- A selection card containing:
-  - A radio group with two options: **Creation** and **Release** (Creation selected by default)
-  - An action button row that depends on the selected mode:
-    - **Creation** → Create, Change, Clarification, Release, Display, Approved List
-    - **Release** → Release, Display, Approved List
-- Buttons are rendered as placeholders in this step (no SAP calls yet); clicking one sets the current action mode so wiring can be added later without changing layout.
-
-**Navigation:** add an entry to `mmChildren` in `src/routes/_authenticated.tsx`, immediately after the MIGO Release item, gated by the same `approvals.inbox.mm` permission.
-
-## Not included (confirm if you want it now)
-
-No SAP API integration yet — you haven't specified which configured APIs each button should call or what payloads/response layouts they need. Once you share those (e.g. ZNFA_Create_API, ZNFA_Release_API and their payloads), I'll wire each button to the middleware and render header/items exactly like the other MM screens.
-
-## Technical notes
-
-- Route uses `createFileRoute("/_authenticated/mm/znfa-release")`; no changes to `routeTree.gen.ts` (auto-generated).
-- Radio group uses the existing shadcn `RadioGroup` component; buttons use existing `Button` variants so styling matches PR/PO/MIGO screens.
-- No existing files' logic changes other than adding one nav entry.
+Verification:
+- Open the ZNFA Release route in the preview and confirm the Creation/Release modes both show the new two-row button layout.
+- Hover and active states render consistently and remain responsive across desktop and mobile viewports.
