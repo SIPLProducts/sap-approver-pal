@@ -101,6 +101,7 @@ function MigoReleasePage() {
     mutationFn: async (vars: {
       header: Record<string, any>;
       data: Record<string, any>[];
+      custom?: Record<string, any> | null;
     }) => {
       const v: any = await postFn({ data: vars });
       return v as { ok: boolean; type: string; message: string; mat_doc: string; doc_year: number; raw: any };
@@ -146,6 +147,7 @@ function MigoReleasePage() {
     postMutation.mutate({
       header: { ...(header ?? {}) },
       data: items,
+      custom: customFields ?? null,
     });
   }
 

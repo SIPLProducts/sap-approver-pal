@@ -460,6 +460,7 @@ export const postMigo = createServerFn({ method: "POST" })
     z.object({
       header: z.record(z.string(), z.any()),
       data: z.array(z.record(z.string(), z.any())).min(1, "At least one row is required"),
+      custom: z.record(z.string(), z.any()).nullish(),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -479,10 +480,9 @@ export const postMigo = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const payload: Record<string, any> = {
-      HEADER: { ...data.header, POST: "X" },
-      DATA: data.data,
-    };
+    const { buildMigoPostPayload } = await import("@/lib/mm/migo-payload");
+    const payload: Record<string, any> = buildMigoPostPayload(data.header, data.data, data.custom ?? null);
+
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
