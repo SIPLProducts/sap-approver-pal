@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  sap-middleware-quality:
+    build:
+      context: ./middleware
+      dockerfile: Dockerfile
+    container_name: sap-middleware-quality
+    env_file:
+      - ./.env.quality
+    ports:
+      - "3005:3005"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sap-middleware
+
+  sap-middleware-prod:
+    build:
+      context: ./middleware
+      dockerfile: Dockerfile
+    container_name: sap-middleware-prod
+    env_file:
+      - ./.env.prod
+    ports:
+      - "3006:3005"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sap-middleware
+
+networks:
+  sap-middleware:
+    driver: bridge
