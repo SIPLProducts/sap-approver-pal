@@ -147,6 +147,7 @@ function MigoReleasePage() {
     postMutation.mutate({
       header: { ...(header ?? {}) },
       data: items,
+      custom: customFields ?? null,
     });
   }
 
