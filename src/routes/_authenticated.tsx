@@ -160,6 +160,7 @@ function AuthenticatedLayout() {
     { to: "/mm/gate-process", label: "ZNFA Rating", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
     { to: "/mm/gate-pass", label: "Gate Pass", icon: Truck, screen: "approvals.inbox.mm" },
     { to: "/mm/migo-release", label: "MIGO Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
+    { to: "/mm/znfa-release", label: "ZNFA Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
   ].filter((it) => can(it.screen));
 
   const showMm = mmChildren.length > 0;
