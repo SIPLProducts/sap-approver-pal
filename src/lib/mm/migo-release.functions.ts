@@ -480,10 +480,9 @@ export const postMigo = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const payload: Record<string, any> = {
-      HEADER: { ...data.header, POST: "X" },
-      DATA: data.data,
-    };
+    const { buildMigoPostPayload } = await import("@/lib/mm/migo-payload");
+    const payload: Record<string, any> = buildMigoPostPayload(data.header, data.data, data.custom ?? null);
+
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
