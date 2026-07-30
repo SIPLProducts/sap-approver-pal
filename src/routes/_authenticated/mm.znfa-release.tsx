@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/znfa-release")({
   component: ZnfaReleasePage,
@@ -47,8 +48,8 @@ function ZnfaReleasePage() {
         <h1 className="text-2xl font-bold tracking-tight">ZNFA Release</h1>
       </div>
 
-      <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+      <Card className="border border-border/60 p-5 shadow-card">
+        <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
@@ -75,19 +76,26 @@ function ZnfaReleasePage() {
             </RadioGroup>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {actions.map((label) => (
-              <Button
-                key={label}
-                type="button"
-                size="sm"
-                variant={action === label ? "default" : "outline"}
-                className="h-9"
-                onClick={() => onAction(label)}
-              >
-                {label}
-              </Button>
-            ))}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {actions.map((label) => {
+              const active = action === label;
+              return (
+                <Button
+                  key={label}
+                  type="button"
+                  variant="ghost"
+                  className={cn(
+                    "h-11 min-w-[140px] justify-center rounded-xl border px-4 font-medium transition-all duration-200",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90 hover:text-primary-foreground"
+                      : "border-border bg-muted/60 text-muted-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-md"
+                  )}
+                  onClick={() => onAction(label)}
+                >
+                  {label}
+                </Button>
+              );
+            })}
           </div>
         </div>
       </Card>
