@@ -1,32 +1,12 @@
 ## Goal
+In ZNFA Rating, the Rating column dropdown should use fixed values T1–T10 and NQ instead of the SAP F4 API.
 
-In User & Role Management → Custom Roles tab, add a new column after **Status** named **Screen Permissions**, showing a button like `Screens (15)`. Clicking it opens a popup listing all screens assigned to that role, styled like the reference.
+## Changes (src/routes/_authenticated/mm.gate-process.tsx)
+- Add a module-level constant `RATING_OPTIONS = ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","NQ"]`.
+- Remove the `fetchZnfaRatingF4` import, the `ratingF4Fn` server-fn hook, and the `useQuery` that loads F4 options; drop the derived `ratingOptions` variable.
+- Point the Rate cell dropdown at `RATING_OPTIONS`, and remove the now-dead "no options → plain input" fallback. Read-only (non-editable) rendering stays exactly as-is, so the dropdown still only appears after a row is selected and Rating/Change is clicked.
 
-## What changes
+Save, payload shape, and all other behavior stay unchanged.
 
-Single file: `src/routes/_authenticated/admin.users.tsx` (the `CustomRolesTab` component). No schema or server changes.
-
-### 1. Data
-
-Add one query in `CustomRolesTab` that reads `role_permissions` (`custom_role_id, screen_key`) for all roles in one call, and builds a map `roleId → Set<screen_key>` (deduped, since a role can have several actions per screen). Counts and popup contents both come from this map. Existing `custom_roles` query and `handleEdit` stay untouched.
-
-### 2. Table column
-
-- New `<TableHead>Screen Permissions</TableHead>` between Status and Actions; empty-state `colSpan` bumped from 4 to 5.
-- Cell renders an outline button with a shield icon reading `Screens (n)`, rounded, small, hover highlight — matching the reference chip. Disabled and muted when `n = 0`.
-
-### 3. Popup
-
-Dialog opened by a local `permRole` state (the clicked role):
-- Header: shield icon + `Screen Permissions – {role name}`, subtitle "Assign or unassign screen access for this role." (read-only view here — no toggling, per "keep existing functionality unchanged"; editing still happens through the existing Edit dialog).
-- Body: scrollable, responsive grid (1 column on mobile, 2 on `sm`+) of bordered rounded rows. Each row shows the screen's friendly label from `SCREEN_GROUPS` (falls back to the raw key if unmapped) with a filled check-circle icon on the right.
-- Empty state: "No screens assigned to this role".
-- Close button in the footer plus the standard X.
-
-### 4. Unchanged
-
-Add Role / Edit Role dialogs, active toggle, delete, Users tab, Role Permissions tab, and all queries/mutations stay exactly as they are.
-
-## Technical notes
-
-Uses existing shadcn `Dialog`, `Button`, `Badge` primitives and lucide `Shield` / `CheckCircle2` icons — no new dependencies. Label lookup reuses the existing `SCREEN_GROUPS` import already present in the file.
+## Not touched
+`fetchZnfaRatingF4` in `src/lib/mm/gate-process.functions.ts` is left in place (unused) unless you want it deleted too — say the word and I'll remove the server function as well.
