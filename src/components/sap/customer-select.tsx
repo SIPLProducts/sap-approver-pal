@@ -289,8 +289,6 @@ export function CustomerSelect({
             )}
           </CommandList>
         </Command>
-          </CommandList>
-        </Command>
       </PopoverContent>
     </Popover>
   );
