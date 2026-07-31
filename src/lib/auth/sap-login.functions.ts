@@ -91,6 +91,33 @@ function collectActivityCodes(value: unknown, depth = 0): string[] {
   return Array.from(new Set(out));
 }
 
+/**
+ * Normalizes a SAP release-key list such as
+ *   [{ "REL_GROUP": "P2", "RELEASE_CODE": "IC" }, ...]
+ * into { relGroup, releaseCode } pairs. Tolerates single objects and casing
+ * variants; blank REL_GROUP values are preserved as empty strings.
+ */
+function collectReleaseKeys(value: unknown): SapReleaseKey[] {
+  const out: SapReleaseKey[] = [];
+  const seen = new Set<string>();
+  for (const item of asArray(value)) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const releaseCode = (
+      pickStr(rec, "RELEASE_CODE", "REL_CODE", "RELCODE", "CODE") ?? ""
+    ).trim();
+    if (!releaseCode) continue;
+    const relGroup = (pickStr(rec, "REL_GROUP", "RELGROUP", "GROUP") ?? "").trim();
+    const dedupe = `${relGroup}\u0000${releaseCode}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+    out.push({ relGroup, releaseCode });
+  }
+  return out;
+}
+
+
+
 function extractSapProfile(body: unknown): SapProfilePayload | undefined {
   // Find the first object in the response that has a USER + PLANTS shape.
   const queue: unknown[] = [body];
