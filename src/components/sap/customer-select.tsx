@@ -120,7 +120,7 @@ export function CustomerSelect({
 
   const custQuery = useQuery({
     queryKey: ["sap-customers", configId, plantKey],
-    enabled: !!configId,
+    enabled: !!configId && open,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const inputs: Record<string, unknown> = {};
@@ -144,6 +144,37 @@ export function CustomerSelect({
       ? `${selectedOption.code} - ${selectedOption.text}`
       : value
     : "";
+
+  const hasQuery = debouncedSearch.length >= 1;
+  const filtered = useMemo(() => {
+    if (!hasQuery) return customers;
+    const q = debouncedSearch.toLowerCase();
+    return customers.filter(
+      (c) => c.code.toLowerCase().includes(q) || c.text.toLowerCase().includes(q),
+    );
+  }, [customers, debouncedSearch, hasQuery]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [debouncedSearch, customers]);
+
+  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = filtered.length > visibleCount;
+
+  useEffect(() => {
+    if (!hasMore || !loadMoreRef.current) return;
+    const el = loadMoreRef.current;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((c) => c + PAGE_SIZE);
+        }
+      },
+      { root: el.closest("[cmdk-list]") as Element | null, threshold: 0.1 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, visibleCount, filtered.length]);
 
   // Fallback to plain input when config is missing
   if (!cfgQuery.isLoading && !configId) {
