@@ -5,7 +5,14 @@ import { ALL_SCREENS } from "@/lib/admin/screen-keys";
 
 export type ActiveRole = { kind: "sap"; value: string; label: string };
 
-export type AssignedPlant = { code: string; name?: string };
+export type AssignedPlant = {
+  code: string;
+  name?: string;
+  prKeys?: SapReleaseKey[];
+  poKeys?: SapReleaseKey[];
+  nfaKeys?: SapReleaseKey[];
+  sesKeys?: SapReleaseKey[];
+};
 export type AssignedRole = { kind: "sap"; value: string; label: string; activities: string[] };
 
 type ActiveCtx = {
