@@ -6,10 +6,16 @@ export type SapProfileRole = {
   activities: string[]; // UPPERCASE activity codes, e.g. "ADMIN.USERS"
 };
 
+export type SapReleaseKey = { relGroup: string; releaseCode: string };
+
 export type SapProfilePlant = {
   code: string;
   name?: string;
   roles: SapProfileRole[];
+  prKeys?: SapReleaseKey[];
+  poKeys?: SapReleaseKey[];
+  nfaKeys?: SapReleaseKey[];
+  sesKeys?: SapReleaseKey[];
 };
 
 export type SapProfile = {
