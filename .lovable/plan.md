@@ -1,38 +1,19 @@
-## What's actually happening
+## Goal
 
-The toast in your screenshot reads `SAP returned 524 <none>: error code: 524`. That text is produced in `src/lib/sd/bmw-status-report.functions.ts` from the HTTP status of the app's outbound call to the middleware URL. So SAP itself never answered the app — an edge/reverse proxy in front of the middleware cut the connection:
+In User Management → Create/Edit User, the Plant field's F4 list should come from the **GET_USER_PLANT** SAP API config (verified present and active in SAP API Settings) instead of the currently used **Get_Plant** config. All SD screens keep using Get_Plant unchanged.
 
-- **524** is a Cloudflare edge timeout (~100 s hard cap on a proxied hostname).
-- `nginx/middleware-prod.conf` and `nginx/middleware-quality.conf` set `proxy_read_timeout 60s` / `proxy_send_timeout 60s`, so nginx also gives up long before the middleware's own `SAP_REQUEST_TIMEOUT_MS` of 120 s.
+## What I'll change
 
-Postman succeeds because it calls the endpoint without those 60 s / 100 s proxy caps and will happily wait several minutes.
+1. **New server function** (`src/lib/sap/plant.functions.ts`): add `getUserPlantConfig`, mirroring the existing `getPlantConfig` but looking up the config named `GET_USER_PLANT` and returning `plantField: "WERKS"`.
 
-Confirmed from the code: dates and customer/contract ranges are already passed through to SAP; there is no missing filter. The problem is purely call duration for the full BMW dataset.
+2. **Plant multi-select** (`src/components/sap/plant-multi-select.tsx`): add an opt-in prop (e.g. `source="user-plant"`, default stays the current behaviour) that makes the component resolve the GET_USER_PLANT config and call it with an empty payload `{}` — that config has no request fields defined in SAP API Settings, so nothing extra is sent.
 
-## Fix — three parts
+3. **Response parsing** (`src/components/sap/plant-select.tsx` → `extractPlantOptions`): add `NAME1` to the description key list so rows like `{ "WERKS": "0001", "NAME1": "Werk 0001" }` render as `0001 - Werk 0001`. `WERKS` is already recognised as a code key.
 
-### 1. Stop the proxies cutting the call (infra config)
-- `nginx/middleware-prod.conf` + `nginx/middleware-quality.conf`: raise `proxy_read_timeout` / `proxy_send_timeout` to `300s`, add `proxy_connect_timeout 30s` and `send_timeout 300s`.
-- Document in `DEPLOYMENT.md` that the middleware hostname must be **DNS-only (grey cloud) in Cloudflare**, or fronted by a Cloudflare tunnel/Enterprise setting — an orange-clouded hostname can never exceed ~100 s regardless of nginx settings.
+4. **User dialog** (`src/routes/_authenticated/admin.users.tsx`): pass the new prop on the `PlantMultiSelect` inside the Create/Edit User dialog only. Existing selection, validation, and role-loading behaviour stay identical.
 
-These two alone remove the 524 for medium result sets, but a truly huge pull will still be slow, so:
+No changes to business logic, payload building for user create/update, or any other screen.
 
-### 2. Chunk the fetch by created-date window (app change)
-Keep the same UI. In `src/routes/_authenticated/sd.bmw-status.tsx`, when both "Contract/sales created from/to" are filled and the span is larger than a configurable window (default **1 month**), the Execute handler issues the existing server function once per window, sequentially:
+## Note
 
-- rows accumulate into the table as each window returns, so the user sees data progressively instead of a blank screen;
-- the Execute button shows `Fetching… (2/7)`;
-- a per-chunk failure is reported but does not discard already-loaded rows;
-- exact-duplicate removal already done server-side is repeated across the merged set client-side, so rows appearing in two windows are not double-counted.
-
-If the date range is empty or short, behavior is exactly as today (a single call).
-
-### 3. Guardrail message
-If a chunk still returns 502/504/524, the error toast will say plainly that the SAP call exceeded the gateway timeout and suggest narrowing the date range — instead of the raw `error code: 524`.
-
-## Not changed
-Server-side business logic in `src/lib/sd/bmw-status-report.functions.ts` (payload shape, dedupe, sync logging), the SAP config, the middleware's SAP request logic, and the report's columns/layout all stay as they are. The function gains no new parameters — chunking reuses the existing `contract_from` / `contract_to` inputs.
-
-## Technical notes
-- Files touched: `src/routes/_authenticated/sd.bmw-status.tsx`, `nginx/middleware-prod.conf`, `nginx/middleware-quality.conf`, `DEPLOYMENT.md`.
-- The nginx changes require redeploying/reloading the middleware host to take effect; the Cloudflare grey-cloud change is a DNS-panel action on your side.
+GET_USER_PLANT currently has no request fields configured, so the call goes out with an empty body. If it actually needs the logged-in user ID (e.g. `{ "BNAME": "<user>" }`), tell me and I'll include it.
