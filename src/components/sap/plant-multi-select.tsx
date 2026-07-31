@@ -32,8 +32,9 @@ interface Props {
   className?: string;
   /** When true (default), restrict the option list to the plants selected in the top bar. */
   restrictToActive?: boolean;
-  /** Which SAP API config supplies the F4 list. "user-plant" uses GET_USER_PLANT. */
-  source?: "default" | "user-plant";
+  /** Which SAP API config supplies the F4 list. "user-plant" uses GET_USER_PLANT.
+   *  "active-context" skips SAP and lists the plants selected in the top bar. */
+  source?: "default" | "user-plant" | "active-context";
 
 }
 
@@ -50,10 +51,12 @@ export function PlantMultiSelect({
   const getDefaultCfg = useServerFn(getPlantConfig);
   const getUserCfg = useServerFn(getUserPlantConfig);
   const runApi = useServerFn(runSapApi);
-  const { activePlants } = useActiveContext();
+  const { activePlants, plants: assignedPlants } = useActiveContext();
+  const fromContext = source === "active-context";
 
   const cfgQuery = useQuery({
     queryKey: ["sap-plant-config", source],
+    enabled: !fromContext,
     queryFn: async (): Promise<{ configId: string | null; plantField: string }> =>
       source === "user-plant" ? await getUserCfg() : await getDefaultCfg(),
     staleTime: 10 * 60 * 1000,
@@ -66,7 +69,7 @@ export function PlantMultiSelect({
 
   const plantsQuery = useQuery({
     queryKey: ["sap-plants", configId],
-    enabled: !!configId,
+    enabled: !fromContext && !!configId,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const resp: any = await runApi({ data: { configId: configId!, inputs: {} } });
@@ -78,10 +81,16 @@ export function PlantMultiSelect({
     () => (restrictToActive && activePlants.length > 0 ? new Set(activePlants) : null),
     [restrictToActive, activePlants],
   );
+  const contextOptions = useMemo(() => {
+    if (!fromContext) return [];
+    const nameByCode = new Map(assignedPlants.map((p) => [p.code, p.name ?? ""]));
+    return activePlants.map((code) => ({ code, text: nameByCode.get(code) ?? "" }));
+  }, [fromContext, activePlants, assignedPlants]);
   const plants = useMemo(() => {
+    if (fromContext) return contextOptions;
     const list = plantsQuery.data ?? [];
     return allowedSet ? list.filter((p) => allowedSet.has(p.code)) : list;
-  }, [plantsQuery.data, allowedSet]);
+  }, [fromContext, contextOptions, plantsQuery.data, allowedSet]);
   const selected = useMemo(() => new Set(value), [value]);
 
   // Drop any selected codes that fall outside the allowed set when it changes.
@@ -99,7 +108,7 @@ export function PlantMultiSelect({
   }
 
   // Fallback to comma-separated text input when config is missing
-  if (!cfgQuery.isLoading && !configId) {
+  if (!fromContext && !cfgQuery.isLoading && !configId) {
     return (
       <Input
         value={value.join(", ")}
@@ -180,7 +189,9 @@ export function PlantMultiSelect({
               </div>
             ) : plants.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">
-                No plants returned by Get_Plant. Check SAP API Settings.
+                {fromContext
+                  ? "No plants selected in the top bar."
+                  : "No plants returned by Get_Plant. Check SAP API Settings."}
               </div>
             ) : (
               <>
