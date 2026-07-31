@@ -458,29 +458,33 @@ function UsersTab() {
                     <TableCell className="text-sm text-muted-foreground font-mono">{u.user}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email || "—"}</TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[260px]">
-                        {u.plants.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                        {u.plants.map((p) => (
-                          <span key={p} className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-foreground/80">
-                            {p}
-                          </span>
-                        ))}
-                      </div>
+                      <Button
+                        size="sm"
+                        variant={u.plants.length > 0 ? "outline" : "ghost"}
+                        disabled={u.plants.length === 0}
+                        className="rounded-md"
+                        onClick={() => setDetail({ user: u, kind: "plants" })}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1.5" /> Plants ({u.plants.length})
+                      </Button>
                     </TableCell>
                     <TableCell>
-                      {pill ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${pill.cls}`}>
-                            {pill.label}
-                          </span>
-                          {pill.extra > 0 && (
-                            <span className="text-xs text-muted-foreground">+{pill.extra}</span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      {(() => {
+                        const count = (u.role_assignments?.length ?? 0) || u.roles.length;
+                        return (
+                          <Button
+                            size="sm"
+                            variant={count > 0 ? "outline" : "ghost"}
+                            disabled={count === 0}
+                            className="rounded-md"
+                            onClick={() => setDetail({ user: u, kind: "roles" })}
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1.5" /> Roles ({count})
+                          </Button>
+                        );
+                      })()}
                     </TableCell>
+
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button size="sm" variant="outline" onClick={() => { setEditingUser(u); setEditUserOpen(true); }}>
