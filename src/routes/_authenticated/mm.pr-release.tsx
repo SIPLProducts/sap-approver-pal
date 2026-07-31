@@ -124,8 +124,13 @@ function rowKey(r: Record<string, any>, idx: number) {
 }
 
 function PrReleasePage() {
+  const { plants: assignedPlants, activePlants } = useActiveContext();
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
+  const prKeys = useMemo(
+    () => releaseKeysFor(assignedPlants, "pr", activePlants),
+    [assignedPlants, activePlants],
+  );
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
