@@ -44,20 +44,23 @@ export function PlantMultiSelect({
   disabled,
   className,
   restrictToActive = true,
+  source = "default",
 }: Props) {
   const [open, setOpen] = useState(false);
-  const getCfg = useServerFn(getPlantConfig);
+  const getDefaultCfg = useServerFn(getPlantConfig);
+  const getUserCfg = useServerFn(getUserPlantConfig);
   const runApi = useServerFn(runSapApi);
   const { activePlants } = useActiveContext();
 
   const cfgQuery = useQuery({
-    queryKey: ["sap-plant-config"],
-    queryFn: () => getCfg(),
+    queryKey: ["sap-plant-config", source],
+    queryFn: () => (source === "user-plant" ? getUserCfg() : getDefaultCfg()),
     staleTime: 10 * 60 * 1000,
   });
 
   const configId = cfgQuery.data?.configId ?? null;
-  const plantField = cfgQuery.data?.plantField ?? "VKORG";
+  const plantField = cfgQuery.data?.plantField ?? (source === "user-plant" ? "WERKS" : "VKORG");
+
 
   const plantsQuery = useQuery({
     queryKey: ["sap-plants", configId],
