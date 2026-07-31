@@ -344,24 +344,15 @@ function PrReleasePage() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-[240px_240px_1fr_auto] items-end">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Release Group</Label>
-            <Input
-              value={releaseGroup}
-              onChange={(e) => setReleaseGroup(e.target.value)}
-              placeholder="Release group"
-              className="h-9 text-sm"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Release Code</Label>
-            <Input
-              value={releaseCode}
-              onChange={(e) => setReleaseCode(e.target.value)}
-              placeholder="Release code"
-              className="h-9 text-sm"
-            />
-          </div>
+          <ReleaseKeySelect
+            keys={prKeys}
+            group={releaseGroup}
+            code={releaseCode}
+            onGroupChange={setReleaseGroup}
+            onCodeChange={setReleaseCode}
+            disabled={mutation.isPending}
+          />
+
           <div />
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={mutation.isPending}>
