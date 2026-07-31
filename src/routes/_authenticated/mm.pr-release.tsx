@@ -18,6 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ReleaseKeySelect } from "@/components/mm/release-key-select";
+import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems } from "@/lib/mm/pr-release.functions";
 
 export const Route = createFileRoute("/_authenticated/mm/pr-release")({
@@ -122,8 +124,13 @@ function rowKey(r: Record<string, any>, idx: number) {
 }
 
 function PrReleasePage() {
+  const { plants: assignedPlants, activePlants } = useActiveContext();
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
+  const prKeys = useMemo(
+    () => releaseKeysFor(assignedPlants, "pr", activePlants),
+    [assignedPlants, activePlants],
+  );
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
@@ -344,24 +351,15 @@ function PrReleasePage() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-[240px_240px_1fr_auto] items-end">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Release Group</Label>
-            <Input
-              value={releaseGroup}
-              onChange={(e) => setReleaseGroup(e.target.value)}
-              placeholder="Release group"
-              className="h-9 text-sm"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Release Code</Label>
-            <Input
-              value={releaseCode}
-              onChange={(e) => setReleaseCode(e.target.value)}
-              placeholder="Release code"
-              className="h-9 text-sm"
-            />
-          </div>
+          <ReleaseKeySelect
+            keys={prKeys}
+            group={releaseGroup}
+            code={releaseCode}
+            onGroupChange={setReleaseGroup}
+            onCodeChange={setReleaseCode}
+            disabled={mutation.isPending}
+          />
+
           <div />
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={mutation.isPending}>

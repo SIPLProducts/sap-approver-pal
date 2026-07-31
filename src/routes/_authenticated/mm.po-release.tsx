@@ -26,7 +26,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
-import { useActiveContext } from "@/hooks/use-active-context";
+import { ReleaseKeySelect } from "@/components/mm/release-key-select";
+import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import {
   fetchPoGet,
   releasePoItems,
@@ -78,10 +79,14 @@ function rowKey(r: Record<string, any>, idx: number) {
 }
 
 function PoReleasePage() {
-  const { activePlants } = useActiveContext();
+  const { plants: assignedPlants, activePlants } = useActiveContext();
   const [plants, setPlants] = useState<string[]>(activePlants);
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
+  const poKeys = useMemo(
+    () => releaseKeysFor(assignedPlants, "po", plants),
+    [assignedPlants, plants],
+  );
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
@@ -358,24 +363,15 @@ function PoReleasePage() {
             </Label>
             <PlantMultiSelect value={plants} onChange={setPlants} />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Release Group</Label>
-            <Input
-              value={releaseGroup}
-              onChange={(e) => setReleaseGroup(e.target.value)}
-              placeholder="Release group"
-              className="h-9 text-sm"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Release Code</Label>
-            <Input
-              value={releaseCode}
-              onChange={(e) => setReleaseCode(e.target.value)}
-              placeholder="Release code"
-              className="h-9 text-sm"
-            />
-          </div>
+          <ReleaseKeySelect
+            keys={poKeys}
+            group={releaseGroup}
+            code={releaseCode}
+            onGroupChange={setReleaseGroup}
+            onCodeChange={setReleaseCode}
+            disabled={mutation.isPending}
+          />
+
           <div />
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={mutation.isPending}>

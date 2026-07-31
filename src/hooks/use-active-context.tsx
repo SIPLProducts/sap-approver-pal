@@ -1,11 +1,23 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSapProfile, type SapProfile, type SapProfilePlant } from "@/hooks/use-sap-profile";
+import {
+  useSapProfile,
+  type SapProfile,
+  type SapProfilePlant,
+  type SapReleaseKey,
+} from "@/hooks/use-sap-profile";
 import { useIsBuiltInAdmin } from "@/hooks/use-is-builtin-admin";
 import { ALL_SCREENS } from "@/lib/admin/screen-keys";
 
 export type ActiveRole = { kind: "sap"; value: string; label: string };
 
-export type AssignedPlant = { code: string; name?: string };
+export type AssignedPlant = {
+  code: string;
+  name?: string;
+  prKeys?: SapReleaseKey[];
+  poKeys?: SapReleaseKey[];
+  nfaKeys?: SapReleaseKey[];
+  sesKeys?: SapReleaseKey[];
+};
 export type AssignedRole = { kind: "sap"; value: string; label: string; activities: string[] };
 
 type ActiveCtx = {
@@ -75,8 +87,44 @@ function normRole(value: string) {
 }
 
 function plantFromProfile(p: SapProfilePlant): AssignedPlant {
-  return { code: p.code, name: p.name };
+  return {
+    code: p.code,
+    name: p.name,
+    prKeys: p.prKeys,
+    poKeys: p.poKeys,
+    nfaKeys: p.nfaKeys,
+    sesKeys: p.sesKeys,
+  };
 }
+
+export type ReleaseKeyKind = "pr" | "po" | "nfa" | "ses";
+
+/**
+ * Collects the release keys from the login profile for the given plant codes.
+ * Used by the Release Group / Release Code F4 helps on PR & PO Release.
+ */
+export function releaseKeysFor(
+  plants: AssignedPlant[],
+  kind: ReleaseKeyKind,
+  plantCodes: string[],
+): SapReleaseKey[] {
+  const wanted = new Set(plantCodes);
+  const field =
+    kind === "pr" ? "prKeys" : kind === "po" ? "poKeys" : kind === "nfa" ? "nfaKeys" : "sesKeys";
+  const out: SapReleaseKey[] = [];
+  const seen = new Set<string>();
+  for (const p of plants) {
+    if (wanted.size > 0 && !wanted.has(p.code)) continue;
+    for (const k of (p[field] ?? []) as SapReleaseKey[]) {
+      const dedupe = `${k.relGroup}\u0000${k.releaseCode}`;
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      out.push(k);
+    }
+  }
+  return out;
+}
+
 
 function buildBuiltInAdminProfile(): SapProfile {
   return {
