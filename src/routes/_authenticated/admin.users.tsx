@@ -626,10 +626,34 @@ function AssignmentDetailDialog({
  * ============================================================ */
 function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope: string; onEditRole?: (role: any) => void }) {
   const qc = useQueryClient();
+  const [permRole, setPermRole] = useState<any | null>(null);
   const { data: customRoles = [] } = useQuery({
     queryKey: ["admin-custom-roles"],
     queryFn: async () => (await supabase.from("custom_roles").select("*, user_custom_roles(count)").order("name")).data ?? [],
   });
+
+  const { data: allPerms = [] } = useQuery({
+    queryKey: ["admin-role-permissions-all"],
+    queryFn: async () =>
+      (await supabase.from("role_permissions").select("custom_role_id, screen_key")).data ?? [],
+  });
+
+  const screensByRole = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const p of allPerms as any[]) {
+      if (!p?.custom_role_id || !p?.screen_key) continue;
+      const list = map.get(p.custom_role_id) ?? [];
+      if (!list.includes(p.screen_key)) list.push(p.screen_key);
+      map.set(p.custom_role_id, list);
+    }
+    return map;
+  }, [allPerms]);
+
+  const screenLabels = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of SCREEN_GROUPS) for (const s of g.screens) m.set(s.key, s.label);
+    return m;
+  }, []);
 
   async function toggleActive(id: string, next: boolean) {
     const { error } = await supabase.from("custom_roles").update({ is_active: next }).eq("id", id);
@@ -651,6 +675,8 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
     qc.invalidateQueries({ queryKey: ["admin-custom-roles"] });
   }
 
+  const permScreens = permRole ? (screensByRole.get(permRole.id) ?? []) : [];
+
   return (
     <Card className="p-0 overflow-hidden">
       <div className="p-4 border-b">
@@ -663,11 +689,14 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
             <TableHead>Role Name</TableHead>
             <TableHead>Description</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Screen Permissions</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {customRoles.map((r: any) => (
+          {customRoles.map((r: any) => {
+            const count = screensByRole.get(r.id)?.length ?? 0;
+            return (
             <TableRow key={r.id}>
               <TableCell className="font-semibold">{r.name}</TableCell>
               <TableCell className="text-muted-foreground">{r.description || "—"}</TableCell>
@@ -676,6 +705,17 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
                   <Switch checked={!!r.is_active} onCheckedChange={(v) => toggleActive(r.id, v)} />
                   <Badge variant={r.is_active ? "default" : "outline"}>{r.is_active ? "Active" : "Inactive"}</Badge>
                 </div>
+              </TableCell>
+              <TableCell>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-md"
+                  disabled={count === 0}
+                  onClick={() => setPermRole(r)}
+                >
+                  <Shield className="h-3.5 w-3.5 mr-1.5" /> Screens ({count})
+                </Button>
               </TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex items-center gap-1">
@@ -688,16 +728,49 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
                 </div>
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
           {customRoles.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-muted-foreground py-8">No custom roles yet.</TableCell>
+              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No custom roles yet.</TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
 
+      <Dialog open={!!permRole} onOpenChange={(v) => { if (!v) setPermRole(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Screen Permissions – {permRole?.name}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">Screens this role can access.</p>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto pr-1">
+            {permScreens.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No screens assigned to this role</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {permScreens.map((k) => (
+                  <div key={k} className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3">
+                    <span className="text-sm text-muted-foreground">{screenLabels.get(k) ?? k}</span>
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPermRole(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </Card>
+
   );
 }
 
