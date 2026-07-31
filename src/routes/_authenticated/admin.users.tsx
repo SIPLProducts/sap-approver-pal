@@ -316,6 +316,8 @@ function UsersTab() {
   const [plantFilter, setPlantFilter] = useState<string>("all");
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [detail, setDetail] = useState<{ user: any; kind: "plants" | "roles" } | null>(null);
+
   const deleteFn = useServerFn(deleteUser);
   const roleFn = useServerFn(setBuiltInRole);
   const listFn = useServerFn(listUsersViaSap);
@@ -424,7 +426,8 @@ function UsersTab() {
                 <TableHead>Employee ID</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Plants</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead>Roles</TableHead>
+
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -458,29 +461,33 @@ function UsersTab() {
                     <TableCell className="text-sm text-muted-foreground font-mono">{u.user}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email || "—"}</TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[260px]">
-                        {u.plants.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                        {u.plants.map((p) => (
-                          <span key={p} className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-foreground/80">
-                            {p}
-                          </span>
-                        ))}
-                      </div>
+                      <Button
+                        size="sm"
+                        variant={u.plants.length > 0 ? "outline" : "ghost"}
+                        disabled={u.plants.length === 0}
+                        className="rounded-md"
+                        onClick={() => setDetail({ user: u, kind: "plants" })}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1.5" /> Plants ({u.plants.length})
+                      </Button>
                     </TableCell>
                     <TableCell>
-                      {pill ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${pill.cls}`}>
-                            {pill.label}
-                          </span>
-                          {pill.extra > 0 && (
-                            <span className="text-xs text-muted-foreground">+{pill.extra}</span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      {(() => {
+                        const count = (u.role_assignments?.length ?? 0) || u.roles.length;
+                        return (
+                          <Button
+                            size="sm"
+                            variant={count > 0 ? "outline" : "ghost"}
+                            disabled={count === 0}
+                            className="rounded-md"
+                            onClick={() => setDetail({ user: u, kind: "roles" })}
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1.5" /> Roles ({count})
+                          </Button>
+                        );
+                      })()}
                     </TableCell>
+
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button size="sm" variant="outline" onClick={() => { setEditingUser(u); setEditUserOpen(true); }}>
@@ -522,9 +529,96 @@ function UsersTab() {
         }}
         editUser={editingUser ?? undefined}
       />
+      <AssignmentDetailDialog detail={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }
+
+/* ============================================================
+ * PLANTS / ROLES DETAIL DIALOG
+ * ============================================================ */
+function AssignmentDetailDialog({
+  detail,
+  onClose,
+}: {
+  detail: { user: any; kind: "plants" | "roles" } | null;
+  onClose: () => void;
+}) {
+  const u = detail?.user;
+  const kind = detail?.kind ?? "plants";
+  const plants: string[] = u?.plants ?? [];
+  const assignments: { werks: string; role: string }[] = u?.role_assignments ?? [];
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const a of assignments) {
+      if (!a?.werks || !a?.role) continue;
+      const list = map.get(a.werks) ?? [];
+      if (!list.includes(a.role)) list.push(a.role);
+      map.set(a.werks, list);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [assignments]);
+
+  const flatRoles: string[] = u?.roles ?? [];
+
+  return (
+    <Dialog open={!!detail} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{kind === "plants" ? "Assigned Plants" : "Assigned Roles"}</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {u ? `${u.full_name || u.user} (${u.user})` : ""}
+          </p>
+        </DialogHeader>
+
+        <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
+          {kind === "plants" ? (
+            plants.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">No plants assigned</p>
+            ) : (
+              plants.map((p) => (
+                <div key={p} className="flex items-center justify-between rounded-lg border px-4 py-3">
+                  <span className="font-medium">{p}</span>
+                  <Check className="h-4 w-4 text-primary" />
+                </div>
+              ))
+            )
+          ) : grouped.length > 0 ? (
+            grouped.map(([plant, roles]) => (
+              <div key={plant} className="rounded-lg border overflow-hidden">
+                <div className="bg-muted/60 px-4 py-2.5 font-semibold">Plant {plant}</div>
+                <div className="divide-y">
+                  {roles.map((r) => (
+                    <div key={r} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                      <span className="text-sm">{r}</span>
+                      <Badge variant="outline" className="rounded-full font-normal">
+                        {plant}–{r}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : flatRoles.length > 0 ? (
+            <div className="flex flex-wrap gap-2 py-2">
+              {flatRoles.map((r) => (
+                <Badge key={r} variant="outline" className="rounded-full font-normal">{r}</Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-6 text-center">No roles assigned</p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 
 /* ============================================================

@@ -1,38 +1,29 @@
 ## Goal
 
-Make the Post button on MIGO Release send exactly the updated `MIGO_POST_API` payload shape. Response handling, SweetAlert display, reset-on-success, and all other screen behaviour stay as they are.
+In User & Role Management → Users tab, replace the inline Plants badges and the Role pill with two compact buttons per row: `Plants (n)` and `Roles (n)`. Clicking either opens a popup with the details, styled like the reference screenshots.
 
 ## What changes
 
-### 1. HEADER block (`postMigo` in `src/lib/mm/migo-release.functions.ts`)
+Single file: `src/routes/_authenticated/admin.users.tsx` (Users tab table + two new dialogs). No data-layer changes — `listUsersViaSap` already returns `plants: string[]`, `roles: string[]` and `role_assignments: { werks, role }[]` per user.
 
-Build the header explicitly with this fixed key set, in this order, instead of spreading whatever the fetch returned:
+### 1. Table cells
 
-`DOC_DATE, PSTNG_DATE, DELIV_NOTE, VENDOR_NAME, HEADER_TEXT, POST, GAT_NO, GAT_DATE, GIR_NO, GIR_DATE, VEHICLE_NO, INVOICE_NO, TRANSPORT_NO, ZINSP, ZNSP, ZMTSNR`
+- **Plants column** → outline button with an eye icon and label `Plants (n)`, where n = `u.plants.length`. When n = 0 the button is disabled and reads `Plants (0)`.
+- **Role column** → renamed header to `Roles`; outline button `Roles (n)`, where n = `u.role_assignments.length` (falling back to `u.roles.length` when SAP returns no plant-role pairs).
+- Matching the reference: the button for the currently-open/most-populated state uses the filled emerald style, others stay outline with hover highlight; rounded-md, small size, eye icon on the left.
 
-- Values come from the fetched header (case-insensitive key lookup), missing keys default to `""`.
-- `POST` is always `"X"`.
-- The ten custom fields (`GAT_NO` … `ZMTSNR`) are filled from the Custom Fields card when the user has run Check; empty strings otherwise.
+### 2. Plants popup
 
-To do that, the page (`src/routes/_authenticated/mm.migo-release.tsx`) passes the current `customFields` object along with `header` into the post mutation. No UI change.
+Dialog titled **Assigned Plants**, subtitle `{full name} ({employee id})`. Body lists each assigned plant code as a full-width bordered row with a check icon on the right, in the order returned (sorted). Footer has a single Close button. Empty state: "No plants assigned".
 
-### 2. DATA rows
+### 3. Roles popup
 
-Each selected row is normalised to exactly the documented item keys, in order:
+Dialog titled **Assigned Roles**, same subtitle. Body is a scrollable list of cards, one per plant (from `role_assignments`, grouped by `werks`, sorted): card header `Plant {code}`, then one row per role in that plant — role name on the left, badge `{plant}–{role}` on the right. Plants with no roles are skipped. If `role_assignments` is empty but `roles` exist, fall back to a single flat list of role badges. Footer Close button.
 
-`MAT_DOC, DOC_YEAR, MATDOC_ITM, MATERIAL, WARRANTY, OK, PLANT, DESCRIPTION, STGE_LOC, BATCH, MOVE_TYPE, STCK_TYPE, SPEC_STOCK, VENDOR, VENDOR_NAME, CUSTOMER, SALES_ORD, S_ORD_ITEM, SCHED_LINE, ENTRY_QNT, ENTRY_UOM, PO_PR_QNT, ORDERPR_UN, PO_NUMBER, PO_ITEM, ITEM_TEXT, PROFIT_CTR, CURRENCY, REF_DOC_YR, REF_DOC, REF_DOC_IT, CMMT_ITEM_LONG, LINE_ID`
+### 4. Unchanged
 
-Typing rules so SAP receives numbers where the sample shows numbers:
-
-- Numeric: `DOC_YEAR, MATDOC_ITM, S_ORD_ITEM, SCHED_LINE, ENTRY_QNT, PO_PR_QNT, PO_ITEM, REF_DOC_YR, REF_DOC_IT, LINE_ID` — coerced from the value, defaulting to `0`.
-- Everything else: string, defaulting to `""`.
-- User edits (STGE_LOC input, WARRANTY/OK checkboxes, STCK_TYPE dropdown) are merged in before normalisation, exactly as today.
-
-### 3. Unchanged
-
-- Validator still accepts `{ header, data }` (plus optional `custom`), proxy/direct dispatch, logging, and the existing response parsing that reads `type`/`message`/`mat_doc`/`doc_year` case-insensitively.
-- SweetAlert message format, success reset, and column ordering remain untouched.
+Search, plant filter, KPI tiles, Edit/Delete actions, Create/Edit dialogs, and all server functions stay exactly as they are.
 
 ## Technical notes
 
-Only two files are touched: `src/lib/mm/migo-release.functions.ts` (payload builders + optional `custom` input) and `src/routes/_authenticated/mm.migo-release.tsx` (pass `customFields` into the mutation call).
+Both dialogs are local components in the same file driven by one piece of state (`detail: { user, kind: "plants" | "roles" } | null`) so only one dialog instance exists. Uses existing shadcn `Dialog`, `Badge`, `Button`, and `ScrollArea` primitives plus lucide `Eye`/`Check` icons — no new dependencies.
