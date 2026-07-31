@@ -205,7 +205,7 @@ export function PlantSelect({
               </div>
             ) : plants.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">
-                No plants returned by Get_Plant. Check SAP API Settings.
+                No plants returned. Check SAP API Settings.
               </div>
             ) : (
               <>
