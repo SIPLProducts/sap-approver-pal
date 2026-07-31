@@ -6,6 +6,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+export type SapReleaseKey = { relGroup: string; releaseCode: string };
+
 export type SapProfilePayload = {
   user: string;
   firstName?: string;
@@ -17,6 +19,10 @@ export type SapProfilePayload = {
     code: string;
     name?: string;
     roles: Array<{ role: string; label?: string; activities: string[] }>;
+    prKeys?: SapReleaseKey[];
+    poKeys?: SapReleaseKey[];
+    nfaKeys?: SapReleaseKey[];
+    sesKeys?: SapReleaseKey[];
   }>;
 };
 
