@@ -249,6 +249,39 @@ export const Route = createFileRoute("/_authenticated/sd/bmw-status")({
   component: BmwStatusReportPage,
 });
 
+/**
+ * Split a yyyy-mm-dd range into ~1-month windows so each SAP call stays short
+ * enough to finish inside the gateway timeouts. Returns a single (unchanged)
+ * window when the range is empty, invalid, or shorter than one month.
+ */
+function splitDateRange(from: string, to: string): Array<{ from: string; to: string }> {
+  const single = [{ from, to }];
+  if (!from || !to) return single;
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return single;
+
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const out: Array<{ from: string; to: string }> = [];
+  let cursor = start;
+  while (cursor <= end && out.length < 60) {
+    const next = new Date(cursor);
+    next.setMonth(next.getMonth() + 1);
+    const chunkEnd = new Date(Math.min(next.getTime() - 86_400_000, end.getTime()));
+    out.push({ from: iso(cursor), to: iso(chunkEnd) });
+    cursor = new Date(chunkEnd.getTime() + 86_400_000);
+  }
+  return out.length > 1 ? out : single;
+}
+
+/** Turn raw gateway timeout statuses into an actionable message. */
+function friendlyFetchError(msg: string): string {
+  if (/\b(524|504|502|timed? ?out|timeout)\b/i.test(msg)) {
+    return "The SAP call exceeded the gateway timeout before returning data. Narrow the 'Contract/sales created' date range (or the customer range) and try again.";
+  }
+  return msg;
+}
+
 function BmwStatusReportPage() {
   const fetchFn = useServerFn(fetchBmwStatusReport);
 
@@ -264,6 +297,7 @@ function BmwStatusReportPage() {
   const [activeMode, setActiveMode] = useState<Mode>("customer");
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
   const [duplicatesRemoved, setDuplicatesRemoved] = useState(0);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Monotonic request id — a slower, older response can never overwrite the
   // result of a newer request (stale responses are dropped).
@@ -272,35 +306,91 @@ function BmwStatusReportPage() {
   const mutation = useMutation({
     mutationFn: async () => {
       const reqId = ++requestSeq.current;
-      const v: any = await fetchFn({
-        data: {
-          sales_org_from: salesOrgFrom.trim(),
-          sales_org_to: (salesOrgTo || salesOrgFrom).trim(),
-          customer_from: customerFrom.trim(),
-          customer_to: customerTo.trim(),
-          contract_from: contractFrom.trim(),
-          contract_to: contractTo.trim(),
-          mode,
-        },
-      });
-      return { ...v, __reqId: reqId };
+      const windows = splitDateRange(contractFrom.trim(), contractTo.trim());
+      setProgress(windows.length > 1 ? { done: 0, total: windows.length } : null);
+
+      const seen = new Set<string>();
+      const merged: BmwStatusRow[] = [];
+      let dupTotal = 0;
+      let resolvedMode: Mode = mode;
+      let lastErr: string | null = null;
+
+      for (let i = 0; i < windows.length; i++) {
+        const w = windows[i];
+        if (reqId !== requestSeq.current) return { __reqId: reqId, __stale: true };
+        let v: any;
+        try {
+          v = await fetchFn({
+            data: {
+              sales_org_from: salesOrgFrom.trim(),
+              sales_org_to: (salesOrgTo || salesOrgFrom).trim(),
+              customer_from: customerFrom.trim(),
+              customer_to: customerTo.trim(),
+              contract_from: w.from,
+              contract_to: w.to,
+              mode,
+            },
+          });
+        } catch (e) {
+          lastErr = friendlyFetchError((e as Error)?.message ?? "");
+          if (windows.length === 1) throw new Error(lastErr ?? "Failed to fetch report");
+          setProgress({ done: i + 1, total: windows.length });
+          continue;
+        }
+        if (reqId !== requestSeq.current) return { __reqId: reqId, __stale: true };
+
+        if (v?.error) lastErr = friendlyFetchError(String(v.error));
+        resolvedMode = (v?.mode as Mode) ?? mode;
+        dupTotal += typeof v?.duplicates_removed === "number" ? v.duplicates_removed : 0;
+
+        const chunk: BmwStatusRow[] = Array.isArray(v?.rows) ? v.rows : [];
+        for (const r of chunk) {
+          const key = JSON.stringify(r);
+          if (seen.has(key)) {
+            dupTotal += 1;
+            continue;
+          }
+          seen.add(key);
+          merged.push(r);
+        }
+
+        // Progressive render — show what has arrived so far.
+        setRows([...merged]);
+        setDuplicatesRemoved(dupTotal);
+        setActiveMode(resolvedMode);
+        setProgress(windows.length > 1 ? { done: i + 1, total: windows.length } : null);
+      }
+
+      return {
+        __reqId: reqId,
+        rows: merged,
+        duplicates_removed: dupTotal,
+        mode: resolvedMode,
+        fetched_at: new Date().toISOString(),
+        error: lastErr,
+        chunks: windows.length,
+      };
     },
+    onSettled: () => setProgress(null),
     onSuccess: (res: any) => {
-      if (res?.__reqId !== requestSeq.current) return; // stale response — ignore
+      if (res?.__reqId !== requestSeq.current || res?.__stale) return; // stale response — ignore
       const r = Array.isArray(res?.rows) ? (res.rows as BmwStatusRow[]) : [];
       const dup = typeof res?.duplicates_removed === "number" ? res.duplicates_removed : 0;
       setRows(r);
       setDuplicatesRemoved(dup);
       setActiveMode((res?.mode as Mode) ?? mode);
       setLastFetchedAt(res?.fetched_at ?? new Date().toISOString());
-      if (res?.error) toast.error(res.error);
-      else
+      if (res?.error && r.length === 0) toast.error(res.error);
+      else {
+        if (res?.error) toast.warning(res.error);
         toast.success(
           `Loaded ${r.length} record${r.length === 1 ? "" : "s"} from SAP` +
+            (res?.chunks > 1 ? ` in ${res.chunks} date windows` : "") +
             (dup > 0 ? ` (${dup} exact duplicate row${dup === 1 ? "" : "s"} removed)` : ""),
         );
+      }
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to fetch report"),
+    onError: (e: Error) => toast.error(friendlyFetchError(e.message ?? "") || "Failed to fetch report"),
   });
 
   function execute() {
@@ -312,6 +402,7 @@ function BmwStatusReportPage() {
     setActiveMode(mode);
     mutation.mutate();
   }
+
 
   function reset() {
     setSalesOrgFrom("");
@@ -432,7 +523,7 @@ function BmwStatusReportPage() {
             ) : (
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
             )}
-            Execute
+            {progress ? `Fetching… (${progress.done}/${progress.total})` : "Execute"}
           </Button>
         </div>
       </Card>
@@ -442,8 +533,14 @@ function BmwStatusReportPage() {
         countLabel={`(${rows.length}${duplicatesRemoved > 0 ? ` · ${duplicatesRemoved} dup removed` : ""})`}
         rows={rows}
         rowKey={(_r, i) => String(i)}
-        loading={mutation.isPending}
-        emptyMessage={mutation.isPending ? "Fetching…" : "No data. Set filters and click Execute."}
+        loading={mutation.isPending && rows.length === 0}
+        emptyMessage={
+          mutation.isPending
+            ? progress
+              ? `Fetching… window ${progress.done}/${progress.total}`
+              : "Fetching…"
+            : "No data. Set filters and click Execute."
+        }
         columns={buildDynamicColumns(rows)}
       />
     </div>

@@ -296,6 +296,21 @@ The `MIDDLEWARE_SHARED_SECRET` in the Lovable Cloud secret does not match the va
 
 The middleware host cannot reach the SAP network, or the SAP timeout is too low. Increase `SAP_REQUEST_TIMEOUT_MS` or verify routing from the server to SAP.
 
+### The app shows `SAP returned 524` (or 504) on long reports
+
+`524` is **not** a SAP error — it is a gateway timeout raised in front of the middleware. Long reports such as the **BMW Status Report** can run for several minutes; every hop between the app and the middleware must allow at least that long:
+
+| Hop | Setting | Required |
+|---|---|---|
+| Cloudflare (if the middleware hostname is proxied) | hard ~100 s cap, not configurable on Free/Pro | Set the middleware DNS record to **DNS only (grey cloud)**, or use a Cloudflare Tunnel / Enterprise timeout |
+| nginx | `proxy_read_timeout`, `proxy_send_timeout`, `send_timeout` | `300s` (already set in `nginx/middleware-*.conf`) |
+| middleware | `SAP_REQUEST_TIMEOUT_MS` | `300000` for large reports |
+
+An orange-clouded (proxied) hostname can never exceed ~100 s regardless of the nginx values, so that DNS change is mandatory when SAP needs longer. After editing the nginx config run `sudo nginx -t && sudo systemctl reload nginx`.
+
+In the app itself the BMW Status Report also splits large date ranges into monthly windows so each SAP call stays short — narrowing "Contract/sales created from/to" is the quickest workaround if a single window is still too slow.
+
+
 ### Containers fail to start
 
 Check the env files exist and contain no trailing spaces:
