@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/popover";
 import {
   Command,
-  CommandEmpty,
+  
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -88,8 +88,26 @@ export function CustomerSelect({
   onEnter: _onEnter,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const PAGE_SIZE = 50;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const getCfg = useServerFn(getCustomerConfig);
   const runApi = useServerFn(runSapApi);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    if (!open) {
+      setSearch("");
+      setDebouncedSearch("");
+      setVisibleCount(PAGE_SIZE);
+    }
+  }, [open]);
 
   const cfgQuery = useQuery({
     queryKey: ["sap-customer-config"],
@@ -102,7 +120,7 @@ export function CustomerSelect({
 
   const custQuery = useQuery({
     queryKey: ["sap-customers", configId, plantKey],
-    enabled: !!configId,
+    enabled: !!configId && open,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const inputs: Record<string, unknown> = {};
@@ -126,6 +144,37 @@ export function CustomerSelect({
       ? `${selectedOption.code} - ${selectedOption.text}`
       : value
     : "";
+
+  const hasQuery = debouncedSearch.length >= 1;
+  const filtered = useMemo(() => {
+    if (!hasQuery) return customers;
+    const q = debouncedSearch.toLowerCase();
+    return customers.filter(
+      (c) => c.code.toLowerCase().includes(q) || c.text.toLowerCase().includes(q),
+    );
+  }, [customers, debouncedSearch, hasQuery]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [debouncedSearch, customers]);
+
+  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = filtered.length > visibleCount;
+
+  useEffect(() => {
+    if (!hasMore || !loadMoreRef.current) return;
+    const el = loadMoreRef.current;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((c) => c + PAGE_SIZE);
+        }
+      },
+      { root: el.closest("[cmdk-list]") as Element | null, threshold: 0.1 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, visibleCount, filtered.length]);
 
   // Fallback to plain input when config is missing
   if (!cfgQuery.isLoading && !configId) {
@@ -172,8 +221,13 @@ export function CustomerSelect({
         sideOffset={6}
         avoidCollisions={false}
       >
-        <Command>
-          <CommandInput placeholder="Search customer…" className="h-9" />
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search customer…"
+            className="h-9"
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList className="max-h-[calc(60vh-3rem)]">
             {custQuery.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
@@ -193,11 +247,12 @@ export function CustomerSelect({
               <div className="px-3 py-4 text-xs text-muted-foreground">
                 No customers returned by Customer_Fetch_API.
               </div>
+            ) : filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground">No customer found.</div>
             ) : (
               <>
-                <CommandEmpty>No customer found.</CommandEmpty>
                 <CommandGroup>
-                  {customers.map((c) => (
+                  {visible.map((c) => (
                     <CommandItem
                       key={c.code}
                       value={`${c.code} ${c.text}`}
@@ -218,6 +273,17 @@ export function CustomerSelect({
                       )}
                     </CommandItem>
                   ))}
+                  {hasMore && (
+                    <CommandItem
+                      value="__load_more__"
+                      onSelect={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                      className="justify-center text-xs text-muted-foreground"
+                    >
+                      <div ref={loadMoreRef} className="w-full text-center">
+                        Load more (showing {visible.length} of {filtered.length})
+                      </div>
+                    </CommandItem>
+                  )}
                 </CommandGroup>
               </>
             )}
