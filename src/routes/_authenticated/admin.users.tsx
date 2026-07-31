@@ -402,6 +402,7 @@ function UsersTab() {
                   onChange={(v) => setPlantFilter(v ? v : "all")}
                   placeholder="All plants"
                   restrictToActive={false}
+                  source="user-plant"
                 />
 
               </div>
