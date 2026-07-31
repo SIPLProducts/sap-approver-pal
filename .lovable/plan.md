@@ -1,29 +1,32 @@
 ## Goal
 
-In User & Role Management → Users tab, replace the inline Plants badges and the Role pill with two compact buttons per row: `Plants (n)` and `Roles (n)`. Clicking either opens a popup with the details, styled like the reference screenshots.
+In User & Role Management → Custom Roles tab, add a new column after **Status** named **Screen Permissions**, showing a button like `Screens (15)`. Clicking it opens a popup listing all screens assigned to that role, styled like the reference.
 
 ## What changes
 
-Single file: `src/routes/_authenticated/admin.users.tsx` (Users tab table + two new dialogs). No data-layer changes — `listUsersViaSap` already returns `plants: string[]`, `roles: string[]` and `role_assignments: { werks, role }[]` per user.
+Single file: `src/routes/_authenticated/admin.users.tsx` (the `CustomRolesTab` component). No schema or server changes.
 
-### 1. Table cells
+### 1. Data
 
-- **Plants column** → outline button with an eye icon and label `Plants (n)`, where n = `u.plants.length`. When n = 0 the button is disabled and reads `Plants (0)`.
-- **Role column** → renamed header to `Roles`; outline button `Roles (n)`, where n = `u.role_assignments.length` (falling back to `u.roles.length` when SAP returns no plant-role pairs).
-- Matching the reference: the button for the currently-open/most-populated state uses the filled emerald style, others stay outline with hover highlight; rounded-md, small size, eye icon on the left.
+Add one query in `CustomRolesTab` that reads `role_permissions` (`custom_role_id, screen_key`) for all roles in one call, and builds a map `roleId → Set<screen_key>` (deduped, since a role can have several actions per screen). Counts and popup contents both come from this map. Existing `custom_roles` query and `handleEdit` stay untouched.
 
-### 2. Plants popup
+### 2. Table column
 
-Dialog titled **Assigned Plants**, subtitle `{full name} ({employee id})`. Body lists each assigned plant code as a full-width bordered row with a check icon on the right, in the order returned (sorted). Footer has a single Close button. Empty state: "No plants assigned".
+- New `<TableHead>Screen Permissions</TableHead>` between Status and Actions; empty-state `colSpan` bumped from 4 to 5.
+- Cell renders an outline button with a shield icon reading `Screens (n)`, rounded, small, hover highlight — matching the reference chip. Disabled and muted when `n = 0`.
 
-### 3. Roles popup
+### 3. Popup
 
-Dialog titled **Assigned Roles**, same subtitle. Body is a scrollable list of cards, one per plant (from `role_assignments`, grouped by `werks`, sorted): card header `Plant {code}`, then one row per role in that plant — role name on the left, badge `{plant}–{role}` on the right. Plants with no roles are skipped. If `role_assignments` is empty but `roles` exist, fall back to a single flat list of role badges. Footer Close button.
+Dialog opened by a local `permRole` state (the clicked role):
+- Header: shield icon + `Screen Permissions – {role name}`, subtitle "Assign or unassign screen access for this role." (read-only view here — no toggling, per "keep existing functionality unchanged"; editing still happens through the existing Edit dialog).
+- Body: scrollable, responsive grid (1 column on mobile, 2 on `sm`+) of bordered rounded rows. Each row shows the screen's friendly label from `SCREEN_GROUPS` (falls back to the raw key if unmapped) with a filled check-circle icon on the right.
+- Empty state: "No screens assigned to this role".
+- Close button in the footer plus the standard X.
 
 ### 4. Unchanged
 
-Search, plant filter, KPI tiles, Edit/Delete actions, Create/Edit dialogs, and all server functions stay exactly as they are.
+Add Role / Edit Role dialogs, active toggle, delete, Users tab, Role Permissions tab, and all queries/mutations stay exactly as they are.
 
 ## Technical notes
 
-Both dialogs are local components in the same file driven by one piece of state (`detail: { user, kind: "plants" | "roles" } | null`) so only one dialog instance exists. Uses existing shadcn `Dialog`, `Badge`, `Button`, and `ScrollArea` primitives plus lucide `Eye`/`Check` icons — no new dependencies.
+Uses existing shadcn `Dialog`, `Button`, `Badge` primitives and lucide `Shield` / `CheckCircle2` icons — no new dependencies. Label lookup reuses the existing `SCREEN_GROUPS` import already present in the file.
