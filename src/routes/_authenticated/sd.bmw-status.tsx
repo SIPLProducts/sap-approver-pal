@@ -333,7 +333,7 @@ function BmwStatusReportPage() {
           });
         } catch (e) {
           lastErr = friendlyFetchError((e as Error)?.message ?? "");
-          if (windows.length === 1) throw new Error(lastErr);
+          if (windows.length === 1) throw new Error(lastErr ?? "Failed to fetch report");
           setProgress({ done: i + 1, total: windows.length });
           continue;
         }
