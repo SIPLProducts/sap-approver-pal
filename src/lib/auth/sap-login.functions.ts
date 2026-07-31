@@ -112,7 +112,15 @@ function extractSapProfile(body: unknown): SapProfilePayload | undefined {
 
   const plantsRaw = asArray((found as any).PLANTS ?? (found as any).plants);
   type R = { role: string; label?: string; activities: string[] };
-  type P = { code: string; name?: string; roles: R[] };
+  type P = {
+    code: string;
+    name?: string;
+    roles: R[];
+    prKeys?: SapReleaseKey[];
+    poKeys?: SapReleaseKey[];
+    nfaKeys?: SapReleaseKey[];
+    sesKeys?: SapReleaseKey[];
+  };
   const plants: P[] = [];
   for (const p of plantsRaw) {
     const pr = (p && typeof p === "object" ? p : {}) as Record<string, unknown>;
@@ -134,8 +142,17 @@ function extractSapProfile(body: unknown): SapProfilePayload | undefined {
       const activities = collectActivityCodes(actsRaw ?? rr);
       roles.push({ role, label, activities: Array.from(new Set(activities)) });
     }
-    plants.push({ code, name, roles });
+    plants.push({
+      code,
+      name,
+      roles,
+      prKeys: collectReleaseKeys(pickValue(pr, "PR_KEYS")),
+      poKeys: collectReleaseKeys(pickValue(pr, "PO_KEYS")),
+      nfaKeys: collectReleaseKeys(pickValue(pr, "NFA_KEYS")),
+      sesKeys: collectReleaseKeys(pickValue(pr, "SES_KEYS")),
+    });
   }
+
 
   return {
     user: pickStr(found, "USER", "USERID", "USER_ID", "USERNAME") ?? "",
