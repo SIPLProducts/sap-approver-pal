@@ -529,9 +529,96 @@ function UsersTab() {
         }}
         editUser={editingUser ?? undefined}
       />
+      <AssignmentDetailDialog detail={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }
+
+/* ============================================================
+ * PLANTS / ROLES DETAIL DIALOG
+ * ============================================================ */
+function AssignmentDetailDialog({
+  detail,
+  onClose,
+}: {
+  detail: { user: any; kind: "plants" | "roles" } | null;
+  onClose: () => void;
+}) {
+  const u = detail?.user;
+  const kind = detail?.kind ?? "plants";
+  const plants: string[] = u?.plants ?? [];
+  const assignments: { werks: string; role: string }[] = u?.role_assignments ?? [];
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const a of assignments) {
+      if (!a?.werks || !a?.role) continue;
+      const list = map.get(a.werks) ?? [];
+      if (!list.includes(a.role)) list.push(a.role);
+      map.set(a.werks, list);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [assignments]);
+
+  const flatRoles: string[] = u?.roles ?? [];
+
+  return (
+    <Dialog open={!!detail} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{kind === "plants" ? "Assigned Plants" : "Assigned Roles"}</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {u ? `${u.full_name || u.user} (${u.user})` : ""}
+          </p>
+        </DialogHeader>
+
+        <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
+          {kind === "plants" ? (
+            plants.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">No plants assigned</p>
+            ) : (
+              plants.map((p) => (
+                <div key={p} className="flex items-center justify-between rounded-lg border px-4 py-3">
+                  <span className="font-medium">{p}</span>
+                  <Check className="h-4 w-4 text-primary" />
+                </div>
+              ))
+            )
+          ) : grouped.length > 0 ? (
+            grouped.map(([plant, roles]) => (
+              <div key={plant} className="rounded-lg border overflow-hidden">
+                <div className="bg-muted/60 px-4 py-2.5 font-semibold">Plant {plant}</div>
+                <div className="divide-y">
+                  {roles.map((r) => (
+                    <div key={r} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                      <span className="text-sm">{r}</span>
+                      <Badge variant="outline" className="rounded-full font-normal">
+                        {plant}–{r}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : flatRoles.length > 0 ? (
+            <div className="flex flex-wrap gap-2 py-2">
+              {flatRoles.map((r) => (
+                <Badge key={r} variant="outline" className="rounded-full font-normal">{r}</Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-6 text-center">No roles assigned</p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 
 /* ============================================================
