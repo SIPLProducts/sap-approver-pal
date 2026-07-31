@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSapProfile, type SapProfile, type SapProfilePlant } from "@/hooks/use-sap-profile";
+import {
+  useSapProfile,
+  type SapProfile,
+  type SapProfilePlant,
+  type SapReleaseKey,
+} from "@/hooks/use-sap-profile";
 import { useIsBuiltInAdmin } from "@/hooks/use-is-builtin-admin";
 import { ALL_SCREENS } from "@/lib/admin/screen-keys";
 
