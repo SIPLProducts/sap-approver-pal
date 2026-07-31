@@ -249,6 +249,39 @@ export const Route = createFileRoute("/_authenticated/sd/bmw-status")({
   component: BmwStatusReportPage,
 });
 
+/**
+ * Split a yyyy-mm-dd range into ~1-month windows so each SAP call stays short
+ * enough to finish inside the gateway timeouts. Returns a single (unchanged)
+ * window when the range is empty, invalid, or shorter than one month.
+ */
+function splitDateRange(from: string, to: string): Array<{ from: string; to: string }> {
+  const single = [{ from, to }];
+  if (!from || !to) return single;
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return single;
+
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const out: Array<{ from: string; to: string }> = [];
+  let cursor = start;
+  while (cursor <= end && out.length < 60) {
+    const next = new Date(cursor);
+    next.setMonth(next.getMonth() + 1);
+    const chunkEnd = new Date(Math.min(next.getTime() - 86_400_000, end.getTime()));
+    out.push({ from: iso(cursor), to: iso(chunkEnd) });
+    cursor = new Date(chunkEnd.getTime() + 86_400_000);
+  }
+  return out.length > 1 ? out : single;
+}
+
+/** Turn raw gateway timeout statuses into an actionable message. */
+function friendlyFetchError(msg: string): string {
+  if (/\b(524|504|502|timed? ?out|timeout)\b/i.test(msg)) {
+    return "The SAP call exceeded the gateway timeout before returning data. Narrow the 'Contract/sales created' date range (or the customer range) and try again.";
+  }
+  return msg;
+}
+
 function BmwStatusReportPage() {
   const fetchFn = useServerFn(fetchBmwStatusReport);
 
