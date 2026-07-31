@@ -1,12 +1,19 @@
 ## Goal
-In ZNFA Rating, the Rating column dropdown should use fixed values T1–T10 and NQ instead of the SAP F4 API.
+Make the Customer F4 dropdown (used by the BMW Status Report's "Customer From/To" fields) load in pages of 50 with infinite scroll, instead of rendering the entire SAP customer list at once. No UI or business-logic changes.
 
-## Changes (src/routes/_authenticated/mm.gate-process.tsx)
-- Add a module-level constant `RATING_OPTIONS = ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","NQ"]`.
-- Remove the `fetchZnfaRatingF4` import, the `ratingF4Fn` server-fn hook, and the `useQuery` that loads F4 options; drop the derived `ratingOptions` variable.
-- Point the Rate cell dropdown at `RATING_OPTIONS`, and remove the now-dead "no options → plain input" fallback. Read-only (non-editable) rendering stays exactly as-is, so the dropdown still only appears after a row is selected and Rating/Change is clicked.
+## Approach
+`Customer_Fetch_API` returns the full list in a single SAP call (no server-side paging parameter), so the win comes from two things — the same pattern already proven in the Search Term multi-select:
 
-Save, payload shape, and all other behavior stay unchanged.
+1. **Deferred fetch** — only call SAP when the dropdown is actually opened (`enabled: !!configId && open`), instead of on page load. This removes the heavy call from the BMW report's initial render.
+2. **Windowed rendering with infinite scroll** — keep only 50 rows mounted, and append the next 50 automatically as the user scrolls to the bottom of the list.
 
-## Not touched
-`fetchZnfaRatingF4` in `src/lib/mm/gate-process.functions.ts` is left in place (unused) unless you want it deleted too — say the word and I'll remove the server function as well.
+## Changes — `src/components/sap/customer-select.tsx`
+- Add `PAGE_SIZE = 50`, `visibleCount` state, and a `loadMoreRef` sentinel.
+- Gate the customers query on `open` so the SAP call happens on first open (result still cached 5 min per plant, so reopening is instant).
+- Add a debounced (250 ms) search value driven by `CommandInput`, with `Command shouldFilter={false}`, and filter matching on customer code and name. This replaces cmdk's built-in filtering, which currently walks every row on each keystroke.
+- Reset `visibleCount` to 50 whenever the search text or result set changes, and reset search + count when the popover closes.
+- Render `filtered.slice(0, visibleCount)`; when more remain, render a "Load more (showing X of Y)" row that is both clickable and observed by an `IntersectionObserver` rooted on the cmdk list, so scrolling to it auto-appends the next page.
+- Keep the existing trigger label, checkmark, loading/error/empty states, plain-input fallback when the config is missing, and the `onChange` contract exactly as-is.
+
+## Not changed
+`src/routes/_authenticated/sd.bmw-status.tsx`, `src/lib/sap/customer.functions.ts`, and the SAP middleware are untouched. Note the shared `CustomerSelect` is also used by the SD approval screens; they get the same speed-up with identical behavior.
