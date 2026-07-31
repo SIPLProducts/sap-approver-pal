@@ -426,7 +426,8 @@ function UsersTab() {
                 <TableHead>Employee ID</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Plants</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead>Roles</TableHead>
+
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
