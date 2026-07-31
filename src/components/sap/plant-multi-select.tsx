@@ -189,7 +189,9 @@ export function PlantMultiSelect({
               </div>
             ) : plants.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">
-                No plants returned by Get_Plant. Check SAP API Settings.
+                {fromContext
+                  ? "No plants selected in the top bar."
+                  : "No plants returned by Get_Plant. Check SAP API Settings."}
               </div>
             ) : (
               <>
