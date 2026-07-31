@@ -316,6 +316,8 @@ function UsersTab() {
   const [plantFilter, setPlantFilter] = useState<string>("all");
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [detail, setDetail] = useState<{ user: any; kind: "plants" | "roles" } | null>(null);
+
   const deleteFn = useServerFn(deleteUser);
   const roleFn = useServerFn(setBuiltInRole);
   const listFn = useServerFn(listUsersViaSap);
