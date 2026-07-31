@@ -533,7 +533,7 @@ function BmwStatusReportPage() {
         countLabel={`(${rows.length}${duplicatesRemoved > 0 ? ` · ${duplicatesRemoved} dup removed` : ""})`}
         rows={rows}
         rowKey={(_r, i) => String(i)}
-        loading={mutation.isPending}
+        loading={mutation.isPending && rows.length === 0}
         emptyMessage={
           mutation.isPending
             ? progress
