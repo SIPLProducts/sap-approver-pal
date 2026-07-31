@@ -523,7 +523,7 @@ function BmwStatusReportPage() {
             ) : (
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
             )}
-            Execute
+            {progress ? `Fetching… (${progress.done}/${progress.total})` : "Execute"}
           </Button>
         </div>
       </Card>
