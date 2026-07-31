@@ -221,8 +221,13 @@ export function CustomerSelect({
         sideOffset={6}
         avoidCollisions={false}
       >
-        <Command>
-          <CommandInput placeholder="Search customer…" className="h-9" />
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search customer…"
+            className="h-9"
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList className="max-h-[calc(60vh-3rem)]">
             {custQuery.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
@@ -242,11 +247,12 @@ export function CustomerSelect({
               <div className="px-3 py-4 text-xs text-muted-foreground">
                 No customers returned by Customer_Fetch_API.
               </div>
+            ) : filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground">No customer found.</div>
             ) : (
               <>
-                <CommandEmpty>No customer found.</CommandEmpty>
                 <CommandGroup>
-                  {customers.map((c) => (
+                  {visible.map((c) => (
                     <CommandItem
                       key={c.code}
                       value={`${c.code} ${c.text}`}
@@ -267,9 +273,22 @@ export function CustomerSelect({
                       )}
                     </CommandItem>
                   ))}
+                  {hasMore && (
+                    <CommandItem
+                      value="__load_more__"
+                      onSelect={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                      className="justify-center text-xs text-muted-foreground"
+                    >
+                      <div ref={loadMoreRef} className="w-full text-center">
+                        Load more (showing {visible.length} of {filtered.length})
+                      </div>
+                    </CommandItem>
+                  )}
                 </CommandGroup>
               </>
             )}
+          </CommandList>
+        </Command>
           </CommandList>
         </Command>
       </PopoverContent>
