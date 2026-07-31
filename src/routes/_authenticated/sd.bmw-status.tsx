@@ -534,7 +534,13 @@ function BmwStatusReportPage() {
         rows={rows}
         rowKey={(_r, i) => String(i)}
         loading={mutation.isPending}
-        emptyMessage={mutation.isPending ? "Fetching…" : "No data. Set filters and click Execute."}
+        emptyMessage={
+          mutation.isPending
+            ? progress
+              ? `Fetching… window ${progress.done}/${progress.total}`
+              : "Fetching…"
+            : "No data. Set filters and click Execute."
+        }
         columns={buildDynamicColumns(rows)}
       />
     </div>
