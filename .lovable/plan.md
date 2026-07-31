@@ -1,32 +1,22 @@
 ## Goal
 
-Release Group and Release Code on PR Release and PO Release become dropdowns (F4) populated from the `Login_API` response, filtered to the plant selected in the top bar — PR uses `PR_KEYS`, PO uses `PO_KEYS`. No SAP call, no change to execute/release/reject payloads or logic.
+On PO Release, the Plant dropdown should list exactly the plants selected in the top bar.
 
-## What I verified
+## Why it's empty today
 
-- `src/lib/auth/sap-login.functions.ts` currently parses only `USER`, name/email/status/contact and `PLANTS[].ROLES[].ACTIVITIES[]`. `PR_KEYS`, `PO_KEYS`, `NFA_KEYS`, `SES_KEYS` are dropped today.
-- The parsed profile is stored in `profiles.sap_profile` and in browser storage under `sap.profile` (`src/hooks/use-sap-profile.ts`), then exposed by `src/hooks/use-active-context.tsx` (`plants`, `activePlants`, `activePlant`).
-- Both screens today render plain text `Input`s for Release Group / Release Code (`mm.pr-release.tsx` ~lines 347-365, `mm.po-release.tsx` ~lines 360-378). PO already has a Plant multi-select seeded from `activePlants`; PR has no plant field.
+`PlantMultiSelect` builds its option list from the `Get_Plant` SAP API response and then *intersects* it with the top-bar `activePlants`. If `Get_Plant` returns codes that don't match the login profile's plant codes (or the config is missing/errors), the intersection is empty — so nothing shows, even though the top bar has plants selected. The top-bar plants themselves already come from the login response (`useActiveContext().plants` / `activePlants`) and need no API call.
 
-## Changes
+## Change
 
-1. **Capture the keys at login** (`src/lib/auth/sap-login.functions.ts`)
-   - In the plant loop, additionally read `PR_KEYS`, `PO_KEYS`, `NFA_KEYS`, `SES_KEYS`, each normalized to `{ relGroup, releaseCode }[]` (tolerant of casing/single-object shapes, same style as existing helpers). Empty arrays stay empty.
-   - Extend `SapProfilePayload.plants[]` with these four key lists.
+1. `src/components/sap/plant-multi-select.tsx`
+   - Add an opt-in source `source="active-context"` (existing `"default"` / `"user-plant"` behaviour untouched).
+   - In that mode, skip both SAP queries entirely and build options from `useActiveContext()`: one entry per `activePlants` code, using the matching `plants[].name` as the description.
+   - Keep everything else identical: search box, Select-all/Clear-all, checkbox toggling, pruning of selections outside the allowed set, and the comma-separated `Input` fallback is simply not needed in this mode.
 
-2. **Type + expose in the client profile**
-   - `src/hooks/use-sap-profile.ts`: add optional `prKeys`, `poKeys`, `nfaKeys`, `sesKeys` to `SapProfilePlant`.
-   - `src/hooks/use-active-context.tsx`: carry the key lists through `AssignedPlant`, and add a small helper `releaseKeysFor(kind, plantCodes)` returning the de-duplicated release groups and, for a chosen group, its release codes for those plants.
+2. `src/routes/_authenticated/mm.po-release.tsx`
+   - Pass `source="active-context"` to the `<PlantMultiSelect>` in the selection screen. No other logic changes — local `plants` state, the existing sync effect against `activePlants`, `releaseKeysFor(...)`, Execute/Reset, and the release/reject flows stay as-is.
 
-3. **Shared F4 component** — `src/components/mm/release-key-select.tsx`
-   - Two `Select` dropdowns (Release Group, Release Code) driven by the key list passed in. Release Group lists distinct `REL_GROUP` values (a blank `REL_GROUP`, as PR/NFA sometimes returns, is shown as an "(blank)" option that submits `""`). Release Code lists the codes belonging to the chosen group; changing group resets the code. If no keys exist for the plant, the dropdown shows "No keys assigned" and stays empty.
+## Scope notes
 
-4. **PR Release** (`src/routes/_authenticated/mm.pr-release.tsx`)
-   - Replace the two Inputs with the new component, sourcing `PR_KEYS` for the plants active in the top bar (`activePlants`; primary `activePlant` when a single plant is required). `releaseGroup` / `releaseCode` state, validation and mutation payloads are untouched.
-
-5. **PO Release** (`src/routes/_authenticated/mm.po-release.tsx`)
-   - Same replacement, sourcing `PO_KEYS` for the plants selected in the screen's existing Plant multi-select; when the plant selection changes, options refresh and any now-invalid group/code selection is cleared.
-
-## Note
-
-Key lists only exist in the profile after a fresh login, so a user already signed in must log out and back in once to see values.
+- PR Release and all other screens using `PlantMultiSelect` keep their current API-driven behaviour; only PO Release opts in. Say the word if you want PR Release switched too.
+- No backend, SQL, or server-function changes.
