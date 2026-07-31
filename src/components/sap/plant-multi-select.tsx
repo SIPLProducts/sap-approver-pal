@@ -19,7 +19,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { getPlantConfig } from "@/lib/sap/plant.functions";
+import { getPlantConfig, getUserPlantConfig } from "@/lib/sap/plant.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractPlantOptions } from "@/components/sap/plant-select";
 import { useActiveContext } from "@/hooks/use-active-context";
