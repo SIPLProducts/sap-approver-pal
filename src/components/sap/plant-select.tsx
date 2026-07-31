@@ -52,7 +52,7 @@ export function extractPlantOptions(resp: unknown, field: string): PlantOption[]
     }
   }
   const codeKeys = [field, "VKORG", "WERKS", "PLANT", "Plant", "Werks", "Vkorg", "plant", "werks", "vkorg"];
-  const textKeys = ["VTEXT", "Vtext", "vtext", "DESCRIPTION", "Description", "description", "TEXT", "Text", "text"];
+  const textKeys = ["VTEXT", "Vtext", "vtext", "NAME1", "Name1", "name1", "DESCRIPTION", "Description", "description", "TEXT", "Text", "text"];
   const map = new Map<string, string>();
   for (const row of rows) {
     if (row == null) continue;
