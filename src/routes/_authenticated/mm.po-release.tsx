@@ -79,10 +79,14 @@ function rowKey(r: Record<string, any>, idx: number) {
 }
 
 function PoReleasePage() {
-  const { activePlants } = useActiveContext();
+  const { plants: assignedPlants, activePlants } = useActiveContext();
   const [plants, setPlants] = useState<string[]>(activePlants);
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
+  const poKeys = useMemo(
+    () => releaseKeysFor(assignedPlants, "po", plants),
+    [assignedPlants, plants],
+  );
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
