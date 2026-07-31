@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import {
   UserPlus, Search, Trash2, Plus, ShieldCheck, Building2,
   UsersRound, UserCog, RefreshCw, Pencil, UserX, X,
-  Eye, EyeOff, Save, Check, ChevronDown,
+  Eye, EyeOff, Save, Check, ChevronDown, Shield, CheckCircle2,
 } from "lucide-react";
 import { createUserViaSap, deleteUser, setBuiltInRole, createCustomRoleViaSap, listUsersViaSap, editUserViaSap, editCustomRoleViaSap } from "@/lib/admin/user-mgmt.functions";
 import { PlantSelect } from "@/components/sap/plant-select";
