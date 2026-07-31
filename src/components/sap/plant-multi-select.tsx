@@ -54,9 +54,11 @@ export function PlantMultiSelect({
 
   const cfgQuery = useQuery({
     queryKey: ["sap-plant-config", source],
-    queryFn: () => (source === "user-plant" ? getUserCfg() : getDefaultCfg()),
+    queryFn: async (): Promise<{ configId: string | null; plantField: string }> =>
+      source === "user-plant" ? await getUserCfg() : await getDefaultCfg(),
     staleTime: 10 * 60 * 1000,
   });
+
 
   const configId = cfgQuery.data?.configId ?? null;
   const plantField = cfgQuery.data?.plantField ?? (source === "user-plant" ? "WERKS" : "VKORG");
