@@ -532,15 +532,6 @@ function GateProcessPage() {
                                 );
                               const renderRateCell = () => {
                                 if (!isEditable) return <span>{rt.RATE || "—"}</span>;
-                                if (ratingOptions.length === 0) {
-                                  return (
-                                    <Input
-                                      value={rt.RATE}
-                                      onChange={(e) => setField("RATE", e.target.value)}
-                                      className="h-8 text-xs"
-                                    />
-                                  );
-                                }
                                 return (
                                   <Select value={rt.RATE || undefined} onValueChange={(v) => setField("RATE", v)}>
                                     <SelectTrigger className="h-8 text-xs">
