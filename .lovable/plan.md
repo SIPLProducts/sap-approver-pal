@@ -1,19 +1,27 @@
 ## Goal
 
-In User Management → Create/Edit User, the Plant field's F4 list should come from the **GET_USER_PLANT** SAP API config (verified present and active in SAP API Settings) instead of the currently used **Get_Plant** config. All SD screens keep using Get_Plant unchanged.
+The plant filter above the Users table (User & Role Management → Users tab) currently loads its F4 list from the `Get_Plant` config. Switch it to the `GET_USER_PLANT` config (same source already used by the Create/Edit User dialog's Plant field), reading `WERKS` as the code and `NAME1` as the description.
 
-## What I'll change
+## Current state
 
-1. **New server function** (`src/lib/sap/plant.functions.ts`): add `getUserPlantConfig`, mirroring the existing `getPlantConfig` but looking up the config named `GET_USER_PLANT` and returning `plantField: "WERKS"`.
+- `src/routes/_authenticated/admin.users.tsx` (line ~400) renders `<PlantSelect ... restrictToActive={false} />` for `plantFilter`.
+- `PlantSelect` (`src/components/sap/plant-select.tsx`) hardcodes `getPlantConfig` (the `Get_Plant` config, field `VKORG`).
+- `getUserPlantConfig` already exists in `src/lib/sap/plant.functions.ts` and returns the `GET_USER_PLANT` config id with field `WERKS`.
+- `PlantMultiSelect` already supports a `source: "default" | "user-plant"` prop; `PlantSelect` does not.
 
-2. **Plant multi-select** (`src/components/sap/plant-multi-select.tsx`): add an opt-in prop (e.g. `source="user-plant"`, default stays the current behaviour) that makes the component resolve the GET_USER_PLANT config and call it with an empty payload `{}` — that config has no request fields defined in SAP API Settings, so nothing extra is sent.
+## Changes
 
-3. **Response parsing** (`src/components/sap/plant-select.tsx` → `extractPlantOptions`): add `NAME1` to the description key list so rows like `{ "WERKS": "0001", "NAME1": "Werk 0001" }` render as `0001 - Werk 0001`. `WERKS` is already recognised as a code key.
+1. **`src/components/sap/plant-select.tsx`**
+   - Add an optional `source?: "default" | "user-plant"` prop (default `"default"`), mirroring `PlantMultiSelect`.
+   - Resolve the config via `getUserPlantConfig` when `source === "user-plant"`, else `getPlantConfig`; default plant field `WERKS` vs `VKORG` accordingly.
+   - Include `source` in the config react-query key so the two lists cache separately.
+   - Make the empty-state message generic ("No plants returned. Check SAP API Settings.") instead of naming `Get_Plant`.
 
-4. **User dialog** (`src/routes/_authenticated/admin.users.tsx`): pass the new prop on the `PlantMultiSelect` inside the Create/Edit User dialog only. Existing selection, validation, and role-loading behaviour stay identical.
+2. **`src/routes/_authenticated/admin.users.tsx`**
+   - Pass `source="user-plant"` to the `PlantSelect` used for the Users-table plant filter.
 
-No changes to business logic, payload building for user create/update, or any other screen.
+No changes to filtering logic, payload shape (`inputs: {}`, as configured in SAP API Settings), or any other screen — all other `PlantSelect` usages keep the existing `Get_Plant` behaviour.
 
-## Note
+## Verification
 
-GET_USER_PLANT currently has no request fields configured, so the call goes out with an empty body. If it actually needs the logged-in user ID (e.g. `{ "BNAME": "<user>" }`), tell me and I'll include it.
+Open User & Role Management → Users tab, open the plant filter dropdown, confirm it lists `WERKS - NAME1` values from GET_USER_PLANT and that selecting one still filters the user rows.
