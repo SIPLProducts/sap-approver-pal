@@ -361,7 +361,7 @@ function PoReleasePage() {
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
-            <PlantMultiSelect value={plants} onChange={setPlants} source="active-context" />
+            <PlantMultiSelect value={plants} onChange={setPlants} />
           </div>
           <ReleaseKeySelect
             keys={poKeys}
