@@ -18,7 +18,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { getPlantConfig } from "@/lib/sap/plant.functions";
+import { getPlantConfig, getUserPlantConfig } from "@/lib/sap/plant.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
 
@@ -30,6 +30,8 @@ interface Props {
   className?: string;
   /** When true (default), restrict the option list to the plants selected in the top bar. */
   restrictToActive?: boolean;
+  /** Which SAP API config supplies the F4 list. "user-plant" uses GET_USER_PLANT. */
+  source?: "default" | "user-plant";
 }
 
 
@@ -86,20 +88,24 @@ export function PlantSelect({
   disabled,
   className,
   restrictToActive = true,
+  source = "default",
 }: Props) {
   const [open, setOpen] = useState(false);
-  const getCfg = useServerFn(getPlantConfig);
+  const getDefaultCfg = useServerFn(getPlantConfig);
+  const getUserCfg = useServerFn(getUserPlantConfig);
   const runApi = useServerFn(runSapApi);
   const { activePlants } = useActiveContext();
 
   const cfgQuery = useQuery({
-    queryKey: ["sap-plant-config"],
-    queryFn: () => getCfg(),
+    queryKey: ["sap-plant-config", source],
+    queryFn: async (): Promise<{ configId: string | null; plantField: string }> =>
+      source === "user-plant" ? await getUserCfg() : await getDefaultCfg(),
     staleTime: 10 * 60 * 1000,
   });
 
   const configId = cfgQuery.data?.configId ?? null;
-  const plantField = cfgQuery.data?.plantField ?? "VKORG";
+  const plantField =
+    cfgQuery.data?.plantField ?? (source === "user-plant" ? "WERKS" : "VKORG");
 
   const plantsQuery = useQuery({
     queryKey: ["sap-plants", configId],
@@ -199,7 +205,7 @@ export function PlantSelect({
               </div>
             ) : plants.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">
-                No plants returned by Get_Plant. Check SAP API Settings.
+                No plants returned. Check SAP API Settings.
               </div>
             ) : (
               <>
