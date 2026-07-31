@@ -32,8 +32,9 @@ interface Props {
   className?: string;
   /** When true (default), restrict the option list to the plants selected in the top bar. */
   restrictToActive?: boolean;
-  /** Which SAP API config supplies the F4 list. "user-plant" uses GET_USER_PLANT. */
-  source?: "default" | "user-plant";
+  /** Which SAP API config supplies the F4 list. "user-plant" uses GET_USER_PLANT.
+   *  "active-context" skips SAP and lists the plants selected in the top bar. */
+  source?: "default" | "user-plant" | "active-context";
 
 }
 
