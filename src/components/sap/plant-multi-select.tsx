@@ -80,8 +80,17 @@ export function PlantMultiSelect({
   );
   const plants = useMemo(() => {
     const list = plantsQuery.data ?? [];
-    return allowedSet ? list.filter((p) => allowedSet.has(p.code)) : list;
+    if (!allowedSet) return list;
+    const filtered = list.filter((p) => allowedSet.has(p.code));
+    // Active plants missing from the F4 list (different SAP field/config) must
+    // still be selectable, otherwise the dropdown looks empty.
+    const present = new Set(filtered.map((p) => p.code));
+    const extra = Array.from(allowedSet)
+      .filter((c) => !present.has(c))
+      .map((code) => ({ code, text: "" }));
+    return [...filtered, ...extra].sort((a, b) => a.code.localeCompare(b.code));
   }, [plantsQuery.data, allowedSet]);
+
   const selected = useMemo(() => new Set(value), [value]);
 
   // Drop any selected codes that fall outside the allowed set when it changes.
