@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Filter, Search, User2 } from "lucide-react";
+import { Filter, Search, User2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -33,6 +35,17 @@ const CREATION_ACTIONS = [
 
 const RELEASE_ACTIONS = ["Release", "Display", "Approved List"];
 
+const SCOPE_CATEGORIES = [
+  { id: "supply", label: "Supply" },
+  { id: "installation", label: "Installation" },
+  { id: "construction-all", label: "Construction works including all supplies" },
+  { id: "construction-fim", label: "Construction with FIM (Free issue Material)" },
+  { id: "supervision", label: "Supervision" },
+  { id: "commissioning", label: "Commissioning" },
+  { id: "service", label: "Service" },
+  { id: "arc", label: "ARC" },
+];
+
 type Buyer = { id: string; name: string; email: string; location: string };
 
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
@@ -47,6 +60,13 @@ function ZnfaReleasePage() {
   const [nfaTitle, setNfaTitle] = useState("");
   const [buyer, setBuyer] = useState<Buyer>(EMPTY_BUYER);
 
+  // Scope of Work state
+  const [scopeCategories, setScopeCategories] = useState<string[]>([]);
+  const [remarks, setRemarks] = useState("");
+  const [spendCategory, setSpendCategory] = useState("");
+  const [itemCategory, setItemCategory] = useState("");
+  const [purchasingGroup, setPurchasingGroup] = useState("");
+
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
   const showCreate = mode === "creation" && action === "Create";
 
@@ -55,6 +75,11 @@ function ZnfaReleasePage() {
     setRfqNumber("");
     setNfaTitle("");
     setBuyer(EMPTY_BUYER);
+    setScopeCategories([]);
+    setRemarks("");
+    setSpendCategory("");
+    setItemCategory("");
+    setPurchasingGroup("");
   }
 
   function onModeChange(v: string) {
@@ -81,6 +106,11 @@ function ZnfaReleasePage() {
     toast.info("Get Details will fetch buyer details once the SAP API is configured.");
   }
 
+  function toggleScopeCategory(value: string) {
+    setScopeCategories((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -141,81 +171,156 @@ function ZnfaReleasePage() {
       </Card>
 
       {showCreate && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <Card className="space-y-4 border border-border/60 p-5 shadow-card lg:col-span-2">
-            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
-              <Label className="text-sm font-medium">Type of NFA</Label>
-              <Select value={nfaType} onValueChange={setNfaType}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="No values available" />
-                </SelectTrigger>
-                <SelectContent />
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
-              <Label className="text-sm font-medium">RFQ Number</Label>
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  value={rfqNumber}
-                  onChange={(e) => setRfqNumber(e.target.value)}
-                  className="h-9 w-full max-w-[200px] text-sm"
-                  placeholder="RFQ Number"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  aria-label="RFQ Number F4 help"
-                  onClick={onRfqF4}
-                >
-                  <Search className="h-4 w-4" />
-                </Button>
-                <Button type="button" className="h-9 px-5" onClick={onGetDetails}>
-                  Get Details
-                </Button>
+        <>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+            <Card className="space-y-4 border border-border/60 p-5 shadow-card lg:col-span-2">
+              <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
+                <Label className="text-sm font-medium">Type of NFA</Label>
+                <Select value={nfaType} onValueChange={setNfaType}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="No values available" />
+                  </SelectTrigger>
+                  <SelectContent />
+                </Select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
-              <Label className="text-sm font-medium">NFA Title</Label>
-              <Input
-                value={nfaTitle}
-                onChange={(e) => setNfaTitle(e.target.value)}
-                className="h-9 text-sm"
-                placeholder="NFA Title"
-              />
-            </div>
-          </Card>
+              <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
+                <Label className="text-sm font-medium">RFQ Number</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    value={rfqNumber}
+                    onChange={(e) => setRfqNumber(e.target.value)}
+                    className="h-9 w-full max-w-[200px] text-sm"
+                    placeholder="RFQ Number"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    aria-label="RFQ Number F4 help"
+                    onClick={onRfqF4}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" className="h-9 px-5" onClick={onGetDetails}>
+                    Get Details
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
+                <Label className="text-sm font-medium">NFA Title</Label>
+                <Input
+                  value={nfaTitle}
+                  onChange={(e) => setNfaTitle(e.target.value)}
+                  className="h-9 text-sm"
+                  placeholder="NFA Title"
+                />
+              </div>
+            </Card>
+
+            <Card className="border border-border/60 p-5 shadow-card">
+              <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <User2 className="h-3.5 w-3.5" /> BUYER DETAILS
+              </div>
+              <div className="space-y-3">
+                {[
+                  { label: "Buyer Id", value: buyer.id },
+                  { label: "Name", value: buyer.name },
+                  { label: "E-Mail", value: buyer.email },
+                  { label: "Location", value: buyer.location },
+                ].map((f) => (
+                  <div
+                    key={f.label}
+                    className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[110px_1fr]"
+                  >
+                    <Label className="text-xs text-muted-foreground">{f.label}</Label>
+                    <Input
+                      readOnly
+                      value={f.value}
+                      className="h-9 bg-muted/60 text-sm"
+                      placeholder="—"
+                    />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
 
           <Card className="border border-border/60 p-5 shadow-card">
             <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <User2 className="h-3.5 w-3.5" /> BUYER DETAILS
+              <Wrench className="h-3.5 w-3.5" /> SCOPE OF WORK
             </div>
-            <div className="space-y-3">
-              {[
-                { label: "Buyer Id", value: buyer.id },
-                { label: "Name", value: buyer.name },
-                { label: "E-Mail", value: buyer.email },
-                { label: "Location", value: buyer.location },
-              ].map((f) => (
-                <div
-                  key={f.label}
-                  className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[110px_1fr]"
-                >
-                  <Label className="text-xs text-muted-foreground">{f.label}</Label>
-                  <Input
-                    readOnly
-                    value={f.value}
-                    className="h-9 bg-muted/60 text-sm"
-                    placeholder="—"
-                  />
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Scope Category</Label>
+                <div className="space-y-2">
+                  {SCOPE_CATEGORIES.map((category) => (
+                    <div key={category.id} className="flex items-start gap-2">
+                      <Checkbox
+                        id={`scope-${category.id}`}
+                        checked={scopeCategories.includes(category.label)}
+                        onCheckedChange={() => toggleScopeCategory(category.label)}
+                      />
+                      <Label
+                        htmlFor={`scope-${category.id}`}
+                        className="cursor-pointer text-sm font-normal leading-tight"
+                      >
+                        {category.label}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Remarks</Label>
+                <Textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={3}
+                  className="min-h-0 text-sm"
+                  placeholder="Enter remarks"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Purchase Type</Label>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
+                    <Label className="text-xs text-muted-foreground">Spend Category</Label>
+                    <Input
+                      value={spendCategory}
+                      onChange={(e) => setSpendCategory(e.target.value)}
+                      className="h-9 text-sm"
+                      placeholder="Spend Category"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
+                    <Label className="text-xs text-muted-foreground">Item Category</Label>
+                    <Input
+                      value={itemCategory}
+                      onChange={(e) => setItemCategory(e.target.value)}
+                      className="h-9 text-sm"
+                      placeholder="Item Category"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
+                    <Label className="text-xs text-muted-foreground">Purch. Group</Label>
+                    <Input
+                      value={purchasingGroup}
+                      onChange={(e) => setPurchasingGroup(e.target.value)}
+                      className="h-9 text-sm"
+                      placeholder="Purchasing Group"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </Card>
-        </div>
+        </>
       )}
     </div>
   );
