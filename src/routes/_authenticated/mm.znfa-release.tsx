@@ -56,8 +56,14 @@ const SCOPE_CATEGORIES = [
 
 type Buyer = { id: string; name: string; email: string; location: string };
 
-const PR_DETAIL_COLUMNS: { key: string; label: string; numeric?: boolean }[] = [
-  { key: "vendor", label: "Vendor Name/Vendor Code" },
+const PR_DETAIL_COLUMNS: {
+  key: string;
+  label: string;
+  numeric?: boolean;
+  divider?: boolean;
+}[] = [
+  { key: "vendor", label: "Vendor Name/Vendor Code", divider: true },
+
   { key: "check", label: "Check" },
   { key: "rfq_no", label: "RFQ No" },
   { key: "rfq_item", label: "RFQ Item" },
@@ -74,7 +80,52 @@ const PR_DETAIL_COLUMNS: { key: string; label: string; numeric?: boolean }[] = [
   { key: "total_value", label: "Total Value", numeric: true },
 ];
 
+function DetailsTableCard({ title, emptyText }: { title: string; emptyText: string }) {
+  return (
+    <Card className="border border-border/60 p-5 shadow-card">
+      <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <ListChecks className="h-3.5 w-3.5" /> {title}
+      </div>
+
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <span className="sr-only">Select</span>
+              </TableHead>
+              {PR_DETAIL_COLUMNS.map((c) => (
+                <TableHead
+                  key={c.key}
+                  className={cn(
+                    "whitespace-nowrap text-xs",
+                    c.numeric && "text-right",
+                    c.divider && "min-w-[320px] border-r border-border",
+                  )}
+                >
+                  {c.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell
+                colSpan={PR_DETAIL_COLUMNS.length + 1}
+                className="h-28 text-center text-sm text-muted-foreground"
+              >
+                {emptyText}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
+
 
 function ZnfaReleasePage() {
   const [mode, setMode] = useState<Mode>("creation");
@@ -347,41 +398,10 @@ function ZnfaReleasePage() {
             </div>
           </Card>
 
-          <Card className="border border-border/60 p-5 shadow-card">
-            <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <ListChecks className="h-3.5 w-3.5" /> PR DETAILS
-            </div>
+          <DetailsTableCard title="PR DETAILS" emptyText="No PR details yet — enter an RFQ Number and click Get Details." />
 
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <span className="sr-only">Select</span>
-                    </TableHead>
-                    {PR_DETAIL_COLUMNS.map((c) => (
-                      <TableHead
-                        key={c.key}
-                        className={cn("whitespace-nowrap text-xs", c.numeric && "text-right")}
-                      >
-                        {c.label}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell
-                      colSpan={PR_DETAIL_COLUMNS.length + 1}
-                      className="h-28 text-center text-sm text-muted-foreground"
-                    >
-                      No PR details yet — enter an RFQ Number and click Get Details.
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+          <DetailsTableCard title="RFQ DETAILS" emptyText="No RFQ details yet — enter an RFQ Number and click Get Details." />
+
         </>
       )}
     </div>
