@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Bell, BellOff } from "lucide-react";
+import { PageHeader } from "@/components/exec/page-header";
 
 export const Route = createFileRoute("/_authenticated/settings")({ component: SettingsPage });
 
@@ -44,11 +45,8 @@ function SettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Your SAP profile, contact details, and notification channels.</p>
-      </div>
+    <div className="page-shell page-stack max-w-2xl">
+      <PageHeader eyebrow="Account" title="Settings" subtitle="Your SAP profile, contact details, and notification channels." />
 
       <Card className="p-6 space-y-3">
         <div className="flex items-start justify-between gap-4">

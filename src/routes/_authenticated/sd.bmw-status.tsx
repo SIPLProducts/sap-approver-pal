@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Filter, RotateCcw, Loader2 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/exec/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -424,13 +425,8 @@ function BmwStatusReportPage() {
 
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">BMW Status Report</h1>
-        </div>
-      </div>
-
+    <div className="page-shell page-stack">
+      <PageHeader eyebrow="SD Reports" title="BMW Status Report" subtitle="Cross-reference customer, contract and sales order approval status in one view." />
 
       <Card className="p-4 space-y-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">

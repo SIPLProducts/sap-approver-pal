@@ -5,41 +5,28 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Check, X, Copy, ExternalLink } from "lucide-react";
+import { Copy, ExternalLink, Plug } from "lucide-react";
 import {
   getIntegrationStatus,
   testSapConnection,
   sendTestPush,
 } from "@/lib/admin/integrations.functions";
+import { PageHeader } from "@/components/exec/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SkeletonCards } from "@/components/ui/skeleton-rows";
 
 export const Route = createFileRoute("/_authenticated/admin/integrations")({
   component: IntegrationsPage,
 });
 
-function StatusDot({ ok }: { ok: boolean }) {
-  return ok ? (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-600">
-      <Check className="w-3 h-3" />
-    </span>
-  ) : (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-rose-500/15 text-rose-600">
-      <X className="w-3 h-3" />
-    </span>
-  );
-}
-
 function Row({ label, ok, hint }: { label: string; ok: boolean; hint?: string }) {
   return (
     <div className="flex items-center justify-between py-2 border-b last:border-0">
-      <div className="flex items-center gap-3">
-        <StatusDot ok={ok} />
-        <div>
-          <div className="text-sm font-medium">{label}</div>
-          {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
-        </div>
+      <div>
+        <div className="text-sm font-medium">{label}</div>
+        {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
       </div>
-      <Badge variant={ok ? "secondary" : "outline"}>{ok ? "Set" : "Missing"}</Badge>
+      <StatusBadge tone={ok ? "success" : "error"} label={ok ? "Set" : "Missing"} />
     </div>
   );
 }
@@ -82,21 +69,24 @@ function IntegrationsPage() {
     toast.success("Copied");
   }
 
-  if (isLoading || !data) {
-    return <Card className="p-8 text-center text-muted-foreground">Loading…</Card>;
-  }
-
   const cronUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/public/hooks/sap-sync`;
 
-  return (
-    <div className="max-w-3xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-        <p className="text-sm text-muted-foreground">
-          Configure SAP Gateway and Web Push. Secret values are entered in <b>View Backend → Secrets</b>;
-          this page only shows whether each one is present.
-        </p>
+  if (isLoading || !data) {
+    return (
+      <div className="page-shell page-stack max-w-3xl">
+        <PageHeader eyebrow="Admin" title="Integrations" subtitle="Configure SAP Gateway and Web Push." />
+        <SkeletonCards count={3} />
       </div>
+    );
+  }
+
+  return (
+    <div className="page-shell page-stack max-w-3xl">
+      <PageHeader
+        eyebrow="Admin"
+        title="Integrations"
+        subtitle={<>Configure SAP Gateway and Web Push. Secret values are entered in <b>View Backend → Secrets</b>; this page only shows whether each one is present.</>}
+      />
 
       {/* SAP */}
       <Card className="p-6 space-y-4">
@@ -108,9 +98,7 @@ function IntegrationsPage() {
               Otherwise the app uses mock data.
             </p>
           </div>
-          <Badge variant={data.sap.liveMode ? "secondary" : "outline"}>
-            {data.sap.liveMode ? "LIVE" : "MOCK"}
-          </Badge>
+          <StatusBadge tone={data.sap.liveMode ? "success" : "warning"} label={data.sap.liveMode ? "LIVE" : "MOCK"} />
         </div>
         <div className="rounded-md border p-4">
           <Row label="SAP_BASE_URL" ok={data.sap.baseUrlSet} hint="e.g. https://sap-gw.resustainability.in" />
@@ -145,7 +133,7 @@ function IntegrationsPage() {
             <div className="text-muted-foreground mb-1">Current public key (safe to share):</div>
             <div className="flex items-center gap-2">
               <code className="flex-1 truncate rounded bg-muted px-2 py-1">{data.push.publicKey}</code>
-              <Button size="sm" variant="ghost" onClick={() => copy(data.push.publicKey)}>
+              <Button size="sm" variant="ghost" onClick={() => copy(data.push.publicKey)} aria-label="Copy public key">
                 <Copy className="w-4 h-4" />
               </Button>
             </div>
@@ -176,7 +164,7 @@ function IntegrationsPage() {
           <div className="text-muted-foreground mb-1">Endpoint:</div>
           <div className="flex items-center gap-2">
             <code className="flex-1 truncate rounded bg-muted px-2 py-1">{cronUrl}</code>
-            <Button size="sm" variant="ghost" onClick={() => copy(cronUrl)}>
+            <Button size="sm" variant="ghost" onClick={() => copy(cronUrl)} aria-label="Copy cron endpoint URL">
               <Copy className="w-4 h-4" />
             </Button>
           </div>

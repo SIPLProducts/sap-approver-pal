@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, KeyboardEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Mail, Send, Eye, EyeOff, Info, X, Save } from "lucide-react";
+import { Mail, Send, Eye, EyeOff, Info, X, Save, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/exec/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SkeletonCards } from "@/components/ui/skeleton-rows";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
   getNoReplyEmailConfig,
@@ -148,12 +149,17 @@ function EmailConfigPage() {
   }
 
   if (perms.loading || loading) {
-    return <div className="min-h-[40vh] grid place-items-center text-muted-foreground">Loading…</div>;
+    return (
+      <div className="page-shell page-stack max-w-5xl">
+        <SkeletonCards count={1} />
+      </div>
+    );
   }
   if (!allowed) {
     return (
-      <div className="max-w-2xl">
+      <div className="page-shell max-w-2xl">
         <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
           <AlertDescription>You are not authorized to view this screen.</AlertDescription>
         </Alert>
       </div>
@@ -161,7 +167,7 @@ function EmailConfigPage() {
   }
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="page-shell page-stack max-w-5xl">
       <PageHeader
         eyebrow="Settings"
         title={

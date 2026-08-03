@@ -22,6 +22,8 @@ import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGateProcess, createZnfa, saveZnfa, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader } from "@/components/exec/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const RATING_OPTIONS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "NQ"];
 
@@ -73,6 +75,7 @@ function GateProcessPage() {
   const [ratings, setRatings] = useState<Record<number, RatingFields>>({});
   const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
+  const { confirm, confirmDialog } = useConfirm();
 
   const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
 
@@ -212,6 +215,11 @@ function GateProcessPage() {
       toast.error("User ID is required");
       return;
     }
+    void doSave();
+  }
+
+  async function doSave() {
+    if (lastAction !== "RATE" && lastAction !== "CHANGE") return;
     const itemsArr = Array.isArray(output?.ITEMS) ? output!.ITEMS!.map((it, idx) => {
       const f = items[idx];
       return {
@@ -231,6 +239,15 @@ function GateProcessPage() {
         RATE: f?.RATE ?? toStr(rt.RATE),
       };
     }) : [];
+    if (
+      !(await confirm({
+        title: "Save changes?",
+        description: "This posts the update to SAP and cannot be undone.",
+        confirmLabel: "Save",
+        destructive: false,
+      }))
+    )
+      return;
     saveMutation.mutate({
       action: lastAction,
       user_id: userId.trim(),
@@ -276,18 +293,16 @@ function GateProcessPage() {
 
   const hasResults = rows.length > 0 || output !== null;
 
-  const actionButtons: Array<{ label: string; action: ZnfaAction; className: string }> = [
-    { label: "Rating", action: "RATE", className: "bg-primary hover:bg-primary/90 text-primary-foreground" },
-    { label: "Change", action: "CHANGE", className: "bg-blue-600 hover:bg-blue-700 text-white" },
-    { label: "Display", action: "DISPLAY", className: "bg-amber-500 hover:bg-amber-600 text-white" },
-    { label: "Attachments", action: "ATTACHMENTS", className: "bg-green-600 hover:bg-green-700 text-white" },
+  const actionButtons: Array<{ label: string; action: ZnfaAction; variant: "default" | "outline" | "secondary" | "success" }> = [
+    { label: "Rating", action: "RATE", variant: "default" },
+    { label: "Change", action: "CHANGE", variant: "secondary" },
+    { label: "Display", action: "DISPLAY", variant: "outline" },
+    { label: "Attachments", action: "ATTACHMENTS", variant: "success" },
   ];
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">ZNFA Rating</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader eyebrow="MM Approvals" title="ZNFA Rating" subtitle="Rate, change and review ZNFA tender records." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -337,13 +352,13 @@ function GateProcessPage() {
             columns={buildDynamicColumns(rows)}
             headerExtras={
               <div className="flex items-center gap-2">
-                {actionButtons.map(({ label, action, className }) => (
+                {actionButtons.map(({ label, action, variant }) => (
                   <Button
                     key={action}
                     size="sm"
+                    variant={variant}
                     disabled={selected.size === 0 || createMutation.isPending}
                     onClick={() => handleAction(action)}
-                    className={className}
                   >
                     {createMutation.isPending && createMutation.variables?.action === action ? (
                       <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -359,9 +374,9 @@ function GateProcessPage() {
             <div className="flex justify-end">
               <Button
                 size="sm"
+                variant="success"
                 onClick={handleSave}
                 disabled={saveMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {saveMutation.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -571,6 +586,7 @@ function GateProcessPage() {
           )}
         </>
       )}
+      {confirmDialog}
     </div>
   );
 }

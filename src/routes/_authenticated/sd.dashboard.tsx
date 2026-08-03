@@ -40,6 +40,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KpiTile } from "@/components/exec/kpi-tile";
+import { PageHeader } from "@/components/exec/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { AlertCircle } from "lucide-react";
+
 import { useActiveContext } from "@/hooks/use-active-context";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
 import { cn } from "@/lib/utils";
@@ -53,7 +57,7 @@ const CHART_COLORS = [
   "hsl(210 90% 55%)",
   "hsl(145 65% 45%)",
   "hsl(38 92% 55%)",
-  "hsl(var(--destructive))",
+  "var(--destructive)",
   "hsl(262 80% 60%)",
   "hsl(190 85% 50%)",
   "hsl(24 90% 58%)",
@@ -64,7 +68,7 @@ const CHART_COLORS = [
 const STATUS_COLORS = {
   Approved: "hsl(145 65% 45%)",
   Pending: "hsl(38 92% 55%)",
-  Rejected: "hsl(var(--destructive))",
+  Rejected: "var(--destructive)",
   Other: "hsl(220 10% 60%)",
 } as const;
 
@@ -112,8 +116,8 @@ function relTime(ts: number | undefined): string {
 }
 
 const TOOLTIP_STYLE = {
-  background: "hsl(var(--card))",
-  border: "1px solid hsl(var(--border))",
+  background: "var(--card)",
+  border: "1px solid var(--border)",
   borderRadius: 10,
   fontSize: 12,
   boxShadow: "var(--shadow-elegant, 0 10px 30px -10px rgba(0,0,0,0.2))",
@@ -322,63 +326,56 @@ function SdDashboardPage() {
   const empty = !loading && hasContext && rows.length === 0;
 
   return (
-    <div className="space-y-6">
-      {/* Hero header */}
-      <header
-        className="relative overflow-hidden rounded-2xl border p-5 sm:p-6 shadow-card"
-        style={{
-          background:
-            "linear-gradient(135deg, hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.02) 55%, hsl(var(--card)))",
-        }}
-      >
-        <div
-          className="absolute inset-x-0 top-0 h-[3px]"
-          style={{ background: "var(--gradient-primary, hsl(var(--primary)))" }}
-        />
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              SD Approvals · Live analytics
-            </p>
-            <h1 className="mt-1.5 font-display text-2xl sm:text-3xl font-semibold tracking-tight">SD Dashboard</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
-              Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {hasContext && !loading && (
-              <Badge variant="secondary" className="text-xs h-7 font-mono">
-                {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
-              </Badge>
+    <div className="page-shell page-stack">
+      <PageHeader
+        eyebrow="SD Approvals · Live analytics"
+        title="SD Dashboard"
+        subtitle="Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report."
+        meta={
+          hasContext && !loading ? (
+            <Badge variant="secondary" className="text-xs h-7 font-mono">
+              {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
+            </Badge>
+          ) : undefined
+        }
+        actions={
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => query.refetch()}
+            disabled={loading || !hasContext}
+            className="h-8"
+          >
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => query.refetch()}
-              disabled={loading || !hasContext}
-              className="h-8"
-            >
-              {loading ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              Refresh
-            </Button>
-          </div>
-        </div>
-      </header>
+            Refresh
+          </Button>
+        }
+      />
 
       {!hasContext ? (
-        <Card className="p-10 text-center text-sm text-muted-foreground">
-          Select at least one plant from the top-bar plant selector to load the dashboard.
-        </Card>
+        <EmptyState
+          icon={<Building2 className="h-5 w-5" aria-hidden />}
+          title="Select a plant to continue"
+          description="Choose at least one plant from the top-bar plant selector to load the dashboard."
+        />
       ) : query.isError ? (
-        <Card className="p-8 text-center text-sm text-destructive">
-          Failed to load dashboard data. {(query.error as Error)?.message}
-        </Card>
+        <EmptyState
+          icon={<AlertCircle className="h-5 w-5 text-destructive" aria-hidden />}
+          title="Couldn't load dashboard data"
+          description={(query.error as Error)?.message ?? "The SAP request failed. Try refreshing."}
+          action={
+            <Button variant="outline" size="sm" onClick={() => query.refetch()}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
+            </Button>
+          }
+        />
       ) : loading && rows.length === 0 ? (
         <DashboardSkeleton />
+
       ) : (
         <>
           {/* KPI row */}
@@ -442,28 +439,28 @@ function SdDashboardPage() {
                 <BarChart data={stats.topCustomers} layout="vertical" margin={{ left: 8, right: 24 }}>
                   <defs>
                     <linearGradient id="grad-cust" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.95} />
+                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.95} />
                       <stop offset="100%" stopColor="hsl(210 90% 55%)" stopOpacity={0.95} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" opacity={0.5} />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" opacity={0.5} />
                   <XAxis
                     type="number"
                     tickFormatter={fmtCompact}
                     tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                   />
                   <YAxis
                     type="category"
                     dataKey="name"
                     width={150}
                     tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                   />
                   <Tooltip
                     formatter={(v: number) => fmtCompact(v)}
                     contentStyle={TOOLTIP_STYLE}
-                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+                    cursor={{ fill: "var(--muted)", opacity: 0.4 }}
                   />
                   <Bar dataKey="value" fill="url(#grad-cust)" radius={[0, 6, 6, 0]} />
                 </BarChart>
@@ -486,10 +483,10 @@ function SdDashboardPage() {
                     innerRadius="55%"
                     outerRadius="78%"
                     paddingAngle={3}
-                    stroke="hsl(var(--card))"
+                    stroke="var(--card)"
                     strokeWidth={2}
                     label={(e: any) => `${e.value}`}
-                    labelLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.5 }}
+                    labelLine={{ stroke: "var(--muted-foreground)", strokeOpacity: 0.5 }}
                   >
                     {stats.bpStatus.map((d, i) => (
                       <Cell key={i} fill={d.name === "Active" ? STATUS_COLORS.Approved : STATUS_COLORS.Rejected} />
@@ -513,9 +510,9 @@ function SdDashboardPage() {
             >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={stats.monthly} margin={{ left: 0, right: 12 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line
@@ -549,10 +546,10 @@ function SdDashboardPage() {
             >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.salesOrgData} margin={{ left: 0, right: 12 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
                   <Bar dataKey="count" radius={[8, 8, 0, 0]}>
                     {stats.salesOrgData.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
@@ -575,10 +572,10 @@ function SdDashboardPage() {
             >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.releaseData} margin={{ left: 0, right: 12 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="Approved" stackId="s" fill={STATUS_COLORS.Approved} radius={[0, 0, 0, 0]} />
                   <Bar dataKey="Pending" stackId="s" fill={STATUS_COLORS.Pending} />
@@ -604,7 +601,7 @@ function SdDashboardPage() {
                     innerRadius={60}
                     outerRadius={100}
                     paddingAngle={3}
-                    stroke="hsl(var(--card))"
+                    stroke="var(--card)"
                     strokeWidth={2}
                     label={(e: any) => `${e.name}: ${e.value}`}
                   >
@@ -636,21 +633,21 @@ function SdDashboardPage() {
                       <stop offset="100%" stopColor="hsl(24 90% 58%)" stopOpacity={0.9} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
                   <XAxis
                     dataKey="name"
                     tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                     interval={0}
                     angle={-20}
                     textAnchor="end"
                     height={50}
                   />
-                  <YAxis tickFormatter={fmtCompact} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis tickFormatter={fmtCompact} tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
                   <Tooltip
                     formatter={(v: number) => fmtCompact(v)}
                     contentStyle={TOOLTIP_STYLE}
-                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+                    cursor={{ fill: "var(--muted)", opacity: 0.4 }}
                   />
                   <Bar dataKey="value" fill="url(#grad-mat)" radius={[8, 8, 0, 0]} />
                 </BarChart>
@@ -715,7 +712,7 @@ function MicroTile({ label, value, icon }: { label: string; value: string; icon?
     <Card className="p-4 flex items-center gap-3 shadow-card">
       <div
         className="h-10 w-10 rounded-lg grid place-items-center text-primary"
-        style={{ background: "hsl(var(--primary) / 0.10)" }}
+        style={{ background: "color-mix(in oklab, var(--primary) 10%, transparent)" }}
       >
         {icon}
       </div>

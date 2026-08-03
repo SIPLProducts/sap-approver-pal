@@ -312,15 +312,16 @@ table tbody tr:hover td {
 
 /* Cloudscape Accept (primary) / Reject (normal) buttons in table header actions */
 .awsui-app-scope button[class*="awsui_variant-primary"] {
-  background-color: oklch(0.62 0.17 145) !important;
-  border-color: oklch(0.55 0.17 145) !important;
-  color: #fff !important;
+  background-color: var(--success) !important;
+  border-color: var(--success) !important;
+  color: var(--success-foreground) !important;
 }
 .awsui-app-scope button[class*="awsui_variant-primary"]:hover:not(:disabled),
 .awsui-app-scope button[class*="awsui_variant-primary"]:focus:not(:disabled) {
-  background-color: oklch(0.55 0.17 145) !important;
-  border-color: oklch(0.48 0.17 145) !important;
+  background-color: color-mix(in oklab, var(--success) 85%, black) !important;
+  border-color: color-mix(in oklab, var(--success) 85%, black) !important;
 }
+
 .awsui-app-scope button[class*="awsui_variant-normal"] {
   background-color: var(--destructive) !important;
   border-color: var(--destructive) !important;

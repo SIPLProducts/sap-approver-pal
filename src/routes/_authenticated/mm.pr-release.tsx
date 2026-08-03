@@ -21,6 +21,10 @@ import {
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems } from "@/lib/mm/pr-release.functions";
+import { PageHeader } from "@/components/exec/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { SkeletonRows } from "@/components/ui/skeleton-rows";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const Route = createFileRoute("/_authenticated/mm/pr-release")({
   component: PrReleasePage,
@@ -135,6 +139,7 @@ function PrReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const { confirm, confirmDialog } = useConfirm();
 
   const fetchFn = useServerFn(fetchPrReleaseMultiple);
   const mutation = useMutation({
@@ -271,11 +276,22 @@ function PrReleasePage() {
       }))
       .filter((it) => it.PREQ_NO && it.PREQ_ITEM);
     if (items.length === 0) return;
-    releaseMutation.mutate({
-      relgroup: releaseGroup.trim(),
-      relcode: releaseCode.trim(),
-      items,
-    });
+    void (async () => {
+      if (
+        !(await confirm({
+          title: `Release ${items.length} selected item(s)?`,
+          description: "This posts the release to SAP and cannot be undone.",
+          confirmLabel: "Release",
+          destructive: false,
+        }))
+      )
+        return;
+      releaseMutation.mutate({
+        relgroup: releaseGroup.trim(),
+        relcode: releaseCode.trim(),
+        items,
+      });
+    })();
   }
   const rejectFn = useServerFn(rejectPrItems);
   const rejectMutation = useMutation({
@@ -330,20 +346,28 @@ function PrReleasePage() {
       }))
       .filter((it) => it.PREQ_NO);
     if (items.length === 0) return;
-    rejectMutation.mutate({
-      relgroup: releaseGroup.trim(),
-      relcode: releaseCode.trim(),
-      items,
-    });
+    void (async () => {
+      if (
+        !(await confirm({
+          title: `Reject ${items.length} selected item(s)?`,
+          description: "This posts the rejection to SAP and cannot be undone.",
+          confirmLabel: "Reject",
+        }))
+      )
+        return;
+      rejectMutation.mutate({
+        relgroup: releaseGroup.trim(),
+        relcode: releaseCode.trim(),
+        items,
+      });
+    })();
   }
 
   const showResults = mutation.isSuccess || rows.length > 0;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">PR Release</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader eyebrow="MM Approvals" title="PR Release" subtitle="Release or reject pending purchase requisitions." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -388,15 +412,17 @@ function PrReleasePage() {
           Reject
         </Button>
         <Button
+          variant="success"
           size="sm"
           onClick={onRelease}
           disabled={selected.size === 0 || releaseMutation.isPending}
-          className="bg-green-600 hover:bg-green-700 text-white"
         >
           {releaseMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           Release
         </Button>
       </div>
+
+      {mutation.isPending && !showResults && <SkeletonRows columns={6} />}
 
       {showResults && (
         <Card className="p-4">
@@ -416,72 +442,76 @@ function PrReleasePage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                      onCheckedChange={(v) => toggleAll(v === true)}
-                      aria-label="Select all"
-                    />
-                  </TableHead>
-                  {columns.map((key) => (
-                    <TableHead key={key} className="whitespace-nowrap text-xs">
-                      {COLUMN_LABELS[key] ?? key}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRows.length === 0 ? (
+          {rows.length === 0 ? (
+            <EmptyState title="No data available" description="Run the selection above to load PR release items." />
+          ) : (
+            <div className="overflow-x-auto border rounded-md">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={columns.length + 1} className="text-center text-sm text-muted-foreground py-6">
-                      {rows.length === 0 ? "No data available." : "No results match your search."}
-                    </TableCell>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                        onCheckedChange={(v) => toggleAll(v === true)}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
+                    {columns.map((key) => (
+                      <TableHead key={key} className="whitespace-nowrap text-xs">
+                        {COLUMN_LABELS[key] ?? key}
+                      </TableHead>
+                    ))}
                   </TableRow>
-                ) : (
-                  filteredRows.map(({ r, i }) => {
-                    const k = rowKey(r, i);
-                    const checked = selected.has(k);
-                    return (
-                      <TableRow key={k} data-state={checked ? "selected" : undefined}>
-                        <TableCell>
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => toggleRow(k, v === true)}
-                            aria-label={`Select row ${i + 1}`}
-                          />
-                        </TableCell>
-                        {columns.map((key) => (
-                          <TableCell key={key} className="whitespace-nowrap text-xs">
-                            {key === "REMARKS" ? (
-                              <Input
-                                value={remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS))}
-                                onChange={(e) =>
-                                  setRemarks((prev) => ({ ...prev, [k]: e.target.value }))
-                                }
-                                placeholder="Remarks"
-                                className="h-8 text-xs min-w-[180px]"
-                              />
-                            ) : r[key] === null || r[key] === undefined || r[key] === "" ? (
-                              "-"
-                            ) : (
-                              String(r[key])
-                            )}
+                </TableHeader>
+                <TableBody>
+                  {filteredRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={columns.length + 1} className="text-center text-sm text-muted-foreground py-6">
+                        No results match your search.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRows.map(({ r, i }) => {
+                      const k = rowKey(r, i);
+                      const checked = selected.has(k);
+                      return (
+                        <TableRow key={k} data-state={checked ? "selected" : undefined}>
+                          <TableCell>
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => toggleRow(k, v === true)}
+                              aria-label={`Select row ${i + 1}`}
+                            />
                           </TableCell>
-                        ))}
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
+                          {columns.map((key) => (
+                            <TableCell key={key} className="whitespace-nowrap text-xs">
+                              {key === "REMARKS" ? (
+                                <Input
+                                  value={remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS))}
+                                  onChange={(e) =>
+                                    setRemarks((prev) => ({ ...prev, [k]: e.target.value }))
+                                  }
+                                  placeholder="Remarks"
+                                  className="h-8 text-xs min-w-[180px]"
+                                />
+                              ) : r[key] === null || r[key] === undefined || r[key] === "" ? (
+                                "-"
+                              ) : (
+                                String(r[key])
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </Card>
       )}
+      {confirmDialog}
     </div>
   );
 }

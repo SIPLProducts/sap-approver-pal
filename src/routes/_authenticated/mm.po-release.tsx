@@ -33,6 +33,11 @@ import {
   releasePoItems,
   rejectPoItems,
 } from "@/lib/mm/po-release.functions";
+import { PageHeader } from "@/components/exec/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { SkeletonRows } from "@/components/ui/skeleton-rows";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/po-release")({
   component: PoReleasePage,
@@ -91,6 +96,7 @@ function PoReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const { confirm, confirmDialog } = useConfirm();
   const [responseDialog, setResponseDialog] = useState<
     | {
         open: boolean;
@@ -267,11 +273,22 @@ function PoReleasePage() {
       }))
       .filter((it) => it.EBELN);
     if (items.length === 0) return;
-    releaseMutation.mutate({
-      relgroup: releaseGroup.trim(),
-      relcode: releaseCode.trim(),
-      items,
-    });
+    void (async () => {
+      if (
+        !(await confirm({
+          title: `Release ${items.length} selected item(s)?`,
+          description: "This posts the release to SAP and cannot be undone.",
+          confirmLabel: "Release",
+          destructive: false,
+        }))
+      )
+        return;
+      releaseMutation.mutate({
+        relgroup: releaseGroup.trim(),
+        relcode: releaseCode.trim(),
+        items,
+      });
+    })();
   }
 
   const rejectFn = useServerFn(rejectPoItems);
@@ -336,20 +353,28 @@ function PoReleasePage() {
       }))
       .filter((it) => it.EBELN);
     if (items.length === 0) return;
-    rejectMutation.mutate({
-      relgroup: releaseGroup.trim(),
-      relcode: releaseCode.trim(),
-      items,
-    });
+    void (async () => {
+      if (
+        !(await confirm({
+          title: `Reject ${items.length} selected item(s)?`,
+          description: "This posts the rejection to SAP and cannot be undone.",
+          confirmLabel: "Reject",
+        }))
+      )
+        return;
+      rejectMutation.mutate({
+        relgroup: releaseGroup.trim(),
+        relcode: releaseCode.trim(),
+        items,
+      });
+    })();
   }
 
   const showResults = mutation.isSuccess || rows.length > 0;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">PO Release</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader eyebrow="MM Approvals" title="PO Release" subtitle="Release or reject pending purchase orders." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -400,15 +425,17 @@ function PoReleasePage() {
           Reject
         </Button>
         <Button
+          variant="success"
           size="sm"
           onClick={onRelease}
           disabled={selected.size === 0 || releaseMutation.isPending}
-          className="bg-green-600 hover:bg-green-700 text-white"
         >
           {releaseMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           Release
         </Button>
       </div>
+
+      {mutation.isPending && !showResults && <SkeletonRows columns={6} />}
 
       {showResults && (
         <Card className="p-4">
@@ -428,75 +455,82 @@ function PoReleasePage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                      onCheckedChange={(v) => toggleAll(v === true)}
-                      aria-label="Select all"
-                    />
-                  </TableHead>
-                  {columns.map((key) => (
-                    <TableHead
-                      key={key}
-                      className={`whitespace-nowrap text-xs${NUMERIC_COLUMNS.has(key) ? " text-right" : ""}`}
-                    >
-                      {COLUMN_LABELS[key] ?? key}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRows.length === 0 ? (
+          {rows.length === 0 ? (
+            <EmptyState title="No data available" description="Run the selection above to load PO release items." />
+          ) : (
+            <div className="overflow-x-auto border rounded-md">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={columns.length + 1} className="text-center text-sm text-muted-foreground py-6">
-                      {rows.length === 0 ? "No data available." : "No results match your search."}
-                    </TableCell>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                        onCheckedChange={(v) => toggleAll(v === true)}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
+                    {columns.map((key) => (
+                      <TableHead
+                        key={key}
+                        className={cn("whitespace-nowrap text-xs", NUMERIC_COLUMNS.has(key) && "text-right")}
+                      >
+                        {COLUMN_LABELS[key] ?? key}
+                      </TableHead>
+                    ))}
                   </TableRow>
-                ) : (
-                  filteredRows.map(({ r, i }) => {
-                    const k = rowKey(r, i);
-                    const checked = selected.has(k);
-                    return (
-                      <TableRow key={k} data-state={checked ? "selected" : undefined}>
-                        <TableCell>
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => toggleRow(k, v === true)}
-                            aria-label={`Select row ${i + 1}`}
-                          />
-                        </TableCell>
-                        {columns.map((key) => (
-                          <TableCell
-                            key={key}
-                            className={`whitespace-nowrap text-xs${NUMERIC_COLUMNS.has(key) ? " text-right" : ""}`}
-                          >
-                            {key === "REMARKS" ? (
-                              <Input
-                                value={remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS))}
-                                onChange={(e) =>
-                                  setRemarks((prev) => ({ ...prev, [k]: e.target.value }))
-                                }
-                                placeholder="Remarks"
-                                className="h-8 text-xs min-w-[180px]"
-                              />
-                            ) : r[key] === null || r[key] === undefined || r[key] === "" ? (
-                              "-"
-                            ) : (
-                              String(r[key])
-                            )}
+                </TableHeader>
+                <TableBody>
+                  {filteredRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={columns.length + 1} className="text-center text-sm text-muted-foreground py-6">
+                        No results match your search.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRows.map(({ r, i }) => {
+                      const k = rowKey(r, i);
+                      const checked = selected.has(k);
+                      return (
+                        <TableRow key={k} data-state={checked ? "selected" : undefined}>
+                          <TableCell>
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => toggleRow(k, v === true)}
+                              aria-label={`Select row ${i + 1}`}
+                            />
                           </TableCell>
-                        ))}
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                          {columns.map((key) => (
+                            <TableCell
+                              key={key}
+                              className={cn(
+                                "whitespace-nowrap text-xs",
+                                NUMERIC_COLUMNS.has(key) && "text-right tabular-nums",
+                              )}
+                            >
+                              {key === "REMARKS" ? (
+                                <Input
+                                  value={remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS))}
+                                  onChange={(e) =>
+                                    setRemarks((prev) => ({ ...prev, [k]: e.target.value }))
+                                  }
+                                  placeholder="Remarks"
+                                  className="h-8 text-xs min-w-[180px]"
+                                />
+                              ) : r[key] === null || r[key] === undefined || r[key] === "" ? (
+                                "-"
+                              ) : (
+                                String(r[key])
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </Card>
       )}
 
@@ -526,7 +560,7 @@ function PoReleasePage() {
                         {r.ebeln}
                       </TableCell>
                       <TableCell
-                        className={`text-xs ${r.ok ? "text-green-700" : "text-destructive"}`}
+                        className={cn("text-xs", r.ok ? "text-success" : "text-destructive")}
                       >
                         {r.message || "-"}
                       </TableCell>
@@ -558,6 +592,7 @@ function PoReleasePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </div>
   );
 }

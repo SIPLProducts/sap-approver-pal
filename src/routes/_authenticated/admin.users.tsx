@@ -25,6 +25,11 @@ import {
   Eye, EyeOff, Save, Check, ChevronDown, Shield, CheckCircle2,
 } from "lucide-react";
 import { createUserViaSap, deleteUser, setBuiltInRole, createCustomRoleViaSap, listUsersViaSap, editUserViaSap, editCustomRoleViaSap } from "@/lib/admin/user-mgmt.functions";
+import { PageHeader } from "@/components/exec/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SkeletonRows } from "@/components/ui/skeleton-rows";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -129,20 +134,17 @@ function UserManagementPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="hidden sm:flex h-10 w-10 rounded-lg bg-primary/10 text-primary items-center justify-center mt-0.5">
-            <UserCog className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">User &amp; Role Management</h1>
-            <p className="text-sm text-muted-foreground">
-              Create user accounts, assign roles (from Role Management), and manage access
-            </p>
-          </div>
-        </div>
-        {tab === "users" ? (
+    <div className="page-shell page-stack">
+      <PageHeader
+        eyebrow="Admin"
+        title={
+          <span className="inline-flex items-center gap-2">
+            <UserCog className="h-6 w-6 text-primary" /> User &amp; Role Management
+          </span>
+        }
+        subtitle="Create user accounts, assign roles (from Role Management), and manage access"
+        actions={
+        tab === "users" ? (
           <div className="flex items-center gap-2 sm:flex-shrink-0">
             <CreateUserDialog open={inviteOpen} onOpenChange={setInviteOpen} onCreated={onUserCreated} />
             <Button onClick={() => setInviteOpen(true)}><UserPlus className="h-4 w-4 mr-2" /> Create User</Button>
@@ -259,7 +261,8 @@ function UserManagementPage() {
             </Select>
           </div>
         )}
-      </header>
+      />
+
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
@@ -312,6 +315,7 @@ function KpiTile({
  * ============================================================ */
 function UsersTab() {
   const qc = useQueryClient();
+  const { confirm, confirmDialog } = useConfirm();
   const [search, setSearch] = useState("");
   const [plantFilter, setPlantFilter] = useState<string>("all");
   const [editUserOpen, setEditUserOpen] = useState(false);
@@ -354,7 +358,11 @@ function UsersTab() {
   }, [users]);
 
   async function handleDelete(userId: string) {
-    if (!confirm(`Delete user ${userId} permanently?`)) return;
+    if (!(await confirm({
+      title: `Delete user ${userId} permanently?`,
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+    }))) return;
     try {
       await deleteFn({ data: { user_id: userId } });
       toast.success("User deleted");
@@ -435,8 +443,8 @@ function UsersTab() {
             <TableBody>
               {usersQuery.isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    Loading users from SAP…
+                  <TableCell colSpan={6} className="p-0">
+                    <div className="p-3"><SkeletonRows rows={5} columns={6} /></div>
                   </TableCell>
                 </TableRow>
               ) : usersQuery.isError ? (
@@ -510,8 +518,8 @@ function UsersTab() {
               })}
               {!usersQuery.isLoading && !usersQuery.isError && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    No users match the filters.
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState title="No users match the filters" description="Try clearing search or plant filters." />
                   </TableCell>
                 </TableRow>
               )}
@@ -531,6 +539,7 @@ function UsersTab() {
         editUser={editingUser ?? undefined}
       />
       <AssignmentDetailDialog detail={detail} onClose={() => setDetail(null)} />
+      {confirmDialog}
     </div>
   );
 }
@@ -627,6 +636,7 @@ function AssignmentDetailDialog({
  * ============================================================ */
 function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope: string; onEditRole?: (role: any) => void }) {
   const qc = useQueryClient();
+  const { confirm, confirmDialog } = useConfirm();
   const [permRole, setPermRole] = useState<any | null>(null);
   const { data: customRoles = [] } = useQuery({
     queryKey: ["admin-custom-roles"],
@@ -670,6 +680,11 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
 
   async function deleteRole(id: string, userCount: number) {
     if (userCount > 0) return toast.error("Unassign users from this role first");
+    if (!(await confirm({
+      title: "Delete this role?",
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+    }))) return;
     const { error } = await supabase.from("custom_roles").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Deleted");
@@ -704,7 +719,7 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
               <TableCell>
                 <div className="flex items-center gap-2">
                   <Switch checked={!!r.is_active} onCheckedChange={(v) => toggleActive(r.id, v)} />
-                  <Badge variant={r.is_active ? "default" : "outline"}>{r.is_active ? "Active" : "Inactive"}</Badge>
+                  <StatusBadge tone={r.is_active ? "success" : "neutral"} label={r.is_active ? "Active" : "Inactive"} />
                 </div>
               </TableCell>
               <TableCell>
@@ -723,7 +738,7 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
                   <Button size="icon" variant="ghost" onClick={() => handleEdit(r)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)}>
+                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteRole(r.id, r.user_custom_roles?.[0]?.count ?? 0)} aria-label={`Delete role ${r.name}`}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -769,7 +784,7 @@ function CustomRolesTab({ tenantScope: _tenantScope, onEditRole }: { tenantScope
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+      {confirmDialog}
     </Card>
 
   );

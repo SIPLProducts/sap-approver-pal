@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/material-reservation.functions";
+import { PageHeader } from "@/components/exec/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
   component: MaterialReservationPage,
@@ -71,6 +73,7 @@ function MaterialReservationPage() {
   const [rowStates, setRowStates] = useState<Map<string, RowState>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const hasResults = header !== null || rows.length > 0;
+  const { confirm, confirmDialog } = useConfirm();
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
@@ -142,6 +145,10 @@ function MaterialReservationPage() {
       toast.error("Select at least one row");
       return;
     }
+    void doSave();
+  }
+
+  async function doSave() {
     const items = rows
       .map((r, i) => ({ r, i, k: rowKey(r, i) }))
       .filter(({ k }) => selected.has(k))
@@ -167,7 +174,7 @@ function MaterialReservationPage() {
         };
       });
 
-    saveMutation.mutate({
+    const payload = {
       user_id: userId.trim(),
       header: {
         DOCUMENT_NUMBER: toStr(header?.DOCUMENT_NUMBER),
@@ -178,7 +185,18 @@ function MaterialReservationPage() {
         MATERIAL_TYPE: toStr(header?.MATERIAL_TYPE),
       },
       data: items,
-    });
+    };
+
+    if (
+      !(await confirm({
+        title: `Save ${items.length} selected item(s)?`,
+        description: "This posts the update to SAP and cannot be undone.",
+        confirmLabel: "Save",
+        destructive: false,
+      }))
+    )
+      return;
+    saveMutation.mutate(payload);
   }
 
   function execute() {
@@ -298,10 +316,8 @@ function MaterialReservationPage() {
   }, [rowStates, rows]);
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Material Reservation</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader eyebrow="MM Approvals" title="Material Reservation" subtitle="Review and approve material reservation requests." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -393,6 +409,7 @@ function MaterialReservationPage() {
           />
         </>
       )}
+      {confirmDialog}
     </div>
 
   );
