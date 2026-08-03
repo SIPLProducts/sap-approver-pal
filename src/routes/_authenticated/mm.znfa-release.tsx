@@ -33,21 +33,54 @@ const CREATION_ACTIONS = [
 
 const RELEASE_ACTIONS = ["Release", "Display", "Approved List"];
 
+type Buyer = { id: string; name: string; email: string; location: string };
+
+const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
+
 function ZnfaReleasePage() {
   const [mode, setMode] = useState<Mode>("creation");
   const [action, setAction] = useState<string | null>(null);
 
+  // Create form state (UI only for now)
+  const [nfaType, setNfaType] = useState("");
+  const [rfqNumber, setRfqNumber] = useState("");
+  const [nfaTitle, setNfaTitle] = useState("");
+  const [buyer, setBuyer] = useState<Buyer>(EMPTY_BUYER);
+
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
+  const showCreate = mode === "creation" && action === "Create";
+
+  function resetCreateForm() {
+    setNfaType("");
+    setRfqNumber("");
+    setNfaTitle("");
+    setBuyer(EMPTY_BUYER);
+  }
 
   function onModeChange(v: string) {
     setMode(v as Mode);
     setAction(null);
+    resetCreateForm();
   }
 
   function onAction(label: string) {
     setAction(label);
+    resetCreateForm();
     toast.info(`${label} selected`);
   }
+
+  function onRfqF4() {
+    toast.info("RFQ Number F4 help will be enabled once the SAP API is configured.");
+  }
+
+  function onGetDetails() {
+    if (!rfqNumber.trim()) {
+      toast.error("Enter an RFQ Number");
+      return;
+    }
+    toast.info("Get Details will fetch buyer details once the SAP API is configured.");
+  }
+
 
   return (
     <div className="space-y-5">
