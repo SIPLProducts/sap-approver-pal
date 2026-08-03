@@ -56,6 +56,24 @@ const SCOPE_CATEGORIES = [
 
 type Buyer = { id: string; name: string; email: string; location: string };
 
+const PR_DETAIL_COLUMNS: { key: string; label: string; numeric?: boolean }[] = [
+  { key: "vendor", label: "Vendor Name/Vendor Code" },
+  { key: "check", label: "Check" },
+  { key: "rfq_no", label: "RFQ No" },
+  { key: "rfq_item", label: "RFQ Item" },
+  { key: "plant", label: "Plant" },
+  { key: "material", label: "Material" },
+  { key: "item_text", label: "Item Text" },
+  { key: "qty", label: "Qty", numeric: true },
+  { key: "uom", label: "UOM" },
+  { key: "unit_rate", label: "Unit Rate", numeric: true },
+  { key: "currency", label: "Currency" },
+  { key: "basic_value", label: "Basic Value", numeric: true },
+  { key: "tax", label: "Tax", numeric: true },
+  { key: "tax_value", label: "Tax Value", numeric: true },
+  { key: "total_value", label: "Total Value", numeric: true },
+];
+
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 
 function ZnfaReleasePage() {
