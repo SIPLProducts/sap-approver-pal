@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Filter, Search, User2, Wrench } from "lucide-react";
+import { Filter, ListChecks, Search, User2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card } from "@/components/ui/card";
