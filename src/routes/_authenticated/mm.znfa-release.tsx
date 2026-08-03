@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Award, Filter, Info, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
+import { Award, Filter, Info, KeyRound, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/exec/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -24,9 +24,12 @@ import {
 import {
   Select,
   SelectContent,
+  SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
+import { useSapProfile } from "@/hooks/use-sap-profile";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/znfa-release")({
@@ -181,9 +184,30 @@ function ZnfaReleasePage() {
   const [approvedBudget, setApprovedBudget] = useState("");
   const [balanceBudget, setBalanceBudget] = useState("");
 
+  // Release / Approved List step state
+  const { plants: assignedPlants, activePlants } = useActiveContext();
+  const profile = useSapProfile();
+  const releaseId = profile?.user ?? "";
+  const nfaKeys = useMemo(
+    () => releaseKeysFor(assignedPlants, "nfa", activePlants),
+    [assignedPlants, activePlants.join(",")],
+  );
+  const releaseCodes = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const k of nfaKeys) {
+      if (!k.releaseCode || seen.has(k.releaseCode)) continue;
+      seen.add(k.releaseCode);
+      out.push(k.releaseCode);
+    }
+    return out.sort((a, b) => a.localeCompare(b));
+  }, [nfaKeys]);
+  const [releaseCode, setReleaseCode] = useState("");
+
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
   const showCreate =
     mode === "creation" && (action === "Create" || action === "Change");
+  const showReleaseStep = action === "Release" || action === "Approved List";
 
   function resetCreateForm() {
     setNfaType("");
@@ -200,6 +224,7 @@ function ZnfaReleasePage() {
     setAwardRemarks("");
     setApprovedBudget("");
     setBalanceBudget("");
+    setReleaseCode("");
   }
 
   function onModeChange(v: string) {
@@ -213,6 +238,17 @@ function ZnfaReleasePage() {
     resetCreateForm();
     toast.info(`${label} selected`);
   }
+
+  function onReleaseNext() {
+    if (!releaseCode) {
+      toast.error("Select a Release Code");
+      return;
+    }
+    toast.info(
+      `Release Code ${releaseCode} selected — the ZNFA list will load once the SAP API is configured.`,
+    );
+  }
+
 
   function onRfqF4() {
     toast.info("RFQ Number F4 help will be enabled once the SAP API is configured.");
@@ -306,6 +342,63 @@ function ZnfaReleasePage() {
           </div>
         </div>
       </Card>
+
+      {showReleaseStep && (
+        <Card className="border border-border/60 p-5 shadow-card">
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <KeyRound className="h-3.5 w-3.5" /> {action?.toUpperCase()}
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
+                <Label className="text-sm font-medium">Release Code</Label>
+                <Select
+                  value={releaseCodes.includes(releaseCode) ? releaseCode : ""}
+                  onValueChange={setReleaseCode}
+                  disabled={releaseCodes.length === 0}
+                >
+                  <SelectTrigger className="h-9 w-full max-w-[220px] text-sm">
+                    <SelectValue
+                      placeholder={
+                        releaseCodes.length === 0 ? "No keys assigned" : "Select code"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {releaseCodes.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
+                <Label className="text-sm font-medium">Release Id</Label>
+                <Input
+                  readOnly
+                  value={releaseId}
+                  className="h-9 w-full max-w-[220px] bg-muted/60 text-sm font-medium"
+                  placeholder="—"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              className="h-9 px-6 sm:self-end"
+              disabled={!releaseCode}
+              onClick={onReleaseNext}
+            >
+              Next
+            </Button>
+          </div>
+        </Card>
+      )}
+
+
 
       {showCreate && (
         <>
