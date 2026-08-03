@@ -343,6 +343,63 @@ function ZnfaReleasePage() {
         </div>
       </Card>
 
+      {showReleaseStep && (
+        <Card className="border border-border/60 p-5 shadow-card">
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <KeyRound className="h-3.5 w-3.5" /> {action?.toUpperCase()}
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
+                <Label className="text-sm font-medium">Release Code</Label>
+                <Select
+                  value={releaseCodes.includes(releaseCode) ? releaseCode : ""}
+                  onValueChange={setReleaseCode}
+                  disabled={releaseCodes.length === 0}
+                >
+                  <SelectTrigger className="h-9 w-full max-w-[220px] text-sm">
+                    <SelectValue
+                      placeholder={
+                        releaseCodes.length === 0 ? "No keys assigned" : "Select code"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {releaseCodes.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
+                <Label className="text-sm font-medium">Release Id</Label>
+                <Input
+                  readOnly
+                  value={releaseId}
+                  className="h-9 w-full max-w-[220px] bg-muted/60 text-sm font-medium"
+                  placeholder="—"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              className="h-9 px-6 sm:self-end"
+              disabled={!releaseCode}
+              onClick={onReleaseNext}
+            >
+              Next
+            </Button>
+          </div>
+        </Card>
+      )}
+
+
+
       {showCreate && (
         <>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
