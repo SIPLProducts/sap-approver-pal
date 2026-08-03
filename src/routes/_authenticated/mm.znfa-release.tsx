@@ -36,14 +36,14 @@ const CREATION_ACTIONS = [
 const RELEASE_ACTIONS = ["Release", "Display", "Approved List"];
 
 const SCOPE_CATEGORIES = [
-  "Supply",
-  "Installation",
-  "Construction works including all supplies",
-  "Construction with FIM (Free issue Material)",
-  "Supervision",
-  "Commissioning",
-  "Service",
-  "ARC",
+  { id: "supply", label: "Supply" },
+  { id: "installation", label: "Installation" },
+  { id: "construction-all", label: "Construction works including all supplies" },
+  { id: "construction-fim", label: "Construction with FIM (Free issue Material)" },
+  { id: "supervision", label: "Supervision" },
+  { id: "commissioning", label: "Commissioning" },
+  { id: "service", label: "Service" },
+  { id: "arc", label: "ARC" },
 ];
 
 type Buyer = { id: string; name: string; email: string; location: string };
