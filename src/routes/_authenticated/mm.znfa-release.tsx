@@ -370,21 +370,21 @@ function ZnfaReleasePage() {
               <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
                 <Label className="text-sm font-medium">Release Code</Label>
                 <Select
-                  value={releaseCodes.includes(releaseCode) ? releaseCode : ""}
-                  onValueChange={setReleaseCode}
-                  disabled={releaseCodes.length === 0}
+                  value={releaseKey}
+                  onValueChange={setReleaseKey}
+                  disabled={releaseKeyOptions.length === 0}
                 >
                   <SelectTrigger className="h-9 w-full max-w-[220px] text-sm">
                     <SelectValue
                       placeholder={
-                        releaseCodes.length === 0 ? "No keys assigned" : "Select code"
+                        releaseKeyOptions.length === 0 ? "No keys assigned" : "Select code"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {releaseCodes.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
+                    {releaseKeyOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {(o.relGroup || "(blank)") + " / " + o.releaseCode}
                       </SelectItem>
                     ))}
                   </SelectContent>
