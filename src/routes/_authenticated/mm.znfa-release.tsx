@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Award, Filter, Info, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
+import { Award, Filter, Info, KeyRound, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/exec/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
