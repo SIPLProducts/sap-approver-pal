@@ -1,40 +1,51 @@
-# Nginx config for the quality server at 10.150.150.130
+# Nginx config for the quality server — 10.150.150.130 on port 8081
 
-Rewrite the existing single-host quality config so it works on the IP address directly (no domain name, no TLS certificate), keeping the port mapping you gave.
+Deliver a single standalone Nginx config file plus a PDF copy. No files under
+`deploy/` or `docs/` are touched — the output goes straight to your downloads.
 
-## Routing
+## Routing (port 80 is not used at all)
 
 ```text
-http://10.150.150.130/            -> frontend app (SSR + its own /api/*) : 8081
-http://10.150.150.130/supabase/   -> Supabase API gateway (Kong)         : 8000
-http://10.150.150.130/studio/     -> Supabase Studio (basic auth)        : 3000
-http://10.150.150.130/mw/         -> SAP middleware                      : 3002
+http://10.150.150.130:8081/            -> frontend app (SSR + its own /api/*)
+http://10.150.150.130:8081/supabase/   -> Supabase API gateway (Kong)  : 8000
+http://10.150.150.130:8081/studio/     -> Supabase Studio (basic auth) : 3000
+http://10.150.150.130:8081/mw/         -> SAP middleware               : 3002
+http://10.150.150.130:8080/            -> optional alias, same routing
 ```
 
-Nginx listens on both port 80 and port 8080 with the same routing, so either
-`http://10.150.150.130/` or `http://10.150.150.130:8080/` works. Nothing runs on
-8080 itself, so there is no conflict.
+## One required change on the server
 
-The app process stays bound to 8081, so `http://10.150.150.130:8081/` keeps
-working directly (bypassing Nginx) exactly as it does today.
+Nginx itself takes port 8081, so the app process cannot also bind 8081. The app
+moves to an internal port `8082` (`PORT=8082` in its env / PM2 config) and Nginx
+proxies to `127.0.0.1:8082`. Users keep using `:8081` exactly as before.
 
+App env values become:
 
-## What changes
+- `VITE_SUPABASE_URL = http://10.150.150.130:8081/supabase`
+- `MIDDLEWARE_BASE_URL = http://10.150.150.130:8081/mw`
 
-- Update `deploy/quality/nginx/resl-approval-quality-single-host.conf`:
-  - `server_name 10.150.150.130;`, plain HTTP only — drop the HTTPS block, the
-    HTTP-to-HTTPS redirect and all TLS/HSTS lines.
-  - `listen 80;` plus `listen 8080;` in the same server block.
-  - Keep upstreams on 127.0.0.1 for 8081 / 8000 / 3000 / 3002, keep the 300s
-    timeouts, 50 MB body limit, Realtime websocket upgrade handling, asset and
-    PWA cache rules, and basic auth on `/studio/`.
-- Update the "single-host" section of `docs/deployment/10-nginx-quality-config.md`
-  with the IP-based values and the env settings the app needs:
-  - `VITE_SUPABASE_URL = http://10.150.150.130/supabase`
-  - middleware base URL `= http://10.150.150.130/mw`
-- Regenerate the PDF of just this config file so you have a downloadable copy.
+## What the config includes
+
+- Upstreams for app (8082), Kong (8000), Studio (3000), middleware (3002) with
+  keepalive.
+- Plain HTTP listener on 8081 (and 8080 alias), `server_name 10.150.150.130`.
+- 300s proxy/send/read timeouts on the app, Supabase and middleware paths so long
+  SAP calls don't get cut, 50 MB body limit for storage uploads.
+- Websocket upgrade handling for Supabase Realtime and Vite/HMR-style upgrades.
+- HTTP basic auth on `/studio/` (`/etc/nginx/.htpasswd-studio`).
+- Immutable caching for `/assets/`, no-cache for `sw.js` and the web manifest.
+- Security headers (no HSTS, since this listener is plain HTTP).
+- Header comment block with the exact install, `htpasswd`, `nginx -t` and reload
+  commands, plus optional IP allow-list lines for `/mw/`.
+
+## Deliverables
+
+- `resl-approval-quality-nginx.conf` — ready to copy to
+  `/etc/nginx/sites-available/` and symlink into `sites-enabled/`.
+- A PDF of the same config for sharing with the infra team, visually checked page
+  by page.
 
 ## Note
 
-Without TLS, session tokens travel in clear text. Fine for an internal quality
-box on a private network; add a certificate before anything user-facing.
+Without TLS, session tokens travel in clear text — acceptable on an internal
+quality box, but add a certificate before anything user-facing.
