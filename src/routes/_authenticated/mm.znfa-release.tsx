@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Filter, ListChecks, Search, User2, Wrench } from "lucide-react";
+import { Award, Filter, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card } from "@/components/ui/card";
@@ -171,6 +171,13 @@ function ZnfaReleasePage() {
   const [itemCategory, setItemCategory] = useState("");
   const [purchasingGroup, setPurchasingGroup] = useState("");
 
+  // Award & attachments state (UI only for now)
+  const [proposedToAward, setProposedToAward] = useState("");
+  const [proposedToAwardDetail, setProposedToAwardDetail] = useState("");
+  const [awardRemarks, setAwardRemarks] = useState("");
+  const [approvedBudget, setApprovedBudget] = useState("");
+  const [balanceBudget, setBalanceBudget] = useState("");
+
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
   const showCreate = mode === "creation" && action === "Create";
 
@@ -184,6 +191,11 @@ function ZnfaReleasePage() {
     setSpendCategory("");
     setItemCategory("");
     setPurchasingGroup("");
+    setProposedToAward("");
+    setProposedToAwardDetail("");
+    setAwardRemarks("");
+    setApprovedBudget("");
+    setBalanceBudget("");
   }
 
   function onModeChange(v: string) {
@@ -208,6 +220,10 @@ function ZnfaReleasePage() {
       return;
     }
     toast.info("Get Details will fetch buyer details once the SAP API is configured.");
+  }
+
+  function onDisplayAttachments() {
+    toast.info("Attachments will be available once the SAP API is configured.");
   }
 
   function toggleScopeCategory(value: string) {
@@ -435,8 +451,126 @@ function ZnfaReleasePage() {
             emptyText="No recommendation data yet — enter an RFQ Number and click Get Details."
           />
 
+          <Card className="border border-border/60 p-5 shadow-card">
+            <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Award className="h-3.5 w-3.5" /> AWARD &amp; ATTACHMENTS
+            </div>
 
+            <div className="mb-6 grid grid-cols-1 items-start gap-3 sm:grid-cols-[160px_1fr]">
+              <Label className="text-sm font-medium sm:pt-2">Proposed to award</Label>
+              <div className="space-y-2">
+                <Input
+                  value={proposedToAward}
+                  onChange={(e) => setProposedToAward(e.target.value)}
+                  className="h-9 max-w-md text-sm"
+                  placeholder="Proposed to award"
+                />
+                <Input
+                  value={proposedToAwardDetail}
+                  onChange={(e) => setProposedToAwardDetail(e.target.value)}
+                  className="h-9 text-sm"
+                  placeholder="Additional details"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">NFA Texts</Label>
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap text-xs">NFA Texts</TableHead>
+                        <TableHead className="whitespace-nowrap text-xs">T&amp;C</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell colSpan={2} className="h-28 text-center text-sm text-muted-foreground">
+                          No NFA texts yet.
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Remarks</Label>
+                <Textarea
+                  value={awardRemarks}
+                  onChange={(e) => setAwardRemarks(e.target.value)}
+                  rows={8}
+                  className="text-sm"
+                  placeholder="Enter remarks"
+                />
+              </div>
+
+              <div className="space-y-5">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Budget</Label>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[130px_1fr]">
+                      <Label className="text-xs text-muted-foreground">Approved Budget</Label>
+                      <Input
+                        value={approvedBudget}
+                        onChange={(e) => setApprovedBudget(e.target.value)}
+                        inputMode="decimal"
+                        className="h-9 text-right text-sm"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[130px_1fr]">
+                      <Label className="text-xs text-muted-foreground">Balance Budget</Label>
+                      <Input
+                        readOnly
+                        value={balanceBudget}
+                        className="h-9 bg-muted/60 text-right text-sm"
+                        placeholder="—"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="flex items-center gap-2 text-sm font-medium">
+                      <Paperclip className="h-3.5 w-3.5" /> Attachments List
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-8 px-4"
+                      onClick={onDisplayAttachments}
+                    >
+                      Display
+                    </Button>
+                  </div>
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-10 text-xs">CB</TableHead>
+                          <TableHead className="whitespace-nowrap text-xs">Vendor</TableHead>
+                          <TableHead className="whitespace-nowrap text-xs">Name</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
+                            No attachments yet.
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
         </>
+
       )}
     </div>
   );
