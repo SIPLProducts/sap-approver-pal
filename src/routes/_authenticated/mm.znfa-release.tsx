@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Filter, ListChecks, Search, User2, Wrench } from "lucide-react";
+import { Award, Filter, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card } from "@/components/ui/card";
@@ -170,6 +170,13 @@ function ZnfaReleasePage() {
   const [spendCategory, setSpendCategory] = useState("");
   const [itemCategory, setItemCategory] = useState("");
   const [purchasingGroup, setPurchasingGroup] = useState("");
+
+  // Award & attachments state (UI only for now)
+  const [proposedToAward, setProposedToAward] = useState("");
+  const [proposedToAwardDetail, setProposedToAwardDetail] = useState("");
+  const [awardRemarks, setAwardRemarks] = useState("");
+  const [approvedBudget, setApprovedBudget] = useState("");
+  const [balanceBudget, setBalanceBudget] = useState("");
 
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
   const showCreate = mode === "creation" && action === "Create";
