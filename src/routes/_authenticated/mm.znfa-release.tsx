@@ -261,7 +261,7 @@ function ZnfaReleasePage() {
       return;
     }
     toast.info(
-      `Release Code ${releaseCode} selected — the ZNFA list will load once the SAP API is configured.`,
+      `Release Code ${releaseGroup ? `${releaseGroup} / ` : ""}${releaseCode} selected — the ZNFA list will load once the SAP API is configured.`,
     );
   }
 
