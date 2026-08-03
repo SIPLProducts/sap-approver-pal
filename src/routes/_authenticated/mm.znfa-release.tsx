@@ -240,7 +240,7 @@ function ZnfaReleasePage() {
     setAwardRemarks("");
     setApprovedBudget("");
     setBalanceBudget("");
-    setReleaseCode("");
+    setReleaseKey("");
   }
 
   function onModeChange(v: string) {
