@@ -258,17 +258,17 @@ function ZnfaReleasePage() {
                 <Label className="text-sm font-medium">Scope Category</Label>
                 <div className="space-y-2">
                   {SCOPE_CATEGORIES.map((category) => (
-                    <div key={category} className="flex items-start gap-2">
+                    <div key={category.id} className="flex items-start gap-2">
                       <Checkbox
-                        id={`scope-${category}`}
-                        checked={scopeCategories.includes(category)}
-                        onCheckedChange={() => toggleScopeCategory(category)}
+                        id={`scope-${category.id}`}
+                        checked={scopeCategories.includes(category.label)}
+                        onCheckedChange={() => toggleScopeCategory(category.label)}
                       />
                       <Label
-                        htmlFor={`scope-${category}`}
+                        htmlFor={`scope-${category.id}`}
                         className="cursor-pointer text-sm font-normal leading-tight"
                       >
-                        {category}
+                        {category.label}
                       </Label>
                     </div>
                   ))}
