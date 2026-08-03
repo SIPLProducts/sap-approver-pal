@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Filter, RotateCcw, Loader2, ArrowLeft } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/exec/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -105,13 +106,17 @@ function SalesOrderReportsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={() => navigate({ to: "/sd/sales-order" })} aria-label="Back to Sales Order Approvals">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Sales Order Approval Reports</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader
+        eyebrow="SD Reports"
+        title="Sales Order Approval Reports"
+        subtitle="Read-only view of pending sales order approval records for reporting and export."
+        actions={
+          <Button variant="outline" size="icon" onClick={() => navigate({ to: "/sd/sales-order" })} aria-label="Back to Sales Order Approvals">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        }
+      />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Award, Filter, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
+import { Award, Filter, Info, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
+import { PageHeader } from "@/components/exec/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 import { toast } from "sonner";
 
 import { Card } from "@/components/ui/card";
@@ -233,10 +236,23 @@ function ZnfaReleasePage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">ZNFA Release</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader
+        eyebrow="MM Approvals"
+        title="ZNFA Release"
+        subtitle="Prepare and release Note For Approval documents."
+      />
+
+      <Alert>
+        <Info className="h-4 w-4" aria-hidden />
+        <AlertTitle>SAP service not connected yet</AlertTitle>
+        <AlertDescription>
+          This screen is fully laid out, but the ZNFA SAP APIs are not configured. F4 help, Get Details,
+          attachments and posting will start working as soon as they are set up in API Settings.
+        </AlertDescription>
+      </Alert>
+
+
 
       <Card className="border border-border/60 p-5 shadow-card">
         <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">

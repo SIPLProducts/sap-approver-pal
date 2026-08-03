@@ -13,7 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
-import Swal from "sweetalert2";
+import { PageHeader } from "@/components/exec/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const STCK_TYPE_OPTIONS = [
   { value: "1", label: "1 Unrestricted" },
@@ -68,6 +70,8 @@ function MigoReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customFields, setCustomFields] = useState<Record<string, any> | null>(null);
   const hasResults = header !== null || rows.length > 0;
+  const { confirm, confirmDialog } = useConfirm();
+  const [resultDialog, setResultDialog] = useState<{ open: boolean; ok: boolean; title: string; lines: string[] } | null>(null);
 
   const mutation = useMutation({
     mutationFn: async (vars: { mat_doc_number: string; mat_doc_year: string }) => {
@@ -110,14 +114,8 @@ function MigoReleasePage() {
       const parts: string[] = [res.message];
       if (res.mat_doc) parts.push(`Material Document: ${res.mat_doc}`);
       if (res.doc_year) parts.push(`Document Year: ${res.doc_year}`);
-      const swalText = parts.join("\n");
 
-      Swal.fire({
-        icon: res.ok ? "success" : "error",
-        title: res.ok ? "Success" : "Failed",
-        text: swalText,
-        confirmButtonColor: res.ok ? "#16a34a" : "#dc2626",
-      });
+      setResultDialog({ open: true, ok: res.ok, title: res.ok ? "Success" : "Failed", lines: parts });
       if (res.ok) {
         toast.success(res.message || "Posted successfully");
         setMatDocNo("");
@@ -144,11 +142,22 @@ function MigoReleasePage() {
       .filter(({ k }) => selected.has(k))
       .map(({ r, k }) => ({ ...r, ...(edits.get(k) ?? {}) }));
 
-    postMutation.mutate({
-      header: { ...(header ?? {}) },
-      data: items,
-      custom: customFields ?? null,
-    });
+    void (async () => {
+      if (
+        !(await confirm({
+          title: `Post ${items.length} selected item(s)?`,
+          description: "This posts the goods movement to SAP and cannot be undone.",
+          confirmLabel: "Post",
+          destructive: false,
+        }))
+      )
+        return;
+      postMutation.mutate({
+        header: { ...(header ?? {}) },
+        data: items,
+        custom: customFields ?? null,
+      });
+    })();
   }
 
   function execute() {
@@ -310,10 +319,8 @@ function MigoReleasePage() {
   const headerFields = useMemo(() => Object.keys(header ?? {}), [header]);
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">MIGO Release</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader eyebrow="MM Approvals" title="MIGO Release" subtitle="Review, check and post goods movement documents." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -351,9 +358,9 @@ function MigoReleasePage() {
               </Button>
               <Button
                 size="sm"
+                variant="outline"
                 onClick={check}
                 disabled={!hasResults || checkMutation.isPending}
-                className="bg-amber-500 hover:bg-amber-600 text-white"
               >
                 {checkMutation.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -414,9 +421,9 @@ function MigoReleasePage() {
           <div className="flex justify-end">
             <Button
               size="sm"
+              variant="success"
               disabled={selected.size === 0 || postMutation.isPending}
               onClick={onPost}
-              className="bg-green-600 hover:bg-green-700 text-white"
             >
               {postMutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -440,6 +447,26 @@ function MigoReleasePage() {
         </>
       )}
 
+      <Dialog open={!!resultDialog?.open} onOpenChange={(open) => setResultDialog((prev) => (prev ? { ...prev, open } : prev))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className={resultDialog?.ok ? "text-success" : "text-destructive"}>
+              {resultDialog?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 text-sm">
+            {resultDialog?.lines.map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button size="sm" onClick={() => setResultDialog((prev) => (prev ? { ...prev, open: false } : prev))}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {confirmDialog}
     </div>
   );
 }

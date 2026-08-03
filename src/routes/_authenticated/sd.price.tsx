@@ -14,6 +14,9 @@ import {
 } from "@/components/ui/dialog";
 
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/exec/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
@@ -55,6 +58,7 @@ function fmtDate(v: string | null) {
 }
 
 function PricePage() {
+  const { confirm, confirmDialog } = useConfirm();
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
   const decisionFn = useServerFn(submitPriceDecision);
@@ -166,9 +170,23 @@ function PricePage() {
     },
   });
 
-  function decide(action: "accepted" | "rejected") {
+  async function decide(action: "accepted" | "rejected") {
     if (selected.size === 0 || decisionMutation.isPending) return;
     const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
+    const ok = await confirm({
+
+      title: `${action === "accepted" ? "Approve" : "Reject"} ${selectedRows.length} selected item(s)?`,
+
+      description: "This submits the decision to SAP and cannot be undone.",
+
+      confirmLabel: action === "accepted" ? "Approve" : "Reject",
+
+      destructive: action !== "accepted",
+
+    });
+
+    if (!ok) return;
+
     decisionMutation.mutate({ action, rows: selectedRows, user_id: userId.trim() });
   }
 
@@ -176,10 +194,8 @@ function PricePage() {
   const canAct = selected.size > 0;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Price Approvals</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader eyebrow="SD Approvals" title="Price Approvals" subtitle="Review and action pending price condition approval requests routed from SAP." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -239,6 +255,8 @@ function PricePage() {
       />
 
 
+
+      {confirmDialog}
 
       <ResultDialog
         open={resultOpen}
@@ -300,29 +318,10 @@ function ResultDialog({
 
   function badge(type?: string) {
     const t = String(type ?? "").toUpperCase();
-    if (t === "S")
-      return (
-        <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
-          Success
-        </span>
-      );
-    if (t === "E" || t === "A")
-      return (
-        <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
-          Error
-        </span>
-      );
-    if (t === "W")
-      return (
-        <span className="inline-flex items-center rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-white">
-          Warning
-        </span>
-      );
-    return (
-      <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-foreground">
-        Info
-      </span>
-    );
+    if (t === "S") return <StatusBadge tone="success" label="Success" />;
+    if (t === "E" || t === "A") return <StatusBadge tone="error" label="Error" />;
+    if (t === "W") return <StatusBadge tone="warning" label="Warning" />;
+    return <StatusBadge tone="neutral" label="Info" />;
   }
 
   return (

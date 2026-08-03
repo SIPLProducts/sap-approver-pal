@@ -1,10 +1,13 @@
 import { ReactNode, useMemo, useState } from "react";
-import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Loader2, Inbox } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonRows } from "@/components/ui/skeleton-rows";
+import { formatAmount } from "@/lib/format";
 import {
   TableBody,
   TableCell,
@@ -12,6 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+/** Decimal-looking scalars are money/quantity values: right-align + group them. */
+function isDecimalValue(node: ReactNode): boolean {
+  if (typeof node === "number") return Number.isFinite(node) && !Number.isInteger(node);
+  if (typeof node !== "string") return false;
+  const v = node.trim();
+  if (!v) return false;
+  return /^-?\d{1,3}(,\d{3})*\.\d+$|^-?\d+\.\d+$/.test(v);
+}
+
 
 export type CloudscapeColumn<T> = {
   id: string;
@@ -206,15 +219,16 @@ export function CloudscapeApprovalTable<T>({
             )}
             {showSelect && onAccept && (
               <Button
+                variant="success"
                 size="sm"
                 onClick={onAccept}
                 disabled={acceptDisabled}
-                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {acceptLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                 Accept
               </Button>
             )}
+
           </div>
         </div>
       </div>
@@ -252,21 +266,33 @@ export function CloudscapeApprovalTable<T>({
               <TableRow>
                 <TableCell
                   colSpan={allColumns.length + (showSelect ? 1 : 0)}
-                  className="text-center text-sm text-muted-foreground px-3 py-3"
+                  className="px-4 py-4"
                 >
-                  <Loader2 className="inline h-4 w-4 mr-2 animate-spin" />
-                  Fetching from SAP…
+                  <SkeletonRows rows={6} columns={Math.min(allColumns.length || 4, 6)} />
+                  <span className="sr-only">Fetching from SAP…</span>
                 </TableCell>
               </TableRow>
             ) : paged.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={allColumns.length + (showSelect ? 1 : 0)}
-                  className="text-center text-sm text-muted-foreground px-3 py-3"
+                  className="px-4 py-6"
                 >
-                  {rows.length === 0
-                    ? emptyMessage ?? "No records."
-                    : "No records match the filter."}
+                  {rows.length === 0 ? (
+                    <EmptyState
+                      icon={<Inbox className="h-5 w-5" aria-hidden />}
+                      title={emptyMessage ?? "No records"}
+                      description="Run the search above to load records from SAP."
+                      className="border-0 bg-transparent py-6"
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={<Search className="h-5 w-5" aria-hidden />}
+                      title="No matches"
+                      description={`No rows match “${search.trim()}”. Clear the search to see all ${rows.length} records.`}
+                      className="border-0 bg-transparent py-6"
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
@@ -283,23 +309,29 @@ export function CloudscapeApprovalTable<T>({
                         />
                       </TableCell>
                     )}
-                    {allColumns.map((c) => (
-                      <TableCell
-                        key={c.id}
-                        className="whitespace-nowrap text-xs px-4 py-3"
-                        style={{
-                          minWidth: c.minWidth ?? 120,
-                          textAlign: c.align === "right" ? "right" : undefined,
-                        }}
-                      >
-                        {c.cell(r)}
-                      </TableCell>
-                    ))}
+                    {allColumns.map((c) => {
+                      const raw = c.cell(r);
+                      const decimal = isDecimalValue(raw);
+                      const right = c.align === "right" || decimal;
+                      return (
+                        <TableCell
+                          key={c.id}
+                          className={`whitespace-nowrap text-xs px-4 py-3 ${right ? "tabular-nums" : ""}`}
+                          style={{
+                            minWidth: c.minWidth ?? 120,
+                            textAlign: right ? "right" : undefined,
+                          }}
+                        >
+                          {decimal ? formatAmount(raw as string | number) : raw}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 );
               })
             )}
           </TableBody>
+
         </table>
       </div>
 

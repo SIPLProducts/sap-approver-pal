@@ -9,11 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plug, Plus, Pencil, Trash2, Activity, Loader2, CheckCircle2, AlertCircle, Save, Server, Database } from "lucide-react";
+import { Plug, Plus, Pencil, Trash2, Activity, Loader2, Save, Server, Database } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listSapConfigs, upsertSapConfig, deleteSapConfig, testSapConnection } from "@/lib/admin/sap-api.functions";
 import { getSapGlobalSettings, upsertSapGlobalSettings, testGlobalMiddleware, upsertSapConnection, testSapConnectionGlobal } from "@/lib/admin/sap-global.functions";
+import { PageHeader } from "@/components/exec/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SkeletonCards } from "@/components/ui/skeleton-rows";
+import { EmptyState } from "@/components/ui/empty-state";
+import { formatDateTime } from "@/lib/format";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/sap-api/")({
   component: SapApiListPage,
@@ -21,11 +27,12 @@ export const Route = createFileRoute("/_authenticated/admin/sap-api/")({
 
 function SapApiListPage() {
   return (
-    <div className="space-y-5">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Plug className="h-6 w-6" /> SAP API Settings</h1>
-        <p className="text-sm text-muted-foreground">Register dynamic SAP/REST endpoints and configure the shared Node.js middleware.</p>
-      </header>
+    <div className="page-shell page-stack">
+      <PageHeader
+        eyebrow="Admin"
+        title={<span className="inline-flex items-center gap-2"><Plug className="h-6 w-6" /> SAP API Settings</span>}
+        subtitle="Register dynamic SAP/REST endpoints and configure the shared Node.js middleware."
+      />
       <Tabs defaultValue="apis">
         <TabsList>
           <TabsTrigger value="apis"><Plug className="h-4 w-4 mr-1" /> APIs</TabsTrigger>
@@ -43,6 +50,7 @@ function SapApiListPage() {
 function ApisTab() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const { confirm, confirmDialog } = useConfirm();
   const listFn = useServerFn(listSapConfigs);
   const upsertFn = useServerFn(upsertSapConfig);
   const deleteFn = useServerFn(deleteSapConfig);
@@ -71,7 +79,11 @@ function ApisTab() {
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete endpoint "${name}"?`)) return;
+    if (!(await confirm({
+      title: `Delete endpoint "${name}"?`,
+      description: "This will remove the endpoint configuration permanently.",
+      confirmLabel: "Delete",
+    }))) return;
     try { await deleteFn({ data: { id } }); toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["sap-configs"] }); }
     catch (e: any) { toast.error(e.message); }
   }
@@ -132,13 +144,13 @@ function ApisTab() {
       </div>
 
       {isLoading ? (
-        <Card className="p-8 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></Card>
+        <SkeletonCards count={3} />
       ) : data?.configs.length === 0 ? (
-        <Card className="p-12 text-center">
-          <Plug className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-          <p className="font-medium">No endpoints yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Click "New endpoint" to register the first SAP REST endpoint.</p>
-        </Card>
+        <EmptyState
+          icon={<Plug className="h-5 w-5" />}
+          title="No endpoints yet"
+          description={'Click "New endpoint" to register the first SAP REST endpoint.'}
+        />
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {data?.configs.map((c: any) => (
@@ -153,9 +165,11 @@ function ApisTab() {
                   <Badge variant="outline" className="text-[10px]">{c.auth_type}</Badge>
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground flex items-center gap-2">
-                {c.is_active ? <CheckCircle2 className="h-3 w-3 text-emerald-600" /> : <AlertCircle className="h-3 w-3 text-amber-600" />}
-                {c.last_synced_at ? `Last synced ${new Date(c.last_synced_at).toLocaleString()}` : "Never synced"}
+              <div className="flex items-center gap-2">
+                <StatusBadge tone={c.is_active ? "success" : "warning"} label={c.is_active ? "Active" : "Inactive"} />
+                <span className="text-xs text-muted-foreground">
+                  {c.last_synced_at ? `Last synced ${formatDateTime(c.last_synced_at)}` : "Never synced"}
+                </span>
               </div>
               <div className="flex flex-wrap gap-1 pt-1">
                 <Link to="/admin/sap-api/$id" params={{ id: c.id }}>
@@ -164,7 +178,7 @@ function ApisTab() {
                 <Button size="sm" variant="outline" onClick={() => handleTest(c.id)} disabled={testing === c.id}>
                   {testing === c.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Activity className="h-3 w-3 mr-1" />} Test
                 </Button>
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(c.id, c.name)}>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(c.id, c.name)} aria-label={`Delete endpoint ${c.name}`}>
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
@@ -172,6 +186,7 @@ function ApisTab() {
           ))}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }
@@ -236,7 +251,7 @@ function MiddlewareTab() {
     finally { setTesting(false); }
   }
 
-  if (isLoading) return <Card className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></Card>;
+  if (isLoading) return <SkeletonCards count={2} />;
 
   return (
     <Card className="p-4 space-y-4">
@@ -361,7 +376,7 @@ function SapConnectionTab() {
     finally { setTesting(false); }
   }
 
-  if (isLoading) return <Card className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></Card>;
+  if (isLoading) return <SkeletonCards count={2} />;
 
   return (
     <Card className="p-4 space-y-4">

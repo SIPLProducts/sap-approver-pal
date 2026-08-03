@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGatePass, saveGatePass } from "@/lib/mm/gate-pass.functions";
+import { PageHeader } from "@/components/exec/page-header";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/gate-pass")({
   component: GatePassPage,
@@ -57,6 +59,7 @@ function GatePassPage() {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const hasResults = header !== null || rows.length > 0;
+  const { confirm, confirmDialog } = useConfirm();
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
@@ -94,8 +97,7 @@ function GatePassPage() {
 
   const saveFn = useServerFn(saveGatePass);
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const selectedRows = rows.filter((r, i) => selected.has(rowKey(r, i)));
+    mutationFn: async (selectedRows: DataRow[]) => {
       if (selectedRows.length === 0) throw new Error("Select at least one row to save");
       const h = header ?? {};
       const res: any = await saveFn({
@@ -170,6 +172,26 @@ function GatePassPage() {
     setSelected(new Set());
   }
 
+  function onSave() {
+    const selectedRows = rows.filter((r, i) => selected.has(rowKey(r, i)));
+    if (selectedRows.length === 0) {
+      toast.error("Select at least one row to save");
+      return;
+    }
+    void (async () => {
+      if (
+        !(await confirm({
+          title: `Save ${selectedRows.length} selected item(s)?`,
+          description: "This posts the update to SAP and cannot be undone.",
+          confirmLabel: "Save",
+          destructive: false,
+        }))
+      )
+        return;
+      saveMutation.mutate(selectedRows);
+    })();
+  }
+
   function updateRowField(item: DataRow, key: string, value: any) {
     setRows((prev) => prev.map((r) => (r === item ? { ...r, [key]: value } : r)));
   }
@@ -240,10 +262,8 @@ function GatePassPage() {
   }, []);
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Gate Pass</h1>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader eyebrow="MM Approvals" title="Gate Pass" subtitle="Review and approve gate pass items." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -361,7 +381,7 @@ function GatePassPage() {
             <Button
               size="sm"
               disabled={selected.size === 0 || saveMutation.isPending}
-              onClick={() => saveMutation.mutate()}
+              onClick={onSave}
             >
               {saveMutation.isPending ? (
                 <>
@@ -388,6 +408,7 @@ function GatePassPage() {
           />
         </>
       )}
+      {confirmDialog}
     </div>
   );
 }

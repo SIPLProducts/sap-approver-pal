@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Save, Plus, Trash2, Activity, Loader2, GripVertical, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Activity, Loader2, GripVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -20,6 +20,10 @@ import {
 } from "@/lib/admin/sap-api.functions";
 import { PayloadImportDialog } from "@/components/admin/payload-import-dialog";
 import { mergeRows } from "@/lib/admin/payload-detect";
+import { PageHeader } from "@/components/exec/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SkeletonCards } from "@/components/ui/skeleton-rows";
+import { formatDateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/admin/sap-api/$id")({
   component: SapApiEditPage,
@@ -60,7 +64,7 @@ function SapApiEditPage() {
     }
   }, [data]);
 
-  if (isLoading || !cfg) return <Card className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></Card>;
+  if (isLoading || !cfg) return <div className="page-shell page-stack"><SkeletonCards count={2} /></div>;
 
   async function saveDetails() {
     setBusy(true);
@@ -110,23 +114,27 @@ function SapApiEditPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link to="/admin/sap-api"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button></Link>
-          <h1 className="text-xl font-bold">{cfg.name}</h1>
-          <Badge variant="secondary">{cfg.module}</Badge>
-        </div>
-        <Button onClick={runTest} disabled={busy} variant="outline">
-          {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Activity className="h-4 w-4 mr-1" />} Test connection
-        </Button>
-      </div>
+    <div className="page-shell page-stack">
+      <PageHeader
+        eyebrow="Admin · SAP API Settings"
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Link to="/admin/sap-api"><Button variant="ghost" size="sm" aria-label="Back to SAP API list"><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button></Link>
+            {cfg.name}
+          </span>
+        }
+        meta={<Badge variant="secondary">{cfg.module}</Badge>}
+        actions={
+          <Button onClick={runTest} disabled={busy} variant="outline">
+            {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Activity className="h-4 w-4 mr-1" />} Test connection
+          </Button>
+        }
+      />
 
       {testResult && (
-        <Card className={`p-3 flex items-center gap-2 text-sm ${testResult.ok ? "border-emerald-500/50" : "border-destructive/50"}`}>
-          {testResult.ok ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-destructive" />}
-          <span>{testResult.message}</span>
-          <span className="text-muted-foreground ml-auto">{testResult.latency_ms} ms</span>
+        <Card className="p-3 flex items-center gap-2 text-sm">
+          <StatusBadge tone={testResult.ok ? "success" : "error"} label={testResult.message} />
+          <span className="text-muted-foreground ml-auto tabular-nums">{testResult.latency_ms} ms</span>
         </Card>
       )}
 
@@ -218,7 +226,7 @@ function SapApiEditPage() {
                       </TableCell>
                       <TableCell><Input value={r.default_value ?? ""} onChange={(e) => { const c = [...reqRows]; c[i].default_value = e.target.value; setReqRows(c); }} /></TableCell>
                       <TableCell><Switch checked={r.required} onCheckedChange={(v) => { const c = [...reqRows]; c[i].required = v; setReqRows(c); }} /></TableCell>
-                      <TableCell><Button variant="ghost" size="sm" className="text-destructive" onClick={() => setReqRows(reqRows.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                      <TableCell><Button variant="ghost" size="sm" className="text-destructive" onClick={() => setReqRows(reqRows.filter((_, j) => j !== i))} aria-label={`Remove request field ${r.field_name || i + 1}`}><Trash2 className="h-4 w-4" /></Button></TableCell>
                     </TableRow>
                   ))}
                   {reqRows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No request fields.</TableCell></TableRow>}
@@ -254,7 +262,7 @@ function SapApiEditPage() {
                       <TableCell><Input value={r.target_table ?? ""} onChange={(e) => { const c = [...resRows]; c[i].target_table = e.target.value; setResRows(c); }} /></TableCell>
                       <TableCell><Input value={r.target_column ?? ""} onChange={(e) => { const c = [...resRows]; c[i].target_column = e.target.value; setResRows(c); }} /></TableCell>
                       <TableCell><Input value={r.transform_expr ?? ""} onChange={(e) => { const c = [...resRows]; c[i].transform_expr = e.target.value; setResRows(c); }} placeholder="e.g. toUpper($)" /></TableCell>
-                      <TableCell><Button variant="ghost" size="sm" className="text-destructive" onClick={() => setResRows(resRows.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                      <TableCell><Button variant="ghost" size="sm" className="text-destructive" onClick={() => setResRows(resRows.filter((_, j) => j !== i))} aria-label={`Remove response field ${r.field_name || i + 1}`}><Trash2 className="h-4 w-4" /></Button></TableCell>
                     </TableRow>
                   ))}
                   {resRows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No response mappings.</TableCell></TableRow>}
@@ -289,8 +297,8 @@ function SapApiEditPage() {
             <div className="flex items-center gap-2"><Switch checked={cfg.auto_sync_enabled} onCheckedChange={(v) => setCfg({ ...cfg, auto_sync_enabled: v })} /><Label>Auto sync enabled</Label></div>
             <div><Label>Cron expression</Label><Input value={cfg.schedule_cron ?? ""} onChange={(e) => setCfg({ ...cfg, schedule_cron: e.target.value })} placeholder="*/5 * * * *" /></div>
             <div className="grid sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
-              <div>Last synced: <b>{cfg.last_synced_at ? new Date(cfg.last_synced_at).toLocaleString() : "—"}</b></div>
-              <div>Next sync: <b>{cfg.next_sync_at ? new Date(cfg.next_sync_at).toLocaleString() : "—"}</b></div>
+              <div>Last synced: <b className="tabular-nums">{formatDateTime(cfg.last_synced_at)}</b></div>
+              <div>Next sync: <b className="tabular-nums">{formatDateTime(cfg.next_sync_at)}</b></div>
             </div>
             <Button onClick={saveDetails} disabled={busy}><Save className="h-4 w-4 mr-2" /> Save scheduler</Button>
           </Card>
