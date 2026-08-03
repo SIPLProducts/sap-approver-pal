@@ -80,7 +80,52 @@ const PR_DETAIL_COLUMNS: {
   { key: "total_value", label: "Total Value", numeric: true },
 ];
 
+function DetailsTableCard({ title, emptyText }: { title: string; emptyText: string }) {
+  return (
+    <Card className="border border-border/60 p-5 shadow-card">
+      <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <ListChecks className="h-3.5 w-3.5" /> {title}
+      </div>
+
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <span className="sr-only">Select</span>
+              </TableHead>
+              {PR_DETAIL_COLUMNS.map((c) => (
+                <TableHead
+                  key={c.key}
+                  className={cn(
+                    "whitespace-nowrap text-xs",
+                    c.numeric && "text-right",
+                    c.divider && "min-w-[320px] border-r border-border",
+                  )}
+                >
+                  {c.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell
+                colSpan={PR_DETAIL_COLUMNS.length + 1}
+                className="h-28 text-center text-sm text-muted-foreground"
+              >
+                {emptyText}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
+
 
 function ZnfaReleasePage() {
   const [mode, setMode] = useState<Mode>("creation");
