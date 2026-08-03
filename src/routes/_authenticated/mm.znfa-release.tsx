@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Award, Filter, Info, KeyRound, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/exec/page-header";
@@ -192,33 +192,17 @@ function ZnfaReleasePage() {
     () => releaseKeysFor(assignedPlants, "nfa", activePlants),
     [assignedPlants, activePlants.join(",")],
   );
-  const releaseKeyOptions = useMemo(() => {
+  const releaseCodes = useMemo(() => {
     const seen = new Set<string>();
-    const out: { value: string; relGroup: string; releaseCode: string }[] = [];
+    const out: string[] = [];
     for (const k of nfaKeys) {
-      if (!k.releaseCode) continue;
-      const value = `${k.relGroup ?? ""}\u0000${k.releaseCode}`;
-      if (seen.has(value)) continue;
-      seen.add(value);
-      out.push({ value, relGroup: k.relGroup ?? "", releaseCode: k.releaseCode });
+      if (!k.releaseCode || seen.has(k.releaseCode)) continue;
+      seen.add(k.releaseCode);
+      out.push(k.releaseCode);
     }
-    return out.sort(
-      (a, b) =>
-        a.relGroup.localeCompare(b.relGroup) || a.releaseCode.localeCompare(b.releaseCode),
-    );
+    return out.sort((a, b) => a.localeCompare(b));
   }, [nfaKeys]);
-  const [releaseKey, setReleaseKey] = useState("");
-  const selectedKey = releaseKeyOptions.find((o) => o.value === releaseKey);
-  const releaseCode = selectedKey?.releaseCode ?? "";
-  const releaseGroup = selectedKey?.relGroup ?? "";
-
-  // Drop a selection that is no longer offered (e.g. after a plant change).
-  useEffect(() => {
-    if (releaseKey && !releaseKeyOptions.some((o) => o.value === releaseKey)) {
-      setReleaseKey("");
-    }
-  }, [releaseKey, releaseKeyOptions]);
-
+  const [releaseCode, setReleaseCode] = useState("");
 
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
   const showCreate =
@@ -240,7 +224,7 @@ function ZnfaReleasePage() {
     setAwardRemarks("");
     setApprovedBudget("");
     setBalanceBudget("");
-    setReleaseKey("");
+    setReleaseCode("");
   }
 
   function onModeChange(v: string) {
@@ -261,7 +245,7 @@ function ZnfaReleasePage() {
       return;
     }
     toast.info(
-      `Release Code ${releaseGroup ? `${releaseGroup} / ` : ""}${releaseCode} selected — the ZNFA list will load once the SAP API is configured.`,
+      `Release Code ${releaseCode} selected — the ZNFA list will load once the SAP API is configured.`,
     );
   }
 
@@ -370,21 +354,21 @@ function ZnfaReleasePage() {
               <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[120px_1fr]">
                 <Label className="text-sm font-medium">Release Code</Label>
                 <Select
-                  value={releaseKey}
-                  onValueChange={setReleaseKey}
-                  disabled={releaseKeyOptions.length === 0}
+                  value={releaseCodes.includes(releaseCode) ? releaseCode : ""}
+                  onValueChange={setReleaseCode}
+                  disabled={releaseCodes.length === 0}
                 >
                   <SelectTrigger className="h-9 w-full max-w-[220px] text-sm">
                     <SelectValue
                       placeholder={
-                        releaseKeyOptions.length === 0 ? "No keys assigned" : "Select code"
+                        releaseCodes.length === 0 ? "No keys assigned" : "Select code"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {releaseKeyOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {(o.relGroup || "(blank)") + " / " + o.releaseCode}
+                    {releaseCodes.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
                       </SelectItem>
                     ))}
                   </SelectContent>
