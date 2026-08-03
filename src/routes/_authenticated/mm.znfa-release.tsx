@@ -353,41 +353,10 @@ function ZnfaReleasePage() {
             </div>
           </Card>
 
-          <Card className="border border-border/60 p-5 shadow-card">
-            <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <ListChecks className="h-3.5 w-3.5" /> PR DETAILS
-            </div>
+          <DetailsTableCard title="PR DETAILS" emptyText="No PR details yet — enter an RFQ Number and click Get Details." />
 
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <span className="sr-only">Select</span>
-                    </TableHead>
-                    {PR_DETAIL_COLUMNS.map((c) => (
-                      <TableHead
-                        key={c.key}
-                        className={cn("whitespace-nowrap text-xs", c.numeric && "text-right")}
-                      >
-                        {c.label}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell
-                      colSpan={PR_DETAIL_COLUMNS.length + 1}
-                      className="h-28 text-center text-sm text-muted-foreground"
-                    >
-                      No PR details yet — enter an RFQ Number and click Get Details.
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+          <DetailsTableCard title="RFQ DETAILS" emptyText="No RFQ details yet — enter an RFQ Number and click Get Details." />
+
         </>
       )}
     </div>
