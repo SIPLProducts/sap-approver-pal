@@ -192,17 +192,33 @@ function ZnfaReleasePage() {
     () => releaseKeysFor(assignedPlants, "nfa", activePlants),
     [assignedPlants, activePlants.join(",")],
   );
-  const releaseCodes = useMemo(() => {
+  const releaseKeyOptions = useMemo(() => {
     const seen = new Set<string>();
-    const out: string[] = [];
+    const out: { value: string; relGroup: string; releaseCode: string }[] = [];
     for (const k of nfaKeys) {
-      if (!k.releaseCode || seen.has(k.releaseCode)) continue;
-      seen.add(k.releaseCode);
-      out.push(k.releaseCode);
+      if (!k.releaseCode) continue;
+      const value = `${k.relGroup ?? ""}\u0000${k.releaseCode}`;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      out.push({ value, relGroup: k.relGroup ?? "", releaseCode: k.releaseCode });
     }
-    return out.sort((a, b) => a.localeCompare(b));
+    return out.sort(
+      (a, b) =>
+        a.relGroup.localeCompare(b.relGroup) || a.releaseCode.localeCompare(b.releaseCode),
+    );
   }, [nfaKeys]);
-  const [releaseCode, setReleaseCode] = useState("");
+  const [releaseKey, setReleaseKey] = useState("");
+  const selectedKey = releaseKeyOptions.find((o) => o.value === releaseKey);
+  const releaseCode = selectedKey?.releaseCode ?? "";
+  const releaseGroup = selectedKey?.relGroup ?? "";
+
+  // Drop a selection that is no longer offered (e.g. after a plant change).
+  useEffect(() => {
+    if (releaseKey && !releaseKeyOptions.some((o) => o.value === releaseKey)) {
+      setReleaseKey("");
+    }
+  }, [releaseKey, releaseKeyOptions]);
+
 
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
   const showCreate =
