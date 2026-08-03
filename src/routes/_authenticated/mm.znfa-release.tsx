@@ -139,6 +139,84 @@ function ZnfaReleasePage() {
           </div>
         </div>
       </Card>
+
+      {showCreate && (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <Card className="space-y-4 border border-border/60 p-5 shadow-card lg:col-span-2">
+            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
+              <Label className="text-sm font-medium">Type of NFA</Label>
+              <Select value={nfaType} onValueChange={setNfaType}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="No values available" />
+                </SelectTrigger>
+                <SelectContent />
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
+              <Label className="text-sm font-medium">RFQ Number</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={rfqNumber}
+                  onChange={(e) => setRfqNumber(e.target.value)}
+                  className="h-9 w-full max-w-[200px] text-sm"
+                  placeholder="RFQ Number"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  aria-label="RFQ Number F4 help"
+                  onClick={onRfqF4}
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
+                <Button type="button" className="h-9 px-5" onClick={onGetDetails}>
+                  Get Details
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
+              <Label className="text-sm font-medium">NFA Title</Label>
+              <Input
+                value={nfaTitle}
+                onChange={(e) => setNfaTitle(e.target.value)}
+                className="h-9 text-sm"
+                placeholder="NFA Title"
+              />
+            </div>
+          </Card>
+
+          <Card className="border border-border/60 p-5 shadow-card">
+            <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <User2 className="h-3.5 w-3.5" /> BUYER DETAILS
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: "Buyer Id", value: buyer.id },
+                { label: "Name", value: buyer.name },
+                { label: "E-Mail", value: buyer.email },
+                { label: "Location", value: buyer.location },
+              ].map((f) => (
+                <div
+                  key={f.label}
+                  className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[110px_1fr]"
+                >
+                  <Label className="text-xs text-muted-foreground">{f.label}</Label>
+                  <Input
+                    readOnly
+                    value={f.value}
+                    className="h-9 bg-muted/60 text-sm"
+                    placeholder="—"
+                  />
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
