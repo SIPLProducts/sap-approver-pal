@@ -15,6 +15,10 @@ Nginx listens on both port 80 and port 8080 with the same routing, so either
 `http://10.150.150.130/` or `http://10.150.150.130:8080/` works. Nothing runs on
 8080 itself, so there is no conflict.
 
+The app process stays bound to 8081, so `http://10.150.150.130:8081/` keeps
+working directly (bypassing Nginx) exactly as it does today.
+
+
 ## What changes
 
 - Update `deploy/quality/nginx/resl-approval-quality-single-host.conf`:
