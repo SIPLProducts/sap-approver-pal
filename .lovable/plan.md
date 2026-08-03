@@ -1,59 +1,59 @@
 ## Goal
 
-Produce a complete, self-contained documentation set (plus the config files, env templates and scripts it references) for running this application entirely on your own Ubuntu server under `/data`, with self-hosted Supabase — Quality and Production side by side. No application code behavior changes; this is deployment documentation and infrastructure files only.
+A complete Quality-only setup and deployment handbook for Ubuntu 24.04 under `/data/webapplication/resl_approval`, matching your folder structure, with the Production tree created but left unconfigured.
 
-## Target folder layout on the server
+## One important correction
 
-```text
-/data/webapplication/resl_approval/
-├── Quality/
-│   ├── app/                 # frontend + server build (docker compose)
-│   ├── middleware/          # SAP middleware container
-│   ├── supabase/            # self-hosted Supabase stack (docker compose + volumes)
-│   ├── .env.app
-│   ├── .env.middleware
-│   ├── .env.supabase
-│   └── docker-compose.yml
-├── Production/              # same structure, separate ports/volumes/secrets
-├── nginx/
-│   ├── quality-app.conf
-│   ├── quality-supabase.conf
-│   ├── production-app.conf
-│   ├── production-supabase.conf
-│   └── middleware-*.conf
-└── scripts/
-    ├── bootstrap-server.sh  # docker + nginx + firewall + folders
-    ├── deploy.sh            # git pull, build, compose up, health check
-    ├── backup.sh            # pg_dump + storage volume backup
-    └── restore.sh
+This app is **not** a static React `dist` plus a separate Node API. It is a TanStack Start SSR app: a single build output that serves the HTML *and* the server functions (your "backend API") from one process. The separate Node backend you do have is the **SAP middleware** (`middleware/server.js`, port 3005).
+
+So your structure maps onto reality like this:
+
+```
+Quality/
+├── frontend/   # app source + build output (SSR, PM2 on :3000)
+├── backend/    # SAP middleware (Node, PM2 on :3005)
+├── supabase/   # self-hosted Supabase docker stack
+├── logs/       # PM2 + app logs
+├── scripts/    # deploy / backup / restore / rollback
+├── backups/    # nightly pg dumps
+└── ssl/        # certs if not using Let's Encrypt
 ```
 
-Port map to be documented (Quality / Production): app `3000 / 3010`, middleware `3005 / 3006`, Supabase Kong `8000 / 8010`, Postgres `5432 / 5433`, Studio behind Nginx basic-auth.
+Nginx reverse-proxies: `/` → :3000 (frontend + its API, same origin), `api-quality` host → :8000 (Supabase Kong), `mw-quality` host → :3005 (middleware). No CORS needed between the frontend and its own API — CORS is documented only for the Supabase and middleware hosts.
 
-## Documents to be written
+Because you want PM2, the guide documents switching the build target to the Node server preset so PM2 supervises a plain `node server.js` (recommended), with the `wrangler dev --local` alternative noted. I'll flag that as a decision point and won't change build config unless you approve it.
 
-1. **`docs/selfhost/00-overview.md`** — architecture diagram, what runs where, port/volume matrix, Quality vs Production differences, prerequisites (Ubuntu 22.04/24.04, 4 vCPU / 8 GB / 100 GB min, DNS or internal hostnames, SAP network reachability).
-2. **`docs/selfhost/01-server-prep.md`** — OS updates, timezone, non-root deploy user, `/data` folder creation with ownership/permissions, UFW rules (22/80/443 only), fail2ban, log rotation, swap.
-3. **`docs/selfhost/02-docker.md`** — Docker Engine + Compose v2 install from Docker's apt repo, daemon config (log rotation, data-root on `/data` if desired), post-install verification.
-4. **`docs/selfhost/03-nginx-ssl.md`** — Nginx install, site layout, Let's Encrypt via certbot **and** the internal-CA / self-signed alternative for an intranet server, HTTP→HTTPS redirect, the 300s proxy timeouts that long SAP reports need, WebSocket/realtime upgrade headers, `client_max_body_size`.
-5. **`docs/selfhost/04-supabase-selfhost.md`** — clone `supabase/docker`, generate `POSTGRES_PASSWORD`, `JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY`, `DASHBOARD_*`; set `SITE_URL` / `API_EXTERNAL_URL` / `SUPABASE_PUBLIC_URL`; SMTP for auth emails; disable public signups; bring the stack up; verify Postgres, Auth, Storage, Studio. Separate compose project names and volumes for Quality vs Production.
-6. **`docs/selfhost/05-migrate-data.md`** — moving the current Lovable Cloud backend to the self-hosted one: schema + data dump order (`roles`, `schema`, `data`), `auth.users` and identities migration, storage objects, then re-applying grants/RLS. Includes verification queries (row counts per table, one login test) and a rollback note.
-7. **`docs/selfhost/06-app-deploy.md`** — building and running the frontend/server on your own host. This is the one real technical change to call out: the app currently builds for the Cloudflare Workers target (`wrangler.jsonc`, `@cloudflare/vite-plugin`). The doc will cover the Node-server build path, its `Dockerfile`, the required env (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_*`, `MIDDLEWARE_SHARED_SECRET`, mail + web-push keys), and per-environment `.env.app` templates. Any Workers-specific adjustment needed for a Node/Docker build is documented as an explicit, clearly-marked step rather than applied silently.
-8. **`docs/selfhost/07-middleware.md`** — the SAP middleware re-pathed to `/data`, `.env.middleware` for both environments, `APP_BASE_URL` now pointing at your own hostnames instead of `*.lovable.app`, Nginx block, and the "Via Proxy" wiring in **Admin → SAP API Settings**.
-9. **`docs/selfhost/08-operations.md`** — start/stop/restart, log locations and `docker compose logs` recipes, backups (nightly `pg_dump` + storage volume tar, retention, restore drill), upgrades, health checks, and a troubleshooting table (524/504 timeouts, auth-gate errors, invalid JWT, SAP unreachable, container restart loops, disk full).
-10. **`docs/selfhost/README.md`** — index with a "do these in order" checklist and a final go-live verification list.
+## Deliverable — `docs/deployment/`
 
-## Files to be created alongside the docs
+| File | Contents |
+|---|---|
+| `README.md` | Cover page, prerequisites, day-one order of operations, full directory tree |
+| `01-server-prep.md` | apt update/upgrade, base packages, `deploy` user + sudo, full `mkdir -p` for Quality **and** empty Production, ownership/permission matrix, UFW (22/80/443), SSH hardening, swap + sysctl/limits tuning |
+| `02-nodejs.md` | NodeSource LTS install, version verification, npm, optional nvm, Bun (this repo's lockfile) |
+| `03-pm2.md` | install, `ecosystem.config.cjs` for both processes, start/reload/restart/stop, `pm2 logs`, logrotate module, `pm2 save`, `pm2 startup` systemd unit, zero-downtime reload |
+| `04-docker.md` | keyring + apt repo, compose v2, `daemon.json` (log caps, `/data/docker`), docker group, `hello-world` verification |
+| `05-supabase.md` | clone `supabase/docker`, full `.env` walkthrough (Postgres password, JWT secret, anon/service-role key minting, vault/logflare keys, dashboard creds, SITE_URL/API_EXTERNAL_URL, signup disabled, SMTP), per-service notes (db, kong, auth, rest, realtime, storage, functions, studio), volumes, port map, up/down/health, resulting folder tree |
+| `06-database-setup.md` | dump the current cloud schema + data, restore order into self-hosted Postgres, `GRANT`/role repair, verifying RLS and the `has_role`/`is_admin` functions |
+| `07-backend-deploy.md` | middleware into `Quality/backend`, `npm ci --omit=dev`, `.env` (shared secret, SAP URLs, 300 s timeouts), PM2 entry, log paths, restart policy, `/__health` check |
+| `08-frontend-deploy.md` | clone into `Quality/frontend`, `bun install`, build with `VITE_*` baked in, output layout, PM2 entry on :3000, asset caching, rebuild-on-env-change warning |
+| `09-nginx-install.md` | install, enable/start/reload/restart, config locations, log paths, `nginx -t` habit |
+| `10-nginx-quality-config.md` | complete annotated configs at `/etc/nginx/sites-available/resl-approval-quality`, `…-quality-supabase`, `…-quality-middleware`, symlinked into `sites-enabled/`, plus shared `conf.d/00-upgrade-map.conf` and `conf.d/gzip.conf`. Every directive explained: proxy headers, WebSocket upgrade, gzip, `client_max_body_size 50m`, static caching, security headers, 300 s timeouts and why, CORS for the Supabase/middleware hosts, SSL placeholders for both Let's Encrypt and `Quality/ssl/` self-signed |
+| `11-env-variables.md` | annotated sample `.env` files (frontend build-time + runtime, backend/middleware, Supabase stack), which are secret, which need a rebuild, `chmod 600` |
+| `12-deployment-process.md` | pre-deployment checklist → deploy → post-deployment → validation → rollback, with a `deploy.sh` that keeps the previous release for rollback |
+| `13-monitoring.md` | `pm2 monit`/`status`, logrotate, docker log caps, Nginx log review, disk/health cron, uptime check on `/__health` |
+| `14-troubleshooting.md` | 502 vs 504 vs SAP timeout triage, PM2 crash loops, Supabase container failures, JWT/anon-key mismatch, RLS permission errors, wrong `VITE_*` baked into the bundle, certificate errors |
+| `15-production-later.md` | Production tree created but idle: exactly what changes when you enable it (ports 5433/8001/3002/3006, own `.env` + JWT secret, own certs/hostnames, stricter backups) and the activation checklist |
 
-- `deploy/data/Quality/*` and `deploy/data/Production/*` — `docker-compose.yml`, `.env.*.example` for app, middleware and Supabase (placeholders only, no real secrets).
-- `deploy/data/nginx/*.conf` — the six server blocks referenced above, with `example.com` placeholders and the 300s timeouts.
-- `deploy/data/scripts/bootstrap-server.sh`, `deploy.sh`, `backup.sh`, `restore.sh` — idempotent, `set -euo pipefail`, echo each step.
-- `deploy/Dockerfile.app` — multi-stage Node build for the frontend/server container.
+## Supporting files — `deploy/quality/`
 
-Existing `DEPLOYMENT.md` gets a short pointer to the new `docs/selfhost/` set; it is not deleted.
+`ecosystem.config.cjs`, `.env.frontend.example`, `.env.backend.example`, `.env.supabase.example`, `nginx/` (three annotated server blocks + shared conf.d snippets), and `scripts/bootstrap-server.sh`, `deploy.sh`, `backup.sh`, `restore.sh`, `rollback.sh`. Production directories are created empty, with no Production config.
 
-## Notes and honest caveats
+Hostnames use `quality.example.com`, `api-quality.example.com`, `mw-quality.example.com` placeholders with a one-line `sed` to swap in yours.
 
-- Self-hosted Supabase means you own upgrades, backups, and JWT/key rotation. The docs will state this plainly and include the backup drill.
-- Lovable Cloud's service-role key and database password are not retrievable, so the migration document uses a fresh key set generated on your server, plus a schema/data export path — I'll flag exactly which export step you must run from your side.
-- Nothing in the running app is modified by this work; the Lovable-hosted version keeps working while you build the self-hosted one.
+## Technical notes
+
+- Quality ports: app 3000, middleware 3005, Kong 8000, Studio 3001, Postgres 5432 — all bound to `127.0.0.1`; only Nginx is public.
+- Every hop's timeout ≥ the middleware's `SAP_REQUEST_TIMEOUT_MS` (300000) so long SAP reports don't 504.
+- `VITE_*` are compile-time: changing them needs a rebuild, not a PM2 restart.
+- No application source changes, apart from the optional documented Vite server-preset switch needed for PM2 to run plain Node.
+- Existing `docs/selfhost/` is left in place; this is a separate, PM2-based handbook.
