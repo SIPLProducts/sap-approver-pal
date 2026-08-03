@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Filter, Search, User2, Wrench } from "lucide-react";
+import { Filter, ListChecks, Search, User2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -47,6 +55,24 @@ const SCOPE_CATEGORIES = [
 ];
 
 type Buyer = { id: string; name: string; email: string; location: string };
+
+const PR_DETAIL_COLUMNS: { key: string; label: string; numeric?: boolean }[] = [
+  { key: "vendor", label: "Vendor Name/Vendor Code" },
+  { key: "check", label: "Check" },
+  { key: "rfq_no", label: "RFQ No" },
+  { key: "rfq_item", label: "RFQ Item" },
+  { key: "plant", label: "Plant" },
+  { key: "material", label: "Material" },
+  { key: "item_text", label: "Item Text" },
+  { key: "qty", label: "Qty", numeric: true },
+  { key: "uom", label: "UOM" },
+  { key: "unit_rate", label: "Unit Rate", numeric: true },
+  { key: "currency", label: "Currency" },
+  { key: "basic_value", label: "Basic Value", numeric: true },
+  { key: "tax", label: "Tax", numeric: true },
+  { key: "tax_value", label: "Tax Value", numeric: true },
+  { key: "total_value", label: "Total Value", numeric: true },
+];
 
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 
@@ -318,6 +344,42 @@ function ZnfaReleasePage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </Card>
+
+          <Card className="border border-border/60 p-5 shadow-card">
+            <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <ListChecks className="h-3.5 w-3.5" /> PR DETAILS
+            </div>
+
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <span className="sr-only">Select</span>
+                    </TableHead>
+                    {PR_DETAIL_COLUMNS.map((c) => (
+                      <TableHead
+                        key={c.key}
+                        className={cn("whitespace-nowrap text-xs", c.numeric && "text-right")}
+                      >
+                        {c.label}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell
+                      colSpan={PR_DETAIL_COLUMNS.length + 1}
+                      className="h-28 text-center text-sm text-muted-foreground"
+                    >
+                      No PR details yet — enter an RFQ Number and click Get Details.
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
           </Card>
         </>
