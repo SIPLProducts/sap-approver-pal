@@ -74,7 +74,10 @@ sed -i 's/app\.example\.com/app.yourdomain.com/g; s/api\.example\.com/api.yourdo
         s/api-quality\.example\.com/api-quality.yourdomain.com/g; \
         s/mw-quality\.example\.com/mw-quality.yourdomain.com/g' *.conf
 
+# Link every server block. 00-upgrade-map.conf is NOT a server block —
+# it belongs in conf.d (section 7), so skip it here.
 for f in *.conf; do
+  [ "$f" = "00-upgrade-map.conf" ] && continue
   sudo ln -sfn "$PWD/$f" "/etc/nginx/sites-enabled/${f%.conf}"
 done
 sudo rm -f /etc/nginx/sites-enabled/default
