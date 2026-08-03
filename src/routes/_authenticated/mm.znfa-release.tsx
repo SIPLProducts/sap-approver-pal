@@ -191,6 +191,11 @@ function ZnfaReleasePage() {
     setSpendCategory("");
     setItemCategory("");
     setPurchasingGroup("");
+    setProposedToAward("");
+    setProposedToAwardDetail("");
+    setAwardRemarks("");
+    setApprovedBudget("");
+    setBalanceBudget("");
   }
 
   function onModeChange(v: string) {
