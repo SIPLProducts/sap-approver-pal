@@ -184,9 +184,30 @@ function ZnfaReleasePage() {
   const [approvedBudget, setApprovedBudget] = useState("");
   const [balanceBudget, setBalanceBudget] = useState("");
 
+  // Release / Approved List step state
+  const { plants: assignedPlants, activePlants } = useActiveContext();
+  const profile = useSapProfile();
+  const releaseId = profile?.user ?? "";
+  const nfaKeys = useMemo(
+    () => releaseKeysFor(assignedPlants, "nfa", activePlants),
+    [assignedPlants, activePlants.join(",")],
+  );
+  const releaseCodes = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const k of nfaKeys) {
+      if (!k.releaseCode || seen.has(k.releaseCode)) continue;
+      seen.add(k.releaseCode);
+      out.push(k.releaseCode);
+    }
+    return out.sort((a, b) => a.localeCompare(b));
+  }, [nfaKeys]);
+  const [releaseCode, setReleaseCode] = useState("");
+
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
   const showCreate =
     mode === "creation" && (action === "Create" || action === "Change");
+  const showReleaseStep = action === "Release" || action === "Approved List";
 
   function resetCreateForm() {
     setNfaType("");
@@ -203,6 +224,7 @@ function ZnfaReleasePage() {
     setAwardRemarks("");
     setApprovedBudget("");
     setBalanceBudget("");
+    setReleaseCode("");
   }
 
   function onModeChange(v: string) {
@@ -216,6 +238,17 @@ function ZnfaReleasePage() {
     resetCreateForm();
     toast.info(`${label} selected`);
   }
+
+  function onReleaseNext() {
+    if (!releaseCode) {
+      toast.error("Select a Release Code");
+      return;
+    }
+    toast.info(
+      `Release Code ${releaseCode} selected — the ZNFA list will load once the SAP API is configured.`,
+    );
+  }
+
 
   function onRfqF4() {
     toast.info("RFQ Number F4 help will be enabled once the SAP API is configured.");
