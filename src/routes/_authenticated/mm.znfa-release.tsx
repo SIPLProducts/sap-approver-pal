@@ -429,6 +429,13 @@ function ZnfaReleasePage() {
 
           <DetailsTableCard title="RFQ DETAILS" emptyText="No RFQ details yet — enter an RFQ Number and click Get Details." />
 
+          <DetailsTableCard
+            title="FINAL RECOMMENDATION"
+            columns={FINAL_RECOMMENDATION_COLUMNS}
+            emptyText="No recommendation data yet — enter an RFQ Number and click Get Details."
+          />
+
+
         </>
       )}
     </div>
