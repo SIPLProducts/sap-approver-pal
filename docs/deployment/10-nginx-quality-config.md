@@ -10,7 +10,75 @@ Three public hostnames, three server blocks, plus two shared snippets.
 
 Source files ship in the repository at `deploy/quality/nginx/`.
 
+> Prefer a **single hostname** with paths instead of three subdomains? See
+> section 0 below — one file, no extra DNS records or certificates.
+
 ---
+
+## 0. Alternative — single host, path-based
+
+File: `deploy/quality/nginx/resl-approval-quality-single-host.conf`
+(link as `resl-approval-quality-single-host`). Use this **instead of** the three
+server blocks described in the rest of this chapter.
+
+| Path | Proxies to | Port |
+|---|---|---|
+| `/` (app + its own `/api/*`) | TanStack Start SSR | 8081 |
+| `/supabase/` | Supabase Kong (prefix stripped) | 8000 |
+| `/studio/` | Supabase Studio (basic auth) | 3000 |
+| `/mw/` | SAP middleware (prefix stripped) | 3002 |
+
+Port 8080 is not used: the app's `/api/*` routes are served by the same SSR
+process on 8081, so there is no separate `location /api` upstream.
+
+Because Supabase and the middleware move to paths, the app env must change:
+
+```ini
+VITE_SUPABASE_URL=https://quality.yourdomain.com/supabase
+# middleware base URL
+MIDDLEWARE_BASE_URL=https://quality.yourdomain.com/mw
+```
+
+Install:
+
+```bash
+cd /data/webapplication/resl_approval/nginx
+cp /data/webapplication/resl_approval/Quality/frontend/repo/deploy/quality/nginx/resl-approval-quality-single-host.conf .
+sed -i 's/quality\.example\.com/quality.yourdomain.com/g' resl-approval-quality-single-host.conf
+
+# shared snippets (required: defines $connection_upgrade)
+sudo ln -sfn /data/webapplication/resl_approval/nginx/00-upgrade-map.conf \
+             /etc/nginx/conf.d/00-upgrade-map.conf
+sudo ln -sfn /data/webapplication/resl_approval/nginx/01-gzip.conf \
+             /etc/nginx/conf.d/01-gzip.conf
+
+s=resl-approval-quality-single-host
+sudo ln -sfn "/data/webapplication/resl_approval/nginx/$s.conf" "/etc/nginx/sites-available/$s"
+sudo ln -sfn "/etc/nginx/sites-available/$s" "/etc/nginx/sites-enabled/$s"
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Studio has no login of its own
+sudo htpasswd -c /etc/nginx/.htpasswd-studio studioadmin
+sudo chmod 640 /etc/nginx/.htpasswd-studio
+sudo chown root:www-data /etc/nginx/.htpasswd-studio
+
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Verify (502 before the services are running is expected and proves routing):
+
+```bash
+curl -kI https://quality.yourdomain.com/
+curl -kI https://quality.yourdomain.com/supabase/auth/v1/health
+curl -kI https://quality.yourdomain.com/mw/__health
+curl -kI https://quality.yourdomain.com/studio/     # 401 until you send basic auth
+```
+
+Also make sure PM2 runs the app on **8081** (`ecosystem.config.cjs` → `PORT`)
+and the middleware on **3002**.
+
+---
+
 
 ## 1. Install the files
 
