@@ -182,7 +182,8 @@ function ZnfaReleasePage() {
   const [balanceBudget, setBalanceBudget] = useState("");
 
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
-  const showCreate = mode === "creation" && action === "Create";
+  const showCreate =
+    mode === "creation" && (action === "Create" || action === "Change");
 
   function resetCreateForm() {
     setNfaType("");
