@@ -56,8 +56,14 @@ const SCOPE_CATEGORIES = [
 
 type Buyer = { id: string; name: string; email: string; location: string };
 
-const PR_DETAIL_COLUMNS: { key: string; label: string; numeric?: boolean }[] = [
-  { key: "vendor", label: "Vendor Name/Vendor Code" },
+const PR_DETAIL_COLUMNS: {
+  key: string;
+  label: string;
+  numeric?: boolean;
+  divider?: boolean;
+}[] = [
+  { key: "vendor", label: "Vendor Name/Vendor Code", divider: true },
+
   { key: "check", label: "Check" },
   { key: "rfq_no", label: "RFQ No" },
   { key: "rfq_item", label: "RFQ Item" },
