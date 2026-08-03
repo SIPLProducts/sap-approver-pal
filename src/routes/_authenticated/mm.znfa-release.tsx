@@ -56,12 +56,14 @@ const SCOPE_CATEGORIES = [
 
 type Buyer = { id: string; name: string; email: string; location: string };
 
-const PR_DETAIL_COLUMNS: {
+type DetailColumn = {
   key: string;
   label: string;
   numeric?: boolean;
   divider?: boolean;
-}[] = [
+};
+
+const PR_DETAIL_COLUMNS: DetailColumn[] = [
   { key: "vendor", label: "Vendor Name/Vendor Code", divider: true },
 
   { key: "check", label: "Check" },
@@ -80,7 +82,31 @@ const PR_DETAIL_COLUMNS: {
   { key: "total_value", label: "Total Value", numeric: true },
 ];
 
-function DetailsTableCard({ title, emptyText }: { title: string; emptyText: string }) {
+const FINAL_RECOMMENDATION_COLUMNS: DetailColumn[] = [
+  { key: "recommended_vendor", label: "Recommended Vendor", divider: true },
+  { key: "vendor", label: "Vendor" },
+  { key: "name", label: "Name" },
+  { key: "rfq_no", label: "RFQ No" },
+  { key: "commercial_rating", label: "Commercial Rating" },
+  { key: "ter_rating", label: "TER Rating" },
+  { key: "basic_cost", label: "Basic Cost", numeric: true },
+  { key: "currency", label: "Currency" },
+  { key: "conversion_rate", label: "Conversion Rate", numeric: true },
+  { key: "tax", label: "Tax", numeric: true },
+  { key: "discount", label: "Discount", numeric: true },
+  { key: "freight", label: "Freight/Transportation", numeric: true },
+  { key: "packing_fwd", label: "Packing & FWD Charges", numeric: true },
+];
+
+function DetailsTableCard({
+  title,
+  emptyText,
+  columns = PR_DETAIL_COLUMNS,
+}: {
+  title: string;
+  emptyText: string;
+  columns?: DetailColumn[];
+}) {
   return (
     <Card className="border border-border/60 p-5 shadow-card">
       <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -94,7 +120,7 @@ function DetailsTableCard({ title, emptyText }: { title: string; emptyText: stri
               <TableHead className="w-10">
                 <span className="sr-only">Select</span>
               </TableHead>
-              {PR_DETAIL_COLUMNS.map((c) => (
+              {columns.map((c) => (
                 <TableHead
                   key={c.key}
                   className={cn(
@@ -111,7 +137,7 @@ function DetailsTableCard({ title, emptyText }: { title: string; emptyText: stri
           <TableBody>
             <TableRow>
               <TableCell
-                colSpan={PR_DETAIL_COLUMNS.length + 1}
+                colSpan={columns.length + 1}
                 className="h-28 text-center text-sm text-muted-foreground"
               >
                 {emptyText}
@@ -123,6 +149,7 @@ function DetailsTableCard({ title, emptyText }: { title: string; emptyText: stri
     </Card>
   );
 }
+
 
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 
