@@ -288,6 +288,7 @@ function ZnfaReleasePage() {
   function onAction(label: string) {
     setAction(label);
     resetCreateForm();
+    clearReleaseResults();
     toast.info(`${label} selected`);
   }
 
@@ -296,9 +297,16 @@ function ZnfaReleasePage() {
       toast.error("Select a Release Code");
       return;
     }
-    toast.info(
-      `Release Code ${releaseCode} selected — the ZNFA list will load once the SAP API is configured.`,
-    );
+    if (!releaseId) {
+      toast.error("No SAP user id found — please sign in again.");
+      return;
+    }
+    clearReleaseResults();
+    releaseMutation.mutate({
+      user: releaseId,
+      relCode: releaseCode,
+      mode: action === "Approved List" ? "app_list" : "release",
+    });
   }
 
   function onDisplayNext() {
