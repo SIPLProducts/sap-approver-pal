@@ -324,6 +324,8 @@ function ZnfaReleasePage() {
         </div>
 
         <div className="space-y-4">
+          {/* Mode toggle hidden per request; Release mode is used by default. */}
+          {/*
           <div className="space-y-1.5">
             <Label className="text-xs">Mode</Label>
             <RadioGroup
@@ -345,6 +347,7 @@ function ZnfaReleasePage() {
               </div>
             </RadioGroup>
           </div>
+          */}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             {actions.map((label) => {
