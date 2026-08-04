@@ -637,14 +637,25 @@ function ZnfaReleasePage() {
             <Button
               type="button"
               className="h-9 px-6 sm:self-end"
-              disabled={!mainNfaNumber.trim()}
+              disabled={!mainNfaNumber.trim() || displayMutation.isPending}
               onClick={onDisplayNext}
             >
-              Next
+              {displayMutation.isPending ? "Loading…" : "Next"}
             </Button>
           </div>
         </Card>
       )}
+
+      {showDisplayStep && displayError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          <AlertTitle>Could not load the NFA document</AlertTitle>
+          <AlertDescription>{displayError}</AlertDescription>
+        </Alert>
+      )}
+
+      {showDisplayStep && displayMutation.isPending && <SkeletonRows columns={6} />}
+
 
       {showCreate && (
         <>
