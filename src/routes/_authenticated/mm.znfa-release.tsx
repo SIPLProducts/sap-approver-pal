@@ -667,7 +667,9 @@ function ZnfaReleasePage() {
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="No values available" />
                   </SelectTrigger>
-                  <SelectContent />
+                  <SelectContent>
+                    {nfaType ? <SelectItem value={nfaType}>{nfaType}</SelectItem> : null}
+                  </SelectContent>
                 </Select>
               </div>
 
