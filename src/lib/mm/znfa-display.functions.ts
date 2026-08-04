@@ -39,6 +39,18 @@ function empty(error: string | null, sapMessage: string | null = null): ZnfaDisp
   };
 }
 
+function extractSapMsg(text: string): string | null {
+  if (!text || !text.trim()) return null;
+  try {
+    const parsed = JSON.parse(text);
+    const msg = parsed?.MSG ?? parsed?.data?.MSG ?? parsed?.message ?? parsed?.error;
+    return typeof msg === "string" && msg.trim() ? msg.trim() : null;
+  } catch {
+    const match = text.match(/"MSG"\s*:\s*"([^"]*)"/i);
+    return match?.[1] ? match[1] : null;
+  }
+}
+
 function arr(v: unknown): ZnfaDisplayRow[] {
   return Array.isArray(v) ? v.filter((r) => r && typeof r === "object") : [];
 }
