@@ -1,6 +1,16 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Award, Filter, Info, KeyRound, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
+import {
+  Award,
+  Filter,
+  Info,
+  KeyRound,
+  ListChecks,
+  Paperclip,
+  Search,
+  User2,
+  Wrench,
+} from "lucide-react";
 import { PageHeader } from "@/components/exec/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -38,16 +48,18 @@ export const Route = createFileRoute("/_authenticated/mm/znfa-release")({
 
 type Mode = "creation" | "release";
 
-const CREATION_ACTIONS = [
-  "Create",
-  "Change",
-  "Clarification",
-  "Release",
-  "Display",
-  "Approved List",
-];
+const DEFAULT_ACTIONS = ["Release", "Display", "Approved List", "Clarification"];
 
-const RELEASE_ACTIONS = ["Release", "Display", "Approved List"];
+// Commented out per request: Creation/Change mode actions are temporarily disabled.
+// const CREATION_ACTIONS = [
+//   "Create",
+//   "Change",
+//   "Clarification",
+//   "Release",
+//   "Display",
+//   "Approved List",
+// ];
+// const RELEASE_ACTIONS = ["Release", "Display", "Approved List"];
 
 const SCOPE_CATEGORIES = [
   { id: "supply", label: "Supply" },
@@ -156,12 +168,12 @@ function DetailsTableCard({
   );
 }
 
-
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 
-
 function ZnfaReleasePage() {
-  const [mode, setMode] = useState<Mode>("creation");
+  // Default mode is kept as "release" so the Release/Display/Approved List/Clarification
+  // actions behave as they did under Release mode. The mode toggle is hidden from the UI.
+  const [mode, setMode] = useState<Mode>("release");
   const [action, setAction] = useState<string | null>(null);
 
   // Create form state (UI only for now)
@@ -208,7 +220,7 @@ function ZnfaReleasePage() {
   const [mainNfaNumber, setMainNfaNumber] = useState("");
   const [displayConfirmed, setDisplayConfirmed] = useState(false);
 
-  const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
+  const actions = DEFAULT_ACTIONS;
   const showDisplayStep = action === "Display";
   const showCreate =
     (mode === "creation" && (action === "Create" || action === "Change")) ||
@@ -235,10 +247,15 @@ function ZnfaReleasePage() {
     setDisplayConfirmed(false);
   }
 
-  function onModeChange(v: string) {
-    setMode(v as Mode);
-    setAction(null);
-    resetCreateForm();
+  // Mode change handler is no longer used because the mode toggle is hidden.
+  // function onModeChange(v: string) {
+  //   setMode(v as Mode);
+  //   setAction(null);
+  //   resetCreateForm();
+  // }
+
+  function onModeChange(_v: string) {
+    // no-op: keep signature to avoid breaking any references, but UI does not expose mode switching.
   }
 
   function onAction(label: string) {
@@ -265,9 +282,6 @@ function ZnfaReleasePage() {
     setDisplayConfirmed(true);
   }
 
-
-
-
   function onRfqF4() {
     toast.info("RFQ Number F4 help will be enabled once the SAP API is configured.");
   }
@@ -286,7 +300,7 @@ function ZnfaReleasePage() {
 
   function toggleScopeCategory(value: string) {
     setScopeCategories((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     );
   }
 
@@ -302,12 +316,11 @@ function ZnfaReleasePage() {
         <Info className="h-4 w-4" aria-hidden />
         <AlertTitle>SAP service not connected yet</AlertTitle>
         <AlertDescription>
-          This screen is fully laid out, but the ZNFA SAP APIs are not configured. F4 help, Get Details,
-          attachments and posting will start working as soon as they are set up in API Settings.
+          This screen is fully laid out, but the ZNFA SAP APIs are not configured. F4 help, Get
+          Details, attachments and posting will start working as soon as they are set up in API
+          Settings.
         </AlertDescription>
       </Alert>
-
-
 
       <Card className="border border-border/60 p-5 shadow-card">
         <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -315,6 +328,8 @@ function ZnfaReleasePage() {
         </div>
 
         <div className="space-y-4">
+          {/* Mode toggle hidden per request; Release mode is used by default. */}
+          {/*
           <div className="space-y-1.5">
             <Label className="text-xs">Mode</Label>
             <RadioGroup
@@ -336,6 +351,7 @@ function ZnfaReleasePage() {
               </div>
             </RadioGroup>
           </div>
+          */}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             {actions.map((label) => {
@@ -349,7 +365,7 @@ function ZnfaReleasePage() {
                     "h-11 min-w-[140px] justify-center rounded-xl border px-4 font-medium transition-all duration-200",
                     active
                       ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90 hover:text-primary-foreground"
-                      : "border-border bg-muted/60 text-muted-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-md"
+                      : "border-border bg-muted/60 text-muted-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-md",
                   )}
                   onClick={() => onAction(label)}
                 >
@@ -378,9 +394,7 @@ function ZnfaReleasePage() {
                 >
                   <SelectTrigger className="h-9 w-full max-w-[220px] text-sm">
                     <SelectValue
-                      placeholder={
-                        releaseCodes.length === 0 ? "No keys assigned" : "Select code"
-                      }
+                      placeholder={releaseCodes.length === 0 ? "No keys assigned" : "Select code"}
                     />
                   </SelectTrigger>
                   <SelectContent>
@@ -447,7 +461,6 @@ function ZnfaReleasePage() {
           </div>
         </Card>
       )}
-
 
       {showCreate && (
         <>
@@ -600,9 +613,15 @@ function ZnfaReleasePage() {
             </div>
           </Card>
 
-          <DetailsTableCard title="PR DETAILS" emptyText="No PR details yet — enter an RFQ Number and click Get Details." />
+          <DetailsTableCard
+            title="PR DETAILS"
+            emptyText="No PR details yet — enter an RFQ Number and click Get Details."
+          />
 
-          <DetailsTableCard title="RFQ DETAILS" emptyText="No RFQ details yet — enter an RFQ Number and click Get Details." />
+          <DetailsTableCard
+            title="RFQ DETAILS"
+            emptyText="No RFQ details yet — enter an RFQ Number and click Get Details."
+          />
 
           <DetailsTableCard
             title="FINAL RECOMMENDATION"
@@ -646,7 +665,10 @@ function ZnfaReleasePage() {
                     </TableHeader>
                     <TableBody>
                       <TableRow>
-                        <TableCell colSpan={2} className="h-28 text-center text-sm text-muted-foreground">
+                        <TableCell
+                          colSpan={2}
+                          className="h-28 text-center text-sm text-muted-foreground"
+                        >
                           No NFA texts yet.
                         </TableCell>
                       </TableRow>
@@ -717,7 +739,10 @@ function ZnfaReleasePage() {
                       </TableHeader>
                       <TableBody>
                         <TableRow>
-                          <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
+                          <TableCell
+                            colSpan={3}
+                            className="h-24 text-center text-sm text-muted-foreground"
+                          >
                             No attachments yet.
                           </TableCell>
                         </TableRow>
@@ -729,7 +754,6 @@ function ZnfaReleasePage() {
             </div>
           </Card>
         </>
-
       )}
     </div>
   );
