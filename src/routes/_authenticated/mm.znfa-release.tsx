@@ -1093,11 +1093,7 @@ function ZnfaReleasePage() {
             </div>
           </Card>
 
-          <DetailsTableCard
-            title="PR DETAILS"
-            rows={prRows}
-            emptyText="No PR details returned by SAP."
-          />
+          <PrDetailsTreeCard rows={prRows} emptyText="No PR details returned by SAP." />
 
           <DetailsTableCard
             title="RFQ DETAILS"
