@@ -400,7 +400,10 @@ function ZnfaReleasePage() {
                 <Label className="text-sm font-medium">Release Code</Label>
                 <Select
                   value={releaseCodes.includes(releaseCode) ? releaseCode : ""}
-                  onValueChange={setReleaseCode}
+                  onValueChange={(v) => {
+                    setReleaseCode(v);
+                    clearReleaseResults();
+                  }}
                   disabled={releaseCodes.length === 0}
                 >
                   <SelectTrigger className="h-9 w-full max-w-[220px] text-sm">
@@ -432,12 +435,71 @@ function ZnfaReleasePage() {
             <Button
               type="button"
               className="h-9 px-6 sm:self-end"
-              disabled={!releaseCode}
+              disabled={!releaseCode || releaseMutation.isPending}
               onClick={onReleaseNext}
             >
-              Next
+              {releaseMutation.isPending ? "Loading…" : "Next"}
             </Button>
           </div>
+        </Card>
+      )}
+
+      {showReleaseStep && releaseError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          <AlertTitle>Could not load ZNFA records</AlertTitle>
+          <AlertDescription>{releaseError}</AlertDescription>
+        </Alert>
+      )}
+
+      {showReleaseStep && releaseMutation.isPending && <SkeletonRows columns={6} />}
+
+      {showReleaseStep && !releaseMutation.isPending && !releaseError && releaseRows && (
+        <Card className="border border-border/60 p-5 shadow-card">
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <ListChecks className="h-3.5 w-3.5" /> {action?.toUpperCase()} — {releaseRows.length}{" "}
+            RECORD(S)
+          </div>
+
+          {releaseRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No records found for this Release Code.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {RELEASE_RESULT_COLUMNS.map((c) => (
+                      <TableHead
+                        key={c.key}
+                        className={cn("whitespace-nowrap text-xs", c.numeric && "text-right")}
+                      >
+                        {c.label}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {releaseRows.map((row, i) => (
+                    <TableRow key={`${row.NFA_NO ?? "row"}-${i}`}>
+                      {RELEASE_RESULT_COLUMNS.map((c) => (
+                        <TableCell
+                          key={c.key}
+                          className={cn(
+                            "whitespace-nowrap text-sm",
+                            c.numeric && "text-right tabular-nums",
+                          )}
+                        >
+                          {row[c.key] === null || row[c.key] === undefined || row[c.key] === ""
+                            ? "—"
+                            : String(row[c.key])}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </Card>
       )}
 
