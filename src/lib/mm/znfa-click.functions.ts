@@ -1,17 +1,17 @@
 /**
- * MM ZNFA Release — Display step. Fetches one NFA document from SAP.
- * Config: ZNFA_DISPLAY_GET_API
+ * MM ZNFA Release — NFA No click. Fetches one NFA document from SAP.
+ * Config: ZNFA_Click _API
  * Payload: { TYPE_NFA, ZRFQS: [{ RFQ }], GET, REL_CODE, ZNFA_NUM, PRINT }
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const CONFIG_NAME = "ZNFA_DISPLAY_GET_API";
+const CONFIG_NAME = "ZNFA_Click _API";
 
-export type ZnfaDisplayRow = Record<string, any>;
+type ZnfaDisplayRow = Record<string, any>;
 
-export type ZnfaDisplayResponse = {
+type ZnfaDisplayResponse = {
   znfa: Record<string, any> | null;
   rfqs: ZnfaDisplayRow[];
   prDet: ZnfaDisplayRow[];
@@ -57,12 +57,13 @@ function arr(v: unknown): ZnfaDisplayRow[] {
   return Array.isArray(v) ? v.filter((r) => r && typeof r === "object") : [];
 }
 
-export const fetchZnfaDisplay = createServerFn({ method: "POST" })
+export const fetchZnfaClick = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z
       .object({
-        znfaNum: z.string().trim().min(1, "Main NFA Number is required").max(60),
+        znfaNum: z.string().trim().min(1, "NFA Number is required").max(60),
+        relCode: z.string().trim().max(10).optional().default(""),
       })
       .parse(d),
   )
@@ -96,7 +97,7 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
       TYPE_NFA: "",
       ZRFQS: [{ RFQ: "" }],
       GET: "",
-      REL_CODE: "",
+      REL_CODE: (data.relCode ?? "").trim(),
       ZNFA_NUM: data.znfaNum.trim(),
       PRINT: "",
     };
@@ -150,7 +151,7 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms: Date.now() - t0,
-        message: `znfa-display network: ${errMsg}`,
+        message: `znfa-click network: ${errMsg}`,
       });
       return empty(`Could not reach SAP. ${errMsg}.`);
     }
@@ -164,7 +165,7 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms,
-        message: `znfa-display: ${message} ${text.slice(0, 500)}`,
+        message: `znfa-click: ${message} ${text.slice(0, 500)}`,
       });
       return empty(null, extractSapMsg(text) ?? "SAP returned an error");
     }
@@ -192,7 +193,7 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
           config_id: cfg.id,
           status: "error",
           latency_ms,
-          message: `znfa-display: SAP said "${msg || status}"`,
+          message: `znfa-click: SAP said "${msg || status}"`,
         });
         return empty(null, msg || null);
       }
@@ -201,7 +202,7 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
           config_id: cfg.id,
           status: "error",
           latency_ms,
-          message: `znfa-display: SAP said "${msg}"`,
+          message: `znfa-click: SAP said "${msg}"`,
         });
         return empty(null, msg);
       }
@@ -213,7 +214,7 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
       status: "ok",
       latency_ms,
       rows_processed: arr(payload?.PR_DET).length,
-      message: `znfa-display: ${message}`,
+      message: `znfa-click: ${message}`,
     });
 
     return {
