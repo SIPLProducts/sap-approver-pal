@@ -282,6 +282,59 @@ function ZnfaReleasePage() {
   // Display step state
   const [mainNfaNumber, setMainNfaNumber] = useState("");
   const [displayConfirmed, setDisplayConfirmed] = useState(false);
+  const [displayError, setDisplayError] = useState<string | null>(null);
+  const [prRows, setPrRows] = useState<Record<string, any>[]>([]);
+  const [rfqRows, setRfqRows] = useState<Record<string, any>[]>([]);
+  const [recommendRows, setRecommendRows] = useState<Record<string, any>[]>([]);
+  const [attachRows, setAttachRows] = useState<Record<string, any>[]>([]);
+  const [nfaTextRows, setNfaTextRows] = useState<Record<string, any>[]>([]);
+
+  const fetchDisplay = useServerFn(fetchZnfaDisplay);
+  const displayMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string }) => fetchDisplay({ data: vars }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (msg || !res.znfa) {
+        setDisplayConfirmed(false);
+        setDisplayError(msg ?? "SAP returned no NFA document.");
+        toast.error(msg ?? "SAP returned no NFA document.");
+        return;
+      }
+      const z = res.znfa;
+      setDisplayError(null);
+      setNfaType(String(z.TYPE_NFA ?? ""));
+      setNfaTitle(String(z.TITLE ?? ""));
+      setRfqNumber(String(res.rfqs[0]?.RFQ ?? ""));
+      setBuyer({
+        id: String(z.BUYER_ID ?? ""),
+        name: String(z.BUYER_NAME ?? ""),
+        email: String(z.BUYER_EMAIL ?? ""),
+        location: String(z.LOCATION ?? ""),
+      });
+      setSpendCategory(String(z.SPENDCATEGORY ?? ""));
+      setItemCategory(String(z.ITEM_CATEGORY ?? ""));
+      setPurchasingGroup(String(z.EKGRP ?? ""));
+      setRemarks(String(z.REMARKS ?? ""));
+      setApprovedBudget(z.APP_BUDGET === null || z.APP_BUDGET === undefined ? "" : String(z.APP_BUDGET));
+      setBalanceBudget(z.BAL_BUDGET === null || z.BAL_BUDGET === undefined ? "" : String(z.BAL_BUDGET));
+      setPrRows(res.prDet);
+      setRfqRows(res.rfqDet);
+      setRecommendRows(res.recommend);
+      setAttachRows(res.attach);
+      setNfaTextRows(
+        res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""),
+      );
+      setDisplayConfirmed(true);
+      toast.success(`NFA ${z.NFA_NO ?? ""} loaded`);
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Failed to load the NFA document";
+      setDisplayConfirmed(false);
+      setDisplayError(msg);
+      toast.error(msg);
+    },
+  });
+
 
   // Release / Approved List results
   const [releaseRows, setReleaseRows] = useState<Record<string, any>[] | null>(null);
