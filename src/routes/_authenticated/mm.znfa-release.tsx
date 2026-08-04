@@ -67,15 +67,28 @@ const DEFAULT_ACTIONS = ["Release", "Display", "Approved List", "Clarification"]
 // const RELEASE_ACTIONS = ["Release", "Display", "Approved List"];
 
 const SCOPE_CATEGORIES = [
-  { id: "supply", label: "Supply" },
-  { id: "installation", label: "Installation" },
-  { id: "construction-all", label: "Construction works including all supplies" },
-  { id: "construction-fim", label: "Construction with FIM (Free issue Material)" },
-  { id: "supervision", label: "Supervision" },
-  { id: "commissioning", label: "Commissioning" },
-  { id: "service", label: "Service" },
-  { id: "arc", label: "ARC" },
+  { id: "supply", label: "Supply", sapField: "SUPPLY" },
+  { id: "installation", label: "Installation", sapField: "INSTALLATION" },
+  {
+    id: "construction-all",
+    label: "Construction works including all supplies",
+    sapField: "CONSTRUCTION_S",
+  },
+  {
+    id: "construction-fim",
+    label: "Construction with FIM (Free issue Material)",
+    sapField: "CONSTRUCTION_R",
+  },
+  { id: "supervision", label: "Supervision", sapField: "SUPERVISION" },
+  { id: "commissioning", label: "Commissioning", sapField: "COMMISION" },
+  { id: "service", label: "Service", sapField: "SERVICES" },
+  { id: "arc", label: "ARC", sapField: "ARC" },
 ];
+
+/** SAP sends "X" for a ticked scope category; anything else is unticked. */
+function isSapFlag(v: unknown): boolean {
+  return String(v ?? "").trim().toUpperCase() === "X";
+}
 
 type Buyer = { id: string; name: string; email: string; location: string };
 
