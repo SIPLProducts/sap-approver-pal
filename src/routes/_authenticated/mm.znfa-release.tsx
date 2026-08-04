@@ -257,6 +257,16 @@ function ZnfaReleasePage() {
     );
   }
 
+  function onDisplayNext() {
+    if (!mainNfaNumber.trim()) {
+      toast.error("Enter a Main NFA Number");
+      return;
+    }
+    setDisplayConfirmed(true);
+  }
+
+
+
 
   function onRfqF4() {
     toast.info("RFQ Number F4 help will be enabled once the SAP API is configured.");
