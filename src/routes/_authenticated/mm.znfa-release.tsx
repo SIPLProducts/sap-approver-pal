@@ -328,30 +328,6 @@ function ZnfaReleasePage() {
         </div>
 
         <div className="space-y-4">
-          {/* Mode toggle hidden per request; Release mode is used by default. */}
-          {/*
-          <div className="space-y-1.5">
-            <Label className="text-xs">Mode</Label>
-            <RadioGroup
-              value={mode}
-              onValueChange={onModeChange}
-              className="flex flex-wrap items-center gap-6"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="creation" id="znfa-mode-creation" />
-                <Label htmlFor="znfa-mode-creation" className="text-sm font-normal">
-                  Creation
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="release" id="znfa-mode-release" />
-                <Label htmlFor="znfa-mode-release" className="text-sm font-normal">
-                  Release
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-          */}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             {actions.map((label) => {
