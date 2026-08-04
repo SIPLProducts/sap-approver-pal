@@ -39,6 +39,18 @@ function empty(error: string | null, sapMessage: string | null = null): ZnfaDisp
   };
 }
 
+function extractSapMsg(text: string): string | null {
+  if (!text || !text.trim()) return null;
+  try {
+    const parsed = JSON.parse(text);
+    const msg = parsed?.MSG ?? parsed?.data?.MSG ?? parsed?.message ?? parsed?.error;
+    return typeof msg === "string" && msg.trim() ? msg.trim() : null;
+  } catch {
+    const match = text.match(/"MSG"\s*:\s*"([^"]*)"/i);
+    return match?.[1] ? match[1] : null;
+  }
+}
+
 function arr(v: unknown): ZnfaDisplayRow[] {
   return Array.isArray(v) ? v.filter((r) => r && typeof r === "object") : [];
 }
@@ -151,14 +163,14 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
         latency_ms,
         message: `znfa-display: ${message} ${text.slice(0, 500)}`,
       });
-      return empty(`SAP returned ${message}: ${text.slice(0, 200)}`);
+      return empty(null, extractSapMsg(text) ?? "SAP returned an error");
     }
 
     let json: any;
     try {
       json = text ? JSON.parse(text) : null;
     } catch {
-      return empty(`Invalid JSON from SAP: ${text.slice(0, 200)}`);
+      return empty(null, extractSapMsg(text) ?? "Invalid response from SAP");
     }
 
     const sapJson: any = proxied ? (json?.data ?? json) : json;
@@ -179,7 +191,7 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
         });
         return empty(null, msg || "SAP rejected the request.");
       }
-      return empty(`Unexpected response from SAP: ${text.slice(0, 200)}`);
+      return empty(null, extractSapMsg(text) ?? "Unexpected response from SAP");
     }
 
     await supabaseAdmin.from("sap_api_sync_log").insert({

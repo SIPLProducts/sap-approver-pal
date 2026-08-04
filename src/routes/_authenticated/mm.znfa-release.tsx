@@ -328,8 +328,8 @@ function ZnfaReleasePage() {
       setDisplayConfirmed(true);
       toast.success(`NFA ${z.NFA_NO ?? ""} loaded`);
     },
-    onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : "Failed to load the NFA document";
+    onError: () => {
+      const msg = "An unexpected error occurred while loading the NFA document.";
       setDisplayConfirmed(false);
       setDisplayError(msg);
       toast.error(msg);
@@ -356,8 +356,8 @@ function ZnfaReleasePage() {
       setReleaseRows(res.rows);
       toast.success(`${res.rows.length} record(s) loaded`);
     },
-    onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : "Failed to load ZNFA records";
+    onError: () => {
+      const msg = "An unexpected error occurred while loading ZNFA records.";
       setReleaseRows(null);
       setReleaseError(msg);
       toast.error(msg);

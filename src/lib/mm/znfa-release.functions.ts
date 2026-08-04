@@ -23,6 +23,18 @@ function fail(error: string | null, sapMessage: string | null = null): ZnfaRelea
   return { rows: [], error, sapMessage, fetched_at: new Date().toISOString() };
 }
 
+function extractSapMsg(text: string): string | null {
+  if (!text || !text.trim()) return null;
+  try {
+    const parsed = JSON.parse(text);
+    const msg = parsed?.MSG ?? parsed?.data?.MSG ?? parsed?.message ?? parsed?.error;
+    return typeof msg === "string" && msg.trim() ? msg.trim() : null;
+  } catch {
+    const match = text.match(/"MSG"\s*:\s*"([^"]*)"/i);
+    return match?.[1] ? match[1] : null;
+  }
+}
+
 export const fetchZnfaRelease = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
@@ -130,14 +142,14 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
         latency_ms,
         message: `znfa-release: ${message} ${text.slice(0, 500)}`,
       });
-      return fail(`SAP returned ${message}: ${text.slice(0, 200)}`);
+      return fail(null, extractSapMsg(text) ?? "SAP returned an error");
     }
 
     let json: any;
     try {
       json = text ? JSON.parse(text) : null;
     } catch {
-      return fail(`Invalid JSON from SAP: ${text.slice(0, 200)}`);
+      return fail(null, extractSapMsg(text) ?? "Invalid response from SAP");
     }
 
     const sapJson: any = proxied ? (json?.data ?? json) : json;
@@ -162,7 +174,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
         });
         return fail(null, msg || "SAP rejected the request.");
       }
-      return fail(`Unexpected response from SAP: ${text.slice(0, 200)}`);
+      return fail(null, extractSapMsg(text) ?? "Unexpected response from SAP");
     }
 
     const rows: ZnfaReleaseRow[] = dataArr.map((r) => (r && typeof r === "object" ? { ...r } : {}));
