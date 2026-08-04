@@ -416,6 +416,37 @@ function ZnfaReleasePage() {
         </Card>
       )}
 
+      {showDisplayStep && (
+        <Card className="border border-border/60 p-5 shadow-card">
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <KeyRound className="h-3.5 w-3.5" /> DISPLAY
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
+            <div className="grid flex-1 grid-cols-1 items-center gap-2 sm:grid-cols-[160px_1fr]">
+              <Label className="text-sm font-medium">Main NFA Number</Label>
+              <Input
+                value={mainNfaNumber}
+                onChange={(e) => {
+                  setMainNfaNumber(e.target.value);
+                  setDisplayConfirmed(false);
+                }}
+                className="h-9 w-full max-w-[320px] text-sm"
+                placeholder="Enter Main NFA Number"
+              />
+            </div>
+
+            <Button
+              type="button"
+              className="h-9 px-6 sm:self-end"
+              disabled={!mainNfaNumber.trim()}
+              onClick={onDisplayNext}
+            >
+              Next
+            </Button>
+          </div>
+        </Card>
+      )}
 
 
       {showCreate && (
