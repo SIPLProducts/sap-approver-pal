@@ -866,14 +866,29 @@ function ZnfaReleasePage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
-                        <TableCell
-                          colSpan={2}
-                          className="h-28 text-center text-sm text-muted-foreground"
-                        >
-                          No NFA texts yet.
-                        </TableCell>
-                      </TableRow>
+                      {nfaTextRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={2}
+                            className="h-28 text-center text-sm text-muted-foreground"
+                          >
+                            No NFA texts returned by SAP.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        nfaTextRows.map((t, i) => (
+                          <TableRow key={`${t.AVL_TEXTS ?? "text"}-${i}`}>
+                            <TableCell className="whitespace-nowrap text-sm">
+                              {String(t.AVL_TEXTS ?? "—")}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {Array.isArray(t.HEADER) && t.HEADER[0]?.LINE
+                                ? String(t.HEADER[0].LINE)
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
