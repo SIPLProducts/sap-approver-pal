@@ -810,19 +810,24 @@ function ZnfaReleasePage() {
 
           <DetailsTableCard
             title="PR DETAILS"
-            emptyText="No PR details yet — enter an RFQ Number and click Get Details."
+            rows={prRows}
+            emptyText="No PR details returned by SAP."
           />
 
           <DetailsTableCard
             title="RFQ DETAILS"
-            emptyText="No RFQ details yet — enter an RFQ Number and click Get Details."
+            columns={RFQ_DETAIL_COLUMNS}
+            rows={rfqRows}
+            emptyText="No RFQ details returned by SAP."
           />
 
           <DetailsTableCard
             title="FINAL RECOMMENDATION"
             columns={FINAL_RECOMMENDATION_COLUMNS}
-            emptyText="No recommendation data yet — enter an RFQ Number and click Get Details."
+            rows={recommendRows}
+            emptyText="No recommendation data returned by SAP."
           />
+
 
           <Card className="border border-border/60 p-5 shadow-card">
             <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
