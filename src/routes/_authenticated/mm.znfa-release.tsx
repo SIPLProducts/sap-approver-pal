@@ -247,16 +247,8 @@ function ZnfaReleasePage() {
     setDisplayConfirmed(false);
   }
 
-  // Mode change handler is no longer used because the mode toggle is hidden.
-  // function onModeChange(v: string) {
-  //   setMode(v as Mode);
-  //   setAction(null);
-  //   resetCreateForm();
-  // }
 
-  function onModeChange(_v: string) {
-    // no-op: keep signature to avoid breaking any references, but UI does not expose mode switching.
-  }
+
 
   function onAction(label: string) {
     setAction(label);
