@@ -219,6 +219,38 @@ function ZnfaReleasePage() {
   const [mainNfaNumber, setMainNfaNumber] = useState("");
   const [displayConfirmed, setDisplayConfirmed] = useState(false);
 
+  // Release / Approved List results
+  const [releaseRows, setReleaseRows] = useState<Record<string, any>[] | null>(null);
+  const [releaseError, setReleaseError] = useState<string | null>(null);
+  const fetchRelease = useServerFn(fetchZnfaRelease);
+  const releaseMutation = useMutation({
+    mutationFn: (vars: { user: string; relCode: string; mode: "release" | "app_list" }) =>
+      fetchRelease({ data: vars }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (msg) {
+        setReleaseRows(null);
+        setReleaseError(msg);
+        toast.error(msg);
+        return;
+      }
+      setReleaseError(null);
+      setReleaseRows(res.rows);
+      toast.success(`${res.rows.length} record(s) loaded`);
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Failed to load ZNFA records";
+      setReleaseRows(null);
+      setReleaseError(msg);
+      toast.error(msg);
+    },
+  });
+
+  function clearReleaseResults() {
+    setReleaseRows(null);
+    setReleaseError(null);
+  }
+
   const actions = DEFAULT_ACTIONS;
   const showDisplayStep = action === "Display";
   const showCreate =
