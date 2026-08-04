@@ -342,6 +342,9 @@ function ZnfaReleasePage() {
     setItemCategory(String(z.ITEM_CATEGORY ?? ""));
     setPurchasingGroup(String(z.EKGRP ?? ""));
     setRemarks(String(z.REMARKS ?? ""));
+    setScopeCategories(
+      SCOPE_CATEGORIES.filter((c) => isSapFlag(z[c.sapField])).map((c) => c.label),
+    );
     setApprovedBudget(
       z.APP_BUDGET === null || z.APP_BUDGET === undefined ? "" : String(z.APP_BUDGET),
     );
