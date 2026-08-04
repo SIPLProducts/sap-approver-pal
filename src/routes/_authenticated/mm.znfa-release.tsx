@@ -22,7 +22,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Table,
   TableBody,
@@ -173,7 +172,7 @@ const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 function ZnfaReleasePage() {
   // Default mode is kept as "release" so the Release/Display/Approved List/Clarification
   // actions behave as they did under Release mode. The mode toggle is hidden from the UI.
-  const [mode, setMode] = useState<Mode>("release");
+  const [mode] = useState<Mode>("release");
   const [action, setAction] = useState<string | null>(null);
 
   // Create form state (UI only for now)
