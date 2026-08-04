@@ -204,9 +204,15 @@ function ZnfaReleasePage() {
   }, [nfaKeys]);
   const [releaseCode, setReleaseCode] = useState("");
 
+  // Display step state
+  const [mainNfaNumber, setMainNfaNumber] = useState("");
+  const [displayConfirmed, setDisplayConfirmed] = useState(false);
+
   const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
+  const showDisplayStep = action === "Display";
   const showCreate =
-    mode === "creation" && (action === "Create" || action === "Change");
+    (mode === "creation" && (action === "Create" || action === "Change")) ||
+    (showDisplayStep && displayConfirmed);
   const showReleaseStep = action === "Release" || action === "Approved List";
 
   function resetCreateForm() {
