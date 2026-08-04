@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Award,
   Filter,
-  Info,
   KeyRound,
   ListChecks,
   Paperclip,
