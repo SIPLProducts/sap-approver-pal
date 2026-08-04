@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
@@ -345,9 +345,8 @@ function PrDetailsTreeCard({
               groups.map((group) => {
                 const isOpen = expanded.has(group.pr);
                 return (
-                  <>
+                  <Fragment key={`pr-${group.pr}`}>
                     <TableRow
-                      key={`pr-${group.pr}`}
                       className="cursor-pointer bg-muted/30"
                       onClick={() => toggle(group.pr)}
                     >
@@ -402,7 +401,7 @@ function PrDetailsTreeCard({
                           ))}
                         </TableRow>
                       ))}
-                  </>
+                  </Fragment>
                 );
               })
             )}
