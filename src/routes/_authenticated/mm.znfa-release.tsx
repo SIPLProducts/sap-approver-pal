@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { fetchZnfaRelease } from "@/lib/mm/znfa-release.functions";
+import { fetchZnfaDisplay } from "@/lib/mm/znfa-display.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
   AlertTriangle,
