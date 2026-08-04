@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Award,
   Filter,
-  Info,
   KeyRound,
   ListChecks,
   Paperclip,
@@ -363,16 +362,6 @@ function ZnfaReleasePage() {
         title="ZNFA Release"
         subtitle="Prepare and release Note For Approval documents."
       />
-
-      <Alert>
-        <Info className="h-4 w-4" aria-hidden />
-        <AlertTitle>SAP service not connected yet</AlertTitle>
-        <AlertDescription>
-          This screen is fully laid out, but the ZNFA SAP APIs are not configured. F4 help, Get
-          Details, attachments and posting will start working as soon as they are set up in API
-          Settings.
-        </AlertDescription>
-      </Alert>
 
       <Card className="border border-border/60 p-5 shadow-card">
         <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
