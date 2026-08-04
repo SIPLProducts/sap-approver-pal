@@ -182,14 +182,23 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
       payload?.ZNFA && typeof payload.ZNFA === "object" ? (payload.ZNFA as Record<string, any>) : null;
 
     if (!znfa) {
-      if (status === "FALSE" || msg) {
+      if (status === "FALSE") {
         await supabaseAdmin.from("sap_api_sync_log").insert({
           config_id: cfg.id,
           status: "error",
           latency_ms,
           message: `znfa-display: SAP said "${msg || status}"`,
         });
-        return empty(null, msg || "SAP rejected the request.");
+        return empty(null, msg || null);
+      }
+      if (msg) {
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          latency_ms,
+          message: `znfa-display: SAP said "${msg}"`,
+        });
+        return empty(null, msg);
       }
       return empty(null, extractSapMsg(text) ?? "Unexpected response from SAP");
     }

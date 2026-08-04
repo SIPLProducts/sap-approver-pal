@@ -294,11 +294,13 @@ function ZnfaReleasePage() {
   const displayMutation = useMutation({
     mutationFn: (vars: { znfaNum: string }) => fetchDisplay({ data: vars }),
     onSuccess: (res) => {
-      const msg = res.sapMessage ?? res.error;
+      const msg = (res.sapMessage?.trim() ? res.sapMessage.trim() : null) ?? res.error;
       if (msg || !res.znfa) {
         setDisplayConfirmed(false);
-        setDisplayError(msg ?? "SAP returned no NFA document.");
-        toast.error(msg ?? "SAP returned no NFA document.");
+        if (msg) {
+          setDisplayError(msg);
+          toast.error(msg);
+        }
         return;
       }
       const z = res.znfa;
