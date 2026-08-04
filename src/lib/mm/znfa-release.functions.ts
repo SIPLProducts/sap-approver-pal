@@ -142,14 +142,14 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
         latency_ms,
         message: `znfa-release: ${message} ${text.slice(0, 500)}`,
       });
-      return fail(`SAP returned ${message}: ${text.slice(0, 200)}`);
+      return fail(null, extractSapMsg(text) ?? "SAP returned an error");
     }
 
     let json: any;
     try {
       json = text ? JSON.parse(text) : null;
     } catch {
-      return fail(`Invalid JSON from SAP: ${text.slice(0, 200)}`);
+      return fail(null, extractSapMsg(text) ?? "Invalid response from SAP");
     }
 
     const sapJson: any = proxied ? (json?.data ?? json) : json;
@@ -174,7 +174,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
         });
         return fail(null, msg || "SAP rejected the request.");
       }
-      return fail(`Unexpected response from SAP: ${text.slice(0, 200)}`);
+      return fail(null, extractSapMsg(text) ?? "Unexpected response from SAP");
     }
 
     const rows: ZnfaReleaseRow[] = dataArr.map((r) => (r && typeof r === "object" ? { ...r } : {}));
