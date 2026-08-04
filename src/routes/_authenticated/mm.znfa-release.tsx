@@ -115,22 +115,6 @@ const PR_DETAIL_COLUMNS: DetailColumn[] = [
   { key: "PR_APP_DATE", label: "PR Date" },
 ];
 
-const RFQ_DETAIL_COLUMNS: DetailColumn[] = [
-  { key: "NAME1", also: "LIFNR", label: "Vendor" },
-  { key: "ANFNR", label: "RFQ No" },
-  { key: "ANFPS", label: "RFQ Item" },
-  { key: "WERKS", also: "PLANT_NAME", label: "Plant" },
-  { key: "MATNR", label: "Material" },
-  { key: "TXZ01", label: "Item Text", divider: true },
-  { key: "ANMNG", label: "Qty", numeric: true },
-  { key: "MEINS", label: "UOM" },
-  { key: "FINAL_RATE", label: "Unit Rate", numeric: true },
-  { key: "WAERS", label: "Currency" },
-  { key: "BASIC_COST", label: "Basic Value", numeric: true },
-  { key: "TAX_PER", label: "Tax %" },
-  { key: "TAX", label: "Tax Value", numeric: true },
-  { key: "TOTAL", label: "Total Value", numeric: true },
-];
 
 const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
   { key: "NFA_NO", label: "NFA No" },
@@ -411,6 +395,191 @@ function PrDetailsTreeCard({
     </Card>
   );
 }
+
+/** Item-level columns for the RFQ tree (vendor lives on the parent row). */
+const RFQ_ITEM_COLUMNS: DetailColumn[] = [
+  { key: "ANFNR", label: "RFQ No" },
+  { key: "ANFPS", label: "RFQ Item" },
+  { key: "WERKS", label: "Plant" },
+  { key: "MATNR", label: "Material / Services" },
+  { key: "TXZ01", label: "Item Text", divider: true },
+  { key: "ANMNG", label: "Qty", numeric: true },
+  { key: "MEINS", label: "UOM" },
+  { key: "FINAL_RATE", label: "Unit Rate", numeric: true },
+  { key: "WAERS", label: "Currency" },
+  { key: "BASIC_COST", label: "Basic Rate", numeric: true },
+  { key: "TAX", label: "Tax", numeric: true },
+  { key: "MWSKZ", label: "Tax Code" },
+  { key: "DISCOUNT", label: "Discount", numeric: true },
+  { key: "FREIGHT", label: "Freight / Transportation", numeric: true },
+  { key: "PACK_FWD", label: "Packing & Forwarding", numeric: true },
+  { key: "TOTAL", label: "Final Rate", numeric: true },
+  { key: "FINAL_REV", label: "Final Revision" },
+  { key: "TER_RATE", label: "TE Rating" },
+  { key: "TER_NAME", label: "Evaluator" },
+];
+
+function RfqDetailsTreeCard({
+  rows,
+  emptyText,
+}: {
+  rows?: Record<string, any>[] | null;
+  emptyText: string;
+}) {
+  const data = rows ?? [];
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const groups = useMemo(() => {
+    const map = new Map<
+      string,
+      { label: string; checked: boolean; items: Record<string, any>[] }
+    >();
+    for (const row of data) {
+      const code = String(row?.LIFNR ?? "").trim();
+      const name = String(row?.NAME1 ?? "").trim();
+      const key = code || name || "—";
+      const label = [name, code].filter(Boolean).join(" / ") || "—";
+      const existing = map.get(key);
+      if (existing) {
+        existing.items.push(row);
+        if (isSapFlag(row?.CHECK_RFQ)) existing.checked = true;
+      } else {
+        map.set(key, { label, checked: isSapFlag(row?.CHECK_RFQ), items: [row] });
+      }
+    }
+    return Array.from(map.entries()).map(([key, group]) => ({ key, ...group }));
+  }, [data]);
+
+  const toggle = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  return (
+    <Card className="border border-border/60 p-5 shadow-card">
+      <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <ListChecks className="h-3.5 w-3.5" /> RFQ DETAILS
+      </div>
+
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <span className="sr-only">Expand</span>
+              </TableHead>
+              <TableHead className="w-10">
+                <span className="sr-only">Selected</span>
+              </TableHead>
+              <TableHead className="whitespace-nowrap text-xs">
+                Vendor Name / Vendor Code
+              </TableHead>
+              {RFQ_ITEM_COLUMNS.map((c) => (
+                <TableHead
+                  key={c.key}
+                  className={cn(
+                    "whitespace-nowrap text-xs",
+                    c.numeric && "text-right",
+                    c.divider && "min-w-[320px] border-r border-border",
+                  )}
+                >
+                  {c.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={RFQ_ITEM_COLUMNS.length + 3}
+                  className="h-28 text-center text-sm text-muted-foreground"
+                >
+                  {emptyText}
+                </TableCell>
+              </TableRow>
+            ) : (
+              groups.map((group) => {
+                const isOpen = expanded.has(group.key);
+                return (
+                  <Fragment key={`rfq-${group.key}`}>
+                    <TableRow
+                      className="cursor-pointer bg-muted/30"
+                      onClick={() => toggle(group.key)}
+                    >
+                      <TableCell className="w-10">
+                        <button
+                          type="button"
+                          aria-label={isOpen ? "Collapse" : "Expand"}
+                          aria-expanded={isOpen}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggle(group.key);
+                          }}
+                          className="flex h-6 w-6 items-center justify-center rounded hover:bg-muted"
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </button>
+                      </TableCell>
+                      <TableCell className="w-10">
+                        <Checkbox
+                          checked={group.checked}
+                          disabled
+                          aria-label="RFQ selected in SAP"
+                        />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm font-medium">
+                        {group.label}
+                      </TableCell>
+                      <TableCell
+                        colSpan={RFQ_ITEM_COLUMNS.length}
+                        className="whitespace-nowrap text-xs text-muted-foreground"
+                      >
+                        {group.items.length} item{group.items.length === 1 ? "" : "s"}
+                      </TableCell>
+                    </TableRow>
+
+                    {isOpen &&
+                      group.items.map((row, i) => (
+                        <TableRow key={`rfq-${group.key}-item-${i}`}>
+                          <TableCell className="w-10" />
+                          <TableCell className="w-10" />
+                          <TableCell />
+                          {RFQ_ITEM_COLUMNS.map((c) => (
+                            <TableCell
+                              key={c.key}
+                              className={cn(
+                                "text-sm",
+                                c.numeric
+                                  ? "whitespace-nowrap text-right tabular-nums"
+                                  : "whitespace-nowrap",
+                                c.divider &&
+                                  "min-w-[320px] whitespace-normal border-r border-border",
+                              )}
+                            >
+                              {cellText(row, c)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                  </Fragment>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
 
 
 
@@ -1095,12 +1264,8 @@ function ZnfaReleasePage() {
 
           <PrDetailsTreeCard rows={prRows} emptyText="No PR details returned by SAP." />
 
-          <DetailsTableCard
-            title="RFQ DETAILS"
-            columns={RFQ_DETAIL_COLUMNS}
-            rows={rfqRows}
-            emptyText="No RFQ details returned by SAP."
-          />
+          <RfqDetailsTreeCard rows={rfqRows} emptyText="No RFQ details returned by SAP." />
+
 
           <DetailsTableCard
             title="FINAL RECOMMENDATION"
