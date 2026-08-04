@@ -104,6 +104,22 @@ const PR_DETAIL_COLUMNS: DetailColumn[] = [
   { key: "total_value", label: "Total Value", numeric: true },
 ];
 
+const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
+  { key: "NFA_NO", label: "NFA No" },
+  { key: "LIFNR", label: "Vendor Code" },
+  { key: "EKGRP", label: "Purch. Group" },
+  { key: "NAME1", label: "Vendor Name" },
+  { key: "WERKS", label: "Plant" },
+  { key: "WERKS_NAME", label: "Plant Name" },
+  { key: "VENDOR_RATE", label: "Vendor Rate" },
+  { key: "TER_RATE", label: "TER Rate" },
+  { key: "TOTAL", label: "Total", numeric: true },
+  { key: "TITLE", label: "Title" },
+  { key: "NFA_DATE", label: "NFA Date" },
+  { key: "RELEASE", label: "Release" },
+  { key: "ACCEP_REJECT", label: "Accept/Reject" },
+];
+
 const FINAL_RECOMMENDATION_COLUMNS: DetailColumn[] = [
   { key: "recommended_vendor", label: "Recommended Vendor", divider: true },
   { key: "vendor", label: "Vendor" },
