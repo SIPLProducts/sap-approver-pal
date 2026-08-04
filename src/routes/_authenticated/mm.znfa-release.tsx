@@ -952,17 +952,37 @@ function ZnfaReleasePage() {
                           <TableHead className="w-10 text-xs">CB</TableHead>
                           <TableHead className="whitespace-nowrap text-xs">Vendor</TableHead>
                           <TableHead className="whitespace-nowrap text-xs">Name</TableHead>
+                          <TableHead className="whitespace-nowrap text-right text-xs">
+                            Attachments
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
-                          <TableCell
-                            colSpan={3}
-                            className="h-24 text-center text-sm text-muted-foreground"
-                          >
-                            No attachments yet.
-                          </TableCell>
-                        </TableRow>
+                        {attachRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={4}
+                              className="h-24 text-center text-sm text-muted-foreground"
+                            >
+                              No attachments returned by SAP.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          attachRows.map((a, i) => (
+                            <TableRow key={`${a.ATTACHMENT_ID ?? "attach"}-${i}`}>
+                              <TableCell className="w-10" />
+                              <TableCell className="whitespace-nowrap text-sm">
+                                {String(a.VENDOR ?? "—").trim() || "—"}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {String(a.NAME1 ?? "—").trim() || "—"}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-right text-sm tabular-nums">
+                                {String(a.NO_ATTACHMENTS ?? "").trim() || "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </div>
