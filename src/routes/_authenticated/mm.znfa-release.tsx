@@ -394,6 +394,12 @@ function ZnfaReleasePage() {
     setReleaseCode("");
     setMainNfaNumber("");
     setDisplayConfirmed(false);
+    setDisplayError(null);
+    setPrRows([]);
+    setRfqRows([]);
+    setRecommendRows([]);
+    setAttachRows([]);
+    setNfaTextRows([]);
   }
 
 
