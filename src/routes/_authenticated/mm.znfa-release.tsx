@@ -231,6 +231,8 @@ function ZnfaReleasePage() {
     setApprovedBudget("");
     setBalanceBudget("");
     setReleaseCode("");
+    setMainNfaNumber("");
+    setDisplayConfirmed(false);
   }
 
   function onModeChange(v: string) {
