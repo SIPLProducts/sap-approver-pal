@@ -115,22 +115,6 @@ const PR_DETAIL_COLUMNS: DetailColumn[] = [
   { key: "PR_APP_DATE", label: "PR Date" },
 ];
 
-const RFQ_DETAIL_COLUMNS: DetailColumn[] = [
-  { key: "NAME1", also: "LIFNR", label: "Vendor" },
-  { key: "ANFNR", label: "RFQ No" },
-  { key: "ANFPS", label: "RFQ Item" },
-  { key: "WERKS", also: "PLANT_NAME", label: "Plant" },
-  { key: "MATNR", label: "Material" },
-  { key: "TXZ01", label: "Item Text", divider: true },
-  { key: "ANMNG", label: "Qty", numeric: true },
-  { key: "MEINS", label: "UOM" },
-  { key: "FINAL_RATE", label: "Unit Rate", numeric: true },
-  { key: "WAERS", label: "Currency" },
-  { key: "BASIC_COST", label: "Basic Value", numeric: true },
-  { key: "TAX_PER", label: "Tax %" },
-  { key: "TAX", label: "Tax Value", numeric: true },
-  { key: "TOTAL", label: "Total Value", numeric: true },
-];
 
 const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
   { key: "NFA_NO", label: "NFA No" },
