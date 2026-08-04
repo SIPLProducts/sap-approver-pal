@@ -38,16 +38,18 @@ export const Route = createFileRoute("/_authenticated/mm/znfa-release")({
 
 type Mode = "creation" | "release";
 
-const CREATION_ACTIONS = [
-  "Create",
-  "Change",
-  "Clarification",
-  "Release",
-  "Display",
-  "Approved List",
-];
+const DEFAULT_ACTIONS = ["Release", "Display", "Approved List", "Clarification"];
 
-const RELEASE_ACTIONS = ["Release", "Display", "Approved List"];
+// Commented out per request: Creation/Change mode actions are temporarily disabled.
+// const CREATION_ACTIONS = [
+//   "Create",
+//   "Change",
+//   "Clarification",
+//   "Release",
+//   "Display",
+//   "Approved List",
+// ];
+// const RELEASE_ACTIONS = ["Release", "Display", "Approved List"];
 
 const SCOPE_CATEGORIES = [
   { id: "supply", label: "Supply" },
@@ -161,7 +163,9 @@ const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 
 
 function ZnfaReleasePage() {
-  const [mode, setMode] = useState<Mode>("creation");
+  // Default mode is kept as "release" so the Release/Display/Approved List/Clarification
+  // actions behave as they did under Release mode. The mode toggle is hidden from the UI.
+  const [mode, setMode] = useState<Mode>("release");
   const [action, setAction] = useState<string | null>(null);
 
   // Create form state (UI only for now)
@@ -208,7 +212,7 @@ function ZnfaReleasePage() {
   const [mainNfaNumber, setMainNfaNumber] = useState("");
   const [displayConfirmed, setDisplayConfirmed] = useState(false);
 
-  const actions = mode === "creation" ? CREATION_ACTIONS : RELEASE_ACTIONS;
+  const actions = DEFAULT_ACTIONS;
   const showDisplayStep = action === "Display";
   const showCreate =
     (mode === "creation" && (action === "Create" || action === "Change")) ||
@@ -235,10 +239,15 @@ function ZnfaReleasePage() {
     setDisplayConfirmed(false);
   }
 
-  function onModeChange(v: string) {
-    setMode(v as Mode);
-    setAction(null);
-    resetCreateForm();
+  // Mode change handler is no longer used because the mode toggle is hidden.
+  // function onModeChange(v: string) {
+  //   setMode(v as Mode);
+  //   setAction(null);
+  //   resetCreateForm();
+  // }
+
+  function onModeChange(_v: string) {
+    // no-op: keep signature to avoid breaking any references, but UI does not expose mode switching.
   }
 
   function onAction(label: string) {
