@@ -871,11 +871,16 @@ function ZnfaReleasePage() {
                       <Checkbox
                         id={`scope-${category.id}`}
                         checked={scopeCategories.includes(category.label)}
+                        disabled={docLoaded}
                         onCheckedChange={() => toggleScopeCategory(category.label)}
                       />
                       <Label
                         htmlFor={`scope-${category.id}`}
-                        className="cursor-pointer text-sm font-normal leading-tight"
+                        className={
+                          docLoaded
+                            ? "text-sm font-normal leading-tight text-muted-foreground"
+                            : "cursor-pointer text-sm font-normal leading-tight"
+                        }
                       >
                         {category.label}
                       </Label>
