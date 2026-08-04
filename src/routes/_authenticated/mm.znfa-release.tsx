@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { fetchZnfaRelease } from "@/lib/mm/znfa-release.functions";
+import { fetchZnfaDisplay } from "@/lib/mm/znfa-display.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
   AlertTriangle,
@@ -82,25 +83,37 @@ type DetailColumn = {
   label: string;
   numeric?: boolean;
   divider?: boolean;
+  /** Optional second SAP field rendered as "primary / secondary". */
+  also?: string;
 };
 
 const PR_DETAIL_COLUMNS: DetailColumn[] = [
-  { key: "vendor", label: "Vendor Name/Vendor Code", divider: true },
+  { key: "BANFN", label: "PR No" },
+  { key: "BNFPO", label: "PR Item" },
+  { key: "MATNR", label: "Material" },
+  { key: "TXZ01", label: "Item Text", divider: true },
+  { key: "MENGE", label: "Qty", numeric: true },
+  { key: "MEINS", label: "UOM" },
+  { key: "WERKS", label: "Plant" },
+  { key: "NAME1", label: "Plant Name" },
+  { key: "PR_APP_DATE", label: "PR Date" },
+];
 
-  { key: "check", label: "Check" },
-  { key: "rfq_no", label: "RFQ No" },
-  { key: "rfq_item", label: "RFQ Item" },
-  { key: "plant", label: "Plant" },
-  { key: "material", label: "Material" },
-  { key: "item_text", label: "Item Text" },
-  { key: "qty", label: "Qty", numeric: true },
-  { key: "uom", label: "UOM" },
-  { key: "unit_rate", label: "Unit Rate", numeric: true },
-  { key: "currency", label: "Currency" },
-  { key: "basic_value", label: "Basic Value", numeric: true },
-  { key: "tax", label: "Tax", numeric: true },
-  { key: "tax_value", label: "Tax Value", numeric: true },
-  { key: "total_value", label: "Total Value", numeric: true },
+const RFQ_DETAIL_COLUMNS: DetailColumn[] = [
+  { key: "NAME1", also: "LIFNR", label: "Vendor" },
+  { key: "ANFNR", label: "RFQ No" },
+  { key: "ANFPS", label: "RFQ Item" },
+  { key: "WERKS", also: "PLANT_NAME", label: "Plant" },
+  { key: "MATNR", label: "Material" },
+  { key: "TXZ01", label: "Item Text", divider: true },
+  { key: "ANMNG", label: "Qty", numeric: true },
+  { key: "MEINS", label: "UOM" },
+  { key: "FINAL_RATE", label: "Unit Rate", numeric: true },
+  { key: "WAERS", label: "Currency" },
+  { key: "BASIC_COST", label: "Basic Value", numeric: true },
+  { key: "TAX_PER", label: "Tax %" },
+  { key: "TAX", label: "Tax Value", numeric: true },
+  { key: "TOTAL", label: "Total Value", numeric: true },
 ];
 
 const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
@@ -120,30 +133,41 @@ const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
 ];
 
 const FINAL_RECOMMENDATION_COLUMNS: DetailColumn[] = [
-  { key: "recommended_vendor", label: "Recommended Vendor", divider: true },
-  { key: "vendor", label: "Vendor" },
-  { key: "name", label: "Name" },
-  { key: "rfq_no", label: "RFQ No" },
-  { key: "commercial_rating", label: "Commercial Rating" },
-  { key: "ter_rating", label: "TER Rating" },
-  { key: "basic_cost", label: "Basic Cost", numeric: true },
-  { key: "currency", label: "Currency" },
-  { key: "conversion_rate", label: "Conversion Rate", numeric: true },
-  { key: "tax", label: "Tax", numeric: true },
-  { key: "discount", label: "Discount", numeric: true },
-  { key: "freight", label: "Freight/Transportation", numeric: true },
-  { key: "packing_fwd", label: "Packing & FWD Charges", numeric: true },
+  { key: "LIFNR", label: "Vendor" },
+  { key: "NAME1", label: "Name", divider: true },
+  { key: "__rfq_no", label: "RFQ No" },
+  { key: "VENDOR_RATE", label: "Commercial Rating" },
+  { key: "TER_RATE", label: "TER Rating" },
+  { key: "BASIC_COST", label: "Basic Cost", numeric: true },
+  { key: "WAERS", label: "Currency" },
+  { key: "__conversion_rate", label: "Conversion Rate", numeric: true },
+  { key: "TAX", label: "Tax", numeric: true },
+  { key: "DISCOUNT", label: "Discount", numeric: true },
+  { key: "FREIGHT", label: "Freight/Transportation", numeric: true },
+  { key: "PACK_FWD", label: "Packing & FWD Charges", numeric: true },
 ];
+
+function cellText(row: Record<string, any>, column: DetailColumn) {
+  const primary = row[column.key];
+  const secondary = column.also ? row[column.also] : undefined;
+  const parts = [primary, secondary]
+    .filter((v) => v !== null && v !== undefined && String(v).trim() !== "")
+    .map((v) => String(v).trim());
+  return parts.length ? parts.join(" / ") : "—";
+}
 
 function DetailsTableCard({
   title,
   emptyText,
   columns = PR_DETAIL_COLUMNS,
+  rows,
 }: {
   title: string;
   emptyText: string;
   columns?: DetailColumn[];
+  rows?: Record<string, any>[] | null;
 }) {
+  const data = rows ?? [];
   return (
     <Card className="border border-border/60 p-5 shadow-card">
       <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -172,20 +196,41 @@ function DetailsTableCard({
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell
-                colSpan={columns.length + 1}
-                className="h-28 text-center text-sm text-muted-foreground"
-              >
-                {emptyText}
-              </TableCell>
-            </TableRow>
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length + 1}
+                  className="h-28 text-center text-sm text-muted-foreground"
+                >
+                  {emptyText}
+                </TableCell>
+              </TableRow>
+            ) : (
+              data.map((row, i) => (
+                <TableRow key={`${title}-${i}`}>
+                  <TableCell className="w-10" />
+                  {columns.map((c) => (
+                    <TableCell
+                      key={c.key}
+                      className={cn(
+                        "text-sm",
+                        c.numeric ? "whitespace-nowrap text-right tabular-nums" : "whitespace-nowrap",
+                        c.divider && "min-w-[320px] whitespace-normal border-r border-border",
+                      )}
+                    >
+                      {cellText(row, c)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
     </Card>
   );
 }
+
 
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 
@@ -238,6 +283,59 @@ function ZnfaReleasePage() {
   // Display step state
   const [mainNfaNumber, setMainNfaNumber] = useState("");
   const [displayConfirmed, setDisplayConfirmed] = useState(false);
+  const [displayError, setDisplayError] = useState<string | null>(null);
+  const [prRows, setPrRows] = useState<Record<string, any>[]>([]);
+  const [rfqRows, setRfqRows] = useState<Record<string, any>[]>([]);
+  const [recommendRows, setRecommendRows] = useState<Record<string, any>[]>([]);
+  const [attachRows, setAttachRows] = useState<Record<string, any>[]>([]);
+  const [nfaTextRows, setNfaTextRows] = useState<Record<string, any>[]>([]);
+
+  const fetchDisplay = useServerFn(fetchZnfaDisplay);
+  const displayMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string }) => fetchDisplay({ data: vars }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (msg || !res.znfa) {
+        setDisplayConfirmed(false);
+        setDisplayError(msg ?? "SAP returned no NFA document.");
+        toast.error(msg ?? "SAP returned no NFA document.");
+        return;
+      }
+      const z = res.znfa;
+      setDisplayError(null);
+      setNfaType(String(z.TYPE_NFA ?? ""));
+      setNfaTitle(String(z.TITLE ?? ""));
+      setRfqNumber(String(res.rfqs[0]?.RFQ ?? ""));
+      setBuyer({
+        id: String(z.BUYER_ID ?? ""),
+        name: String(z.BUYER_NAME ?? ""),
+        email: String(z.BUYER_EMAIL ?? ""),
+        location: String(z.LOCATION ?? ""),
+      });
+      setSpendCategory(String(z.SPENDCATEGORY ?? ""));
+      setItemCategory(String(z.ITEM_CATEGORY ?? ""));
+      setPurchasingGroup(String(z.EKGRP ?? ""));
+      setRemarks(String(z.REMARKS ?? ""));
+      setApprovedBudget(z.APP_BUDGET === null || z.APP_BUDGET === undefined ? "" : String(z.APP_BUDGET));
+      setBalanceBudget(z.BAL_BUDGET === null || z.BAL_BUDGET === undefined ? "" : String(z.BAL_BUDGET));
+      setPrRows(res.prDet);
+      setRfqRows(res.rfqDet);
+      setRecommendRows(res.recommend);
+      setAttachRows(res.attach);
+      setNfaTextRows(
+        res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""),
+      );
+      setDisplayConfirmed(true);
+      toast.success(`NFA ${z.NFA_NO ?? ""} loaded`);
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Failed to load the NFA document";
+      setDisplayConfirmed(false);
+      setDisplayError(msg);
+      toast.error(msg);
+    },
+  });
+
 
   // Release / Approved List results
   const [releaseRows, setReleaseRows] = useState<Record<string, any>[] | null>(null);
@@ -296,6 +394,12 @@ function ZnfaReleasePage() {
     setReleaseCode("");
     setMainNfaNumber("");
     setDisplayConfirmed(false);
+    setDisplayError(null);
+    setPrRows([]);
+    setRfqRows([]);
+    setRecommendRows([]);
+    setAttachRows([]);
+    setNfaTextRows([]);
   }
 
 
@@ -330,7 +434,8 @@ function ZnfaReleasePage() {
       toast.error("Enter a Main NFA Number");
       return;
     }
-    setDisplayConfirmed(true);
+    setDisplayError(null);
+    displayMutation.mutate({ znfaNum: mainNfaNumber.trim() });
   }
 
   function onRfqF4() {
@@ -532,14 +637,25 @@ function ZnfaReleasePage() {
             <Button
               type="button"
               className="h-9 px-6 sm:self-end"
-              disabled={!mainNfaNumber.trim()}
+              disabled={!mainNfaNumber.trim() || displayMutation.isPending}
               onClick={onDisplayNext}
             >
-              Next
+              {displayMutation.isPending ? "Loading…" : "Next"}
             </Button>
           </div>
         </Card>
       )}
+
+      {showDisplayStep && displayError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          <AlertTitle>Could not load the NFA document</AlertTitle>
+          <AlertDescription>{displayError}</AlertDescription>
+        </Alert>
+      )}
+
+      {showDisplayStep && displayMutation.isPending && <SkeletonRows columns={6} />}
+
 
       {showCreate && (
         <>
@@ -551,7 +667,9 @@ function ZnfaReleasePage() {
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="No values available" />
                   </SelectTrigger>
-                  <SelectContent />
+                  <SelectContent>
+                    {nfaType ? <SelectItem value={nfaType}>{nfaType}</SelectItem> : null}
+                  </SelectContent>
                 </Select>
               </div>
 
@@ -694,19 +812,24 @@ function ZnfaReleasePage() {
 
           <DetailsTableCard
             title="PR DETAILS"
-            emptyText="No PR details yet — enter an RFQ Number and click Get Details."
+            rows={prRows}
+            emptyText="No PR details returned by SAP."
           />
 
           <DetailsTableCard
             title="RFQ DETAILS"
-            emptyText="No RFQ details yet — enter an RFQ Number and click Get Details."
+            columns={RFQ_DETAIL_COLUMNS}
+            rows={rfqRows}
+            emptyText="No RFQ details returned by SAP."
           />
 
           <DetailsTableCard
             title="FINAL RECOMMENDATION"
             columns={FINAL_RECOMMENDATION_COLUMNS}
-            emptyText="No recommendation data yet — enter an RFQ Number and click Get Details."
+            rows={recommendRows}
+            emptyText="No recommendation data returned by SAP."
           />
+
 
           <Card className="border border-border/60 p-5 shadow-card">
             <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -743,14 +866,29 @@ function ZnfaReleasePage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
-                        <TableCell
-                          colSpan={2}
-                          className="h-28 text-center text-sm text-muted-foreground"
-                        >
-                          No NFA texts yet.
-                        </TableCell>
-                      </TableRow>
+                      {nfaTextRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={2}
+                            className="h-28 text-center text-sm text-muted-foreground"
+                          >
+                            No NFA texts returned by SAP.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        nfaTextRows.map((t, i) => (
+                          <TableRow key={`${t.AVL_TEXTS ?? "text"}-${i}`}>
+                            <TableCell className="whitespace-nowrap text-sm">
+                              {String(t.AVL_TEXTS ?? "—")}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {Array.isArray(t.HEADER) && t.HEADER[0]?.LINE
+                                ? String(t.HEADER[0].LINE)
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -814,17 +952,37 @@ function ZnfaReleasePage() {
                           <TableHead className="w-10 text-xs">CB</TableHead>
                           <TableHead className="whitespace-nowrap text-xs">Vendor</TableHead>
                           <TableHead className="whitespace-nowrap text-xs">Name</TableHead>
+                          <TableHead className="whitespace-nowrap text-right text-xs">
+                            Attachments
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
-                          <TableCell
-                            colSpan={3}
-                            className="h-24 text-center text-sm text-muted-foreground"
-                          >
-                            No attachments yet.
-                          </TableCell>
-                        </TableRow>
+                        {attachRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={4}
+                              className="h-24 text-center text-sm text-muted-foreground"
+                            >
+                              No attachments returned by SAP.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          attachRows.map((a, i) => (
+                            <TableRow key={`${a.ATTACHMENT_ID ?? "attach"}-${i}`}>
+                              <TableCell className="w-10" />
+                              <TableCell className="whitespace-nowrap text-sm">
+                                {String(a.VENDOR ?? "—").trim() || "—"}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {String(a.NAME1 ?? "—").trim() || "—"}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-right text-sm tabular-nums">
+                                {String(a.NO_ATTACHMENTS ?? "").trim() || "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </div>
