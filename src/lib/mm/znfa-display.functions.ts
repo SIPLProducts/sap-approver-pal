@@ -121,7 +121,8 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
-      bodyOut = JSON.stringify({ configId: cfg.id, inputs });
+      // raw: true skips middleware response-field mapping so STATUS/MSG survive.
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs, raw: true });
       proxied = true;
     } else {
       target = cfg.endpoint_url;
