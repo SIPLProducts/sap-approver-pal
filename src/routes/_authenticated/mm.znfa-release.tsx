@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
+import { fetchZnfaRelease } from "@/lib/mm/znfa-release.functions";
+import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
+  AlertTriangle,
   Award,
   Filter,
   Info,
@@ -97,6 +102,22 @@ const PR_DETAIL_COLUMNS: DetailColumn[] = [
   { key: "tax", label: "Tax", numeric: true },
   { key: "tax_value", label: "Tax Value", numeric: true },
   { key: "total_value", label: "Total Value", numeric: true },
+];
+
+const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
+  { key: "NFA_NO", label: "NFA No" },
+  { key: "LIFNR", label: "Vendor Code" },
+  { key: "EKGRP", label: "Purch. Group" },
+  { key: "NAME1", label: "Vendor Name" },
+  { key: "WERKS", label: "Plant" },
+  { key: "WERKS_NAME", label: "Plant Name" },
+  { key: "VENDOR_RATE", label: "Vendor Rate" },
+  { key: "TER_RATE", label: "TER Rate" },
+  { key: "TOTAL", label: "Total", numeric: true },
+  { key: "TITLE", label: "Title" },
+  { key: "NFA_DATE", label: "NFA Date" },
+  { key: "RELEASE", label: "Release" },
+  { key: "ACCEP_REJECT", label: "Accept/Reject" },
 ];
 
 const FINAL_RECOMMENDATION_COLUMNS: DetailColumn[] = [
@@ -219,6 +240,38 @@ function ZnfaReleasePage() {
   const [mainNfaNumber, setMainNfaNumber] = useState("");
   const [displayConfirmed, setDisplayConfirmed] = useState(false);
 
+  // Release / Approved List results
+  const [releaseRows, setReleaseRows] = useState<Record<string, any>[] | null>(null);
+  const [releaseError, setReleaseError] = useState<string | null>(null);
+  const fetchRelease = useServerFn(fetchZnfaRelease);
+  const releaseMutation = useMutation({
+    mutationFn: (vars: { user: string; relCode: string; mode: "release" | "app_list" }) =>
+      fetchRelease({ data: vars }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (msg) {
+        setReleaseRows(null);
+        setReleaseError(msg);
+        toast.error(msg);
+        return;
+      }
+      setReleaseError(null);
+      setReleaseRows(res.rows);
+      toast.success(`${res.rows.length} record(s) loaded`);
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Failed to load ZNFA records";
+      setReleaseRows(null);
+      setReleaseError(msg);
+      toast.error(msg);
+    },
+  });
+
+  function clearReleaseResults() {
+    setReleaseRows(null);
+    setReleaseError(null);
+  }
+
   const actions = DEFAULT_ACTIONS;
   const showDisplayStep = action === "Display";
   const showCreate =
@@ -252,6 +305,7 @@ function ZnfaReleasePage() {
   function onAction(label: string) {
     setAction(label);
     resetCreateForm();
+    clearReleaseResults();
     toast.info(`${label} selected`);
   }
 
@@ -260,9 +314,16 @@ function ZnfaReleasePage() {
       toast.error("Select a Release Code");
       return;
     }
-    toast.info(
-      `Release Code ${releaseCode} selected — the ZNFA list will load once the SAP API is configured.`,
-    );
+    if (!releaseId) {
+      toast.error("No SAP user id found — please sign in again.");
+      return;
+    }
+    clearReleaseResults();
+    releaseMutation.mutate({
+      user: releaseId,
+      relCode: releaseCode,
+      mode: action === "Approved List" ? "app_list" : "release",
+    });
   }
 
   function onDisplayNext() {
@@ -356,7 +417,10 @@ function ZnfaReleasePage() {
                 <Label className="text-sm font-medium">Release Code</Label>
                 <Select
                   value={releaseCodes.includes(releaseCode) ? releaseCode : ""}
-                  onValueChange={setReleaseCode}
+                  onValueChange={(v) => {
+                    setReleaseCode(v);
+                    clearReleaseResults();
+                  }}
                   disabled={releaseCodes.length === 0}
                 >
                   <SelectTrigger className="h-9 w-full max-w-[220px] text-sm">
@@ -388,12 +452,71 @@ function ZnfaReleasePage() {
             <Button
               type="button"
               className="h-9 px-6 sm:self-end"
-              disabled={!releaseCode}
+              disabled={!releaseCode || releaseMutation.isPending}
               onClick={onReleaseNext}
             >
-              Next
+              {releaseMutation.isPending ? "Loading…" : "Next"}
             </Button>
           </div>
+        </Card>
+      )}
+
+      {showReleaseStep && releaseError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          <AlertTitle>Could not load ZNFA records</AlertTitle>
+          <AlertDescription>{releaseError}</AlertDescription>
+        </Alert>
+      )}
+
+      {showReleaseStep && releaseMutation.isPending && <SkeletonRows columns={6} />}
+
+      {showReleaseStep && !releaseMutation.isPending && !releaseError && releaseRows && (
+        <Card className="border border-border/60 p-5 shadow-card">
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <ListChecks className="h-3.5 w-3.5" /> {action?.toUpperCase()} — {releaseRows.length}{" "}
+            RECORD(S)
+          </div>
+
+          {releaseRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No records found for this Release Code.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {RELEASE_RESULT_COLUMNS.map((c) => (
+                      <TableHead
+                        key={c.key}
+                        className={cn("whitespace-nowrap text-xs", c.numeric && "text-right")}
+                      >
+                        {c.label}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {releaseRows.map((row, i) => (
+                    <TableRow key={`${row.NFA_NO ?? "row"}-${i}`}>
+                      {RELEASE_RESULT_COLUMNS.map((c) => (
+                        <TableCell
+                          key={c.key}
+                          className={cn(
+                            "whitespace-nowrap text-sm",
+                            c.numeric && "text-right tabular-nums",
+                          )}
+                        >
+                          {row[c.key] === null || row[c.key] === undefined || row[c.key] === ""
+                            ? "—"
+                            : String(row[c.key])}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </Card>
       )}
 
