@@ -82,25 +82,37 @@ type DetailColumn = {
   label: string;
   numeric?: boolean;
   divider?: boolean;
+  /** Optional second SAP field rendered as "primary / secondary". */
+  also?: string;
 };
 
 const PR_DETAIL_COLUMNS: DetailColumn[] = [
-  { key: "vendor", label: "Vendor Name/Vendor Code", divider: true },
+  { key: "BANFN", label: "PR No" },
+  { key: "BNFPO", label: "PR Item" },
+  { key: "MATNR", label: "Material" },
+  { key: "TXZ01", label: "Item Text", divider: true },
+  { key: "MENGE", label: "Qty", numeric: true },
+  { key: "MEINS", label: "UOM" },
+  { key: "WERKS", label: "Plant" },
+  { key: "NAME1", label: "Plant Name" },
+  { key: "PR_APP_DATE", label: "PR Date" },
+];
 
-  { key: "check", label: "Check" },
-  { key: "rfq_no", label: "RFQ No" },
-  { key: "rfq_item", label: "RFQ Item" },
-  { key: "plant", label: "Plant" },
-  { key: "material", label: "Material" },
-  { key: "item_text", label: "Item Text" },
-  { key: "qty", label: "Qty", numeric: true },
-  { key: "uom", label: "UOM" },
-  { key: "unit_rate", label: "Unit Rate", numeric: true },
-  { key: "currency", label: "Currency" },
-  { key: "basic_value", label: "Basic Value", numeric: true },
-  { key: "tax", label: "Tax", numeric: true },
-  { key: "tax_value", label: "Tax Value", numeric: true },
-  { key: "total_value", label: "Total Value", numeric: true },
+const RFQ_DETAIL_COLUMNS: DetailColumn[] = [
+  { key: "NAME1", also: "LIFNR", label: "Vendor" },
+  { key: "ANFNR", label: "RFQ No" },
+  { key: "ANFPS", label: "RFQ Item" },
+  { key: "WERKS", also: "PLANT_NAME", label: "Plant" },
+  { key: "MATNR", label: "Material" },
+  { key: "TXZ01", label: "Item Text", divider: true },
+  { key: "ANMNG", label: "Qty", numeric: true },
+  { key: "MEINS", label: "UOM" },
+  { key: "FINAL_RATE", label: "Unit Rate", numeric: true },
+  { key: "WAERS", label: "Currency" },
+  { key: "BASIC_COST", label: "Basic Value", numeric: true },
+  { key: "TAX_PER", label: "Tax %" },
+  { key: "TAX", label: "Tax Value", numeric: true },
+  { key: "TOTAL", label: "Total Value", numeric: true },
 ];
 
 const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
@@ -120,30 +132,41 @@ const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
 ];
 
 const FINAL_RECOMMENDATION_COLUMNS: DetailColumn[] = [
-  { key: "recommended_vendor", label: "Recommended Vendor", divider: true },
-  { key: "vendor", label: "Vendor" },
-  { key: "name", label: "Name" },
-  { key: "rfq_no", label: "RFQ No" },
-  { key: "commercial_rating", label: "Commercial Rating" },
-  { key: "ter_rating", label: "TER Rating" },
-  { key: "basic_cost", label: "Basic Cost", numeric: true },
-  { key: "currency", label: "Currency" },
-  { key: "conversion_rate", label: "Conversion Rate", numeric: true },
-  { key: "tax", label: "Tax", numeric: true },
-  { key: "discount", label: "Discount", numeric: true },
-  { key: "freight", label: "Freight/Transportation", numeric: true },
-  { key: "packing_fwd", label: "Packing & FWD Charges", numeric: true },
+  { key: "LIFNR", label: "Vendor" },
+  { key: "NAME1", label: "Name", divider: true },
+  { key: "__rfq_no", label: "RFQ No" },
+  { key: "VENDOR_RATE", label: "Commercial Rating" },
+  { key: "TER_RATE", label: "TER Rating" },
+  { key: "BASIC_COST", label: "Basic Cost", numeric: true },
+  { key: "WAERS", label: "Currency" },
+  { key: "__conversion_rate", label: "Conversion Rate", numeric: true },
+  { key: "TAX", label: "Tax", numeric: true },
+  { key: "DISCOUNT", label: "Discount", numeric: true },
+  { key: "FREIGHT", label: "Freight/Transportation", numeric: true },
+  { key: "PACK_FWD", label: "Packing & FWD Charges", numeric: true },
 ];
+
+function cellText(row: Record<string, any>, column: DetailColumn) {
+  const primary = row[column.key];
+  const secondary = column.also ? row[column.also] : undefined;
+  const parts = [primary, secondary]
+    .filter((v) => v !== null && v !== undefined && String(v).trim() !== "")
+    .map((v) => String(v).trim());
+  return parts.length ? parts.join(" / ") : "—";
+}
 
 function DetailsTableCard({
   title,
   emptyText,
   columns = PR_DETAIL_COLUMNS,
+  rows,
 }: {
   title: string;
   emptyText: string;
   columns?: DetailColumn[];
+  rows?: Record<string, any>[] | null;
 }) {
+  const data = rows ?? [];
   return (
     <Card className="border border-border/60 p-5 shadow-card">
       <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -172,20 +195,41 @@ function DetailsTableCard({
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell
-                colSpan={columns.length + 1}
-                className="h-28 text-center text-sm text-muted-foreground"
-              >
-                {emptyText}
-              </TableCell>
-            </TableRow>
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length + 1}
+                  className="h-28 text-center text-sm text-muted-foreground"
+                >
+                  {emptyText}
+                </TableCell>
+              </TableRow>
+            ) : (
+              data.map((row, i) => (
+                <TableRow key={`${title}-${i}`}>
+                  <TableCell className="w-10" />
+                  {columns.map((c) => (
+                    <TableCell
+                      key={c.key}
+                      className={cn(
+                        "text-sm",
+                        c.numeric ? "whitespace-nowrap text-right tabular-nums" : "whitespace-nowrap",
+                        c.divider && "min-w-[320px] whitespace-normal border-r border-border",
+                      )}
+                    >
+                      {cellText(row, c)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
     </Card>
   );
 }
+
 
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 
