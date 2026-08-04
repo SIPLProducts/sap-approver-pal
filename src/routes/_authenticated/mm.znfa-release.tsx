@@ -22,7 +22,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Table,
   TableBody,
@@ -173,7 +172,7 @@ const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 function ZnfaReleasePage() {
   // Default mode is kept as "release" so the Release/Display/Approved List/Clarification
   // actions behave as they did under Release mode. The mode toggle is hidden from the UI.
-  const [mode, setMode] = useState<Mode>("release");
+  const [mode] = useState<Mode>("release");
   const [action, setAction] = useState<string | null>(null);
 
   // Create form state (UI only for now)
@@ -247,16 +246,8 @@ function ZnfaReleasePage() {
     setDisplayConfirmed(false);
   }
 
-  // Mode change handler is no longer used because the mode toggle is hidden.
-  // function onModeChange(v: string) {
-  //   setMode(v as Mode);
-  //   setAction(null);
-  //   resetCreateForm();
-  // }
 
-  function onModeChange(_v: string) {
-    // no-op: keep signature to avoid breaking any references, but UI does not expose mode switching.
-  }
+
 
   function onAction(label: string) {
     setAction(label);
@@ -328,30 +319,6 @@ function ZnfaReleasePage() {
         </div>
 
         <div className="space-y-4">
-          {/* Mode toggle hidden per request; Release mode is used by default. */}
-          {/*
-          <div className="space-y-1.5">
-            <Label className="text-xs">Mode</Label>
-            <RadioGroup
-              value={mode}
-              onValueChange={onModeChange}
-              className="flex flex-wrap items-center gap-6"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="creation" id="znfa-mode-creation" />
-                <Label htmlFor="znfa-mode-creation" className="text-sm font-normal">
-                  Creation
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="release" id="znfa-mode-release" />
-                <Label htmlFor="znfa-mode-release" className="text-sm font-normal">
-                  Release
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-          */}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             {actions.map((label) => {
