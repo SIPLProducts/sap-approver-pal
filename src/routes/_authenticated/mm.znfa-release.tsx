@@ -1095,12 +1095,8 @@ function ZnfaReleasePage() {
 
           <PrDetailsTreeCard rows={prRows} emptyText="No PR details returned by SAP." />
 
-          <DetailsTableCard
-            title="RFQ DETAILS"
-            columns={RFQ_DETAIL_COLUMNS}
-            rows={rfqRows}
-            emptyText="No RFQ details returned by SAP."
-          />
+          <RfqDetailsTreeCard rows={rfqRows} emptyText="No RFQ details returned by SAP." />
+
 
           <DetailsTableCard
             title="FINAL RECOMMENDATION"
