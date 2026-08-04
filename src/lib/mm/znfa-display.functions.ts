@@ -177,8 +177,10 @@ export const fetchZnfaDisplay = createServerFn({ method: "POST" })
     const sapJson: any = proxied ? (json?.data ?? json) : json;
     const payload: any = Array.isArray(sapJson) ? sapJson[0] : sapJson;
 
-    const status = String(payload?.STATUS ?? "").toUpperCase();
-    const msg = typeof payload?.MSG === "string" ? payload.MSG.trim() : "";
+    // Accept lower-case keys too, in case an older middleware build mapped them.
+    const status = String(payload?.STATUS ?? payload?.status ?? "").toUpperCase();
+    const rawMsg = payload?.MSG ?? payload?.msg;
+    const msg = typeof rawMsg === "string" ? rawMsg.trim() : "";
     const znfa =
       payload?.ZNFA && typeof payload.ZNFA === "object" ? (payload.ZNFA as Record<string, any>) : null;
 
