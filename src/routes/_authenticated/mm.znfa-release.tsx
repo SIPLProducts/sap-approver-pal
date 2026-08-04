@@ -434,7 +434,8 @@ function ZnfaReleasePage() {
       toast.error("Enter a Main NFA Number");
       return;
     }
-    setDisplayConfirmed(true);
+    setDisplayError(null);
+    displayMutation.mutate({ znfaNum: mainNfaNumber.trim() });
   }
 
   function onRfqF4() {
