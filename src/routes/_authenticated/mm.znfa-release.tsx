@@ -1,6 +1,16 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Award, Filter, Info, KeyRound, ListChecks, Paperclip, Search, User2, Wrench } from "lucide-react";
+import {
+  Award,
+  Filter,
+  Info,
+  KeyRound,
+  ListChecks,
+  Paperclip,
+  Search,
+  User2,
+  Wrench,
+} from "lucide-react";
 import { PageHeader } from "@/components/exec/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -158,9 +168,7 @@ function DetailsTableCard({
   );
 }
 
-
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
-
 
 function ZnfaReleasePage() {
   // Default mode is kept as "release" so the Release/Display/Approved List/Clarification
@@ -274,9 +282,6 @@ function ZnfaReleasePage() {
     setDisplayConfirmed(true);
   }
 
-
-
-
   function onRfqF4() {
     toast.info("RFQ Number F4 help will be enabled once the SAP API is configured.");
   }
@@ -295,7 +300,7 @@ function ZnfaReleasePage() {
 
   function toggleScopeCategory(value: string) {
     setScopeCategories((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     );
   }
 
@@ -311,12 +316,11 @@ function ZnfaReleasePage() {
         <Info className="h-4 w-4" aria-hidden />
         <AlertTitle>SAP service not connected yet</AlertTitle>
         <AlertDescription>
-          This screen is fully laid out, but the ZNFA SAP APIs are not configured. F4 help, Get Details,
-          attachments and posting will start working as soon as they are set up in API Settings.
+          This screen is fully laid out, but the ZNFA SAP APIs are not configured. F4 help, Get
+          Details, attachments and posting will start working as soon as they are set up in API
+          Settings.
         </AlertDescription>
       </Alert>
-
-
 
       <Card className="border border-border/60 p-5 shadow-card">
         <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -361,7 +365,7 @@ function ZnfaReleasePage() {
                     "h-11 min-w-[140px] justify-center rounded-xl border px-4 font-medium transition-all duration-200",
                     active
                       ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90 hover:text-primary-foreground"
-                      : "border-border bg-muted/60 text-muted-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-md"
+                      : "border-border bg-muted/60 text-muted-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-md",
                   )}
                   onClick={() => onAction(label)}
                 >
@@ -390,9 +394,7 @@ function ZnfaReleasePage() {
                 >
                   <SelectTrigger className="h-9 w-full max-w-[220px] text-sm">
                     <SelectValue
-                      placeholder={
-                        releaseCodes.length === 0 ? "No keys assigned" : "Select code"
-                      }
+                      placeholder={releaseCodes.length === 0 ? "No keys assigned" : "Select code"}
                     />
                   </SelectTrigger>
                   <SelectContent>
@@ -459,7 +461,6 @@ function ZnfaReleasePage() {
           </div>
         </Card>
       )}
-
 
       {showCreate && (
         <>
@@ -612,9 +613,15 @@ function ZnfaReleasePage() {
             </div>
           </Card>
 
-          <DetailsTableCard title="PR DETAILS" emptyText="No PR details yet — enter an RFQ Number and click Get Details." />
+          <DetailsTableCard
+            title="PR DETAILS"
+            emptyText="No PR details yet — enter an RFQ Number and click Get Details."
+          />
 
-          <DetailsTableCard title="RFQ DETAILS" emptyText="No RFQ details yet — enter an RFQ Number and click Get Details." />
+          <DetailsTableCard
+            title="RFQ DETAILS"
+            emptyText="No RFQ details yet — enter an RFQ Number and click Get Details."
+          />
 
           <DetailsTableCard
             title="FINAL RECOMMENDATION"
@@ -658,7 +665,10 @@ function ZnfaReleasePage() {
                     </TableHeader>
                     <TableBody>
                       <TableRow>
-                        <TableCell colSpan={2} className="h-28 text-center text-sm text-muted-foreground">
+                        <TableCell
+                          colSpan={2}
+                          className="h-28 text-center text-sm text-muted-foreground"
+                        >
                           No NFA texts yet.
                         </TableCell>
                       </TableRow>
@@ -729,7 +739,10 @@ function ZnfaReleasePage() {
                       </TableHeader>
                       <TableBody>
                         <TableRow>
-                          <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
+                          <TableCell
+                            colSpan={3}
+                            className="h-24 text-center text-sm text-muted-foreground"
+                          >
                             No attachments yet.
                           </TableCell>
                         </TableRow>
@@ -741,7 +754,6 @@ function ZnfaReleasePage() {
             </div>
           </Card>
         </>
-
       )}
     </div>
   );
