@@ -258,6 +258,163 @@ function DetailsTableCard({
   );
 }
 
+/** Item-level columns for the PR tree (PR number lives on the parent row). */
+const PR_ITEM_COLUMNS: DetailColumn[] = [
+  { key: "BNFPO", label: "PR Item" },
+  { key: "MATNR", label: "Material / Services" },
+  { key: "TXZ01", label: "Item Text", divider: true },
+  { key: "BADAT", label: "PR Creation Date" },
+  { key: "ERNAM", label: "Created By" },
+  { key: "MENGE", label: "Qty", numeric: true },
+  { key: "MEINS", label: "UOM" },
+  { key: "PR_APP_DATE", label: "PR Approval Date" },
+  { key: "WERKS", label: "Plant" },
+  { key: "NAME1", label: "Plant Name" },
+];
+
+function PrDetailsTreeCard({
+  rows,
+  emptyText,
+}: {
+  rows?: Record<string, any>[] | null;
+  emptyText: string;
+}) {
+  const data = rows ?? [];
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const groups = useMemo(() => {
+    const map = new Map<string, Record<string, any>[]>();
+    for (const row of data) {
+      const key = String(row?.BANFN ?? "").trim() || "—";
+      const list = map.get(key);
+      if (list) list.push(row);
+      else map.set(key, [row]);
+    }
+    return Array.from(map.entries()).map(([pr, items]) => ({ pr, items }));
+  }, [data]);
+
+  const toggle = (pr: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(pr)) next.delete(pr);
+      else next.add(pr);
+      return next;
+    });
+
+  const colCount = PR_ITEM_COLUMNS.length + 1;
+
+  return (
+    <Card className="border border-border/60 p-5 shadow-card">
+      <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <ListChecks className="h-3.5 w-3.5" /> PR DETAILS
+      </div>
+
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <span className="sr-only">Expand</span>
+              </TableHead>
+              <TableHead className="whitespace-nowrap text-xs">Purchase Requisition No</TableHead>
+              {PR_ITEM_COLUMNS.map((c) => (
+                <TableHead
+                  key={c.key}
+                  className={cn(
+                    "whitespace-nowrap text-xs",
+                    c.numeric && "text-right",
+                    c.divider && "min-w-[320px] border-r border-border",
+                  )}
+                >
+                  {c.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={colCount + 1}
+                  className="h-28 text-center text-sm text-muted-foreground"
+                >
+                  {emptyText}
+                </TableCell>
+              </TableRow>
+            ) : (
+              groups.map((group) => {
+                const isOpen = expanded.has(group.pr);
+                return (
+                  <>
+                    <TableRow
+                      key={`pr-${group.pr}`}
+                      className="cursor-pointer bg-muted/30"
+                      onClick={() => toggle(group.pr)}
+                    >
+                      <TableCell className="w-10">
+                        <button
+                          type="button"
+                          aria-label={isOpen ? "Collapse" : "Expand"}
+                          aria-expanded={isOpen}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggle(group.pr);
+                          }}
+                          className="flex h-6 w-6 items-center justify-center rounded hover:bg-muted"
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </button>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm font-medium">
+                        {group.pr}
+                      </TableCell>
+                      <TableCell
+                        colSpan={PR_ITEM_COLUMNS.length}
+                        className="whitespace-nowrap text-xs text-muted-foreground"
+                      >
+                        {group.items.length} item{group.items.length === 1 ? "" : "s"}
+                      </TableCell>
+                    </TableRow>
+
+                    {isOpen &&
+                      group.items.map((row, i) => (
+                        <TableRow key={`pr-${group.pr}-item-${i}`}>
+                          <TableCell className="w-10" />
+                          <TableCell />
+                          {PR_ITEM_COLUMNS.map((c) => (
+                            <TableCell
+                              key={c.key}
+                              className={cn(
+                                "text-sm",
+                                c.numeric
+                                  ? "whitespace-nowrap text-right tabular-nums"
+                                  : "whitespace-nowrap",
+                                c.divider &&
+                                  "min-w-[320px] whitespace-normal border-r border-border",
+                              )}
+                            >
+                              {cellText(row, c)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                  </>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
+
+
 
 const EMPTY_BUYER: Buyer = { id: "", name: "", email: "", location: "" };
 
