@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { fetchZnfaRelease } from "@/lib/mm/znfa-release.functions";
 import { fetchZnfaDisplay } from "@/lib/mm/znfa-display.functions";
+import { fetchZnfaClick } from "@/lib/mm/znfa-click.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
   AlertTriangle,
@@ -130,6 +131,17 @@ const RELEASE_RESULT_COLUMNS: DetailColumn[] = [
   { key: "NFA_DATE", label: "NFA Date" },
   { key: "RELEASE", label: "Release" },
   { key: "ACCEP_REJECT", label: "Accept/Reject" },
+];
+
+const REL_MATX_COLUMNS: DetailColumn[] = [
+  { key: "NFA_NO", label: "NFA No" },
+  { key: "REL_CODE", label: "Release Code" },
+  { key: "APPROVER", label: "Approver" },
+  { key: "APP_NAME", label: "Approver Name" },
+  { key: "FRGCT", label: "Release Group" },
+  { key: "STATUS", label: "Status" },
+  { key: "APPROVER_DATE", label: "Approver Date" },
+  { key: "REL_SEQUENCE", label: "Sequence" },
 ];
 
 const FINAL_RECOMMENDATION_COLUMNS: DetailColumn[] = [
@@ -289,6 +301,47 @@ function ZnfaReleasePage() {
   const [recommendRows, setRecommendRows] = useState<Record<string, any>[]>([]);
   const [attachRows, setAttachRows] = useState<Record<string, any>[]>([]);
   const [nfaTextRows, setNfaTextRows] = useState<Record<string, any>[]>([]);
+  const [relMatxRows, setRelMatxRows] = useState<Record<string, any>[]>([]);
+  const [clickedNfaNo, setClickedNfaNo] = useState<string | null>(null);
+  const [docLoaded, setDocLoaded] = useState(false);
+
+  function applyZnfaDocument(res: {
+    znfa: Record<string, any> | null;
+    rfqs: Record<string, any>[];
+    prDet: Record<string, any>[];
+    rfqDet: Record<string, any>[];
+    relMatx: Record<string, any>[];
+    recommend: Record<string, any>[];
+    attach: Record<string, any>[];
+    nfaTexts: Record<string, any>[];
+  }) {
+    const z = res.znfa ?? {};
+    setNfaType(String(z.TYPE_NFA ?? ""));
+    setNfaTitle(String(z.TITLE ?? ""));
+    setRfqNumber(String(res.rfqs[0]?.RFQ ?? ""));
+    setBuyer({
+      id: String(z.BUYER_ID ?? ""),
+      name: String(z.BUYER_NAME ?? ""),
+      email: String(z.BUYER_EMAIL ?? ""),
+      location: String(z.LOCATION ?? ""),
+    });
+    setSpendCategory(String(z.SPENDCATEGORY ?? ""));
+    setItemCategory(String(z.ITEM_CATEGORY ?? ""));
+    setPurchasingGroup(String(z.EKGRP ?? ""));
+    setRemarks(String(z.REMARKS ?? ""));
+    setApprovedBudget(
+      z.APP_BUDGET === null || z.APP_BUDGET === undefined ? "" : String(z.APP_BUDGET),
+    );
+    setBalanceBudget(
+      z.BAL_BUDGET === null || z.BAL_BUDGET === undefined ? "" : String(z.BAL_BUDGET),
+    );
+    setPrRows(res.prDet);
+    setRfqRows(res.rfqDet);
+    setRecommendRows(res.recommend);
+    setAttachRows(res.attach);
+    setRelMatxRows(res.relMatx);
+    setNfaTextRows(res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""));
+  }
 
   const fetchDisplay = useServerFn(fetchZnfaDisplay);
   const displayMutation = useMutation({
@@ -305,28 +358,8 @@ function ZnfaReleasePage() {
       }
       const z = res.znfa;
       setDisplayError(null);
-      setNfaType(String(z.TYPE_NFA ?? ""));
-      setNfaTitle(String(z.TITLE ?? ""));
-      setRfqNumber(String(res.rfqs[0]?.RFQ ?? ""));
-      setBuyer({
-        id: String(z.BUYER_ID ?? ""),
-        name: String(z.BUYER_NAME ?? ""),
-        email: String(z.BUYER_EMAIL ?? ""),
-        location: String(z.LOCATION ?? ""),
-      });
-      setSpendCategory(String(z.SPENDCATEGORY ?? ""));
-      setItemCategory(String(z.ITEM_CATEGORY ?? ""));
-      setPurchasingGroup(String(z.EKGRP ?? ""));
-      setRemarks(String(z.REMARKS ?? ""));
-      setApprovedBudget(z.APP_BUDGET === null || z.APP_BUDGET === undefined ? "" : String(z.APP_BUDGET));
-      setBalanceBudget(z.BAL_BUDGET === null || z.BAL_BUDGET === undefined ? "" : String(z.BAL_BUDGET));
-      setPrRows(res.prDet);
-      setRfqRows(res.rfqDet);
-      setRecommendRows(res.recommend);
-      setAttachRows(res.attach);
-      setNfaTextRows(
-        res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""),
-      );
+      applyZnfaDocument(res);
+      setDocLoaded(true);
       setDisplayConfirmed(true);
       toast.success(`NFA ${z.NFA_NO ?? ""} loaded`);
     },
@@ -338,6 +371,42 @@ function ZnfaReleasePage() {
     },
   });
 
+
+  const fetchClick = useServerFn(fetchZnfaClick);
+  const clickMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; relCode: string }) => fetchClick({ data: vars }),
+    onSuccess: (res) => {
+      const msg = (res.sapMessage?.trim() ? res.sapMessage.trim() : null) ?? res.error;
+      if (msg || !res.znfa) {
+        setDocLoaded(false);
+        setClickedNfaNo(null);
+        if (msg) {
+          setDisplayError(msg);
+          toast.error(msg);
+        }
+        return;
+      }
+      setDisplayError(null);
+      applyZnfaDocument(res);
+      setDocLoaded(true);
+      toast.success(`NFA ${res.znfa.NFA_NO ?? ""} loaded`);
+    },
+    onError: () => {
+      const msg = "An unexpected error occurred while loading the NFA document.";
+      setDocLoaded(false);
+      setClickedNfaNo(null);
+      setDisplayError(msg);
+      toast.error(msg);
+    },
+  });
+
+  function onNfaNoClick(nfaNo: string) {
+    if (!nfaNo.trim()) return;
+    setClickedNfaNo(nfaNo);
+    setDocLoaded(false);
+    setDisplayError(null);
+    clickMutation.mutate({ znfaNum: nfaNo.trim(), relCode: releaseCode });
+  }
 
   // Release / Approved List results
   const [releaseRows, setReleaseRows] = useState<Record<string, any>[] | null>(null);
@@ -369,14 +438,18 @@ function ZnfaReleasePage() {
   function clearReleaseResults() {
     setReleaseRows(null);
     setReleaseError(null);
+    setClickedNfaNo(null);
+    setDocLoaded(false);
+    setDisplayError(null);
   }
 
   const actions = DEFAULT_ACTIONS;
   const showDisplayStep = action === "Display";
+  const showReleaseStep = action === "Release" || action === "Approved List";
   const showCreate =
     (mode === "creation" && (action === "Create" || action === "Change")) ||
-    (showDisplayStep && displayConfirmed);
-  const showReleaseStep = action === "Release" || action === "Approved List";
+    (showDisplayStep && displayConfirmed) ||
+    (showReleaseStep && docLoaded);
 
   function resetCreateForm() {
     setNfaType("");
@@ -402,6 +475,9 @@ function ZnfaReleasePage() {
     setRecommendRows([]);
     setAttachRows([]);
     setNfaTextRows([]);
+    setRelMatxRows([]);
+    setClickedNfaNo(null);
+    setDocLoaded(false);
   }
 
 
@@ -594,19 +670,35 @@ function ZnfaReleasePage() {
                 <TableBody>
                   {releaseRows.map((row, i) => (
                     <TableRow key={`${row.NFA_NO ?? "row"}-${i}`}>
-                      {RELEASE_RESULT_COLUMNS.map((c) => (
-                        <TableCell
-                          key={c.key}
-                          className={cn(
-                            "whitespace-nowrap text-sm",
-                            c.numeric && "text-right tabular-nums",
-                          )}
-                        >
-                          {row[c.key] === null || row[c.key] === undefined || row[c.key] === ""
-                            ? "—"
-                            : String(row[c.key])}
-                        </TableCell>
-                      ))}
+                      {RELEASE_RESULT_COLUMNS.map((c) => {
+                        const raw = row[c.key];
+                        const text =
+                          raw === null || raw === undefined || raw === "" ? "" : String(raw);
+                        const isNfaNo = c.key === "NFA_NO" && text !== "";
+                        const isBusy = clickMutation.isPending && clickedNfaNo === text;
+                        return (
+                          <TableCell
+                            key={c.key}
+                            className={cn(
+                              "whitespace-nowrap text-sm",
+                              c.numeric && "text-right tabular-nums",
+                            )}
+                          >
+                            {isNfaNo ? (
+                              <button
+                                type="button"
+                                onClick={() => onNfaNoClick(text)}
+                                disabled={clickMutation.isPending}
+                                className="font-medium text-primary underline underline-offset-2 hover:opacity-80 disabled:opacity-60"
+                              >
+                                {isBusy ? "Loading…" : text}
+                              </button>
+                            ) : (
+                              (text || "—")
+                            )}
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -615,6 +707,16 @@ function ZnfaReleasePage() {
           )}
         </Card>
       )}
+
+      {showReleaseStep && displayError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          <AlertTitle>Could not load the NFA document</AlertTitle>
+          <AlertDescription>{displayError}</AlertDescription>
+        </Alert>
+      )}
+
+      {showReleaseStep && clickMutation.isPending && <SkeletonRows columns={6} />}
 
       {showDisplayStep && (
         <Card className="border border-border/60 p-5 shadow-card">
@@ -830,6 +932,13 @@ function ZnfaReleasePage() {
             columns={FINAL_RECOMMENDATION_COLUMNS}
             rows={recommendRows}
             emptyText="No recommendation data returned by SAP."
+          />
+
+          <DetailsTableCard
+            title="APPROVAL / RELEASE MATRIX"
+            columns={REL_MATX_COLUMNS}
+            rows={relMatxRows}
+            emptyText="No approval matrix returned by SAP."
           />
 
 
