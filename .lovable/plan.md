@@ -33,7 +33,12 @@ dist/
   sw.js
 ```
 
-That is your screenshot-1 layout, with the single required addition of `server/`.
+That is your screenshot-1 layout, minus `index.html`, with the single required addition of `server/`.
+
+### Where is `index.html`?
+
+There isn't one, and there shouldn't be. In your other project `index.html` is the entry file the browser loads and the app boots from it in the browser. Here the page HTML is generated per request by `dist/server` (that is what makes SAP data render on first load and what powers login/approval server calls). So the entry point of this app is `dist/server`, started with `npm start`; nginx proxies to it and serves `dist/assets` and the other static files directly.
+
 
 ## What will change
 
