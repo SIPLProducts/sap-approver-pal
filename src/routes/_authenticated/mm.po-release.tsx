@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
+import { PlantSelect } from "@/components/sap/plant-select";
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import {
@@ -85,7 +85,7 @@ function rowKey(r: Record<string, any>, idx: number) {
 
 function PoReleasePage() {
   const { plants: assignedPlants, activePlants } = useActiveContext();
-  const [plants, setPlants] = useState<string[]>(activePlants);
+  const [plants, setPlants] = useState<string[]>(activePlants.slice(0, 1));
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
   const poKeys = useMemo(
@@ -115,8 +115,8 @@ function PoReleasePage() {
     setPlants((prev) => {
       if (activePlants.length === 0) return [];
       const allowed = new Set(activePlants);
-      const kept = prev.filter((c) => allowed.has(c));
-      return kept.length === 0 ? activePlants : kept;
+      const kept = prev.filter((c) => allowed.has(c)).slice(0, 1);
+      return kept.length === 0 ? activePlants.slice(0, 1) : kept;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlants.join(",")]);
@@ -145,7 +145,7 @@ function PoReleasePage() {
 
   function execute() {
     if (plants.length === 0) {
-      toast.error("Select at least one Plant.");
+      toast.error("Select a plant.");
       return;
     }
     if (!releaseGroup.trim() || !releaseCode.trim()) {
@@ -160,7 +160,7 @@ function PoReleasePage() {
   }
 
   function reset() {
-    setPlants(activePlants);
+    setPlants(activePlants.slice(0, 1));
     setReleaseGroup("");
     setReleaseCode("");
     setRows([]);
@@ -386,7 +386,11 @@ function PoReleasePage() {
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
-            <PlantMultiSelect value={plants} onChange={setPlants} source="user-plant" />
+            <PlantSelect
+              value={plants[0] ?? ""}
+              onChange={(v) => setPlants(v ? [v] : [])}
+              source="user-plant"
+            />
           </div>
           <ReleaseKeySelect
             keys={poKeys}
