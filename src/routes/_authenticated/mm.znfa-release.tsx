@@ -1171,14 +1171,13 @@ function ZnfaReleasePage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
             <div className="grid flex-1 grid-cols-1 items-center gap-2 sm:grid-cols-[160px_1fr]">
               <Label className="text-sm font-medium">Main NFA Number</Label>
-              <Input
+              <NfaNumberSelect
                 value={mainNfaNumber}
-                onChange={(e) => {
-                  setMainNfaNumber(e.target.value);
+                user={releaseId}
+                onChange={(v) => {
+                  setMainNfaNumber(v);
                   setDisplayConfirmed(false);
                 }}
-                className="h-9 w-full max-w-[320px] text-sm"
-                placeholder="Enter Main NFA Number"
               />
             </div>
 
