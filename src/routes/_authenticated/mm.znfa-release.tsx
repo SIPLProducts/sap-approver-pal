@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { fetchZnfaRelease } from "@/lib/mm/znfa-release.functions";
 import { fetchZnfaDisplay } from "@/lib/mm/znfa-display.functions";
 import { fetchZnfaClick } from "@/lib/mm/znfa-click.functions";
+import { fetchZnfaPrint } from "@/lib/mm/znfa-print.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
   AlertTriangle,
