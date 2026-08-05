@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Post-build step: guarantee a single top-level `dist/` folder, whichever
- * layout the build produced.
+ * Post-build step: guarantee a single, clean top-level `dist/` folder,
+ * whichever layout the build produced.
  *
  * Supported build outputs:
  *   dist/client + dist/server        (normal case)
@@ -9,14 +9,23 @@
  *
  * Result:
  *   dist/
- *     assets/ favicon.ico manifest.webmanifest sw.js _headers ...  (flattened statics)
- *     client/   <- static files the app server serves
- *     server/   <- app server bundle (npm start)
- *     nitro.json package.json
+ *     assets/ templates/ favicon.ico sitemap.xml sw.js ...  (flattened statics)
+ *     server/    <- app server bundle (npm start)
+ *     .assetsignore
+ *   ...and no .output/, no .wrangler/, no dist/client duplicate.
  *
  * Pure Node, no dependencies, safe on Windows and Linux.
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = resolve(process.cwd());
@@ -26,10 +35,14 @@ const outputDir = join(root, ".output");
 // Names that belong to the build machinery and must not be overwritten at dist root.
 const RESERVED = new Set(["client", "server", "nitro.json", "package.json", "package-lock.json"]);
 
+// Build-machinery files that are not needed for deployment.
+const DROP_AT_ROOT = ["nitro.json", "package.json", "package-lock.json", "wrangler.json"];
+
 function copyInto(from, to) {
   rmSync(to, { recursive: true, force: true });
   cpSync(from, to, { recursive: true });
 }
+
 
 /** Normalise a `.output/` build into `dist/`. */
 function adoptOutputDir() {
