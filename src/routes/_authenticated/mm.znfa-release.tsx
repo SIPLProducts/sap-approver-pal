@@ -789,6 +789,39 @@ function ZnfaReleasePage() {
     clickMutation.mutate({ znfaNum: nfaNo.trim(), relCode: releaseCode });
   }
 
+  const fetchPrint = useServerFn(fetchZnfaPrint);
+  const printMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; relCode: string; nfaType: string }) =>
+      fetchPrint({ data: vars }),
+    onSuccess: (res) => {
+      const msg = (res.sapMessage?.trim() ? res.sapMessage.trim() : null) ?? res.error;
+      if (msg || !res.dataUrl) {
+        setPrintError(msg || "Could not generate the preview.");
+        setPrintOpen(false);
+        if (msg) toast.error(msg);
+        return;
+      }
+      setPrintError(null);
+      setPrintDataUrl(res.dataUrl);
+      setPrintOpen(true);
+    },
+    onError: () => {
+      const msg = "An unexpected error occurred while generating the preview.";
+      setPrintError(msg);
+      setPrintOpen(false);
+      toast.error(msg);
+    },
+  });
+
+  function onDocPreview() {
+    if (!openedNfaNo) {
+      toast.info("Open an NFA document first to preview it.");
+      return;
+    }
+    setPrintError(null);
+    printMutation.mutate({ znfaNum: openedNfaNo, relCode: releaseCode, nfaType });
+  }
+
   // Release / Approved List results
   const [releaseRows, setReleaseRows] = useState<Record<string, any>[] | null>(null);
   const [releaseError, setReleaseError] = useState<string | null>(null);
