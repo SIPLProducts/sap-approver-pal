@@ -1282,12 +1282,8 @@ function ZnfaReleasePage() {
             emptyText="No recommendation data returned by SAP."
           />
 
-          <DetailsTableCard
-            title="APPROVAL / RELEASE MATRIX"
-            columns={REL_MATX_COLUMNS}
-            rows={relMatxRows}
-            emptyText="No approval matrix returned by SAP."
-          />
+
+
 
 
           <Card className="border border-border/60 p-5 shadow-card">
