@@ -1730,6 +1730,36 @@ function ZnfaReleasePage() {
       )}
 
       {confirmDialog}
+
+      <Dialog open={printOpen} onOpenChange={setPrintOpen}>
+        <DialogContent className="max-w-5xl p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>NFA Preview {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
+            <DialogDescription>
+              PDF generated from SAP. Use your browser print controls if needed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            {printError ? (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                {printError}
+              </div>
+            ) : printDataUrl ? (
+              <div className="rounded-md border bg-white">
+                <embed
+                  src={printDataUrl}
+                  type="application/pdf"
+                  className="h-[65vh] w-full rounded-md"
+                />
+              </div>
+            ) : (
+              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                No preview data available.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
