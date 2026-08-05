@@ -696,6 +696,7 @@ function ZnfaReleasePage() {
     setRelMatxRows(res.relMatx);
     setNfaTextRows(res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""));
     setExpandedTextVendors(new Set());
+    setExpandedTextRfqs(new Set());
     setSelectedTextKey(null);
   }
 
