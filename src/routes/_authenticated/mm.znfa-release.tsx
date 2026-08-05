@@ -1775,18 +1775,44 @@ function ZnfaReleasePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-6">
-            {printError ? (
+            {printMutation.isPending ? (
+              <div className="flex h-[40vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Generating preview…
+              </div>
+            ) : printError ? (
               <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
                 {printError}
               </div>
-            ) : printDataUrl ? (
-              <div className="rounded-md border bg-white">
-                <embed
-                  src={printDataUrl}
-                  type="application/pdf"
-                  className="h-[65vh] w-full rounded-md"
-                />
-              </div>
+            ) : printBlobUrl || printDataUrl ? (
+              <>
+                <div className="rounded-md border bg-white">
+                  <iframe
+                    src={printBlobUrl ?? printDataUrl ?? undefined}
+                    title="NFA preview"
+                    className="h-[65vh] w-full rounded-md"
+                  />
+                </div>
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => window.open(printBlobUrl ?? printDataUrl ?? "", "_blank")}
+                  >
+                    Open in new tab
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    onClick={onPrintDownload}
+                  >
+                    Download
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
                 No preview data available.
