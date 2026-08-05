@@ -144,17 +144,34 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
     let proxied = false;
 
     if (useProxy) {
-      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      if (!middlewareUrl) {
+        console.error("[znfa-print] proxy mode on but middleware URL is empty");
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          message: "znfa-print: proxy mode on but no middleware URL configured",
+        });
+        return errorResponse("Proxy mode is on but no middleware URL is configured.");
+      }
       target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
       const secret =
         (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
+      if (!secret) {
+        console.error("[znfa-print] no shared secret resolved for middleware call");
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          message: "znfa-print: no middleware shared secret resolved",
+        });
+      }
       // raw: true skips middleware response-field mapping so the full base64 response survives.
       bodyOut = JSON.stringify({ configId: cfg.id, inputs, raw: true });
       proxied = true;
     } else {
+
       target = cfg.endpoint_url;
       method = cfg.http_method ?? "POST";
       bodyOut = JSON.stringify(inputs);
