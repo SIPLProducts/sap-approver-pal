@@ -18,6 +18,7 @@ import {
   Filter,
   KeyRound,
   ListChecks,
+  Loader2,
   MessageSquare,
   MessagesSquare,
   Paperclip,
