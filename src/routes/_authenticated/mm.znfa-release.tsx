@@ -802,16 +802,19 @@ function ZnfaReleasePage() {
       if (msg || !res.base64) {
         setPrintBase64(null);
         setPrintDataUrl(null);
+        setPrintMimeType("application/pdf");
         setPrintError(msg || "Could not generate the preview.");
         return;
       }
       setPrintError(null);
+      setPrintMimeType(res.mimeType?.trim() || "application/pdf");
       setPrintBase64(res.base64);
       setPrintDataUrl(res.dataUrl);
     },
     onError: () => {
       setPrintBase64(null);
       setPrintDataUrl(null);
+      setPrintMimeType("application/pdf");
       setPrintError("An unexpected error occurred while generating the preview.");
     },
   });
@@ -828,7 +831,7 @@ function ZnfaReleasePage() {
       const bin = atob(printBase64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-      url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      url = URL.createObjectURL(new Blob([bytes], { type: printMimeType || "application/pdf" }));
       setPrintBlobUrl(url);
     } catch {
       setPrintBlobUrl(null);
@@ -836,7 +839,27 @@ function ZnfaReleasePage() {
     return () => {
       if (url) URL.revokeObjectURL(url);
     };
-  }, [printBase64]);
+  }, [printBase64, printMimeType]);
+
+  const isImagePreview = (printMimeType || "").toLowerCase().startsWith("image/");
+
+  function printFileExtension(mime: string): string {
+    const m = (mime || "").toLowerCase().split(";")[0].trim();
+    const known: Record<string, string> = {
+      "application/pdf": "pdf",
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "image/bmp": "bmp",
+      "image/tiff": "tiff",
+      "image/svg+xml": "svg",
+    };
+    if (known[m]) return known[m];
+    const sub = m.split("/")[1]?.replace(/[^\w]+/g, "");
+    return sub || "pdf";
+  }
 
   function onDocPreview() {
     if (!openedNfaNo) {
@@ -846,6 +869,7 @@ function ZnfaReleasePage() {
     setPrintError(null);
     setPrintBase64(null);
     setPrintDataUrl(null);
+    setPrintMimeType("application/pdf");
     setPrintOpen(true);
     printMutation.mutate({ znfaNum: openedNfaNo, relCode: releaseCode, nfaType });
   }
@@ -855,9 +879,11 @@ function ZnfaReleasePage() {
     if (!href) return;
     const a = document.createElement("a");
     a.href = href;
-    a.download = `${(openedNfaNo || "NFA").replace(/[^\w.-]+/g, "_")}.pdf`;
+    a.download = `${(openedNfaNo || "NFA").replace(/[^\w.-]+/g, "_")}.${printFileExtension(printMimeType)}`;
     a.click();
   }
+
+
 
 
   // Release / Approved List results
