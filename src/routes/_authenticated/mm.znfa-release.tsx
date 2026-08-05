@@ -509,7 +509,7 @@ function RfqDetailsTreeCard({
             {groups.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={RFQ_ITEM_COLUMNS.length + 3}
+                  colSpan={RFQ_ITEM_COLUMNS.length + 2}
                   className="h-28 text-center text-sm text-muted-foreground"
                 >
                   {emptyText}
