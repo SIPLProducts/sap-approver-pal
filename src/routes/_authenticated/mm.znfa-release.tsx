@@ -544,14 +544,8 @@ function RfqDetailsTreeCard({
                           )}
                         </button>
                       </TableCell>
-                      <TableCell className="w-10">
-                        <Checkbox
-                          checked={group.checked}
-                          disabled
-                          aria-label="RFQ selected in SAP"
-                        />
-                      </TableCell>
                       <TableCell className="whitespace-nowrap text-sm font-medium">
+
                         {group.label}
                       </TableCell>
                       <TableCell
