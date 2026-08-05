@@ -83,14 +83,28 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ZnfaPrintResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: cfg } = await supabaseAdmin
+    const { data: cfg, error: cfgErr } = await supabaseAdmin
       .from("sap_api_configs")
       .select("*")
       .eq("name", CONFIG_NAME)
       .maybeSingle();
-    if (!cfg)
-      throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
-    if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
+    if (cfgErr) console.error("[znfa-print] config lookup failed:", cfgErr.message);
+    if (!cfg) {
+      console.error(`[znfa-print] config "${CONFIG_NAME}" not found`);
+      return errorResponse(
+        `SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`,
+      );
+    }
+    if (!cfg.is_active) {
+      console.error(`[znfa-print] config "${CONFIG_NAME}" is disabled`);
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        message: "znfa-print: config is disabled",
+      });
+      return errorResponse(`SAP API config "${CONFIG_NAME}" is disabled.`);
+    }
+
 
     const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
@@ -130,17 +144,34 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
     let proxied = false;
 
     if (useProxy) {
-      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      if (!middlewareUrl) {
+        console.error("[znfa-print] proxy mode on but middleware URL is empty");
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          message: "znfa-print: proxy mode on but no middleware URL configured",
+        });
+        return errorResponse("Proxy mode is on but no middleware URL is configured.");
+      }
       target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
       const secret =
         (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
+      if (!secret) {
+        console.error("[znfa-print] no shared secret resolved for middleware call");
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          message: "znfa-print: no middleware shared secret resolved",
+        });
+      }
       // raw: true skips middleware response-field mapping so the full base64 response survives.
       bodyOut = JSON.stringify({ configId: cfg.id, inputs, raw: true });
       proxied = true;
     } else {
+
       target = cfg.endpoint_url;
       method = cfg.http_method ?? "POST";
       bodyOut = JSON.stringify(inputs);
@@ -154,8 +185,13 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
       headers[k] = v;
     }
 
+    console.log(
+      `[znfa-print] invoking ${method} ${target} proxied=${proxied} secret=${headers["x-shared-secret"] ? "yes" : "no"} znfa=${inputs.ZNFA_NUM}`,
+    );
+
     const t0 = Date.now();
     let res: Response;
+
     try {
       res = await fetch(target, { method, headers, body: bodyOut });
     } catch (e) {
