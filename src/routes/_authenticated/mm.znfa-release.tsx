@@ -940,6 +940,42 @@ function ZnfaReleasePage() {
     toast.info("Attachments will be available once the SAP API is configured.");
   }
 
+  function toggleAttachRow(key: string) {
+    setSelectedAttachKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
+
+  const openedNfaNo = clickedNfaNo?.trim() || mainNfaNumber.trim();
+
+  async function onDocApprove() {
+    const ok = await confirm({
+      title: `Approve NFA ${openedNfaNo || ""}`.trim() + "?",
+      description: "This will release the NFA document in SAP.",
+      destructive: false,
+      confirmLabel: "Approve",
+    });
+    if (!ok) return;
+    toast.info("Approve will be sent to SAP once the release API is configured.");
+  }
+
+  async function onDocReject() {
+    const ok = await confirm({
+      title: `Reject NFA ${openedNfaNo || ""}`.trim() + "?",
+      description: "This will reject the NFA document in SAP.",
+      confirmLabel: "Reject",
+    });
+    if (!ok) return;
+    toast.info("Reject will be sent to SAP once the release API is configured.");
+  }
+
+  function onDocBack() {
+    resetCreateForm();
+    setDisplayError(null);
+    setSelectedAttachKeys([]);
+  }
+
+
   function toggleScopeCategory(value: string) {
     setScopeCategories((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
