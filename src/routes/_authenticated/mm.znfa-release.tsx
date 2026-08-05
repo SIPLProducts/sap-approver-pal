@@ -681,6 +681,8 @@ function ZnfaReleasePage() {
   const [printDataUrl, setPrintDataUrl] = useState<string | null>(null);
   const [printBase64, setPrintBase64] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [printMimeType, setPrintMimeType] = useState<string>("application/pdf");
+
 
 
   function applyZnfaDocument(res: {
@@ -800,16 +802,19 @@ function ZnfaReleasePage() {
       if (msg || !res.base64) {
         setPrintBase64(null);
         setPrintDataUrl(null);
+        setPrintMimeType("application/pdf");
         setPrintError(msg || "Could not generate the preview.");
         return;
       }
       setPrintError(null);
+      setPrintMimeType(res.mimeType?.trim() || "application/pdf");
       setPrintBase64(res.base64);
       setPrintDataUrl(res.dataUrl);
     },
     onError: () => {
       setPrintBase64(null);
       setPrintDataUrl(null);
+      setPrintMimeType("application/pdf");
       setPrintError("An unexpected error occurred while generating the preview.");
     },
   });
@@ -826,7 +831,7 @@ function ZnfaReleasePage() {
       const bin = atob(printBase64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-      url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      url = URL.createObjectURL(new Blob([bytes], { type: printMimeType || "application/pdf" }));
       setPrintBlobUrl(url);
     } catch {
       setPrintBlobUrl(null);
@@ -834,7 +839,27 @@ function ZnfaReleasePage() {
     return () => {
       if (url) URL.revokeObjectURL(url);
     };
-  }, [printBase64]);
+  }, [printBase64, printMimeType]);
+
+  const isImagePreview = (printMimeType || "").toLowerCase().startsWith("image/");
+
+  function printFileExtension(mime: string): string {
+    const m = (mime || "").toLowerCase().split(";")[0].trim();
+    const known: Record<string, string> = {
+      "application/pdf": "pdf",
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "image/bmp": "bmp",
+      "image/tiff": "tiff",
+      "image/svg+xml": "svg",
+    };
+    if (known[m]) return known[m];
+    const sub = m.split("/")[1]?.replace(/[^\w]+/g, "");
+    return sub || "pdf";
+  }
 
   function onDocPreview() {
     if (!openedNfaNo) {
@@ -844,6 +869,7 @@ function ZnfaReleasePage() {
     setPrintError(null);
     setPrintBase64(null);
     setPrintDataUrl(null);
+    setPrintMimeType("application/pdf");
     setPrintOpen(true);
     printMutation.mutate({ znfaNum: openedNfaNo, relCode: releaseCode, nfaType });
   }
@@ -853,9 +879,11 @@ function ZnfaReleasePage() {
     if (!href) return;
     const a = document.createElement("a");
     a.href = href;
-    a.download = `${(openedNfaNo || "NFA").replace(/[^\w.-]+/g, "_")}.pdf`;
+    a.download = `${(openedNfaNo || "NFA").replace(/[^\w.-]+/g, "_")}.${printFileExtension(printMimeType)}`;
     a.click();
   }
+
+
 
 
   // Release / Approved List results
@@ -1787,12 +1815,23 @@ function ZnfaReleasePage() {
             ) : printBlobUrl || printDataUrl ? (
               <>
                 <div className="rounded-md border bg-white">
-                  <iframe
-                    src={printBlobUrl ?? printDataUrl ?? undefined}
-                    title="NFA preview"
-                    className="h-[65vh] w-full rounded-md"
-                  />
+                  {isImagePreview ? (
+                    <div className="flex h-[65vh] w-full items-center justify-center overflow-auto rounded-md p-2">
+                      <img
+                        src={printBlobUrl ?? printDataUrl ?? undefined}
+                        alt={`NFA preview${openedNfaNo ? ` for ${openedNfaNo}` : ""}`}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <iframe
+                      src={printBlobUrl ?? printDataUrl ?? undefined}
+                      title="NFA preview"
+                      className="h-[65vh] w-full rounded-md"
+                    />
+                  )}
                 </div>
+
                 <div className="mt-3 flex justify-end gap-2">
                   <Button
                     type="button"
