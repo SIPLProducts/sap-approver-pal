@@ -48,26 +48,41 @@ function windowsSafeMcpPlugin() {
 // post-build collector and the deployment docs.
 process.env.NITRO_OUTPUT_DIR ||= "dist";
 
+// `npm run build` runs two passes (see scripts/build.mjs):
+//
+//   shell pass (TSS_SHELL_PASS=1) — nitro is skipped so the plain Node server
+//     build stays importable, which lets the framework prerender a static shell
+//     into dist/client/index.html.
+//   app pass (default) — the normal nitro/worker build that produces
+//     dist/server, i.e. every server function (SAP, login, e-mail, push, admin).
+//
+// The collector then places the saved shell at dist/index.html so nginx can use
+// `root .../frontend/dist; index index.html;` while dist/server keeps serving
+// all server-function traffic.
+const isShellPass = process.env.TSS_SHELL_PASS === "1";
+
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
+  ...(isShellPass ? { nitro: false as const } : {}),
   tanstackStart: {
     server: { entry: "server" },
-    // Emit a static shell at dist/index.html so nginx can serve `root .../dist`
-    // directly. The dist/server bundle is still built and still handles all
-    // server-function traffic (SAP, login, email, push, admin) — only the first
-    // paint moves from per-request SSR to a file on disk.
-    spa: {
-      enabled: true,
-      prerender: {
-        enabled: true,
-        outputPath: "/index.html",
-        crawlLinks: false,
-      },
-    },
+    ...(isShellPass
+      ? {
+          spa: {
+            enabled: true,
+            prerender: {
+              enabled: true,
+              outputPath: "/index.html",
+              crawlLinks: false,
+            },
+          },
+        }
+      : {}),
   },
   vite: {
     plugins: [windowsSafeMcpPlugin()],
   },
 });
+
 
