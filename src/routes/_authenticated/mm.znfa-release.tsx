@@ -487,12 +487,10 @@ function RfqDetailsTreeCard({
               <TableHead className="w-10">
                 <span className="sr-only">Expand</span>
               </TableHead>
-              <TableHead className="w-10">
-                <span className="sr-only">Selected</span>
-              </TableHead>
               <TableHead className="whitespace-nowrap text-xs">
                 Vendor Name / Vendor Code
               </TableHead>
+
               {RFQ_ITEM_COLUMNS.map((c) => (
                 <TableHead
                   key={c.key}
