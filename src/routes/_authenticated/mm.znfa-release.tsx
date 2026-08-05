@@ -650,7 +650,6 @@ function ZnfaReleasePage() {
   const [attachRows, setAttachRows] = useState<Record<string, any>[]>([]);
   const [nfaTextRows, setNfaTextRows] = useState<Record<string, any>[]>([]);
   const [expandedTextVendors, setExpandedTextVendors] = useState<Set<string>>(new Set());
-  const [expandedTextRfqs, setExpandedTextRfqs] = useState<Set<string>>(new Set());
   const [selectedTextKey, setSelectedTextKey] = useState<string | null>(null);
   const [relMatxRows, setRelMatxRows] = useState<Record<string, any>[]>([]);
   const [clickedNfaNo, setClickedNfaNo] = useState<string | null>(null);
@@ -696,7 +695,6 @@ function ZnfaReleasePage() {
     setRelMatxRows(res.relMatx);
     setNfaTextRows(res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""));
     setExpandedTextVendors(new Set());
-    setExpandedTextRfqs(new Set());
     setSelectedTextKey(null);
   }
 
@@ -833,7 +831,6 @@ function ZnfaReleasePage() {
     setAttachRows([]);
     setNfaTextRows([]);
     setExpandedTextVendors(new Set());
-    setExpandedTextRfqs(new Set());
     setSelectedTextKey(null);
     setRelMatxRows([]);
     setClickedNfaNo(null);
