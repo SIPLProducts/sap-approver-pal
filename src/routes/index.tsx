@@ -338,8 +338,8 @@ function LandingPage() {
             <div className="text-sm font-semibold">Account</div>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li><Link to="/login" className="hover:text-foreground">Sign in</Link></li>
-              <li><Link to="/inbox/mm" className="hover:text-foreground">MM Approvals</Link></li>
-              <li><Link to="/inbox/sd" className="hover:text-foreground">SD Approvals</Link></li>
+              <li><Link to="/inbox/$module" params={{ module: "mm" }} className="hover:text-foreground">MM Approvals</Link></li>
+              <li><Link to="/inbox/$module" params={{ module: "sd" }} className="hover:text-foreground">SD Approvals</Link></li>
               <li><Link to="/notifications" className="hover:text-foreground">Notifications</Link></li>
             </ul>
           </div>
