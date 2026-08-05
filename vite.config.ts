@@ -53,6 +53,18 @@ process.env.NITRO_OUTPUT_DIR ||= "dist";
 export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
+    // Emit a static shell at dist/index.html so nginx can serve `root .../dist`
+    // directly. The dist/server bundle is still built and still handles all
+    // server-function traffic (SAP, login, email, push, admin) — only the first
+    // paint moves from per-request SSR to a file on disk.
+    spa: {
+      enabled: true,
+      prerender: {
+        enabled: true,
+        outputPath: "/index.html",
+        crawlLinks: false,
+      },
+    },
   },
   vite: {
     plugins: [windowsSafeMcpPlugin()],
