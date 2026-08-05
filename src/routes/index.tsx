@@ -24,7 +24,7 @@ function LandingPage() {
     supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session));
   }, []);
 
-  const primaryHref = authed ? "/inbox/mm" : "/login";
+  const primaryHref = authed ? "/inbox" : "/login";
   const primaryLabel = authed ? "Open Inbox" : "Sign in";
 
   return (
