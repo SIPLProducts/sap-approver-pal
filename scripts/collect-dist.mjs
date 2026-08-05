@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Post-build step: guarantee a single top-level `dist/` folder, whichever
- * layout the build produced.
+ * Post-build step: guarantee a single, clean top-level `dist/` folder,
+ * whichever layout the build produced.
  *
  * Supported build outputs:
  *   dist/client + dist/server        (normal case)
@@ -9,14 +9,23 @@
  *
  * Result:
  *   dist/
- *     assets/ favicon.ico manifest.webmanifest sw.js _headers ...  (flattened statics)
- *     client/   <- static files the app server serves
- *     server/   <- app server bundle (npm start)
- *     nitro.json package.json
+ *     assets/ templates/ favicon.ico sitemap.xml sw.js ...  (flattened statics)
+ *     server/    <- app server bundle (npm start)
+ *     .assetsignore
+ *   ...and no .output/, no .wrangler/, no dist/client duplicate.
  *
  * Pure Node, no dependencies, safe on Windows and Linux.
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = resolve(process.cwd());
@@ -26,10 +35,14 @@ const outputDir = join(root, ".output");
 // Names that belong to the build machinery and must not be overwritten at dist root.
 const RESERVED = new Set(["client", "server", "nitro.json", "package.json", "package-lock.json"]);
 
+// Build-machinery files that are not needed for deployment.
+const DROP_AT_ROOT = ["nitro.json", "package.json", "package-lock.json", "wrangler.json"];
+
 function copyInto(from, to) {
   rmSync(to, { recursive: true, force: true });
   cpSync(from, to, { recursive: true });
 }
+
 
 /** Normalise a `.output/` build into `dist/`. */
 function adoptOutputDir() {
@@ -96,6 +109,35 @@ if (existsSync(publicDir)) {
   }
 }
 
+
+// 3. Point the server bundle at the flattened statics, then drop dist/client.
+const serverWrangler = join(distDir, "server", "wrangler.json");
+if (existsSync(serverWrangler)) {
+  try {
+    const cfg = JSON.parse(readFileSync(serverWrangler, "utf8"));
+    if (cfg.assets) cfg.assets.directory = "..";
+    writeFileSync(serverWrangler, JSON.stringify(cfg, null, 2) + "\n");
+  } catch (err) {
+    console.warn("[collect-dist] warning: could not rewrite server/wrangler.json —", err.message);
+  }
+}
+// Keep the server bundle itself out of the publicly served asset set.
+writeFileSync(join(distDir, ".assetsignore"), "/server\n.assetsignore\n");
+rmSync(clientDir, { recursive: true, force: true });
+
+// 4. Remove build-machinery leftovers and local caches.
+for (const name of DROP_AT_ROOT) {
+  rmSync(join(distDir, name), { recursive: true, force: true });
+}
+rmSync(join(root, ".wrangler"), { recursive: true, force: true });
+rmSync(outputDir, { recursive: true, force: true });
+
 console.log(`[collect-dist] dist/ ready — ${copied.length} static item(s) at the root:`);
 console.log("  " + copied.sort().join("  "));
+console.log("[collect-dist] final dist/ listing:");
+for (const name of readdirSync(distDir).sort()) {
+  const isDir = statSync(join(distDir, name)).isDirectory();
+  console.log(`  ${name}${isDir ? "/" : ""}`);
+}
 console.log("[collect-dist] app server bundle: dist/server (run with `npm start`).");
+

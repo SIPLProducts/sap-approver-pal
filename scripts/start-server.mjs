@@ -27,7 +27,7 @@ console.log(`[start] serving dist/ on http://${host}:${port}`);
 
 const child = spawn(
   process.platform === "win32" ? "npx.cmd" : "npx",
-  ["wrangler", "dev", "--cwd", "dist", "--ip", host, "--port", port],
+  ["wrangler", "dev", "--cwd", "dist/server", "--ip", host, "--port", port],
   { stdio: "inherit", env: process.env },
 );
 
