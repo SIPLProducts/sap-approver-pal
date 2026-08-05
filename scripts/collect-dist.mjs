@@ -109,6 +109,35 @@ if (existsSync(publicDir)) {
   }
 }
 
+
+// 3. Point the server bundle at the flattened statics, then drop dist/client.
+const serverWrangler = join(distDir, "server", "wrangler.json");
+if (existsSync(serverWrangler)) {
+  try {
+    const cfg = JSON.parse(readFileSync(serverWrangler, "utf8"));
+    if (cfg.assets) cfg.assets.directory = "..";
+    writeFileSync(serverWrangler, JSON.stringify(cfg, null, 2) + "\n");
+  } catch (err) {
+    console.warn("[collect-dist] warning: could not rewrite server/wrangler.json —", err.message);
+  }
+}
+// Keep the server bundle itself out of the publicly served asset set.
+writeFileSync(join(distDir, ".assetsignore"), "/server\n.assetsignore\n");
+rmSync(clientDir, { recursive: true, force: true });
+
+// 4. Remove build-machinery leftovers and local caches.
+for (const name of DROP_AT_ROOT) {
+  rmSync(join(distDir, name), { recursive: true, force: true });
+}
+rmSync(join(root, ".wrangler"), { recursive: true, force: true });
+rmSync(outputDir, { recursive: true, force: true });
+
 console.log(`[collect-dist] dist/ ready — ${copied.length} static item(s) at the root:`);
 console.log("  " + copied.sort().join("  "));
+console.log("[collect-dist] final dist/ listing:");
+for (const name of readdirSync(distDir).sort()) {
+  const isDir = statSync(join(distDir, name)).isDirectory();
+  console.log(`  ${name}${isDir ? "/" : ""}`);
+}
 console.log("[collect-dist] app server bundle: dist/server (run with `npm start`).");
+
