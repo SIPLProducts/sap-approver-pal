@@ -1,0 +1,17 @@
+# Supabase self-hosted secrets and runtime data
+.env
+.env.local
+*.env.bak
+
+# Runtime data volumes (created by Docker on first start)
+volumes/db/data
+volumes/storage
+volumes/functions
+volumes/logs
+
+# Keep the empty directory marker for Git if needed
+!volumes/.gitkeep
+
+# Offline image archives
+*.tar
+*.tar.gz
