@@ -4,6 +4,9 @@ This folder contains the official Supabase Docker Compose stack, pre-configured 
 
 Because the server has no internet access, the stack files are committed into this repository so you can copy them to the server via `git clone`, WinSCP, or any other file transfer method.
 
+The matching Nginx config for IP `10.150.150.130` is `deploy/quality/nginx/resl-approval-quality-ip-8081.conf`. It listens on port `8081` and routes `/supabase/`, `/studio/`, and `/mw/` to the Docker services.
+
+
 ## What is included
 
 ```text
