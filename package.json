@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
+    "build": "vite build && node scripts/collect-dist.mjs",
+    "build:dev": "vite build --mode development && node scripts/collect-dist.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "start": "node scripts/start-server.mjs"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
