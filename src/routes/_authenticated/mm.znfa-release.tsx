@@ -1114,7 +1114,15 @@ function ZnfaReleasePage() {
 
       {showCreate && (
         <>
+          <DetailsTableCard
+            title="APPROVAL / RELEASE MATRIX"
+            columns={REL_MATX_COLUMNS}
+            rows={relMatxRows}
+            emptyText="No approval matrix returned by SAP."
+          />
+
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+
             <Card className="space-y-4 border border-border/60 p-5 shadow-card lg:col-span-2">
               <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
                 <Label className="text-sm font-medium">Type of NFA</Label>
