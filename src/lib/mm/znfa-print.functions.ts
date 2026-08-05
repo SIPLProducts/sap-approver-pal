@@ -63,13 +63,10 @@ function extractBase64Payload(json: any): { base64: string | null; mimeType: str
   return { base64: null, mimeType: "application/pdf", msg, status };
 }
 
-function decodeBase64ToDataUrl(base64: string, mimeType: string): string {
+function normalizeBase64(base64: string): string {
   // SAP sometimes returns base64 without padding or with URL-safe characters.
-  const normalized = base64
-    .replace(/-/g, "+")
-    .replace(/_/g, "/")
-    .padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-  return `data:${mimeType};base64,${normalized}`;
+  const cleaned = base64.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  return cleaned.padEnd(cleaned.length + ((4 - (cleaned.length % 4)) % 4), "=");
 }
 
 export const fetchZnfaPrint = createServerFn({ method: "POST" })
