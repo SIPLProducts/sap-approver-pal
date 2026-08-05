@@ -8,17 +8,24 @@ import { fetchZnfaClick } from "@/lib/mm/znfa-click.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
   AlertTriangle,
+  ArrowLeft,
   Award,
+  Check,
   ChevronDown,
   ChevronRight,
+  Eye,
   Filter,
   KeyRound,
   ListChecks,
+  MessageSquare,
+  MessagesSquare,
   Paperclip,
   Search,
   User2,
   Wrench,
+  X,
 } from "lucide-react";
+
 import { PageHeader } from "@/components/exec/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -47,6 +54,8 @@ import {
 } from "@/components/ui/select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/znfa-release")({
@@ -654,6 +663,9 @@ function ZnfaReleasePage() {
   const [relMatxRows, setRelMatxRows] = useState<Record<string, any>[]>([]);
   const [clickedNfaNo, setClickedNfaNo] = useState<string | null>(null);
   const [docLoaded, setDocLoaded] = useState(false);
+  const [selectedAttachKeys, setSelectedAttachKeys] = useState<string[]>([]);
+  const { confirm, confirmDialog } = useConfirm();
+
 
   function applyZnfaDocument(res: {
     znfa: Record<string, any> | null;
@@ -928,6 +940,42 @@ function ZnfaReleasePage() {
     toast.info("Attachments will be available once the SAP API is configured.");
   }
 
+  function toggleAttachRow(key: string) {
+    setSelectedAttachKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
+
+  const openedNfaNo = clickedNfaNo?.trim() || mainNfaNumber.trim();
+
+  async function onDocApprove() {
+    const ok = await confirm({
+      title: `Approve NFA ${openedNfaNo || ""}`.trim() + "?",
+      description: "This will release the NFA document in SAP.",
+      destructive: false,
+      confirmLabel: "Approve",
+    });
+    if (!ok) return;
+    toast.info("Approve will be sent to SAP once the release API is configured.");
+  }
+
+  async function onDocReject() {
+    const ok = await confirm({
+      title: `Reject NFA ${openedNfaNo || ""}`.trim() + "?",
+      description: "This will reject the NFA document in SAP.",
+      confirmLabel: "Reject",
+    });
+    if (!ok) return;
+    toast.info("Reject will be sent to SAP once the release API is configured.");
+  }
+
+  function onDocBack() {
+    resetCreateForm();
+    setDisplayError(null);
+    setSelectedAttachKeys([]);
+  }
+
+
   function toggleScopeCategory(value: string) {
     setScopeCategories((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
@@ -1159,6 +1207,78 @@ function ZnfaReleasePage() {
 
       {showCreate && (
         <>
+          <Card className="border border-border/60 p-2 shadow-card">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {openedNfaNo && (
+                <span className="shrink-0 px-2 font-mono text-xs text-muted-foreground">
+                  NFA {openedNfaNo}
+                </span>
+              )}
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 px-3 text-xs"
+                  onClick={onDocApprove}
+                >
+                  <Check className="mr-1.5 h-3.5 w-3.5" /> Approve
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  className="h-8 px-3 text-xs"
+                  onClick={onDocReject}
+                >
+                  <X className="mr-1.5 h-3.5 w-3.5" /> Reject
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={onDocBack}
+                >
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={() =>
+                    toast.info("Clarification will be sent to SAP once the API is configured.")
+                  }
+                >
+                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Clarification
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={() =>
+                    toast.info("Display Clarification will be available once the API is configured.")
+                  }
+                >
+                  <MessagesSquare className="mr-1.5 h-3.5 w-3.5" /> Display Clarification
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={() =>
+                    toast.info("Preview will be available once the SAP API is configured.")
+                  }
+                >
+                  <Eye className="mr-1.5 h-3.5 w-3.5" /> Preview
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+
           <DetailsTableCard
             title="APPROVAL / RELEASE MATRIX"
             columns={REL_MATX_COLUMNS}
@@ -1512,9 +1632,18 @@ function ZnfaReleasePage() {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          attachRows.map((a, i) => (
-                            <TableRow key={`${a.ATTACHMENT_ID ?? "attach"}-${i}`}>
-                              <TableCell className="w-10" />
+                          attachRows.map((a, i) => {
+                            const attachKey = `${a.ATTACHMENT_ID ?? "attach"}-${i}`;
+                            return (
+                            <TableRow key={attachKey}>
+                              <TableCell className="w-10">
+                                <Checkbox
+                                  checked={selectedAttachKeys.includes(attachKey)}
+                                  onCheckedChange={() => toggleAttachRow(attachKey)}
+                                  aria-label={`Select attachment ${String(a.NAME1 ?? i + 1)}`}
+                                />
+                              </TableCell>
+
                               <TableCell className="whitespace-nowrap text-sm">
                                 {String(a.VENDOR ?? "—").trim() || "—"}
                               </TableCell>
@@ -1525,7 +1654,9 @@ function ZnfaReleasePage() {
                                 {String(a.NO_ATTACHMENTS ?? "").trim() || "—"}
                               </TableCell>
                             </TableRow>
-                          ))
+                            );
+                          })
+
                         )}
                       </TableBody>
                     </Table>
@@ -1536,6 +1667,9 @@ function ZnfaReleasePage() {
           </Card>
         </>
       )}
+
+      {confirmDialog}
     </div>
   );
 }
+
