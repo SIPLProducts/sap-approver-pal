@@ -99,9 +99,12 @@ type DetailColumn = {
   label: string;
   numeric?: boolean;
   divider?: boolean;
+  /** Render a read-only checkbox from an SAP "X" flag instead of text. */
+  checkbox?: boolean;
   /** Optional second SAP field rendered as "primary / secondary". */
   also?: string;
 };
+
 
 const PR_DETAIL_COLUMNS: DetailColumn[] = [
   { key: "BANFN", label: "PR No" },
