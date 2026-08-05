@@ -649,6 +649,8 @@ function ZnfaReleasePage() {
   const [recommendRows, setRecommendRows] = useState<Record<string, any>[]>([]);
   const [attachRows, setAttachRows] = useState<Record<string, any>[]>([]);
   const [nfaTextRows, setNfaTextRows] = useState<Record<string, any>[]>([]);
+  const [expandedTextVendors, setExpandedTextVendors] = useState<Set<string>>(new Set());
+  const [selectedTextKey, setSelectedTextKey] = useState<string | null>(null);
   const [relMatxRows, setRelMatxRows] = useState<Record<string, any>[]>([]);
   const [clickedNfaNo, setClickedNfaNo] = useState<string | null>(null);
   const [docLoaded, setDocLoaded] = useState(false);
