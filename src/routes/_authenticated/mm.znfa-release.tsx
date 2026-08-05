@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
@@ -679,6 +679,7 @@ function ZnfaReleasePage() {
   // Print preview state
   const [printOpen, setPrintOpen] = useState(false);
   const [printDataUrl, setPrintDataUrl] = useState<string | null>(null);
+  const [printBase64, setPrintBase64] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
 
 
@@ -796,23 +797,44 @@ function ZnfaReleasePage() {
       fetchPrint({ data: vars }),
     onSuccess: (res) => {
       const msg = (res.sapMessage?.trim() ? res.sapMessage.trim() : null) ?? res.error;
-      if (msg || !res.dataUrl) {
+      if (msg || !res.base64) {
+        setPrintBase64(null);
+        setPrintDataUrl(null);
         setPrintError(msg || "Could not generate the preview.");
-        setPrintOpen(false);
-        if (msg) toast.error(msg);
         return;
       }
       setPrintError(null);
+      setPrintBase64(res.base64);
       setPrintDataUrl(res.dataUrl);
-      setPrintOpen(true);
     },
     onError: () => {
-      const msg = "An unexpected error occurred while generating the preview.";
-      setPrintError(msg);
-      setPrintOpen(false);
-      toast.error(msg);
+      setPrintBase64(null);
+      setPrintDataUrl(null);
+      setPrintError("An unexpected error occurred while generating the preview.");
     },
   });
+
+  // Blob URLs render reliably in an <iframe> where large data: URLs can be blocked.
+  const [printBlobUrl, setPrintBlobUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!printBase64) {
+      setPrintBlobUrl(null);
+      return;
+    }
+    let url: string | null = null;
+    try {
+      const bin = atob(printBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      setPrintBlobUrl(url);
+    } catch {
+      setPrintBlobUrl(null);
+    }
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [printBase64]);
 
   function onDocPreview() {
     if (!openedNfaNo) {
@@ -820,8 +842,21 @@ function ZnfaReleasePage() {
       return;
     }
     setPrintError(null);
+    setPrintBase64(null);
+    setPrintDataUrl(null);
+    setPrintOpen(true);
     printMutation.mutate({ znfaNum: openedNfaNo, relCode: releaseCode, nfaType });
   }
+
+  function onPrintDownload() {
+    const href = printBlobUrl ?? printDataUrl;
+    if (!href) return;
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `${(openedNfaNo || "NFA").replace(/[^\w.-]+/g, "_")}.pdf`;
+    a.click();
+  }
+
 
   // Release / Approved List results
   const [releaseRows, setReleaseRows] = useState<Record<string, any>[] | null>(null);
@@ -1740,18 +1775,44 @@ function ZnfaReleasePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-6">
-            {printError ? (
+            {printMutation.isPending ? (
+              <div className="flex h-[40vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Generating preview…
+              </div>
+            ) : printError ? (
               <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
                 {printError}
               </div>
-            ) : printDataUrl ? (
-              <div className="rounded-md border bg-white">
-                <embed
-                  src={printDataUrl}
-                  type="application/pdf"
-                  className="h-[65vh] w-full rounded-md"
-                />
-              </div>
+            ) : printBlobUrl || printDataUrl ? (
+              <>
+                <div className="rounded-md border bg-white">
+                  <iframe
+                    src={printBlobUrl ?? printDataUrl ?? undefined}
+                    title="NFA preview"
+                    className="h-[65vh] w-full rounded-md"
+                  />
+                </div>
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => window.open(printBlobUrl ?? printDataUrl ?? "", "_blank")}
+                  >
+                    Open in new tab
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    onClick={onPrintDownload}
+                  >
+                    Download
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
                 No preview data available.

@@ -13,18 +13,20 @@ const CONFIG_NAME = "ZNFA_PRINT_API";
 export type ZnfaPrintResponse = {
   /** Base64 data URL that can be used directly in an <iframe> or <embed>. */
   dataUrl: string | null;
+  /** Normalized base64 payload (no data: prefix) so the client can build a Blob URL. */
+  base64: string | null;
   /** Raw MIME type reported by the SAP response. */
   mimeType: string;
   error: string | null;
   sapMessage: string | null;
 };
 
-function okResponse(dataUrl: string, mimeType: string): ZnfaPrintResponse {
-  return { dataUrl, mimeType, error: null, sapMessage: null };
+function okResponse(base64: string, dataUrl: string, mimeType: string): ZnfaPrintResponse {
+  return { dataUrl, base64, mimeType, error: null, sapMessage: null };
 }
 
 function errorResponse(error: string | null, sapMessage: string | null = null): ZnfaPrintResponse {
-  return { dataUrl: null, mimeType: "application/pdf", error, sapMessage };
+  return { dataUrl: null, base64: null, mimeType: "application/pdf", error, sapMessage };
 }
 
 function extractSapMsg(text: string): string | null {
@@ -61,13 +63,10 @@ function extractBase64Payload(json: any): { base64: string | null; mimeType: str
   return { base64: null, mimeType: "application/pdf", msg, status };
 }
 
-function decodeBase64ToDataUrl(base64: string, mimeType: string): string {
+function normalizeBase64(base64: string): string {
   // SAP sometimes returns base64 without padding or with URL-safe characters.
-  const normalized = base64
-    .replace(/-/g, "+")
-    .replace(/_/g, "/")
-    .padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-  return `data:${mimeType};base64,${normalized}`;
+  const cleaned = base64.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  return cleaned.padEnd(cleaned.length + ((4 - (cleaned.length % 4)) % 4), "=");
 }
 
 export const fetchZnfaPrint = createServerFn({ method: "POST" })
@@ -215,5 +214,6 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
       message: `znfa-print: ok (${Math.round(base64.length / 1024)} KB base64)`,
     });
 
-    return okResponse(decodeBase64ToDataUrl(base64, mimeType), mimeType);
+    const normalized = normalizeBase64(base64);
+    return okResponse(normalized, `data:${mimeType};base64,${normalized}`, mimeType);
   });
