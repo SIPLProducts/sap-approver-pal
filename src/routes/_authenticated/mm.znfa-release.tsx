@@ -566,8 +566,8 @@ function RfqDetailsTreeCard({
                       group.items.map((row, i) => (
                         <TableRow key={`rfq-${group.key}-item-${i}`}>
                           <TableCell className="w-10" />
-                          <TableCell className="w-10" />
                           <TableCell />
+
                           {RFQ_ITEM_COLUMNS.map((c) => (
                             <TableCell
                               key={c.key}
