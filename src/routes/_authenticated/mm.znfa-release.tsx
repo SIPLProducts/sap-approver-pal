@@ -833,6 +833,7 @@ function ZnfaReleasePage() {
     setAttachRows([]);
     setNfaTextRows([]);
     setExpandedTextVendors(new Set());
+    setExpandedTextRfqs(new Set());
     setSelectedTextKey(null);
     setRelMatxRows([]);
     setClickedNfaNo(null);
