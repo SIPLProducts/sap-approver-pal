@@ -830,6 +830,8 @@ function ZnfaReleasePage() {
     setRecommendRows([]);
     setAttachRows([]);
     setNfaTextRows([]);
+    setExpandedTextVendors(new Set());
+    setSelectedTextKey(null);
     setRelMatxRows([]);
     setClickedNfaNo(null);
     setDocLoaded(false);
