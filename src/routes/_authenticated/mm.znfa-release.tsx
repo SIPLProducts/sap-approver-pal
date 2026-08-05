@@ -797,23 +797,44 @@ function ZnfaReleasePage() {
       fetchPrint({ data: vars }),
     onSuccess: (res) => {
       const msg = (res.sapMessage?.trim() ? res.sapMessage.trim() : null) ?? res.error;
-      if (msg || !res.dataUrl) {
+      if (msg || !res.base64) {
+        setPrintBase64(null);
+        setPrintDataUrl(null);
         setPrintError(msg || "Could not generate the preview.");
-        setPrintOpen(false);
-        if (msg) toast.error(msg);
         return;
       }
       setPrintError(null);
+      setPrintBase64(res.base64);
       setPrintDataUrl(res.dataUrl);
-      setPrintOpen(true);
     },
     onError: () => {
-      const msg = "An unexpected error occurred while generating the preview.";
-      setPrintError(msg);
-      setPrintOpen(false);
-      toast.error(msg);
+      setPrintBase64(null);
+      setPrintDataUrl(null);
+      setPrintError("An unexpected error occurred while generating the preview.");
     },
   });
+
+  // Blob URLs render reliably in an <iframe> where large data: URLs can be blocked.
+  const [printBlobUrl, setPrintBlobUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!printBase64) {
+      setPrintBlobUrl(null);
+      return;
+    }
+    let url: string | null = null;
+    try {
+      const bin = atob(printBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      setPrintBlobUrl(url);
+    } catch {
+      setPrintBlobUrl(null);
+    }
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [printBase64]);
 
   function onDocPreview() {
     if (!openedNfaNo) {
@@ -821,8 +842,21 @@ function ZnfaReleasePage() {
       return;
     }
     setPrintError(null);
+    setPrintBase64(null);
+    setPrintDataUrl(null);
+    setPrintOpen(true);
     printMutation.mutate({ znfaNum: openedNfaNo, relCode: releaseCode, nfaType });
   }
+
+  function onPrintDownload() {
+    const href = printBlobUrl ?? printDataUrl;
+    if (!href) return;
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `${(openedNfaNo || "NFA").replace(/[^\w.-]+/g, "_")}.pdf`;
+    a.click();
+  }
+
 
   // Release / Approved List results
   const [releaseRows, setReleaseRows] = useState<Record<string, any>[] | null>(null);
