@@ -185,8 +185,13 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
       headers[k] = v;
     }
 
+    console.log(
+      `[znfa-print] invoking ${method} ${target} proxied=${proxied} secret=${headers["x-shared-secret"] ? "yes" : "no"} znfa=${inputs.ZNFA_NUM}`,
+    );
+
     const t0 = Date.now();
     let res: Response;
+
     try {
       res = await fetch(target, { method, headers, body: bodyOut });
     } catch (e) {
