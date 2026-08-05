@@ -8,17 +8,24 @@ import { fetchZnfaClick } from "@/lib/mm/znfa-click.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
   AlertTriangle,
+  ArrowLeft,
   Award,
+  Check,
   ChevronDown,
   ChevronRight,
+  Eye,
   Filter,
   KeyRound,
   ListChecks,
+  MessageSquare,
+  MessagesSquare,
   Paperclip,
   Search,
   User2,
   Wrench,
+  X,
 } from "lucide-react";
+
 import { PageHeader } from "@/components/exec/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
