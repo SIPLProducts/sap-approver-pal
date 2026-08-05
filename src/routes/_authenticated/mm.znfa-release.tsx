@@ -1207,6 +1207,78 @@ function ZnfaReleasePage() {
 
       {showCreate && (
         <>
+          <Card className="border border-border/60 p-2 shadow-card">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {openedNfaNo && (
+                <span className="shrink-0 px-2 font-mono text-xs text-muted-foreground">
+                  NFA {openedNfaNo}
+                </span>
+              )}
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 px-3 text-xs"
+                  onClick={onDocApprove}
+                >
+                  <Check className="mr-1.5 h-3.5 w-3.5" /> Approve
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  className="h-8 px-3 text-xs"
+                  onClick={onDocReject}
+                >
+                  <X className="mr-1.5 h-3.5 w-3.5" /> Reject
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={onDocBack}
+                >
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={() =>
+                    toast.info("Clarification will be sent to SAP once the API is configured.")
+                  }
+                >
+                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Clarification
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={() =>
+                    toast.info("Display Clarification will be available once the API is configured.")
+                  }
+                >
+                  <MessagesSquare className="mr-1.5 h-3.5 w-3.5" /> Display Clarification
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={() =>
+                    toast.info("Preview will be available once the SAP API is configured.")
+                  }
+                >
+                  <Eye className="mr-1.5 h-3.5 w-3.5" /> Preview
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+
           <DetailsTableCard
             title="APPROVAL / RELEASE MATRIX"
             columns={REL_MATX_COLUMNS}
