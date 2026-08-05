@@ -13,19 +13,22 @@ to the server.
 
 ```text
 dist/
+  index.html              <- static app shell (nginx `index index.html`)
   assets/                 <- hashed JS/CSS (serve directly from nginx)
   favicon.ico
   manifest.webmanifest
   sw.js
   _headers
   .assetsignore
-  server/                 <- app server bundle (SSR + all server functions)
+  server/                 <- app server bundle (all server functions)
 ```
 
-> This app is not a static-only SPA, so there is no `index.html`: the page HTML is
-> generated per request by `dist/server`. SAP login, PR/PO/ZNFA release, MIGO,
-> user management, e-mail and push all run inside `dist/server`, so the app
-> server process must run — nginx alone cannot serve the app.
+> `dist/index.html` is a real file, so nginx can use
+> `root .../frontend/dist; index index.html;`.
+> `dist/server` must still run: SAP login, PR/PO/ZNFA release, MIGO, user
+> management, e-mail and push are server functions called at `/_serverFn/*`
+> (plus `/api/*`), and nginx has to proxy those two prefixes to it.
+
 
 
 ## 2. Ship and run
