@@ -25,8 +25,8 @@ function LoginPage() {
   const nav = useNavigate();
   const sapLoginFn = useServerFn(sapLogin);
   const sapForgotFn = useServerFn(sapForgot);
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [userId, setUserId] = useState("");
+
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
