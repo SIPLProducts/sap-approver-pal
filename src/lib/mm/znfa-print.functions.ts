@@ -83,14 +83,28 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ZnfaPrintResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: cfg } = await supabaseAdmin
+    const { data: cfg, error: cfgErr } = await supabaseAdmin
       .from("sap_api_configs")
       .select("*")
       .eq("name", CONFIG_NAME)
       .maybeSingle();
-    if (!cfg)
-      throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
-    if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
+    if (cfgErr) console.error("[znfa-print] config lookup failed:", cfgErr.message);
+    if (!cfg) {
+      console.error(`[znfa-print] config "${CONFIG_NAME}" not found`);
+      return errorResponse(
+        `SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`,
+      );
+    }
+    if (!cfg.is_active) {
+      console.error(`[znfa-print] config "${CONFIG_NAME}" is disabled`);
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        message: "znfa-print: config is disabled",
+      });
+      return errorResponse(`SAP API config "${CONFIG_NAME}" is disabled.`);
+    }
+
 
     const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
