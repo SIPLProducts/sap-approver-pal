@@ -1632,9 +1632,18 @@ function ZnfaReleasePage() {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          attachRows.map((a, i) => (
-                            <TableRow key={`${a.ATTACHMENT_ID ?? "attach"}-${i}`}>
-                              <TableCell className="w-10" />
+                          attachRows.map((a, i) => {
+                            const attachKey = `${a.ATTACHMENT_ID ?? "attach"}-${i}`;
+                            return (
+                            <TableRow key={attachKey}>
+                              <TableCell className="w-10">
+                                <Checkbox
+                                  checked={selectedAttachKeys.includes(attachKey)}
+                                  onCheckedChange={() => toggleAttachRow(attachKey)}
+                                  aria-label={`Select attachment ${String(a.NAME1 ?? i + 1)}`}
+                                />
+                              </TableCell>
+
                               <TableCell className="whitespace-nowrap text-sm">
                                 {String(a.VENDOR ?? "—").trim() || "—"}
                               </TableCell>
