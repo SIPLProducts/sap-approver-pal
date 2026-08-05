@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { fetchZnfaRelease } from "@/lib/mm/znfa-release.functions";
 import { fetchZnfaDisplay } from "@/lib/mm/znfa-display.functions";
 import { fetchZnfaClick } from "@/lib/mm/znfa-click.functions";
+import { fetchZnfaPrint } from "@/lib/mm/znfa-print.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
   AlertTriangle,
@@ -17,6 +18,7 @@ import {
   Filter,
   KeyRound,
   ListChecks,
+  Loader2,
   MessageSquare,
   MessagesSquare,
   Paperclip,
@@ -52,6 +54,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -667,6 +676,11 @@ function ZnfaReleasePage() {
   const [selectedAttachKeys, setSelectedAttachKeys] = useState<string[]>([]);
   const { confirm, confirmDialog } = useConfirm();
 
+  // Print preview state
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printDataUrl, setPrintDataUrl] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+
 
   function applyZnfaDocument(res: {
     znfa: Record<string, any> | null;
@@ -774,6 +788,39 @@ function ZnfaReleasePage() {
     setDocLoaded(false);
     setDisplayError(null);
     clickMutation.mutate({ znfaNum: nfaNo.trim(), relCode: releaseCode });
+  }
+
+  const fetchPrint = useServerFn(fetchZnfaPrint);
+  const printMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; relCode: string; nfaType: string }) =>
+      fetchPrint({ data: vars }),
+    onSuccess: (res) => {
+      const msg = (res.sapMessage?.trim() ? res.sapMessage.trim() : null) ?? res.error;
+      if (msg || !res.dataUrl) {
+        setPrintError(msg || "Could not generate the preview.");
+        setPrintOpen(false);
+        if (msg) toast.error(msg);
+        return;
+      }
+      setPrintError(null);
+      setPrintDataUrl(res.dataUrl);
+      setPrintOpen(true);
+    },
+    onError: () => {
+      const msg = "An unexpected error occurred while generating the preview.";
+      setPrintError(msg);
+      setPrintOpen(false);
+      toast.error(msg);
+    },
+  });
+
+  function onDocPreview() {
+    if (!openedNfaNo) {
+      toast.info("Open an NFA document first to preview it.");
+      return;
+    }
+    setPrintError(null);
+    printMutation.mutate({ znfaNum: openedNfaNo, relCode: releaseCode, nfaType });
   }
 
   // Release / Approved List results
@@ -1278,11 +1325,15 @@ function ZnfaReleasePage() {
                   size="sm"
                   variant="outline"
                   className="h-8 px-3 text-xs"
-                  onClick={() =>
-                    toast.info("Preview will be available once the SAP API is configured.")
-                  }
+                  onClick={onDocPreview}
+                  disabled={printMutation.isPending}
                 >
-                  <Eye className="mr-1.5 h-3.5 w-3.5" /> Preview
+                  {printMutation.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Eye className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Preview
                 </Button>
               </div>
             </div>
@@ -1679,6 +1730,36 @@ function ZnfaReleasePage() {
       )}
 
       {confirmDialog}
+
+      <Dialog open={printOpen} onOpenChange={setPrintOpen}>
+        <DialogContent className="max-w-5xl p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>NFA Preview {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
+            <DialogDescription>
+              PDF generated from SAP. Use your browser print controls if needed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            {printError ? (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                {printError}
+              </div>
+            ) : printDataUrl ? (
+              <div className="rounded-md border bg-white">
+                <embed
+                  src={printDataUrl}
+                  type="application/pdf"
+                  className="h-[65vh] w-full rounded-md"
+                />
+              </div>
+            ) : (
+              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                No preview data available.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
