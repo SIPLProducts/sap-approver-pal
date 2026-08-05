@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems } from "@/lib/mm/pr-release.functions";
@@ -129,11 +130,12 @@ function rowKey(r: Record<string, any>, idx: number) {
 
 function PrReleasePage() {
   const { plants: assignedPlants, activePlants } = useActiveContext();
+  const [plants, setPlants] = useState<string[]>(activePlants);
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
   const prKeys = useMemo(
-    () => releaseKeysFor(assignedPlants, "pr", activePlants),
-    [assignedPlants, activePlants],
+    () => releaseKeysFor(assignedPlants, "pr", plants),
+    [assignedPlants, plants],
   );
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -141,9 +143,19 @@ function PrReleasePage() {
   const [search, setSearch] = useState("");
   const { confirm, confirmDialog } = useConfirm();
 
+  useEffect(() => {
+    setPlants((prev) => {
+      if (activePlants.length === 0) return [];
+      const allowed = new Set(activePlants);
+      const kept = prev.filter((c) => allowed.has(c));
+      return kept.length === 0 ? activePlants : kept;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlants.join(",")]);
+
   const fetchFn = useServerFn(fetchPrReleaseMultiple);
   const mutation = useMutation({
-    mutationFn: (input: { relgroup: string; relcode: string }) =>
+    mutationFn: (input: { relgroup: string; relcode: string; plants: string[] }) =>
       fetchFn({ data: input }),
     onSuccess: (res) => {
       if (res.error) {
@@ -164,14 +176,19 @@ function PrReleasePage() {
   });
 
   function execute() {
+    if (plants.length === 0) {
+      toast.error("Select at least one plant.");
+      return;
+    }
     if (!releaseGroup.trim() || !releaseCode.trim()) {
       toast.error("Release Group and Release Code are required.");
       return;
     }
-    mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim() });
+    mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
   }
 
   function reset() {
+    setPlants(activePlants);
     setReleaseGroup("");
     setReleaseCode("");
     setRows([]);
@@ -252,7 +269,7 @@ function PrReleasePage() {
       }
       // Refresh the pending list so released rows disappear.
       if (releaseGroup.trim() && releaseCode.trim()) {
-        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim() });
+        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
       }
     },
     onError: (e: any) => {
@@ -322,7 +339,7 @@ function PrReleasePage() {
         setRemarks({});
       }
       if (releaseGroup.trim() && releaseCode.trim()) {
-        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim() });
+        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
       }
     },
     onError: (e: any) => {
@@ -374,7 +391,13 @@ function PrReleasePage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[240px_240px_1fr_auto] items-end">
+        <div className="grid gap-3 md:grid-cols-[280px_240px_240px_1fr_auto] items-end">
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Plant <span className="text-destructive">*</span>
+            </Label>
+            <PlantMultiSelect value={plants} onChange={setPlants} source="user-plant" />
+          </div>
           <ReleaseKeySelect
             keys={prKeys}
             group={releaseGroup}

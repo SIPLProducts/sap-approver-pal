@@ -16,6 +16,7 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
     z.object({
       relgroup: z.string().trim().min(1, "Release Group is required").max(10),
       relcode: z.string().trim().min(1, "Release Code is required").max(10),
+      plants: z.array(z.string().trim().min(1)).min(1, "At least one plant is required"),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -35,123 +36,121 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const inputs: Record<string, string> = {
-      RELGROUP: data.relgroup.trim(),
-      RELCODE: data.relcode.trim(),
-    };
-
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
       !!(globalSettings?.middleware_url);
     const useProxy = cfg.auth_type === "proxy" || globalProxy;
     const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
 
-    let target: string;
-    let method: string = cfg.http_method ?? "GET";
-    let bodyOut: string | undefined;
     const headers: Record<string, string> = { Accept: "application/json" };
-    let proxied = false;
-
     if (useProxy) {
-      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
-      target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
-      method = "POST";
       headers["Content-Type"] = "application/json";
       const secret =
         (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
-      bodyOut = JSON.stringify({ configId: cfg.id, inputs });
-      proxied = true;
-    } else {
-      const qs = new URLSearchParams(inputs).toString();
-      const join = cfg.endpoint_url.includes("?") ? "&" : "?";
-      target = `${cfg.endpoint_url}${join}${qs}`;
-      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
-        headers.Authorization =
-          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
-      }
+    } else if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+      headers.Authorization =
+        "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
     }
-
     for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
       headers[k] = v;
     }
 
-    const t0 = Date.now();
-    let res: Response;
-    try {
-      res = await fetch(target, { method, headers, body: bodyOut });
-    } catch (e) {
-      const errMsg = (e as Error).message || "fetch failed";
+    const allRows: Record<string, any>[] = [];
+    let firstError: string | null = null;
+
+    for (const plantRaw of data.plants) {
+      const inputs: Record<string, string> = {
+        PLANT: plantRaw.trim(),
+        RELGROUP: data.relgroup.trim(),
+        RELCODE: data.relcode.trim(),
+      };
+
+      let target: string;
+      let method: string = cfg.http_method ?? "GET";
+      let bodyOut: string | undefined;
+      let proxied = false;
+
+      if (useProxy) {
+        if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+        target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
+        method = "POST";
+        bodyOut = JSON.stringify({ configId: cfg.id, inputs });
+        proxied = true;
+      } else {
+        const qs = new URLSearchParams(inputs).toString();
+        const join = cfg.endpoint_url.includes("?") ? "&" : "?";
+        target = `${cfg.endpoint_url}${join}${qs}`;
+      }
+
+      const t0 = Date.now();
+      let res: Response;
+      try {
+        res = await fetch(target, { method, headers, body: bodyOut });
+      } catch (e) {
+        const errMsg = (e as Error).message || "fetch failed";
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          latency_ms: Date.now() - t0,
+          message: `pr-release-multi network: ${errMsg}`,
+        });
+        firstError = firstError ?? `Could not reach SAP. ${errMsg}.`;
+        continue;
+      }
+
+      const text = await res.text().catch(() => "");
+      const message = `${res.status} ${res.statusText}`;
       const latency_ms = Date.now() - t0;
+
+      if (!res.ok) {
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          latency_ms,
+          message: `pr-release-multi: ${message} ${text.slice(0, 500)}`,
+        });
+        firstError = firstError ?? `SAP returned ${message}: ${text.slice(0, 200)}`;
+        continue;
+      }
+
+      let json: any = {};
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        firstError = firstError ?? `Invalid JSON from SAP: ${text.slice(0, 200)}`;
+        continue;
+      }
+      const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+
+      const dataArr: any[] = Array.isArray(sapJson)
+        ? sapJson
+        : Array.isArray(sapJson?.DATA)
+          ? sapJson.DATA
+          : Array.isArray(sapJson?.data)
+            ? sapJson.data
+            : [];
+
+      const rows: Record<string, any>[] = dataArr.map((r) =>
+        r && typeof r === "object" ? { ...r } : {},
+      );
+      allRows.push(...rows);
+
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
-        status: "error",
+        status: "ok",
         latency_ms,
-        message: `pr-release-multi network: ${errMsg}`,
+        rows_processed: rows.length,
+        message: `pr-release-multi: ${message}`,
       });
-      return {
-        data: [] as Record<string, any>[],
-        fetched_at: new Date().toISOString(),
-        error: `Could not reach SAP. ${errMsg}.`,
-      };
     }
-
-    const text = await res.text().catch(() => "");
-    const message = `${res.status} ${res.statusText}`;
-    const latency_ms = Date.now() - t0;
-
-    if (!res.ok) {
-      await supabaseAdmin.from("sap_api_sync_log").insert({
-        config_id: cfg.id,
-        status: "error",
-        latency_ms,
-        message: `pr-release-multi: ${message} ${text.slice(0, 500)}`,
-      });
-      return {
-        data: [] as Record<string, any>[],
-        fetched_at: new Date().toISOString(),
-        error: `SAP returned ${message}: ${text.slice(0, 200)}`,
-      };
-    }
-
-    let json: any = {};
-    try {
-      json = text ? JSON.parse(text) : {};
-    } catch {
-      return {
-        data: [] as Record<string, any>[],
-        fetched_at: new Date().toISOString(),
-        error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
-      };
-    }
-    const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
-
-    const dataArr: any[] = Array.isArray(sapJson)
-      ? sapJson
-      : Array.isArray(sapJson?.DATA)
-        ? sapJson.DATA
-        : Array.isArray(sapJson?.data)
-          ? sapJson.data
-          : [];
-
-    const rows: Record<string, any>[] = dataArr.map((r) =>
-      r && typeof r === "object" ? { ...r } : {},
-    );
-
-    await supabaseAdmin.from("sap_api_sync_log").insert({
-      config_id: cfg.id,
-      status: "ok",
-      latency_ms,
-      rows_processed: rows.length,
-      message: `pr-release-multi: ${message}`,
-    });
 
     return {
-      data: rows,
+      data: allRows,
       fetched_at: new Date().toISOString(),
-      error: null as string | null,
+      error: allRows.length === 0 ? firstError : null,
     };
   });
 
