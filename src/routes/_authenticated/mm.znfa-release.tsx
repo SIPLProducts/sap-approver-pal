@@ -650,7 +650,6 @@ function ZnfaReleasePage() {
   const [attachRows, setAttachRows] = useState<Record<string, any>[]>([]);
   const [nfaTextRows, setNfaTextRows] = useState<Record<string, any>[]>([]);
   const [expandedTextVendors, setExpandedTextVendors] = useState<Set<string>>(new Set());
-  const [expandedTextRfqs, setExpandedTextRfqs] = useState<Set<string>>(new Set());
   const [selectedTextKey, setSelectedTextKey] = useState<string | null>(null);
   const [relMatxRows, setRelMatxRows] = useState<Record<string, any>[]>([]);
   const [clickedNfaNo, setClickedNfaNo] = useState<string | null>(null);
@@ -696,7 +695,6 @@ function ZnfaReleasePage() {
     setRelMatxRows(res.relMatx);
     setNfaTextRows(res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""));
     setExpandedTextVendors(new Set());
-    setExpandedTextRfqs(new Set());
     setSelectedTextKey(null);
   }
 
@@ -833,7 +831,6 @@ function ZnfaReleasePage() {
     setAttachRows([]);
     setNfaTextRows([]);
     setExpandedTextVendors(new Set());
-    setExpandedTextRfqs(new Set());
     setSelectedTextKey(null);
     setRelMatxRows([]);
     setClickedNfaNo(null);
@@ -847,23 +844,13 @@ function ZnfaReleasePage() {
   }, [recommendRows, nfaTitle]);
 
   const nfaTextGroups = useMemo(() => {
-    const map = new Map<
-      string,
-      { vendor: string; rfqs: Map<string, { rfq: string; items: Record<string, any>[] }> }
-    >();
+    const map = new Map<string, { vendor: string; items: Record<string, any>[] }>();
     for (const t of nfaTextRows) {
       const vendor = String(t.NAME1 ?? "").trim() || fallbackVendorName;
-      const rfq =
-        String(t.EBELN ?? t.RFQ ?? t.ANFNR ?? "").trim() || "—";
-      if (!map.has(vendor)) map.set(vendor, { vendor, rfqs: new Map() });
-      const group = map.get(vendor)!;
-      if (!group.rfqs.has(rfq)) group.rfqs.set(rfq, { rfq, items: [] });
-      group.rfqs.get(rfq)!.items.push(t);
+      if (!map.has(vendor)) map.set(vendor, { vendor, items: [] });
+      map.get(vendor)!.items.push(t);
     }
-    return Array.from(map.values()).map((g) => ({
-      vendor: g.vendor,
-      rfqs: Array.from(g.rfqs.values()),
-    }));
+    return Array.from(map.values());
   }, [nfaTextRows, fallbackVendorName]);
 
   function textLines(t: Record<string, any>) {
@@ -885,15 +872,6 @@ function ZnfaReleasePage() {
     });
   }
 
-  function toggleTextRfq(vendor: string, rfq: string) {
-    const key = `${vendor}\u0000${rfq}`;
-    setExpandedTextRfqs((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
 
   function onSelectNfaText(key: string, t: Record<string, any>) {
@@ -1429,49 +1407,25 @@ function ZnfaReleasePage() {
                                 </TableCell>
                               </TableRow>
                               {open &&
-                                g.rfqs.map((r) => {
-                                  const rfqKey = `${g.vendor}\u0000${r.rfq}`;
-                                  const rfqOpen = expandedTextRfqs.has(rfqKey);
+                                g.items.map((t, i) => {
+                                  const rfqNo =
+                                    String(t.EBELN ?? t.RFQ ?? t.ANFNR ?? "").trim() || "—";
+                                  const key = `${g.vendor}-${rfqNo}-${t.AVL_TEXTS ?? "text"}-${i}`;
+                                  const selected = selectedTextKey === key;
                                   return (
-                                    <Fragment key={rfqKey}>
-                                      <TableRow>
-                                        <TableCell colSpan={2} className="text-sm">
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleTextRfq(g.vendor, r.rfq)}
-                                            className="flex items-center gap-2 pl-6 text-left font-medium"
-                                            aria-expanded={rfqOpen}
-                                          >
-                                            {rfqOpen ? (
-                                              <ChevronDown className="h-4 w-4" />
-                                            ) : (
-                                              <ChevronRight className="h-4 w-4" />
-                                            )}
-                                            {r.rfq}
-                                          </button>
-                                        </TableCell>
-                                      </TableRow>
-                                      {rfqOpen &&
-                                        r.items.map((t, i) => {
-                                          const key = `${g.vendor}-${r.rfq}-${t.AVL_TEXTS ?? "text"}-${i}`;
-                                          const selected = selectedTextKey === key;
-                                          return (
-                                            <TableRow
-                                              key={key}
-                                              data-state={selected ? "selected" : undefined}
-                                              className="cursor-pointer"
-                                              onClick={() => onSelectNfaText(key, t)}
-                                            >
-                                              <TableCell className="whitespace-nowrap pl-16 text-sm">
-                                                {String(t.AVL_TEXTS ?? "—")}
-                                              </TableCell>
-                                              <TableCell className="text-sm">
-                                                {textLines(t) ? textLines(t).split("\n")[0] : "—"}
-                                              </TableCell>
-                                            </TableRow>
-                                          );
-                                        })}
-                                    </Fragment>
+                                    <TableRow
+                                      key={key}
+                                      data-state={selected ? "selected" : undefined}
+                                      className="cursor-pointer"
+                                      onClick={() => onSelectNfaText(key, t)}
+                                    >
+                                      <TableCell className="whitespace-nowrap pl-10 text-sm">
+                                        {rfqNo}
+                                      </TableCell>
+                                      <TableCell className="text-sm">
+                                        {String(t.AVL_TEXTS ?? "—")}
+                                      </TableCell>
+                                    </TableRow>
                                   );
                                 })}
                             </Fragment>
