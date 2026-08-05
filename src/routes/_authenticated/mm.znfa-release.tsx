@@ -837,8 +837,45 @@ function ZnfaReleasePage() {
     setDocLoaded(false);
   }
 
+  const fallbackVendorName = useMemo(() => {
+    const rec =
+      recommendRows.find((r) => isSapFlag(r.APP_VENDOR)) ?? recommendRows[0] ?? null;
+    return String(rec?.NAME1 ?? "").trim() || nfaTitle.trim() || "NFA Texts";
+  }, [recommendRows, nfaTitle]);
 
+  const nfaTextGroups = useMemo(() => {
+    const map = new Map<string, { vendor: string; items: Record<string, any>[] }>();
+    for (const t of nfaTextRows) {
+      const vendor = String(t.NAME1 ?? "").trim() || fallbackVendorName;
+      if (!map.has(vendor)) map.set(vendor, { vendor, items: [] });
+      map.get(vendor)!.items.push(t);
+    }
+    return Array.from(map.values());
+  }, [nfaTextRows, fallbackVendorName]);
 
+  function textLines(t: Record<string, any>) {
+    if (Array.isArray(t.HEADER)) {
+      const lines = t.HEADER.map((h: any) => String(h?.LINE ?? "")).filter(
+        (l: string) => l.trim() !== "",
+      );
+      if (lines.length > 0) return lines.join("\n");
+    }
+    return "";
+  }
+
+  function toggleTextVendor(vendor: string) {
+    setExpandedTextVendors((prev) => {
+      const next = new Set(prev);
+      if (next.has(vendor)) next.delete(vendor);
+      else next.add(vendor);
+      return next;
+    });
+  }
+
+  function onSelectNfaText(key: string, t: Record<string, any>) {
+    setSelectedTextKey(key);
+    setAwardRemarks(textLines(t));
+  }
 
   function onAction(label: string) {
     setAction(label);
