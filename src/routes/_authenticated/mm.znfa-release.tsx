@@ -679,6 +679,7 @@ function ZnfaReleasePage() {
   // Print preview state
   const [printOpen, setPrintOpen] = useState(false);
   const [printDataUrl, setPrintDataUrl] = useState<string | null>(null);
+  const [printBase64, setPrintBase64] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
 
 
