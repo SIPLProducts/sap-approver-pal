@@ -7,7 +7,10 @@ npm ci
 npm run build
 ```
 
-Output — a single `dist/` folder:
+Output — a single `dist/` folder. No `.output/` folder is produced any more; if an
+older build left one behind it is folded into `dist/` automatically. `dist/` is the
+only artefact you copy to the server (`.wrangler/` is just a local tool cache).
+
 
 ```text
 dist/

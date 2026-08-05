@@ -43,6 +43,11 @@ function windowsSafeMcpPlugin() {
   });
 }
 
+// Pin the build output directory to ./dist on every platform. Without this the
+// server build can fall back to ".output" (seen on Windows), which breaks the
+// post-build collector and the deployment docs.
+process.env.NITRO_OUTPUT_DIR ||= "dist";
+
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
@@ -53,3 +58,4 @@ export default defineConfig({
     plugins: [windowsSafeMcpPlugin()],
   },
 });
+
