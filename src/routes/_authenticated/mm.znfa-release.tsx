@@ -1654,7 +1654,9 @@ function ZnfaReleasePage() {
                                 {String(a.NO_ATTACHMENTS ?? "").trim() || "—"}
                               </TableCell>
                             </TableRow>
-                          ))
+                            );
+                          })
+
                         )}
                       </TableBody>
                     </Table>
