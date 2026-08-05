@@ -13,18 +13,20 @@ const CONFIG_NAME = "ZNFA_PRINT_API";
 export type ZnfaPrintResponse = {
   /** Base64 data URL that can be used directly in an <iframe> or <embed>. */
   dataUrl: string | null;
+  /** Normalized base64 payload (no data: prefix) so the client can build a Blob URL. */
+  base64: string | null;
   /** Raw MIME type reported by the SAP response. */
   mimeType: string;
   error: string | null;
   sapMessage: string | null;
 };
 
-function okResponse(dataUrl: string, mimeType: string): ZnfaPrintResponse {
-  return { dataUrl, mimeType, error: null, sapMessage: null };
+function okResponse(base64: string, dataUrl: string, mimeType: string): ZnfaPrintResponse {
+  return { dataUrl, base64, mimeType, error: null, sapMessage: null };
 }
 
 function errorResponse(error: string | null, sapMessage: string | null = null): ZnfaPrintResponse {
-  return { dataUrl: null, mimeType: "application/pdf", error, sapMessage };
+  return { dataUrl: null, base64: null, mimeType: "application/pdf", error, sapMessage };
 }
 
 function extractSapMsg(text: string): string | null {
