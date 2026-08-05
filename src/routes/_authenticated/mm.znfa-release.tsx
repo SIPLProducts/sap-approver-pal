@@ -99,9 +99,12 @@ type DetailColumn = {
   label: string;
   numeric?: boolean;
   divider?: boolean;
+  /** Render a read-only checkbox from an SAP "X" flag instead of text. */
+  checkbox?: boolean;
   /** Optional second SAP field rendered as "primary / secondary". */
   also?: string;
 };
+
 
 const PR_DETAIL_COLUMNS: DetailColumn[] = [
   { key: "BANFN", label: "PR No" },
@@ -144,19 +147,24 @@ const REL_MATX_COLUMNS: DetailColumn[] = [
 ];
 
 const FINAL_RECOMMENDATION_COLUMNS: DetailColumn[] = [
-  { key: "LIFNR", label: "Vendor" },
-  { key: "NAME1", label: "Name", divider: true },
-  { key: "__rfq_no", label: "RFQ No" },
+  { key: "APP_VENDOR", label: "Recommended Vendor", checkbox: true },
+  { key: "EBELN", label: "RFQ Number" },
+  { key: "LIFNR", label: "Vendor Code" },
+  { key: "EKGRP", label: "Purchasing Group" },
+  { key: "NAME1", label: "Vendor Name" },
+  { key: "WERKS", label: "Plant" },
   { key: "VENDOR_RATE", label: "Commercial Rating" },
   { key: "TER_RATE", label: "TER Rating" },
   { key: "BASIC_COST", label: "Basic Cost", numeric: true },
   { key: "WAERS", label: "Currency" },
-  { key: "__conversion_rate", label: "Conversion Rate", numeric: true },
   { key: "TAX", label: "Tax", numeric: true },
   { key: "DISCOUNT", label: "Discount", numeric: true },
   { key: "FREIGHT", label: "Freight/Transportation", numeric: true },
-  { key: "PACK_FWD", label: "Packing & FWD Charges", numeric: true },
+  { key: "PACK_FWD", label: "Packing & Forward Charges", numeric: true },
+  { key: "TOTAL", label: "Total", numeric: true },
+  { key: "REMARKS", label: "Remarks" },
 ];
+
 
 function cellText(row: Record<string, any>, column: DetailColumn) {
   const primary = row[column.key];
@@ -229,7 +237,15 @@ function DetailsTableCard({
                         c.divider && "min-w-[320px] whitespace-normal border-r border-border",
                       )}
                     >
-                      {cellText(row, c)}
+                      {c.checkbox ? (
+                        <Checkbox
+                          checked={isSapFlag(row[c.key])}
+                          disabled
+                          aria-label={c.label}
+                        />
+                      ) : (
+                        cellText(row, c)
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
