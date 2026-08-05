@@ -237,7 +237,15 @@ function DetailsTableCard({
                         c.divider && "min-w-[320px] whitespace-normal border-r border-border",
                       )}
                     >
-                      {cellText(row, c)}
+                      {c.checkbox ? (
+                        <Checkbox
+                          checked={isSapFlag(row[c.key])}
+                          disabled
+                          aria-label={c.label}
+                        />
+                      ) : (
+                        cellText(row, c)
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
