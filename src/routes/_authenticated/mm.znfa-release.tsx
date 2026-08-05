@@ -1815,12 +1815,23 @@ function ZnfaReleasePage() {
             ) : printBlobUrl || printDataUrl ? (
               <>
                 <div className="rounded-md border bg-white">
-                  <iframe
-                    src={printBlobUrl ?? printDataUrl ?? undefined}
-                    title="NFA preview"
-                    className="h-[65vh] w-full rounded-md"
-                  />
+                  {isImagePreview ? (
+                    <div className="flex h-[65vh] w-full items-center justify-center overflow-auto rounded-md p-2">
+                      <img
+                        src={printBlobUrl ?? printDataUrl ?? undefined}
+                        alt={`NFA preview${openedNfaNo ? ` for ${openedNfaNo}` : ""}`}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <iframe
+                      src={printBlobUrl ?? printDataUrl ?? undefined}
+                      title="NFA preview"
+                      className="h-[65vh] w-full rounded-md"
+                    />
+                  )}
                 </div>
+
                 <div className="mt-3 flex justify-end gap-2">
                   <Button
                     type="button"
