@@ -214,5 +214,6 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
       message: `znfa-print: ok (${Math.round(base64.length / 1024)} KB base64)`,
     });
 
-    return okResponse(decodeBase64ToDataUrl(base64, mimeType), mimeType);
+    const normalized = normalizeBase64(base64);
+    return okResponse(normalized, `data:${mimeType};base64,${normalized}`, mimeType);
   });
