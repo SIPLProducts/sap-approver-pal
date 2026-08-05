@@ -28,7 +28,6 @@ function LoginPage() {
   const [userId, setUserId] = useState("");
 
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
@@ -44,7 +43,7 @@ function LoginPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "signin") {
+      {
         // Try Supabase auth first when the user ID looks like an email.
         const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId);
         if (looksLikeEmail) {
@@ -75,15 +74,6 @@ function LoginPage() {
           setSapProfile(result.profile);
         }
         toast.success("Welcome");
-        nav({ to: "/inbox" });
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email: userId,
-          password,
-          options: { emailRedirectTo: window.location.origin, data: { full_name: name } },
-        });
-        if (error) throw error;
-        toast.success("Account created — signing you in");
         nav({ to: "/inbox" });
       }
     } catch (err: any) {
@@ -164,23 +154,15 @@ function LoginPage() {
 
           <div className="mb-8">
             <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-              {mode === "signin" ? "Welcome To Re Sustainability" : "Get started"}
+              Welcome To Re Sustainability
             </p>
             <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
-              {mode === "signin" ? "Sign in to your Account" : "Create your account"}
+              Sign in to your Account
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">Use your Re Sustainability corporate credentials.</p>
           </div>
 
           <form onSubmit={submit} className="space-y-4">
-            {mode === "signup" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-xs font-medium">
-                  Full name
-                </Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="h-11" />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label htmlFor="userId" className="text-xs font-medium">
                 User ID
@@ -200,8 +182,7 @@ function LoginPage() {
                 <Label htmlFor="password" className="text-xs font-medium">
                   Password
                 </Label>
-                {mode === "signin" && (
-                  <button
+                <button
                     type="button"
                     onClick={() => {
                       setForgotEmail(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId) ? userId : "");
@@ -209,9 +190,8 @@ function LoginPage() {
                     }}
                     className="text-[11px] font-medium text-primary hover:text-primary/80"
                   >
-                    Forgot Password?
-                  </button>
-                )}
+                  Forgot Password?
+                </button>
               </div>
               <Input
                 id="password"
@@ -285,7 +265,7 @@ function LoginPage() {
                 "Please wait…"
               ) : (
                 <>
-                  {mode === "signin" ? "Sign in" : "Create account"}{" "}
+                  Sign in{" "}
                   <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
