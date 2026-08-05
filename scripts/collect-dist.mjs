@@ -132,6 +132,27 @@ for (const name of DROP_AT_ROOT) {
 rmSync(join(root, ".wrangler"), { recursive: true, force: true });
 rmSync(outputDir, { recursive: true, force: true });
 
+// 5. Drop the static shell in as dist/index.html — nginx serves it via
+//    `root .../dist; index index.html;`. scripts/build.mjs captures it during
+//    the shell pass and points TSS_SHELL_HTML at it.
+const shellHtml = process.env.TSS_SHELL_HTML;
+if (shellHtml && existsSync(shellHtml) && !existsSync(join(distDir, "index.html"))) {
+  cpSync(shellHtml, join(distDir, "index.html"));
+  copied.push("index.html");
+}
+
+if (!existsSync(join(distDir, "index.html"))) {
+  console.error(
+    [
+      "[collect-dist] dist/index.html is missing.",
+      "Run the full build (`npm run build`), which builds the static shell first",
+      "via scripts/build.mjs — `vite build` alone does not produce it.",
+    ].join("\n"),
+  );
+  process.exit(1);
+}
+
+
 console.log(`[collect-dist] dist/ ready — ${copied.length} static item(s) at the root:`);
 console.log("  " + copied.sort().join("  "));
 console.log("[collect-dist] final dist/ listing:");
@@ -139,5 +160,6 @@ for (const name of readdirSync(distDir).sort()) {
   const isDir = statSync(join(distDir, name)).isDirectory();
   console.log(`  ${name}${isDir ? "/" : ""}`);
 }
+console.log("[collect-dist] static shell: dist/index.html (nginx root)");
 console.log("[collect-dist] app server bundle: dist/server (run with `npm start`).");
 

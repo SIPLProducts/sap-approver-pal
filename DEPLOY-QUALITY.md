@@ -13,19 +13,22 @@ to the server.
 
 ```text
 dist/
+  index.html              <- static app shell (nginx `index index.html`)
   assets/                 <- hashed JS/CSS (serve directly from nginx)
   favicon.ico
   manifest.webmanifest
   sw.js
   _headers
   .assetsignore
-  server/                 <- app server bundle (SSR + all server functions)
+  server/                 <- app server bundle (all server functions)
 ```
 
-> This app is not a static-only SPA, so there is no `index.html`: the page HTML is
-> generated per request by `dist/server`. SAP login, PR/PO/ZNFA release, MIGO,
-> user management, e-mail and push all run inside `dist/server`, so the app
-> server process must run — nginx alone cannot serve the app.
+> `dist/index.html` is a real file, so nginx can use
+> `root .../frontend/dist; index index.html;`.
+> `dist/server` must still run: SAP login, PR/PO/ZNFA release, MIGO, user
+> management, e-mail and push are server functions called at `/_serverFn/*`
+> (plus `/api/*`), and nginx has to proxy those two prefixes to it.
+
 
 
 ## 2. Ship and run
@@ -76,12 +79,33 @@ server {
     proxy_read_timeout 300s;
     proxy_send_timeout 300s;
 
+    root /data/webapplication/resl_approval/Quality/frontend/dist;
+    index index.html;
+
     # hashed assets straight from disk
     location /assets/ {
-        alias /data/webapplication/resl_approval/Quality/frontend/dist/assets/;
         access_log off;
         expires 1y;
         add_header Cache-Control "public, immutable";
+    }
+
+    # server functions + API routes -> app server (SAP, login, e-mail, push)
+    location /_serverFn/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
     }
 
     # middleware (SAP proxy)
@@ -110,16 +134,11 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # everything else -> app server
+    # app routes -> static shell (client-side routing)
     location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        try_files $uri $uri/ /index.html;
     }
+
 }
 ```
 

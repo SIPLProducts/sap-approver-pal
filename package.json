@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && node scripts/collect-dist.mjs",
-    "build:dev": "vite build --mode development && node scripts/collect-dist.mjs",
+    "build": "node scripts/build.mjs",
+    "build:dev": "node scripts/build.mjs --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
