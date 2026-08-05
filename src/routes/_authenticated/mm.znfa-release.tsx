@@ -811,12 +811,21 @@ function ZnfaReleasePage() {
       setPrintBase64(res.base64);
       setPrintDataUrl(res.dataUrl);
     },
-    onError: () => {
+    onError: (err: any) => {
       setPrintBase64(null);
       setPrintDataUrl(null);
       setPrintMimeType("application/pdf");
-      setPrintError("An unexpected error occurred while generating the preview.");
+      const raw = String(err?.message ?? err ?? "").trim();
+      const unauthorized = /401|unauthor/i.test(raw);
+      setPrintError(
+        unauthorized
+          ? "Your session has expired. Please sign in again and retry the preview."
+          : raw
+            ? `Preview failed: ${raw}`
+            : "An unexpected error occurred while generating the preview.",
+      );
     },
+
   });
 
   // Blob URLs render reliably in an <iframe> where large data: URLs can be blocked.
