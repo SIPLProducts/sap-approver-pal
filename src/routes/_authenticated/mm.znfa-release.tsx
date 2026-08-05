@@ -448,7 +448,7 @@ function RfqDetailsTreeCard({
   const groups = useMemo(() => {
     const map = new Map<
       string,
-      { label: string; checked: boolean; items: Record<string, any>[] }
+      { label: string; items: Record<string, any>[] }
     >();
     for (const row of data) {
       const code = String(row?.LIFNR ?? "").trim();
@@ -458,9 +458,9 @@ function RfqDetailsTreeCard({
       const existing = map.get(key);
       if (existing) {
         existing.items.push(row);
-        if (isSapFlag(row?.CHECK_RFQ)) existing.checked = true;
       } else {
-        map.set(key, { label, checked: isSapFlag(row?.CHECK_RFQ), items: [row] });
+        map.set(key, { label, items: [row] });
+
       }
     }
     return Array.from(map.entries()).map(([key, group]) => ({ key, ...group }));
@@ -487,12 +487,10 @@ function RfqDetailsTreeCard({
               <TableHead className="w-10">
                 <span className="sr-only">Expand</span>
               </TableHead>
-              <TableHead className="w-10">
-                <span className="sr-only">Selected</span>
-              </TableHead>
               <TableHead className="whitespace-nowrap text-xs">
                 Vendor Name / Vendor Code
               </TableHead>
+
               {RFQ_ITEM_COLUMNS.map((c) => (
                 <TableHead
                   key={c.key}
@@ -511,7 +509,7 @@ function RfqDetailsTreeCard({
             {groups.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={RFQ_ITEM_COLUMNS.length + 3}
+                  colSpan={RFQ_ITEM_COLUMNS.length + 2}
                   className="h-28 text-center text-sm text-muted-foreground"
                 >
                   {emptyText}
@@ -544,14 +542,8 @@ function RfqDetailsTreeCard({
                           )}
                         </button>
                       </TableCell>
-                      <TableCell className="w-10">
-                        <Checkbox
-                          checked={group.checked}
-                          disabled
-                          aria-label="RFQ selected in SAP"
-                        />
-                      </TableCell>
                       <TableCell className="whitespace-nowrap text-sm font-medium">
+
                         {group.label}
                       </TableCell>
                       <TableCell
@@ -566,8 +558,8 @@ function RfqDetailsTreeCard({
                       group.items.map((row, i) => (
                         <TableRow key={`rfq-${group.key}-item-${i}`}>
                           <TableCell className="w-10" />
-                          <TableCell className="w-10" />
                           <TableCell />
+
                           {RFQ_ITEM_COLUMNS.map((c) => (
                             <TableCell
                               key={c.key}
@@ -1122,7 +1114,15 @@ function ZnfaReleasePage() {
 
       {showCreate && (
         <>
+          <DetailsTableCard
+            title="APPROVAL / RELEASE MATRIX"
+            columns={REL_MATX_COLUMNS}
+            rows={relMatxRows}
+            emptyText="No approval matrix returned by SAP."
+          />
+
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+
             <Card className="space-y-4 border border-border/60 p-5 shadow-card lg:col-span-2">
               <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[160px_1fr]">
                 <Label className="text-sm font-medium">Type of NFA</Label>
@@ -1155,9 +1155,10 @@ function ZnfaReleasePage() {
                   >
                     <Search className="h-4 w-4" />
                   </Button>
-                  <Button type="button" className="h-9 px-5" onClick={onGetDetails}>
+                  <Button type="button" className="h-9 px-5" disabled onClick={onGetDetails}>
                     Get Details
                   </Button>
+
                 </div>
               </div>
 
@@ -1290,12 +1291,8 @@ function ZnfaReleasePage() {
             emptyText="No recommendation data returned by SAP."
           />
 
-          <DetailsTableCard
-            title="APPROVAL / RELEASE MATRIX"
-            columns={REL_MATX_COLUMNS}
-            rows={relMatxRows}
-            emptyText="No approval matrix returned by SAP."
-          />
+
+
 
 
           <Card className="border border-border/60 p-5 shadow-card">
