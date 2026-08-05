@@ -1147,9 +1147,10 @@ function ZnfaReleasePage() {
                   >
                     <Search className="h-4 w-4" />
                   </Button>
-                  <Button type="button" className="h-9 px-5" onClick={onGetDetails}>
+                  <Button type="button" className="h-9 px-5" disabled onClick={onGetDetails}>
                     Get Details
                   </Button>
+
                 </div>
               </div>
 
