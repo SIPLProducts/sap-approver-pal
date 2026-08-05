@@ -1324,11 +1324,15 @@ function ZnfaReleasePage() {
                   size="sm"
                   variant="outline"
                   className="h-8 px-3 text-xs"
-                  onClick={() =>
-                    toast.info("Preview will be available once the SAP API is configured.")
-                  }
+                  onClick={onDocPreview}
+                  disabled={printMutation.isPending}
                 >
-                  <Eye className="mr-1.5 h-3.5 w-3.5" /> Preview
+                  {printMutation.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Eye className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Preview
                 </Button>
               </div>
             </div>
