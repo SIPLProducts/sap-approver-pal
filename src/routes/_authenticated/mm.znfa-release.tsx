@@ -847,13 +847,23 @@ function ZnfaReleasePage() {
   }, [recommendRows, nfaTitle]);
 
   const nfaTextGroups = useMemo(() => {
-    const map = new Map<string, { vendor: string; items: Record<string, any>[] }>();
+    const map = new Map<
+      string,
+      { vendor: string; rfqs: Map<string, { rfq: string; items: Record<string, any>[] }> }
+    >();
     for (const t of nfaTextRows) {
       const vendor = String(t.NAME1 ?? "").trim() || fallbackVendorName;
-      if (!map.has(vendor)) map.set(vendor, { vendor, items: [] });
-      map.get(vendor)!.items.push(t);
+      const rfq =
+        String(t.EBELN ?? t.RFQ ?? t.ANFNR ?? "").trim() || "—";
+      if (!map.has(vendor)) map.set(vendor, { vendor, rfqs: new Map() });
+      const group = map.get(vendor)!;
+      if (!group.rfqs.has(rfq)) group.rfqs.set(rfq, { rfq, items: [] });
+      group.rfqs.get(rfq)!.items.push(t);
     }
-    return Array.from(map.values());
+    return Array.from(map.values()).map((g) => ({
+      vendor: g.vendor,
+      rfqs: Array.from(g.rfqs.values()),
+    }));
   }, [nfaTextRows, fallbackVendorName]);
 
   function textLines(t: Record<string, any>) {
@@ -874,6 +884,17 @@ function ZnfaReleasePage() {
       return next;
     });
   }
+
+  function toggleTextRfq(vendor: string, rfq: string) {
+    const key = `${vendor}\u0000${rfq}`;
+    setExpandedTextRfqs((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
 
   function onSelectNfaText(key: string, t: Record<string, any>) {
     setSelectedTextKey(key);
