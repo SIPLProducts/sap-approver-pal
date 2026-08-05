@@ -1667,6 +1667,9 @@ function ZnfaReleasePage() {
           </Card>
         </>
       )}
+
+      {confirmDialog}
     </div>
   );
 }
+
