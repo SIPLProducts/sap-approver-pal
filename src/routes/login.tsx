@@ -292,27 +292,8 @@ function LoginPage() {
             </Button>
           </form>
 
-          <button
-            type="button"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            className="mt-5 w-full text-center text-sm text-muted-foreground hover:text-foreground"
-          >
-            {mode === "signin" ? (
-              <>
-                Don&apos;t have an account?{" "}
-                <span className="font-medium text-foreground underline underline-offset-4">
-                  Create one
-                </span>
-              </>
-            ) : (
-              <>
-                Already registered?{" "}
-                <span className="font-medium text-foreground underline underline-offset-4">
-                  Back to sign in
-                </span>
-              </>
-            )}
-          </button>
+
+
 
         </div>
       </div>
