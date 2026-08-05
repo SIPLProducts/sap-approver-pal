@@ -661,6 +661,9 @@ function ZnfaReleasePage() {
   const [relMatxRows, setRelMatxRows] = useState<Record<string, any>[]>([]);
   const [clickedNfaNo, setClickedNfaNo] = useState<string | null>(null);
   const [docLoaded, setDocLoaded] = useState(false);
+  const [selectedAttachKeys, setSelectedAttachKeys] = useState<string[]>([]);
+  const { confirm, confirmDialog } = useConfirm();
+
 
   function applyZnfaDocument(res: {
     znfa: Record<string, any> | null;
