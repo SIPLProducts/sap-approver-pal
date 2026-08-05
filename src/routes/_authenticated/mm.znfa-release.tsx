@@ -1429,23 +1429,49 @@ function ZnfaReleasePage() {
                                 </TableCell>
                               </TableRow>
                               {open &&
-                                g.items.map((t, i) => {
-                                  const key = `${g.vendor}-${t.AVL_TEXTS ?? "text"}-${i}`;
-                                  const selected = selectedTextKey === key;
+                                g.rfqs.map((r) => {
+                                  const rfqKey = `${g.vendor}\u0000${r.rfq}`;
+                                  const rfqOpen = expandedTextRfqs.has(rfqKey);
                                   return (
-                                    <TableRow
-                                      key={key}
-                                      data-state={selected ? "selected" : undefined}
-                                      className="cursor-pointer"
-                                      onClick={() => onSelectNfaText(key, t)}
-                                    >
-                                      <TableCell className="whitespace-nowrap pl-10 text-sm">
-                                        {String(t.AVL_TEXTS ?? "—")}
-                                      </TableCell>
-                                      <TableCell className="text-sm">
-                                        {textLines(t) ? textLines(t).split("\n")[0] : "—"}
-                                      </TableCell>
-                                    </TableRow>
+                                    <Fragment key={rfqKey}>
+                                      <TableRow>
+                                        <TableCell colSpan={2} className="text-sm">
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleTextRfq(g.vendor, r.rfq)}
+                                            className="flex items-center gap-2 pl-6 text-left font-medium"
+                                            aria-expanded={rfqOpen}
+                                          >
+                                            {rfqOpen ? (
+                                              <ChevronDown className="h-4 w-4" />
+                                            ) : (
+                                              <ChevronRight className="h-4 w-4" />
+                                            )}
+                                            {r.rfq}
+                                          </button>
+                                        </TableCell>
+                                      </TableRow>
+                                      {rfqOpen &&
+                                        r.items.map((t, i) => {
+                                          const key = `${g.vendor}-${r.rfq}-${t.AVL_TEXTS ?? "text"}-${i}`;
+                                          const selected = selectedTextKey === key;
+                                          return (
+                                            <TableRow
+                                              key={key}
+                                              data-state={selected ? "selected" : undefined}
+                                              className="cursor-pointer"
+                                              onClick={() => onSelectNfaText(key, t)}
+                                            >
+                                              <TableCell className="whitespace-nowrap pl-16 text-sm">
+                                                {String(t.AVL_TEXTS ?? "—")}
+                                              </TableCell>
+                                              <TableCell className="text-sm">
+                                                {textLines(t) ? textLines(t).split("\n")[0] : "—"}
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
+                                    </Fragment>
                                   );
                                 })}
                             </Fragment>
