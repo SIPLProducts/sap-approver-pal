@@ -694,6 +694,8 @@ function ZnfaReleasePage() {
     setAttachRows(res.attach);
     setRelMatxRows(res.relMatx);
     setNfaTextRows(res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""));
+    setExpandedTextVendors(new Set());
+    setSelectedTextKey(null);
   }
 
   const fetchDisplay = useServerFn(fetchZnfaDisplay);
