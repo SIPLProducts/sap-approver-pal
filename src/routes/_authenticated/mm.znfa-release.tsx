@@ -847,23 +847,13 @@ function ZnfaReleasePage() {
   }, [recommendRows, nfaTitle]);
 
   const nfaTextGroups = useMemo(() => {
-    const map = new Map<
-      string,
-      { vendor: string; rfqs: Map<string, { rfq: string; items: Record<string, any>[] }> }
-    >();
+    const map = new Map<string, { vendor: string; items: Record<string, any>[] }>();
     for (const t of nfaTextRows) {
       const vendor = String(t.NAME1 ?? "").trim() || fallbackVendorName;
-      const rfq =
-        String(t.EBELN ?? t.RFQ ?? t.ANFNR ?? "").trim() || "—";
-      if (!map.has(vendor)) map.set(vendor, { vendor, rfqs: new Map() });
-      const group = map.get(vendor)!;
-      if (!group.rfqs.has(rfq)) group.rfqs.set(rfq, { rfq, items: [] });
-      group.rfqs.get(rfq)!.items.push(t);
+      if (!map.has(vendor)) map.set(vendor, { vendor, items: [] });
+      map.get(vendor)!.items.push(t);
     }
-    return Array.from(map.values()).map((g) => ({
-      vendor: g.vendor,
-      rfqs: Array.from(g.rfqs.values()),
-    }));
+    return Array.from(map.values());
   }, [nfaTextRows, fallbackVendorName]);
 
   function textLines(t: Record<string, any>) {
