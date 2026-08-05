@@ -681,6 +681,8 @@ function ZnfaReleasePage() {
   const [printDataUrl, setPrintDataUrl] = useState<string | null>(null);
   const [printBase64, setPrintBase64] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [printMimeType, setPrintMimeType] = useState<string>("application/pdf");
+
 
 
   function applyZnfaDocument(res: {
