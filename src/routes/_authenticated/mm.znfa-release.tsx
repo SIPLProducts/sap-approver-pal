@@ -875,15 +875,6 @@ function ZnfaReleasePage() {
     });
   }
 
-  function toggleTextRfq(vendor: string, rfq: string) {
-    const key = `${vendor}\u0000${rfq}`;
-    setExpandedTextRfqs((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
 
   function onSelectNfaText(key: string, t: Record<string, any>) {
