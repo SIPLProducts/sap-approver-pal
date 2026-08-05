@@ -1373,7 +1373,7 @@ function ZnfaReleasePage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {nfaTextRows.length === 0 ? (
+                      {nfaTextGroups.length === 0 ? (
                         <TableRow>
                           <TableCell
                             colSpan={2}
@@ -1383,20 +1383,53 @@ function ZnfaReleasePage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        nfaTextRows.map((t, i) => (
-                          <TableRow key={`${t.AVL_TEXTS ?? "text"}-${i}`}>
-                            <TableCell className="whitespace-nowrap text-sm">
-                              {String(t.AVL_TEXTS ?? "—")}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {Array.isArray(t.HEADER) && t.HEADER[0]?.LINE
-                                ? String(t.HEADER[0].LINE)
-                                : "—"}
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        nfaTextGroups.map((g) => {
+                          const open = expandedTextVendors.has(g.vendor);
+                          return (
+                            <Fragment key={g.vendor}>
+                              <TableRow>
+                                <TableCell colSpan={2} className="text-sm font-medium">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleTextVendor(g.vendor)}
+                                    className="flex items-center gap-2 text-left"
+                                    aria-expanded={open}
+                                  >
+                                    {open ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4" />
+                                    )}
+                                    {g.vendor}
+                                  </button>
+                                </TableCell>
+                              </TableRow>
+                              {open &&
+                                g.items.map((t, i) => {
+                                  const key = `${g.vendor}-${t.AVL_TEXTS ?? "text"}-${i}`;
+                                  const selected = selectedTextKey === key;
+                                  return (
+                                    <TableRow
+                                      key={key}
+                                      data-state={selected ? "selected" : undefined}
+                                      className="cursor-pointer"
+                                      onClick={() => onSelectNfaText(key, t)}
+                                    >
+                                      <TableCell className="whitespace-nowrap pl-10 text-sm">
+                                        {String(t.AVL_TEXTS ?? "—")}
+                                      </TableCell>
+                                      <TableCell className="text-sm">
+                                        {textLines(t) ? textLines(t).split("\n")[0] : "—"}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                            </Fragment>
+                          );
+                        })
                       )}
                     </TableBody>
+
                   </Table>
                 </div>
               </div>
