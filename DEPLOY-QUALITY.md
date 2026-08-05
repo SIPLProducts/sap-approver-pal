@@ -7,10 +7,9 @@ npm ci
 npm run build
 ```
 
-Output — a single `dist/` folder. No `.output/` folder is produced any more; if an
-older build left one behind it is folded into `dist/` automatically. `dist/` is the
-only artefact you copy to the server (`.wrangler/` is just a local tool cache).
-
+Output — a single, clean `dist/` folder. No `.output/`, no `.wrangler/`, no duplicate
+`dist/client/`; the build removes them itself. `dist/` is the only artefact you copy
+to the server.
 
 ```text
 dist/
@@ -19,14 +18,15 @@ dist/
   manifest.webmanifest
   sw.js
   _headers
-  client/                 <- same static files, used by the app server
+  .assetsignore
   server/                 <- app server bundle (SSR + all server functions)
-  nitro.json  package.json
 ```
 
-> This app is not a static-only SPA. SAP login, PR/PO/ZNFA release, MIGO,
+> This app is not a static-only SPA, so there is no `index.html`: the page HTML is
+> generated per request by `dist/server`. SAP login, PR/PO/ZNFA release, MIGO,
 > user management, e-mail and push all run inside `dist/server`, so the app
 > server process must run — nginx alone cannot serve the app.
+
 
 ## 2. Ship and run
 
