@@ -675,6 +675,11 @@ function ZnfaReleasePage() {
   const [selectedAttachKeys, setSelectedAttachKeys] = useState<string[]>([]);
   const { confirm, confirmDialog } = useConfirm();
 
+  // Print preview state
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printDataUrl, setPrintDataUrl] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+
 
   function applyZnfaDocument(res: {
     znfa: Record<string, any> | null;
