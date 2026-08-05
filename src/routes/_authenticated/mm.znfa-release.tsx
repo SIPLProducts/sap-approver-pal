@@ -53,6 +53,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
 import { useConfirm } from "@/components/ui/confirm-dialog";
