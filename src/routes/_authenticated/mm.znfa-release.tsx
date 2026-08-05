@@ -448,7 +448,7 @@ function RfqDetailsTreeCard({
   const groups = useMemo(() => {
     const map = new Map<
       string,
-      { label: string; checked: boolean; items: Record<string, any>[] }
+      { label: string; items: Record<string, any>[] }
     >();
     for (const row of data) {
       const code = String(row?.LIFNR ?? "").trim();
@@ -458,9 +458,9 @@ function RfqDetailsTreeCard({
       const existing = map.get(key);
       if (existing) {
         existing.items.push(row);
-        if (isSapFlag(row?.CHECK_RFQ)) existing.checked = true;
       } else {
-        map.set(key, { label, checked: isSapFlag(row?.CHECK_RFQ), items: [row] });
+        map.set(key, { label, items: [row] });
+
       }
     }
     return Array.from(map.entries()).map(([key, group]) => ({ key, ...group }));
