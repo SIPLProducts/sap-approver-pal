@@ -100,23 +100,24 @@
 
   --border: #E1E5EC;
   --input: #E1E5EC;
-  --ring: #2A3F87;
+  --ring: #D01F25;
 
-  /* Graphite sidebar — never indigo-on-indigo */
-  --sidebar: #0F1830;
-  --sidebar-foreground: #E7EBF5;
-  --sidebar-primary: #2A3F87;
+  /* Graphite sidebar — never red-on-red */
+  --sidebar: #16181D;
+  --sidebar-foreground: #EDEEF2;
+  --sidebar-primary: #D01F25;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1B2748;
+  --sidebar-accent: #24272F;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #22304F;
-  --sidebar-ring: #2A3F87;
+  --sidebar-border: #2E323C;
+  --sidebar-ring: #D01F25;
 
-  --gradient-primary: linear-gradient(135deg, #2A3F87 0%, #4C63AE 100%);
+  --gradient-primary: linear-gradient(135deg, #D01F25 0%, #E8474C 100%);
   --gradient-surface: linear-gradient(180deg, #FFFFFF 0%, #F2F4F8 100%);
-  --gradient-hero: linear-gradient(135deg, #0F1830 0%, #1B2748 45%, #2A3F87 100%);
-  --gradient-exec: linear-gradient(135deg, #0F1830 0%, #1B2748 100%);
+  --gradient-hero: linear-gradient(135deg, #16181D 0%, #3A1114 45%, #9C161B 100%);
+  --gradient-exec: linear-gradient(135deg, #16181D 0%, #3A1114 100%);
   --gradient-gold: linear-gradient(135deg, #B4703A 0%, #8C5225 100%);
+
 
   --shadow-elegant: 0 10px 30px -12px color-mix(in oklab, var(--primary) 28%, transparent);
   --shadow-card: 0 1px 2px 0 rgb(15 17 22 / 0.04), 0 1px 1px -1px rgb(15 17 22 / 0.03);
