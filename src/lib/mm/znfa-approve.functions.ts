@@ -51,6 +51,8 @@ export const approveZnfa = createServerFn({ method: "POST" })
         reason: z.string().trim().max(500).default(""),
         clarify: z.boolean().default(false),
         clarifyText: z.string().max(5000).default(""),
+        disClarify: z.boolean().default(false),
+
       })
       .parse(d),
   )
