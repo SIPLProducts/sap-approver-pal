@@ -161,15 +161,16 @@
   --gold-foreground: #0D1220;
   --border: #232C42;
   --input: #232C42;
-  --ring: #8CA0E6;
-  --sidebar: #080C18;
+  --ring: #F0555A;
+  --sidebar: #0A0B0F;
   --sidebar-foreground: #E7EBF5;
-  --sidebar-primary: #2A3F87;
+  --sidebar-primary: #D01F25;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #131C34;
+  --sidebar-accent: #1B1D24;
   --sidebar-accent-foreground: #E7EBF5;
-  --sidebar-border: #1A2440;
-  --sidebar-ring: #8CA0E6;
+  --sidebar-border: #262A33;
+  --sidebar-ring: #F0555A;
+
 }
 
 @layer base {
