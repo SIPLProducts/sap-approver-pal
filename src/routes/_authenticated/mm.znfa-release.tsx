@@ -1181,14 +1181,37 @@ function ZnfaReleasePage() {
     approveMutation.mutate({ znfaNum: openedNfaNo, user: releaseId, relCode: releaseCode });
   }
 
-  async function onDocReject() {
-    const ok = await confirm({
-      title: `Reject NFA ${openedNfaNo || ""}`.trim() + "?",
-      description: "This will reject the NFA document in SAP.",
-      confirmLabel: "Reject",
+  function onDocReject() {
+    if (!openedNfaNo) {
+      toast.error("No NFA number is open.");
+      return;
+    }
+    setRejectError(null);
+    setRejectReason("");
+    setRejectOpen(true);
+  }
+
+  function submitReject() {
+    if (!openedNfaNo) {
+      toast.error("No NFA number is open.");
+      return;
+    }
+    if (!releaseId) {
+      toast.error("No SAP user id found — please sign in again.");
+      return;
+    }
+    if (!releaseCode) {
+      toast.error("Select a Release Code");
+      return;
+    }
+    if (!rejectReason.trim()) return;
+    setRejectError(null);
+    rejectMutation.mutate({
+      znfaNum: openedNfaNo,
+      user: releaseId,
+      relCode: releaseCode,
+      reason: rejectReason.trim(),
     });
-    if (!ok) return;
-    toast.info("Reject will be sent to SAP once the release API is configured.");
   }
 
   function onDocBack() {
