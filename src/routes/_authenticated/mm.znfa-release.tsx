@@ -1009,6 +1009,67 @@ function ZnfaReleasePage() {
     },
   });
 
+  // Clarification action (ZNFA_Clarification_API)
+  const [clarifyError, setClarifyError] = useState<string | null>(null);
+  const clarifyMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; user: string; relCode: string; clarifyText: string }) =>
+      approveFn({
+        data: {
+          znfaNum: vars.znfaNum,
+          user: vars.user,
+          relCode: vars.relCode,
+          reject: false,
+          reason: "",
+          clarify: true,
+          clarifyText: vars.clarifyText,
+        },
+      }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (!res.ok) {
+        setClarifyError(msg ?? "SAP rejected the request.");
+        toast.error(msg ?? "SAP rejected the request.");
+        return;
+      }
+      setClarifyError(null);
+      setClarifyOpen(false);
+      setClarifyText("");
+      toast.success(msg ? msg : "Clarification mail sent.");
+    },
+    onError: (e: any) => {
+      const msg =
+        typeof e?.message === "string" && e.message.trim()
+          ? e.message
+          : "An unexpected error occurred while sending the clarification.";
+      setClarifyError(msg);
+      toast.error(msg);
+    },
+  });
+
+  function submitClarify() {
+    const nfaNo = openedNfaNo?.trim();
+    if (!nfaNo) {
+      setClarifyError("No NFA document is open.");
+      return;
+    }
+    if (!releaseId?.trim()) {
+      setClarifyError("SAP user id is missing.");
+      return;
+    }
+    if (!releaseCode?.trim()) {
+      setClarifyError("Release Code is missing.");
+      return;
+    }
+    setClarifyError(null);
+    clarifyMutation.mutate({
+      znfaNum: nfaNo,
+      user: releaseId.trim(),
+      relCode: releaseCode.trim(),
+      clarifyText: clarifyText,
+    });
+  }
+
+
   function clearReleaseResults() {
     setReleaseRows(null);
     setReleaseError(null);
@@ -1986,7 +2047,16 @@ function ZnfaReleasePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={clarifyOpen} onOpenChange={setClarifyOpen}>
+      <Dialog
+        open={clarifyOpen}
+        onOpenChange={(o) => {
+          setClarifyOpen(o);
+          if (!o) {
+            setClarifyText("");
+            setClarifyError(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Clarification {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
@@ -2001,33 +2071,34 @@ function ZnfaReleasePage() {
             placeholder="Type your clarification…"
             className="text-sm"
           />
+          {clarifyError && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {clarifyError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                setClarifyText("");
-                setClarifyOpen(false);
-              }}
+              onClick={() => setClarifyOpen(false)}
+              disabled={clarifyMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               type="button"
               size="sm"
-              disabled={!clarifyText.trim()}
-              onClick={() => {
-                setClarifyOpen(false);
-                toast.success("Clarification mail queued.");
-                setClarifyText("");
-              }}
+              disabled={!clarifyText.trim() || clarifyMutation.isPending}
+              onClick={submitClarify}
             >
-              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Send Mail
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5" />{" "}
+              {clarifyMutation.isPending ? "Sending…" : "Send Mail"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
 
 
       <Dialog open={printOpen} onOpenChange={setPrintOpen}>
