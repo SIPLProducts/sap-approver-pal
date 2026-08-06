@@ -193,6 +193,12 @@ export const approveZnfa = createServerFn({ method: "POST" })
     const sapJsonRaw: any = proxied ? (json?.data ?? json) : json;
     const sapJson: any = Array.isArray(sapJsonRaw) ? sapJsonRaw[0] : sapJsonRaw;
 
+    const lines: string[] = Array.isArray(sapJsonRaw)
+      ? sapJsonRaw
+          .filter((r) => r && typeof r === "object" && "LINE" in r)
+          .map((r) => String(r.LINE ?? ""))
+      : [];
+
     const status = String(sapJson?.STATUS ?? "").toUpperCase();
     const msg = typeof sapJson?.MSG === "string" ? sapJson.MSG.trim() : "";
     const number = sapJson?.NUMBER != null ? String(sapJson.NUMBER) : null;
@@ -211,9 +217,9 @@ export const approveZnfa = createServerFn({ method: "POST" })
       config_id: cfg.id,
       status: "ok",
       latency_ms,
-      rows_processed: 1,
+      rows_processed: lines.length || 1,
       message: `${logTag}: ${httpMsg}`,
     });
 
-    return { ok: true, sapMessage: msg || null, number, error: null };
+    return { ok: true, sapMessage: msg || null, number, error: null, lines };
   });
