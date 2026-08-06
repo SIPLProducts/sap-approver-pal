@@ -8,7 +8,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const CONFIG_NAME = "ZNFA_APPROVE_API";
+const APPROVE_CONFIG_NAME = "ZNFA_APPROVE_API";
+const REJECT_CONFIG_NAME = "ZNFA_REJECT_API";
 
 export type ZnfaApproveResponse = {
   ok: boolean;
@@ -50,14 +51,16 @@ export const approveZnfa = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ZnfaApproveResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const configName = data.reject ? REJECT_CONFIG_NAME : APPROVE_CONFIG_NAME;
+
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
       .select("*")
-      .eq("name", CONFIG_NAME)
+      .eq("name", configName)
       .maybeSingle();
     if (!cfg)
-      throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
-    if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
+      throw new Error(`SAP API config "${configName}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${configName}" is disabled.`);
 
     const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),

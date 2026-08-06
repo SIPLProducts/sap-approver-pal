@@ -963,6 +963,52 @@ function ZnfaReleasePage() {
     },
   });
 
+  // Reject action (ZNFA_REJECT_API)
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const rejectMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; user: string; relCode: string; reason: string }) =>
+      approveFn({
+        data: {
+          znfaNum: vars.znfaNum,
+          user: vars.user,
+          relCode: vars.relCode,
+          reject: true,
+          reason: vars.reason,
+        },
+      }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (!res.ok) {
+        setRejectError(msg ?? "SAP rejected the request.");
+        toast.error(msg ?? "SAP rejected the request.");
+        return;
+      }
+      setRejectError(null);
+      setRejectOpen(false);
+      setRejectReason("");
+      setDisplayError(null);
+      toast.success(msg ? msg : `NFA rejected${res.number ? ` (${res.number})` : ""}`);
+      onDocBack();
+      if (releaseId && releaseCode) {
+        releaseMutation.mutate({
+          user: releaseId,
+          relCode: releaseCode,
+          mode: action === "Approved List" ? "app_list" : "release",
+        });
+      }
+    },
+    onError: (e: any) => {
+      const msg =
+        typeof e?.message === "string" && e.message.trim()
+          ? e.message
+          : "An unexpected error occurred while rejecting the NFA.";
+      setRejectError(msg);
+      toast.error(msg);
+    },
+  });
+
   function clearReleaseResults() {
     setReleaseRows(null);
     setReleaseError(null);
@@ -1135,14 +1181,37 @@ function ZnfaReleasePage() {
     approveMutation.mutate({ znfaNum: openedNfaNo, user: releaseId, relCode: releaseCode });
   }
 
-  async function onDocReject() {
-    const ok = await confirm({
-      title: `Reject NFA ${openedNfaNo || ""}`.trim() + "?",
-      description: "This will reject the NFA document in SAP.",
-      confirmLabel: "Reject",
+  function onDocReject() {
+    if (!openedNfaNo) {
+      toast.error("No NFA number is open.");
+      return;
+    }
+    setRejectError(null);
+    setRejectReason("");
+    setRejectOpen(true);
+  }
+
+  function submitReject() {
+    if (!openedNfaNo) {
+      toast.error("No NFA number is open.");
+      return;
+    }
+    if (!releaseId) {
+      toast.error("No SAP user id found — please sign in again.");
+      return;
+    }
+    if (!releaseCode) {
+      toast.error("Select a Release Code");
+      return;
+    }
+    if (!rejectReason.trim()) return;
+    setRejectError(null);
+    rejectMutation.mutate({
+      znfaNum: openedNfaNo,
+      user: releaseId,
+      relCode: releaseCode,
+      reason: rejectReason.trim(),
     });
-    if (!ok) return;
-    toast.info("Reject will be sent to SAP once the release API is configured.");
   }
 
   function onDocBack() {
@@ -1408,8 +1477,10 @@ function ZnfaReleasePage() {
                       variant="destructive"
                       className="h-8 px-3 text-xs"
                       onClick={onDocReject}
+                      disabled={rejectMutation.isPending}
                     >
-                      <X className="mr-1.5 h-3.5 w-3.5" /> Reject
+                      <X className="mr-1.5 h-3.5 w-3.5" />{" "}
+                      {rejectMutation.isPending ? "Rejecting…" : "Reject"}
                     </Button>
                   </>
                 )}
@@ -1861,6 +1932,59 @@ function ZnfaReleasePage() {
       )}
 
       {confirmDialog}
+
+      <Dialog
+        open={rejectOpen}
+        onOpenChange={(o) => {
+          setRejectOpen(o);
+          if (!o) {
+            setRejectReason("");
+            setRejectError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reject NFA {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
+            <DialogDescription>
+              Enter the reason for rejecting this NFA document.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={5}
+            placeholder="Reject reason…"
+            className="text-sm"
+          />
+          {rejectError && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {rejectError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRejectOpen(false)}
+              disabled={rejectMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={!rejectReason.trim() || rejectMutation.isPending}
+              onClick={submitReject}
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" />{" "}
+              {rejectMutation.isPending ? "Rejecting…" : "Reject"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={clarifyOpen} onOpenChange={setClarifyOpen}>
         <DialogContent className="max-w-lg">
