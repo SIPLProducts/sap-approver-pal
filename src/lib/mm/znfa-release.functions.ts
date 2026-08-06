@@ -1,6 +1,6 @@
 /**
  * MM ZNFA Release — live SAP fetch of the release / approved list.
- * Config: ZNFA_RELEASE_GET_API
+ * Config: ZNFA_RELEASE_GET_API (Release) / ZNFA_APPROVE_GET_API (Approved List)
  * Payload: { USER, REL_CODE, CREATE, CHANGE, RELEASE, APP_LIST }
  * Returns: { rows, error, sapMessage, fetched_at }
  */
@@ -8,7 +8,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const CONFIG_NAME = "ZNFA_RELEASE_GET_API";
+const RELEASE_CONFIG_NAME = "ZNFA_RELEASE_GET_API";
+const APPROVE_CONFIG_NAME = "ZNFA_APPROVE_GET_API";
+
 
 export type ZnfaReleaseRow = Record<string, any>;
 
