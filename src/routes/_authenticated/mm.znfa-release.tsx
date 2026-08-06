@@ -724,6 +724,11 @@ function ZnfaReleasePage() {
     setAttachRows(res.attach);
     setRelMatxRows(res.relMatx);
     setNfaTextRows(res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""));
+    const awardRow = res.nfaTexts.find(
+      (t) => String(t.VENDOR ?? "").trim() !== "" || String(t.NAME1 ?? "").trim() !== "",
+    );
+    setProposedToAward(String(awardRow?.VENDOR ?? ""));
+    setProposedToAwardDetail(String(awardRow?.NAME1 ?? ""));
     setExpandedTextVendors(new Set());
     setSelectedTextKey(null);
   }
