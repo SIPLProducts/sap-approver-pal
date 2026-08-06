@@ -46,13 +46,19 @@ export const approveZnfa = createServerFn({ method: "POST" })
         relCode: z.string().trim().min(1, "Release Code is required").max(10),
         reject: z.boolean().default(false),
         reason: z.string().trim().max(500).default(""),
+        clarify: z.boolean().default(false),
+        clarifyText: z.string().max(5000).default(""),
       })
       .parse(d),
   )
   .handler(async ({ data }): Promise<ZnfaApproveResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const configName = data.reject ? REJECT_CONFIG_NAME : APPROVE_CONFIG_NAME;
+    const configName = data.clarify
+      ? CLARIFY_CONFIG_NAME
+      : data.reject
+        ? REJECT_CONFIG_NAME
+        : APPROVE_CONFIG_NAME;
 
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
@@ -81,11 +87,22 @@ export const approveZnfa = createServerFn({ method: "POST" })
       ZNFA_NUM: data.znfaNum.trim(),
       USER: data.user.trim(),
       REL_CODE: data.relCode.trim(),
-      NFA_REL: data.reject ? "" : "X",
+      NFA_REL: data.reject || data.clarify ? "" : "X",
       REJECT: data.reject ? "X" : "",
       REJ_DEL_REASON: data.reject ? data.reason : "",
       DELETE: "",
     };
+
+    if (data.clarify) {
+      inputs.CLARIFY = "X";
+      inputs.DIS_CLARIFY = "";
+      inputs.TEXT_CLARIFY = data.clarifyText
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0)
+        .map((l) => ({ LINE: l }));
+    }
+
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" && !!globalSettings?.middleware_url;
