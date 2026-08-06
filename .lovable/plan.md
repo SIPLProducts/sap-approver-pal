@@ -1,40 +1,62 @@
-# Fix: backend gateway (Kong) reports unhealthy on the Quality server
+# Next steps after the backend is running on the Quality server
 
-`docker compose up -d` starts every backend container except the API gateway (Kong). Everything that depends on the gateway then refuses to start, so the app and Studio are unreachable even though the database and auth are running.
+The Supabase backend stack is now up (`supabase-kong` is healthy). To make the app usable, the frontend must be built, shipped, and served behind Nginx.
 
-Kong here is not a plain image start: it runs a custom startup script that rewrites its config file by substituting values from your `.env` before Kong boots. If any of those values are missing or malformed, Kong starts, fails to load the config, and never becomes healthy — which is exactly the symptom (`container supabase-kong is unhealthy`, not "exited").
+## Step 1 — Build the frontend
 
-The actual cause is in the container's own log output, which we do not have yet. So step 1 is to read it, then apply the matching fix.
-
-## Step 1 — Read the gateway log (you run this on the server)
+Run this on a machine with Node 20+ and the repo checked out:
 
 ```bash
-cd /data/webapplication/resl_approval/Quality/backend
-docker compose -p resl_quality logs --no-color --tail 120 kong
+cd /data/webapplication/resl_approval/Quality/frontend
+npm ci
+npm run build
 ```
 
-Paste the output back. The last 10-20 lines name the failure.
+Expected output: a single `dist/` folder at `frontend/dist/`. No other build folders should remain.
 
-## Step 2 — Apply the fix that matches the log
-
-Most likely causes, in order:
-
-1. **Missing / empty values in `.env`** — the config references `ANON_KEY`, `SERVICE_ROLE_KEY`, `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`, `KONG_HTTP_PORT`, `KONG_HTTPS_PORT`. An empty username/password makes the dashboard auth block invalid and the whole config fails to load.
-   Check with: `docker compose -p resl_quality config | grep -A 12 'supabase-kong'` (values must not be blank).
-2. **Invalid generated config file** — the substitution script produced YAML Kong rejects (log shows a schema/declarative config error, often naming a line). Fix the offending `.env` value; do not hand-edit the generated file inside the container.
-3. **Port already in use** — log shows `bind() ... address already in use` for 8000/8443. Something else on the host holds the mapped port; change `KONG_HTTP_PORT`/`KONG_HTTPS_PORT` in `.env` or stop the conflicting process (`ss -ltnp | grep -E '8000|8443'`).
-4. **Stale container from an earlier failed run** — recreate cleanly:
-   `docker compose -p resl_quality up -d --force-recreate kong`
-
-## Step 3 — Verify
+## Step 2 — Copy the build to the server
 
 ```bash
-docker compose -p resl_quality ps
-curl -i http://127.0.0.1:${KONG_HTTP_PORT}/auth/v1/health
+rsync -a dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
 ```
 
-All containers should read `healthy`/`running`, and the health call should return a response rather than a connection error. Then re-run `docker compose -p resl_quality up -d` so the dependent containers come up.
+## Step 3 — Start the app server
+
+On the server:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend
+PORT=8080 HOST=127.0.0.1 npm start
+```
+
+Recommended: use pm2 or systemd so it keeps running after logout.
+
+## Step 4 — Configure and reload Nginx
+
+Use the Nginx config from `DEPLOY-QUALITY.md`. It listens on port 8081 and proxies:
+
+- `/_serverFn/` and `/api/` to the app server on port 8080
+- `/mw/` to the SAP middleware on port 3002
+- `/supabase/` to Kong on port 8000
+- `/studio/` to Supabase Studio on port 3000
+- all other routes to the static frontend shell
+
+Then reload:
+
+```bash
+nginx -t && systemctl reload nginx
+```
+
+## Step 5 — Verify the app is reachable
+
+Open http://10.150.150.130:8081/ in a browser. The login page should load.
+
+## Supabase and login
+
+Yes, Supabase is required for login and for the app to work. The app uses SAP-based authentication: the SAP login API validates the user, then the app creates/uses a Supabase auth user for the session. Supabase is also the backend database for user profiles, roles, approval data, and API settings.
 
 ## Notes
 
-No application code changes are expected here — this is a server configuration issue in the self-hosted backend stack. If the log points at something in `supabase/volumes/api/` that ships with this repo, I will fix that file in the repo as a follow-up.
+- The SAP middleware container (`sap-middleware-quality`) must also be running on port 3005 if you are using the proxy path `/mw/`.
+- In **SAP API Settings**, keep "Via Proxy" enabled and set the middleware URL to `http://10.150.150.130:3002` or `http://10.150.150.130:8081/mw`.
+- If you want to create an admin user before anyone else logs in, sign in with the first user and the trigger will automatically grant them the `Admin` role.
