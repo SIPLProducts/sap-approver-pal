@@ -1862,6 +1862,50 @@ function ZnfaReleasePage() {
 
       {confirmDialog}
 
+      <Dialog open={clarifyOpen} onOpenChange={setClarifyOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Clarification {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
+            <DialogDescription>
+              Enter the clarification you want to send for this NFA document.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={clarifyText}
+            onChange={(e) => setClarifyText(e.target.value)}
+            rows={6}
+            placeholder="Type your clarification…"
+            className="text-sm"
+          />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setClarifyText("");
+                setClarifyOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!clarifyText.trim()}
+              onClick={() => {
+                setClarifyOpen(false);
+                toast.success("Clarification mail queued.");
+                setClarifyText("");
+              }}
+            >
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Send Mail
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       <Dialog open={printOpen} onOpenChange={setPrintOpen}>
         <DialogContent className="max-w-5xl p-0">
           <DialogHeader className="px-6 pt-6 pb-2">
