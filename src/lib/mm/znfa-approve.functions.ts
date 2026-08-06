@@ -94,13 +94,17 @@ export const approveZnfa = createServerFn({ method: "POST" })
       ZNFA_NUM: data.znfaNum.trim(),
       USER: data.user.trim(),
       REL_CODE: data.relCode.trim(),
-      NFA_REL: data.reject || data.clarify ? "" : "X",
+      NFA_REL: data.reject || data.clarify || data.disClarify ? "" : "X",
       REJECT: data.reject ? "X" : "",
       REJ_DEL_REASON: data.reject ? data.reason : "",
       DELETE: "",
     };
 
-    if (data.clarify) {
+    if (data.disClarify) {
+      inputs.CLARIFY = "";
+      inputs.DIS_CLARIFY = "X";
+      inputs.TEXT_CLARIFY = [];
+    } else if (data.clarify) {
       inputs.CLARIFY = "X";
       inputs.DIS_CLARIFY = "";
       inputs.TEXT_CLARIFY = data.clarifyText
