@@ -1477,8 +1477,10 @@ function ZnfaReleasePage() {
                       variant="destructive"
                       className="h-8 px-3 text-xs"
                       onClick={onDocReject}
+                      disabled={rejectMutation.isPending}
                     >
-                      <X className="mr-1.5 h-3.5 w-3.5" /> Reject
+                      <X className="mr-1.5 h-3.5 w-3.5" />{" "}
+                      {rejectMutation.isPending ? "Rejecting…" : "Reject"}
                     </Button>
                   </>
                 )}
