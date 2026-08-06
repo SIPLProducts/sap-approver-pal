@@ -1,6 +1,6 @@
 /**
  * MM ZNFA Release — live SAP fetch of the release / approved list.
- * Config: ZNFA_RELEASE_GET_API
+ * Config: ZNFA_RELEASE_GET_API (Release) / ZNFA_APPROVE_GET_API (Approved List)
  * Payload: { USER, REL_CODE, CREATE, CHANGE, RELEASE, APP_LIST }
  * Returns: { rows, error, sapMessage, fetched_at }
  */
@@ -8,7 +8,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const CONFIG_NAME = "ZNFA_RELEASE_GET_API";
+const RELEASE_CONFIG_NAME = "ZNFA_RELEASE_GET_API";
+const APPROVE_CONFIG_NAME = "ZNFA_APPROVE_GET_API";
+
 
 export type ZnfaReleaseRow = Record<string, any>;
 
@@ -49,14 +51,18 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ZnfaReleaseResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const isAppList = data.mode === "app_list";
+    const configName = isAppList ? APPROVE_CONFIG_NAME : RELEASE_CONFIG_NAME;
+    const logTag = isAppList ? "znfa-approve" : "znfa-release";
+
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
       .select("*")
-      .eq("name", CONFIG_NAME)
+      .eq("name", configName)
       .maybeSingle();
     if (!cfg)
-      throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
-    if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
+      throw new Error(`SAP API config "${configName}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${configName}" is disabled.`);
 
     const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
@@ -68,7 +74,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const isAppList = data.mode === "app_list";
+    // isAppList computed above alongside the config name.
     const inputs: Record<string, any> = {
       USER: data.user.trim(),
       REL_CODE: data.relCode.trim(),
@@ -127,7 +133,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms: Date.now() - t0,
-        message: `znfa-release network: ${errMsg}`,
+        message: `${logTag} network: ${errMsg}`,
       });
       return fail(`Could not reach SAP. ${errMsg}.`);
     }
@@ -141,7 +147,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms,
-        message: `znfa-release: ${message} ${text.slice(0, 500)}`,
+        message: `${logTag}: ${message} ${text.slice(0, 500)}`,
       });
       return fail(null, extractSapMsg(text) ?? "SAP returned an error");
     }
@@ -171,7 +177,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
           config_id: cfg.id,
           status: "error",
           latency_ms,
-          message: `znfa-release: SAP said "${msg || status}"`,
+          message: `${logTag}: SAP said "${msg || status}"`,
         });
         return fail(null, msg || "SAP rejected the request.");
       }
@@ -185,7 +191,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
       status: "ok",
       latency_ms,
       rows_processed: rows.length,
-      message: `znfa-release: ${message}`,
+      message: `${logTag}: ${message}`,
     });
 
     return { rows, error: null, sapMessage: null, fetched_at: new Date().toISOString() };
