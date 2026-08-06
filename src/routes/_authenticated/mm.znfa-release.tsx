@@ -1341,7 +1341,7 @@ function ZnfaReleasePage() {
                 </span>
               )}
               <div className="flex shrink-0 items-center gap-1.5">
-                {!showDisplayStep && (
+                {showDocActions && (
                   <>
                     <Button
                       type="button"
@@ -1371,7 +1371,7 @@ function ZnfaReleasePage() {
                 >
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back
                 </Button>
-                {!showDisplayStep && (
+                {showDocActions && (
                   <>
                     <Button
                       type="button"
