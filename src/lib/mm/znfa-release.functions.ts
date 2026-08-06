@@ -74,7 +74,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const isAppList = data.mode === "app_list";
+    // isAppList computed above alongside the config name.
     const inputs: Record<string, any> = {
       USER: data.user.trim(),
       REL_CODE: data.relCode.trim(),
