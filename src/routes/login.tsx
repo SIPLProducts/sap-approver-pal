@@ -98,9 +98,18 @@ function LoginPage() {
         />
 
         <div className="relative flex items-center gap-3">
-          <div className="inline-flex items-center gap-3 rounded-xl bg-white/95 px-3 py-2 shadow-card">
-            <BrandLogo className="h-7" />
+          <div className="relative inline-flex items-center gap-3 overflow-hidden rounded-2xl border border-white/25 bg-white/10 px-4 py-3 shadow-exec backdrop-blur-xl">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-white/25 via-white/5 to-transparent"
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-2xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.35)]"
+            />
+            <BrandLogo variant="transparent" className="relative h-7 brightness-0 invert" />
           </div>
+
           <div className="hidden sm:block">
             <div className="font-display text-sm font-semibold tracking-tight">Re Sustainability</div>
             <div className="text-[11px] uppercase tracking-[0.22em] text-white/55">Executive Approvals</div>
