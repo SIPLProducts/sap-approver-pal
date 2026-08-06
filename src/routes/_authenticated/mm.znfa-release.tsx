@@ -74,7 +74,7 @@ export const Route = createFileRoute("/_authenticated/mm/znfa-release")({
 
 type Mode = "creation" | "release";
 
-const DEFAULT_ACTIONS = ["Release", "Display", "Approved List", "Clarification"];
+const DEFAULT_ACTIONS = ["Release", "Display", "Approved List"];
 
 // Commented out per request: Creation/Change mode actions are temporarily disabled.
 // const CREATION_ACTIONS = [
