@@ -10,6 +10,7 @@ import { z } from "zod";
 
 const APPROVE_CONFIG_NAME = "ZNFA_APPROVE_API";
 const REJECT_CONFIG_NAME = "ZNFA_REJECT_API";
+const CLARIFY_CONFIG_NAME = "ZNFA_Clarification_API";
 
 export type ZnfaApproveResponse = {
   ok: boolean;
