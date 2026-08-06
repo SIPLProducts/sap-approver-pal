@@ -1933,6 +1933,59 @@ function ZnfaReleasePage() {
 
       {confirmDialog}
 
+      <Dialog
+        open={rejectOpen}
+        onOpenChange={(o) => {
+          setRejectOpen(o);
+          if (!o) {
+            setRejectReason("");
+            setRejectError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reject NFA {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
+            <DialogDescription>
+              Enter the reason for rejecting this NFA document.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={5}
+            placeholder="Reject reason…"
+            className="text-sm"
+          />
+          {rejectError && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {rejectError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRejectOpen(false)}
+              disabled={rejectMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={!rejectReason.trim() || rejectMutation.isPending}
+              onClick={submitReject}
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" />{" "}
+              {rejectMutation.isPending ? "Rejecting…" : "Reject"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={clarifyOpen} onOpenChange={setClarifyOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
