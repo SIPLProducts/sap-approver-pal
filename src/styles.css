@@ -125,10 +125,11 @@
   --shadow-rim: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
 
   /* Data table header styling */
-  --table-header-bg: #0F1830;
+  --table-header-bg: #16181D;
   --table-header-text: #FFFFFF;
-  --table-header-border: #0F1830;
-  --table-row-hover: #F0F2F7;
+  --table-header-border: #16181D;
+  --table-row-hover: #FBF1F1;
+
 }
 
 .dark {
