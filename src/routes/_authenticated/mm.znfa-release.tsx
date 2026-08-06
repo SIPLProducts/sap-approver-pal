@@ -1009,6 +1009,67 @@ function ZnfaReleasePage() {
     },
   });
 
+  // Clarification action (ZNFA_Clarification_API)
+  const [clarifyError, setClarifyError] = useState<string | null>(null);
+  const clarifyMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; user: string; relCode: string; clarifyText: string }) =>
+      approveFn({
+        data: {
+          znfaNum: vars.znfaNum,
+          user: vars.user,
+          relCode: vars.relCode,
+          reject: false,
+          reason: "",
+          clarify: true,
+          clarifyText: vars.clarifyText,
+        },
+      }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (!res.ok) {
+        setClarifyError(msg ?? "SAP rejected the request.");
+        toast.error(msg ?? "SAP rejected the request.");
+        return;
+      }
+      setClarifyError(null);
+      setClarifyOpen(false);
+      setClarifyText("");
+      toast.success(msg ? msg : "Clarification mail sent.");
+    },
+    onError: (e: any) => {
+      const msg =
+        typeof e?.message === "string" && e.message.trim()
+          ? e.message
+          : "An unexpected error occurred while sending the clarification.";
+      setClarifyError(msg);
+      toast.error(msg);
+    },
+  });
+
+  function submitClarify() {
+    const nfaNo = openedNfaNo?.trim();
+    if (!nfaNo) {
+      setClarifyError("No NFA document is open.");
+      return;
+    }
+    if (!releaseId?.trim()) {
+      setClarifyError("SAP user id is missing.");
+      return;
+    }
+    if (!releaseCode?.trim()) {
+      setClarifyError("Release Code is missing.");
+      return;
+    }
+    setClarifyError(null);
+    clarifyMutation.mutate({
+      znfaNum: nfaNo,
+      user: releaseId.trim(),
+      relCode: releaseCode.trim(),
+      clarifyText: clarifyText,
+    });
+  }
+
+
   function clearReleaseResults() {
     setReleaseRows(null);
     setReleaseError(null);
