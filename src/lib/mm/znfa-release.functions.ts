@@ -51,14 +51,18 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ZnfaReleaseResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const isAppList = data.mode === "app_list";
+    const configName = isAppList ? APPROVE_CONFIG_NAME : RELEASE_CONFIG_NAME;
+    const logTag = isAppList ? "znfa-approve" : "znfa-release";
+
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
       .select("*")
-      .eq("name", CONFIG_NAME)
+      .eq("name", configName)
       .maybeSingle();
     if (!cfg)
-      throw new Error(`SAP API config "${CONFIG_NAME}" not found. Configure it in Admin → SAP API.`);
-    if (!cfg.is_active) throw new Error(`SAP API config "${CONFIG_NAME}" is disabled.`);
+      throw new Error(`SAP API config "${configName}" not found. Configure it in Admin → SAP API.`);
+    if (!cfg.is_active) throw new Error(`SAP API config "${configName}" is disabled.`);
 
     const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
