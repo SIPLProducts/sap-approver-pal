@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -6,8 +7,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -52,67 +54,67 @@
 }
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.45rem;
 
-  /* Executive ivory canvas */
-  --background: oklch(0.985 0.005 80);
-  --foreground: oklch(0.16 0.02 250);
+  /* Cool porcelain canvas */
+  --background: #F2F4F8;
+  --foreground: #111827;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.02 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.16 0.02 250);
+  --card: #FFFFFF;
+  --card-foreground: #111827;
+  --popover: #FFFFFF;
+  --popover-foreground: #111827;
 
-  /* Signature RESL red, calibrated for AA on ivory + graphite */
-  --primary: oklch(0.55 0.21 27);
-  --primary-foreground: oklch(0.99 0 0);
-  --primary-glow: oklch(0.66 0.20 27);
-  --primary-deep: oklch(0.45 0.20 27);
+  /* Deep indigo, calibrated for AA on porcelain + graphite */
+  --primary: #2A3F87;
+  --primary-foreground: #FFFFFF;
+  --primary-glow: #4C63AE;
+  --primary-deep: #1E2E66;
 
-  --secondary: oklch(0.955 0.006 250);
-  --secondary-foreground: oklch(0.22 0.03 250);
+  --secondary: #E9ECF3;
+  --secondary-foreground: #111827;
 
-  --muted: oklch(0.955 0.006 250);
-  --muted-foreground: oklch(0.48 0.02 250);
+  --muted: #E9ECF3;
+  --muted-foreground: #5B6472;
 
-  --accent: oklch(0.95 0.04 27);
-  --accent-foreground: oklch(0.38 0.18 27);
+  --accent: #F5E6D8;
+  --accent-foreground: #5A3416;
 
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.99 0 0);
+  --destructive: #C23B32;
+  --destructive-foreground: #FFFFFF;
 
-  --success: oklch(0.58 0.14 152);
-  --success-foreground: oklch(0.99 0 0);
+  --success: #1F8A5F;
+  --success-foreground: #FFFFFF;
 
-  --warning: oklch(0.78 0.16 75);
-  --warning-foreground: oklch(0.22 0.04 75);
+  --warning: #C1811E;
+  --warning-foreground: #241B08;
 
-  --info: oklch(0.58 0.13 240);
-  --info-foreground: oklch(0.99 0 0);
+  --info: #2E7FB8;
+  --info-foreground: #FFFFFF;
 
-  /* Quiet gold — executive accent for KPI lead + badges */
-  --gold: oklch(0.76 0.12 85);
-  --gold-foreground: oklch(0.22 0.04 75);
+  /* Warm copper — executive accent for KPI lead + badges */
+  --gold: #B4703A;
+  --gold-foreground: #FFFFFF;
 
-  --border: oklch(0.9 0.006 250);
-  --input: oklch(0.9 0.006 250);
-  --ring: oklch(0.55 0.21 27);
+  --border: #E1E5EC;
+  --input: #E1E5EC;
+  --ring: #2A3F87;
 
-  /* Graphite sidebar — never red-on-red */
-  --sidebar: oklch(0.16 0.018 250);
-  --sidebar-foreground: oklch(0.95 0.008 250);
-  --sidebar-primary: oklch(0.62 0.21 27);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.22 0.022 250);
-  --sidebar-accent-foreground: oklch(0.98 0.008 250);
-  --sidebar-border: oklch(0.26 0.022 250);
-  --sidebar-ring: oklch(0.62 0.21 27);
+  /* Graphite sidebar — never indigo-on-indigo */
+  --sidebar: #0F1830;
+  --sidebar-foreground: #E7EBF5;
+  --sidebar-primary: #2A3F87;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1B2748;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #22304F;
+  --sidebar-ring: #2A3F87;
 
-  --gradient-primary: linear-gradient(135deg, oklch(0.52 0.22 27) 0%, oklch(0.66 0.20 27) 100%);
-  --gradient-surface: linear-gradient(180deg, oklch(0.99 0.004 80) 0%, oklch(0.965 0.012 27) 100%);
-  --gradient-hero: linear-gradient(135deg, oklch(0.14 0.02 250) 0%, oklch(0.20 0.04 260) 45%, oklch(0.30 0.10 20) 100%);
-  --gradient-exec: linear-gradient(135deg, oklch(0.14 0.02 250) 0%, oklch(0.18 0.03 255) 100%);
-  --gradient-gold: linear-gradient(135deg, oklch(0.78 0.12 85) 0%, oklch(0.66 0.13 70) 100%);
+  --gradient-primary: linear-gradient(135deg, #2A3F87 0%, #4C63AE 100%);
+  --gradient-surface: linear-gradient(180deg, #FFFFFF 0%, #F2F4F8 100%);
+  --gradient-hero: linear-gradient(135deg, #0F1830 0%, #1B2748 45%, #2A3F87 100%);
+  --gradient-exec: linear-gradient(135deg, #0F1830 0%, #1B2748 100%);
+  --gradient-gold: linear-gradient(135deg, #B4703A 0%, #8C5225 100%);
 
   --shadow-elegant: 0 10px 30px -12px color-mix(in oklab, var(--primary) 28%, transparent);
   --shadow-card: 0 1px 2px 0 rgb(15 17 22 / 0.04), 0 1px 1px -1px rgb(15 17 22 / 0.03);
@@ -120,49 +122,49 @@
   --shadow-rim: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
 
   /* Data table header styling */
-  --table-header-bg: #1F2937;
+  --table-header-bg: #0F1830;
   --table-header-text: #FFFFFF;
-  --table-header-border: #1F2937;
-  --table-row-hover: #F1F2F4;
+  --table-header-border: #0F1830;
+  --table-row-hover: #F0F2F7;
 }
 
 .dark {
-  --background: oklch(0.14 0.02 250);
-  --foreground: oklch(0.97 0.008 250);
-  --card: oklch(0.18 0.02 250);
-  --card-foreground: oklch(0.97 0.008 250);
-  --popover: oklch(0.18 0.02 250);
-  --popover-foreground: oklch(0.97 0.008 250);
-  --primary: oklch(0.66 0.22 27);
-  --primary-foreground: oklch(0.14 0.02 250);
-  --primary-glow: oklch(0.74 0.20 27);
-  --secondary: oklch(0.24 0.02 250);
-  --secondary-foreground: oklch(0.97 0.008 250);
-  --muted: oklch(0.24 0.02 250);
-  --muted-foreground: oklch(0.7 0.02 250);
-  --accent: oklch(0.30 0.08 27);
-  --accent-foreground: oklch(0.97 0.008 250);
-  --destructive: oklch(0.62 0.22 25);
-  --destructive-foreground: oklch(0.97 0.008 250);
-  --success: oklch(0.68 0.15 152);
-  --success-foreground: oklch(0.14 0.02 250);
-  --warning: oklch(0.78 0.16 75);
-  --warning-foreground: oklch(0.14 0.02 250);
-  --info: oklch(0.68 0.13 240);
-  --info-foreground: oklch(0.14 0.02 250);
-  --gold: oklch(0.78 0.12 85);
-  --gold-foreground: oklch(0.14 0.02 250);
-  --border: oklch(0.28 0.02 250);
-  --input: oklch(0.28 0.02 250);
-  --ring: oklch(0.66 0.22 27);
-  --sidebar: oklch(0.12 0.02 250);
-  --sidebar-foreground: oklch(0.95 0.008 250);
-  --sidebar-primary: oklch(0.66 0.22 27);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.20 0.022 250);
-  --sidebar-accent-foreground: oklch(0.98 0.008 250);
-  --sidebar-border: oklch(0.24 0.022 250);
-  --sidebar-ring: oklch(0.66 0.22 27);
+  --background: #0D1220;
+  --foreground: #E7EBF5;
+  --card: #151B2C;
+  --card-foreground: #E7EBF5;
+  --popover: #151B2C;
+  --popover-foreground: #E7EBF5;
+  --primary: #8CA0E6;
+  --primary-foreground: #0D1220;
+  --primary-glow: #AAB9EE;
+  --secondary: #1C2438;
+  --secondary-foreground: #E7EBF5;
+  --muted: #1C2438;
+  --muted-foreground: #8B93A7;
+  --accent: #2B2013;
+  --accent-foreground: #F3DDBF;
+  --destructive: #E37A70;
+  --destructive-foreground: #0D1220;
+  --success: #4FBE8D;
+  --success-foreground: #0D1220;
+  --warning: #E3A63F;
+  --warning-foreground: #241B08;
+  --info: #6FB3E0;
+  --info-foreground: #0D1220;
+  --gold: #D79A63;
+  --gold-foreground: #0D1220;
+  --border: #232C42;
+  --input: #232C42;
+  --ring: #8CA0E6;
+  --sidebar: #080C18;
+  --sidebar-foreground: #E7EBF5;
+  --sidebar-primary: #2A3F87;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #131C34;
+  --sidebar-accent-foreground: #E7EBF5;
+  --sidebar-border: #1A2440;
+  --sidebar-ring: #8CA0E6;
 }
 
 @layer base {
@@ -191,6 +193,7 @@
   h4 { font-size: 14px; line-height: 1.35; }
   em, i, cite, address, dfn, var { font-style: normal; }
   .tabular, .tabular-nums, td.num, .num {
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
   }
@@ -245,7 +248,7 @@
   }
 }
 
-/* Cloudscape table header: light gray, dark slate bold text */
+/* Cloudscape table header: deep indigo, white bold text */
 .awsui-app-scope table thead th,
 .awsui-app-scope [class*="awsui_header-cell"] {
   background-color: var(--table-header-bg) !important;
@@ -276,7 +279,7 @@
   background-color: var(--table-row-hover) !important;
 }
 
-/* App-wide plain <table> defaults — light gray sticky header, hover row */
+/* App-wide plain <table> defaults — cool gray sticky header, hover row */
 table thead th {
   background-color: var(--table-header-bg);
   color: var(--table-header-text);
@@ -460,5 +463,4 @@ td.tabular-nums {
     -webkit-overflow-scrolling: touch;
   }
 }
-
 
