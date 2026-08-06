@@ -938,6 +938,8 @@ function ZnfaReleasePage() {
   const actions = DEFAULT_ACTIONS;
   const showDisplayStep = action === "Display";
   const showReleaseStep = action === "Release" || action === "Approved List";
+  // Approve/Reject/Clarification are only offered on the Release path.
+  const showDocActions = !showDisplayStep && action !== "Approved List";
   const showCreate =
     (mode === "creation" && (action === "Create" || action === "Change")) ||
     (showDisplayStep && displayConfirmed) ||
