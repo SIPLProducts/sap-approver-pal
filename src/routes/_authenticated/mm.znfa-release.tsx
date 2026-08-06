@@ -1638,13 +1638,11 @@ function ZnfaReleasePage() {
                       size="sm"
                       variant="outline"
                       className="h-8 px-3 text-xs"
-                      onClick={() =>
-                        toast.info(
-                          "Display Clarification will be available once the API is configured.",
-                        )
-                      }
+                      disabled={disClarifyMutation.isPending}
+                      onClick={openDisClarify}
                     >
-                      <MessagesSquare className="mr-1.5 h-3.5 w-3.5" /> Display Clarification
+                      <MessagesSquare className="mr-1.5 h-3.5 w-3.5" />{" "}
+                      {disClarifyMutation.isPending ? "Loading…" : "Display Clarification"}
                     </Button>
                   </>
                 )}
