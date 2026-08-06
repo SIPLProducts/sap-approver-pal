@@ -1397,8 +1397,10 @@ function ZnfaReleasePage() {
                       size="sm"
                       className="h-8 px-3 text-xs"
                       onClick={onDocApprove}
+                      disabled={approveMutation.isPending}
                     >
-                      <Check className="mr-1.5 h-3.5 w-3.5" /> Approve
+                      <Check className="mr-1.5 h-3.5 w-3.5" />{" "}
+                      {approveMutation.isPending ? "Approving…" : "Approve"}
                     </Button>
                     <Button
                       type="button"
