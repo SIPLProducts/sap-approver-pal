@@ -1429,9 +1429,10 @@ function ZnfaReleasePage() {
                       size="sm"
                       variant="outline"
                       className="h-8 px-3 text-xs"
-                      onClick={() =>
-                        toast.info("Clarification will be sent to SAP once the API is configured.")
-                      }
+                      onClick={() => {
+                        setClarifyText("");
+                        setClarifyOpen(true);
+                      }}
                     >
                       <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Clarification
                     </Button>
