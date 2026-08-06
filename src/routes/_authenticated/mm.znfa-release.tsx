@@ -2162,6 +2162,59 @@ function ZnfaReleasePage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={disClarifyOpen}
+        onOpenChange={(o) => {
+          setDisClarifyOpen(o);
+          if (!o) {
+            setDisClarifyLines([]);
+            setDisClarifyError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Display Clarification {openedNfaNo ? `— ${openedNfaNo}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Clarification text recorded in SAP for this NFA document.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            readOnly
+            rows={10}
+            value={
+              disClarifyMutation.isPending
+                ? "Loading…"
+                : disClarifyLines.length > 0
+                  ? disClarifyLines.join("\n")
+                  : disClarifyError
+                    ? ""
+                    : "No clarification found for this NFA."
+            }
+            className="font-mono text-xs"
+          />
+          {disClarifyError && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {disClarifyError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDisClarifyOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
+
 
 
       <Dialog open={printOpen} onOpenChange={setPrintOpen}>
