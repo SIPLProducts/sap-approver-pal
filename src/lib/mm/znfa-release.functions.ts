@@ -133,7 +133,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms: Date.now() - t0,
-        message: `znfa-release network: ${errMsg}`,
+        message: `${logTag} network: ${errMsg}`,
       });
       return fail(`Could not reach SAP. ${errMsg}.`);
     }
@@ -147,7 +147,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: "error",
         latency_ms,
-        message: `znfa-release: ${message} ${text.slice(0, 500)}`,
+        message: `${logTag}: ${message} ${text.slice(0, 500)}`,
       });
       return fail(null, extractSapMsg(text) ?? "SAP returned an error");
     }
@@ -177,7 +177,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
           config_id: cfg.id,
           status: "error",
           latency_ms,
-          message: `znfa-release: SAP said "${msg || status}"`,
+          message: `${logTag}: SAP said "${msg || status}"`,
         });
         return fail(null, msg || "SAP rejected the request.");
       }
@@ -191,7 +191,7 @@ export const fetchZnfaRelease = createServerFn({ method: "POST" })
       status: "ok",
       latency_ms,
       rows_processed: rows.length,
-      message: `znfa-release: ${message}`,
+      message: `${logTag}: ${message}`,
     });
 
     return { rows, error: null, sapMessage: null, fetched_at: new Date().toISOString() };
