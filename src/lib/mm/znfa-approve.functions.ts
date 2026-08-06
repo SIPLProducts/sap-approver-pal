@@ -11,17 +11,20 @@ import { z } from "zod";
 const APPROVE_CONFIG_NAME = "ZNFA_APPROVE_API";
 const REJECT_CONFIG_NAME = "ZNFA_REJECT_API";
 const CLARIFY_CONFIG_NAME = "ZNFA_Clarification_API";
+const DIS_CLARIFY_CONFIG_NAME = "ZNFA_DISPLAY_CLARIFY_API";
 
 export type ZnfaApproveResponse = {
   ok: boolean;
   sapMessage: string | null;
   number: string | null;
   error: string | null;
+  lines: string[];
 };
 
 function fail(error: string | null, sapMessage: string | null = null): ZnfaApproveResponse {
-  return { ok: false, sapMessage, number: null, error };
+  return { ok: false, sapMessage, number: null, error, lines: [] };
 }
+
 
 function extractSapMsg(text: string): string | null {
   if (!text || !text.trim()) return null;
@@ -48,17 +51,21 @@ export const approveZnfa = createServerFn({ method: "POST" })
         reason: z.string().trim().max(500).default(""),
         clarify: z.boolean().default(false),
         clarifyText: z.string().max(5000).default(""),
+        disClarify: z.boolean().default(false),
+
       })
       .parse(d),
   )
   .handler(async ({ data }): Promise<ZnfaApproveResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const configName = data.clarify
-      ? CLARIFY_CONFIG_NAME
-      : data.reject
-        ? REJECT_CONFIG_NAME
-        : APPROVE_CONFIG_NAME;
+    const configName = data.disClarify
+      ? DIS_CLARIFY_CONFIG_NAME
+      : data.clarify
+        ? CLARIFY_CONFIG_NAME
+        : data.reject
+          ? REJECT_CONFIG_NAME
+          : APPROVE_CONFIG_NAME;
 
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
@@ -87,13 +94,17 @@ export const approveZnfa = createServerFn({ method: "POST" })
       ZNFA_NUM: data.znfaNum.trim(),
       USER: data.user.trim(),
       REL_CODE: data.relCode.trim(),
-      NFA_REL: data.reject || data.clarify ? "" : "X",
+      NFA_REL: data.reject || data.clarify || data.disClarify ? "" : "X",
       REJECT: data.reject ? "X" : "",
       REJ_DEL_REASON: data.reject ? data.reason : "",
       DELETE: "",
     };
 
-    if (data.clarify) {
+    if (data.disClarify) {
+      inputs.CLARIFY = "";
+      inputs.DIS_CLARIFY = "X";
+      inputs.TEXT_CLARIFY = [];
+    } else if (data.clarify) {
       inputs.CLARIFY = "X";
       inputs.DIS_CLARIFY = "";
       inputs.TEXT_CLARIFY = data.clarifyText
@@ -142,11 +153,13 @@ export const approveZnfa = createServerFn({ method: "POST" })
       headers[k] = v;
     }
 
-    const logTag = data.clarify
-      ? "znfa-clarify"
-      : data.reject
-        ? "znfa-reject"
-        : "znfa-approve-action";
+    const logTag = data.disClarify
+      ? "znfa-dis-clarify"
+      : data.clarify
+        ? "znfa-clarify"
+        : data.reject
+          ? "znfa-reject"
+          : "znfa-approve-action";
     const t0 = Date.now();
     let res: Response;
     try {
@@ -186,6 +199,12 @@ export const approveZnfa = createServerFn({ method: "POST" })
     const sapJsonRaw: any = proxied ? (json?.data ?? json) : json;
     const sapJson: any = Array.isArray(sapJsonRaw) ? sapJsonRaw[0] : sapJsonRaw;
 
+    const lines: string[] = Array.isArray(sapJsonRaw)
+      ? sapJsonRaw
+          .filter((r) => r && typeof r === "object" && "LINE" in r)
+          .map((r) => String(r.LINE ?? ""))
+      : [];
+
     const status = String(sapJson?.STATUS ?? "").toUpperCase();
     const msg = typeof sapJson?.MSG === "string" ? sapJson.MSG.trim() : "";
     const number = sapJson?.NUMBER != null ? String(sapJson.NUMBER) : null;
@@ -204,9 +223,9 @@ export const approveZnfa = createServerFn({ method: "POST" })
       config_id: cfg.id,
       status: "ok",
       latency_ms,
-      rows_processed: 1,
+      rows_processed: lines.length || 1,
       message: `${logTag}: ${httpMsg}`,
     });
 
-    return { ok: true, sapMessage: msg || null, number, error: null };
+    return { ok: true, sapMessage: msg || null, number, error: null, lines };
   });

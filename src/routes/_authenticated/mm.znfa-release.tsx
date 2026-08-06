@@ -1069,6 +1069,71 @@ function ZnfaReleasePage() {
     });
   }
 
+  // Display Clarification action (ZNFA_DISPLAY_CLARIFY_API)
+  const [disClarifyOpen, setDisClarifyOpen] = useState(false);
+  const [disClarifyLines, setDisClarifyLines] = useState<string[]>([]);
+  const [disClarifyError, setDisClarifyError] = useState<string | null>(null);
+  const disClarifyMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; user: string; relCode: string }) =>
+      approveFn({
+        data: {
+          znfaNum: vars.znfaNum,
+          user: vars.user,
+          relCode: vars.relCode,
+          reject: false,
+          reason: "",
+          clarify: false,
+          clarifyText: "",
+          disClarify: true,
+        },
+      }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (!res.ok) {
+        setDisClarifyLines([]);
+        setDisClarifyError(msg ?? "SAP rejected the request.");
+        toast.error(msg ?? "SAP rejected the request.");
+        return;
+      }
+      setDisClarifyError(null);
+      setDisClarifyLines(res.lines ?? []);
+    },
+    onError: (e: any) => {
+      const msg =
+        typeof e?.message === "string" && e.message.trim()
+          ? e.message
+          : "An unexpected error occurred while loading the clarification.";
+      setDisClarifyLines([]);
+      setDisClarifyError(msg);
+      toast.error(msg);
+    },
+  });
+
+  function openDisClarify() {
+    const nfaNo = openedNfaNo?.trim();
+    setDisClarifyLines([]);
+    setDisClarifyError(null);
+    setDisClarifyOpen(true);
+    if (!nfaNo) {
+      setDisClarifyError("No NFA document is open.");
+      return;
+    }
+    if (!releaseId?.trim()) {
+      setDisClarifyError("SAP user id is missing.");
+      return;
+    }
+    if (!releaseCode?.trim()) {
+      setDisClarifyError("Release Code is missing.");
+      return;
+    }
+    disClarifyMutation.mutate({
+      znfaNum: nfaNo,
+      user: releaseId.trim(),
+      relCode: releaseCode.trim(),
+    });
+  }
+
+
 
   function clearReleaseResults() {
     setReleaseRows(null);
@@ -1573,13 +1638,11 @@ function ZnfaReleasePage() {
                       size="sm"
                       variant="outline"
                       className="h-8 px-3 text-xs"
-                      onClick={() =>
-                        toast.info(
-                          "Display Clarification will be available once the API is configured.",
-                        )
-                      }
+                      disabled={disClarifyMutation.isPending}
+                      onClick={openDisClarify}
                     >
-                      <MessagesSquare className="mr-1.5 h-3.5 w-3.5" /> Display Clarification
+                      <MessagesSquare className="mr-1.5 h-3.5 w-3.5" />{" "}
+                      {disClarifyMutation.isPending ? "Loading…" : "Display Clarification"}
                     </Button>
                   </>
                 )}
@@ -2098,6 +2161,59 @@ function ZnfaReleasePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={disClarifyOpen}
+        onOpenChange={(o) => {
+          setDisClarifyOpen(o);
+          if (!o) {
+            setDisClarifyLines([]);
+            setDisClarifyError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Display Clarification {openedNfaNo ? `— ${openedNfaNo}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Clarification text recorded in SAP for this NFA document.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            readOnly
+            rows={10}
+            value={
+              disClarifyMutation.isPending
+                ? "Loading…"
+                : disClarifyLines.length > 0
+                  ? disClarifyLines.join("\n")
+                  : disClarifyError
+                    ? ""
+                    : "No clarification found for this NFA."
+            }
+            className="font-mono text-xs"
+          />
+          {disClarifyError && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {disClarifyError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDisClarifyOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
 
 
 
