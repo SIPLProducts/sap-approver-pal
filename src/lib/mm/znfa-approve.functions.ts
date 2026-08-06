@@ -149,11 +149,13 @@ export const approveZnfa = createServerFn({ method: "POST" })
       headers[k] = v;
     }
 
-    const logTag = data.clarify
-      ? "znfa-clarify"
-      : data.reject
-        ? "znfa-reject"
-        : "znfa-approve-action";
+    const logTag = data.disClarify
+      ? "znfa-dis-clarify"
+      : data.clarify
+        ? "znfa-clarify"
+        : data.reject
+          ? "znfa-reject"
+          : "znfa-approve-action";
     const t0 = Date.now();
     let res: Response;
     try {
