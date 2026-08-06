@@ -963,6 +963,52 @@ function ZnfaReleasePage() {
     },
   });
 
+  // Reject action (ZNFA_REJECT_API)
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const rejectMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; user: string; relCode: string; reason: string }) =>
+      approveFn({
+        data: {
+          znfaNum: vars.znfaNum,
+          user: vars.user,
+          relCode: vars.relCode,
+          reject: true,
+          reason: vars.reason,
+        },
+      }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (!res.ok) {
+        setRejectError(msg ?? "SAP rejected the request.");
+        toast.error(msg ?? "SAP rejected the request.");
+        return;
+      }
+      setRejectError(null);
+      setRejectOpen(false);
+      setRejectReason("");
+      setDisplayError(null);
+      toast.success(msg ? msg : `NFA rejected${res.number ? ` (${res.number})` : ""}`);
+      onDocBack();
+      if (releaseId && releaseCode) {
+        releaseMutation.mutate({
+          user: releaseId,
+          relCode: releaseCode,
+          mode: action === "Approved List" ? "app_list" : "release",
+        });
+      }
+    },
+    onError: (e: any) => {
+      const msg =
+        typeof e?.message === "string" && e.message.trim()
+          ? e.message
+          : "An unexpected error occurred while rejecting the NFA.";
+      setRejectError(msg);
+      toast.error(msg);
+    },
+  });
+
   function clearReleaseResults() {
     setReleaseRows(null);
     setReleaseError(null);
