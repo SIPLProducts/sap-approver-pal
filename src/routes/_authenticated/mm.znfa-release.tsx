@@ -1119,7 +1119,20 @@ function ZnfaReleasePage() {
       confirmLabel: "Approve",
     });
     if (!ok) return;
-    toast.info("Approve will be sent to SAP once the release API is configured.");
+    if (!openedNfaNo) {
+      toast.error("No NFA number is open.");
+      return;
+    }
+    if (!releaseId) {
+      toast.error("No SAP user id found — please sign in again.");
+      return;
+    }
+    if (!releaseCode) {
+      toast.error("Select a Release Code");
+      return;
+    }
+    setDisplayError(null);
+    approveMutation.mutate({ znfaNum: openedNfaNo, user: releaseId, relCode: releaseCode });
   }
 
   async function onDocReject() {
