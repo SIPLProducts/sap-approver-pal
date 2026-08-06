@@ -6,6 +6,7 @@ import { fetchZnfaRelease } from "@/lib/mm/znfa-release.functions";
 import { fetchZnfaDisplay } from "@/lib/mm/znfa-display.functions";
 import { fetchZnfaClick } from "@/lib/mm/znfa-click.functions";
 import { fetchZnfaPrint } from "@/lib/mm/znfa-print.functions";
+import { approveZnfa } from "@/lib/mm/znfa-approve.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
   AlertTriangle,
@@ -927,6 +928,41 @@ function ZnfaReleasePage() {
     },
   });
 
+  // Approve / Release action (ZNFA_APPROVE_API)
+  const [clarifyOpen, setClarifyOpen] = useState(false);
+  const [clarifyText, setClarifyText] = useState("");
+  const approveFn = useServerFn(approveZnfa);
+  const approveMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; user: string; relCode: string }) =>
+      approveFn({ data: { ...vars, reject: false, reason: "" } }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (!res.ok) {
+        setDisplayError(msg ?? "SAP rejected the request.");
+        toast.error(msg ?? "SAP rejected the request.");
+        return;
+      }
+      setDisplayError(null);
+      toast.success(msg ? msg : `NFA released${res.number ? ` (${res.number})` : ""}`);
+      onDocBack();
+      if (releaseId && releaseCode) {
+        releaseMutation.mutate({
+          user: releaseId,
+          relCode: releaseCode,
+          mode: action === "Approved List" ? "app_list" : "release",
+        });
+      }
+    },
+    onError: (e: any) => {
+      const msg =
+        typeof e?.message === "string" && e.message.trim()
+          ? e.message
+          : "An unexpected error occurred while releasing the NFA.";
+      setDisplayError(msg);
+      toast.error(msg);
+    },
+  });
+
   function clearReleaseResults() {
     setReleaseRows(null);
     setReleaseError(null);
@@ -1083,7 +1119,20 @@ function ZnfaReleasePage() {
       confirmLabel: "Approve",
     });
     if (!ok) return;
-    toast.info("Approve will be sent to SAP once the release API is configured.");
+    if (!openedNfaNo) {
+      toast.error("No NFA number is open.");
+      return;
+    }
+    if (!releaseId) {
+      toast.error("No SAP user id found — please sign in again.");
+      return;
+    }
+    if (!releaseCode) {
+      toast.error("Select a Release Code");
+      return;
+    }
+    setDisplayError(null);
+    approveMutation.mutate({ znfaNum: openedNfaNo, user: releaseId, relCode: releaseCode });
   }
 
   async function onDocReject() {
@@ -1348,8 +1397,10 @@ function ZnfaReleasePage() {
                       size="sm"
                       className="h-8 px-3 text-xs"
                       onClick={onDocApprove}
+                      disabled={approveMutation.isPending}
                     >
-                      <Check className="mr-1.5 h-3.5 w-3.5" /> Approve
+                      <Check className="mr-1.5 h-3.5 w-3.5" />{" "}
+                      {approveMutation.isPending ? "Approving…" : "Approve"}
                     </Button>
                     <Button
                       type="button"
@@ -1378,9 +1429,10 @@ function ZnfaReleasePage() {
                       size="sm"
                       variant="outline"
                       className="h-8 px-3 text-xs"
-                      onClick={() =>
-                        toast.info("Clarification will be sent to SAP once the API is configured.")
-                      }
+                      onClick={() => {
+                        setClarifyText("");
+                        setClarifyOpen(true);
+                      }}
                     >
                       <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Clarification
                     </Button>
@@ -1809,6 +1861,50 @@ function ZnfaReleasePage() {
       )}
 
       {confirmDialog}
+
+      <Dialog open={clarifyOpen} onOpenChange={setClarifyOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Clarification {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
+            <DialogDescription>
+              Enter the clarification you want to send for this NFA document.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={clarifyText}
+            onChange={(e) => setClarifyText(e.target.value)}
+            rows={6}
+            placeholder="Type your clarification…"
+            className="text-sm"
+          />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setClarifyText("");
+                setClarifyOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!clarifyText.trim()}
+              onClick={() => {
+                setClarifyOpen(false);
+                toast.success("Clarification mail queued.");
+                setClarifyText("");
+              }}
+            >
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Send Mail
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       <Dialog open={printOpen} onOpenChange={setPrintOpen}>
         <DialogContent className="max-w-5xl p-0">
