@@ -928,6 +928,41 @@ function ZnfaReleasePage() {
     },
   });
 
+  // Approve / Release action (ZNFA_APPROVE_API)
+  const [clarifyOpen, setClarifyOpen] = useState(false);
+  const [clarifyText, setClarifyText] = useState("");
+  const approveFn = useServerFn(approveZnfa);
+  const approveMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; user: string; relCode: string }) =>
+      approveFn({ data: { ...vars, reject: false, reason: "" } }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (!res.ok) {
+        setDisplayError(msg ?? "SAP rejected the request.");
+        toast.error(msg ?? "SAP rejected the request.");
+        return;
+      }
+      setDisplayError(null);
+      toast.success(msg ? msg : `NFA released${res.number ? ` (${res.number})` : ""}`);
+      onDocBack();
+      if (releaseId && releaseCode) {
+        releaseMutation.mutate({
+          user: releaseId,
+          relCode: releaseCode,
+          mode: action === "Approved List" ? "app_list" : "release",
+        });
+      }
+    },
+    onError: (e: any) => {
+      const msg =
+        typeof e?.message === "string" && e.message.trim()
+          ? e.message
+          : "An unexpected error occurred while releasing the NFA.";
+      setDisplayError(msg);
+      toast.error(msg);
+    },
+  });
+
   function clearReleaseResults() {
     setReleaseRows(null);
     setReleaseError(null);
