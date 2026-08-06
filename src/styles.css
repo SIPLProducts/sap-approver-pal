@@ -65,11 +65,12 @@
   --popover: #FFFFFF;
   --popover-foreground: #111827;
 
-  /* Deep indigo, calibrated for AA on porcelain + graphite */
-  --primary: #2A3F87;
+  /* Brand red (logo #E31F26), calibrated for AA on porcelain + graphite */
+  --primary: #D01F25;
   --primary-foreground: #FFFFFF;
-  --primary-glow: #4C63AE;
-  --primary-deep: #1E2E66;
+  --primary-glow: #E8474C;
+  --primary-deep: #9C161B;
+
 
   --secondary: #E9ECF3;
   --secondary-foreground: #111827;
