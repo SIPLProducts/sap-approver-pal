@@ -74,7 +74,7 @@ export const Route = createFileRoute("/_authenticated/mm/znfa-release")({
 
 type Mode = "creation" | "release";
 
-const DEFAULT_ACTIONS = ["Release", "Display", "Approved List", "Clarification"];
+const DEFAULT_ACTIONS = ["Release", "Display", "Approved List"];
 
 // Commented out per request: Creation/Change mode actions are temporarily disabled.
 // const CREATION_ACTIONS = [
@@ -724,6 +724,11 @@ function ZnfaReleasePage() {
     setAttachRows(res.attach);
     setRelMatxRows(res.relMatx);
     setNfaTextRows(res.nfaTexts.filter((t) => String(t.AVL_TEXTS ?? "").trim() !== ""));
+    const awardRow = res.nfaTexts.find(
+      (t) => String(t.VENDOR ?? "").trim() !== "" || String(t.NAME1 ?? "").trim() !== "",
+    );
+    setProposedToAward(String(awardRow?.VENDOR ?? ""));
+    setProposedToAwardDetail(String(awardRow?.NAME1 ?? ""));
     setExpandedTextVendors(new Set());
     setSelectedTextKey(null);
   }
@@ -933,6 +938,8 @@ function ZnfaReleasePage() {
   const actions = DEFAULT_ACTIONS;
   const showDisplayStep = action === "Display";
   const showReleaseStep = action === "Release" || action === "Approved List";
+  // Approve/Reject/Clarification are only offered on the Release path.
+  const showDocActions = !showDisplayStep && action !== "Approved List";
   const showCreate =
     (mode === "creation" && (action === "Create" || action === "Change")) ||
     (showDisplayStep && displayConfirmed) ||
@@ -1334,7 +1341,7 @@ function ZnfaReleasePage() {
                 </span>
               )}
               <div className="flex shrink-0 items-center gap-1.5">
-                {!showDisplayStep && (
+                {showDocActions && (
                   <>
                     <Button
                       type="button"
@@ -1364,7 +1371,7 @@ function ZnfaReleasePage() {
                 >
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back
                 </Button>
-                {!showDisplayStep && (
+                {showDocActions && (
                   <>
                     <Button
                       type="button"
