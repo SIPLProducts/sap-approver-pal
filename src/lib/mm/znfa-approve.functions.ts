@@ -59,11 +59,13 @@ export const approveZnfa = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ZnfaApproveResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const configName = data.clarify
-      ? CLARIFY_CONFIG_NAME
-      : data.reject
-        ? REJECT_CONFIG_NAME
-        : APPROVE_CONFIG_NAME;
+    const configName = data.disClarify
+      ? DIS_CLARIFY_CONFIG_NAME
+      : data.clarify
+        ? CLARIFY_CONFIG_NAME
+        : data.reject
+          ? REJECT_CONFIG_NAME
+          : APPROVE_CONFIG_NAME;
 
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
