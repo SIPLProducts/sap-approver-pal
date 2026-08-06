@@ -2047,7 +2047,16 @@ function ZnfaReleasePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={clarifyOpen} onOpenChange={setClarifyOpen}>
+      <Dialog
+        open={clarifyOpen}
+        onOpenChange={(o) => {
+          setClarifyOpen(o);
+          if (!o) {
+            setClarifyText("");
+            setClarifyError(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Clarification {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
@@ -2062,33 +2071,34 @@ function ZnfaReleasePage() {
             placeholder="Type your clarification…"
             className="text-sm"
           />
+          {clarifyError && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {clarifyError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                setClarifyText("");
-                setClarifyOpen(false);
-              }}
+              onClick={() => setClarifyOpen(false)}
+              disabled={clarifyMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               type="button"
               size="sm"
-              disabled={!clarifyText.trim()}
-              onClick={() => {
-                setClarifyOpen(false);
-                toast.success("Clarification mail queued.");
-                setClarifyText("");
-              }}
+              disabled={!clarifyText.trim() || clarifyMutation.isPending}
+              onClick={submitClarify}
             >
-              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Send Mail
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5" />{" "}
+              {clarifyMutation.isPending ? "Sending…" : "Send Mail"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
 
 
       <Dialog open={printOpen} onOpenChange={setPrintOpen}>
