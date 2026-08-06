@@ -11,17 +11,20 @@ import { z } from "zod";
 const APPROVE_CONFIG_NAME = "ZNFA_APPROVE_API";
 const REJECT_CONFIG_NAME = "ZNFA_REJECT_API";
 const CLARIFY_CONFIG_NAME = "ZNFA_Clarification_API";
+const DIS_CLARIFY_CONFIG_NAME = "ZNFA_DISPLAY_CLARIFY_API";
 
 export type ZnfaApproveResponse = {
   ok: boolean;
   sapMessage: string | null;
   number: string | null;
   error: string | null;
+  lines: string[];
 };
 
 function fail(error: string | null, sapMessage: string | null = null): ZnfaApproveResponse {
-  return { ok: false, sapMessage, number: null, error };
+  return { ok: false, sapMessage, number: null, error, lines: [] };
 }
+
 
 function extractSapMsg(text: string): string | null {
   if (!text || !text.trim()) return null;
