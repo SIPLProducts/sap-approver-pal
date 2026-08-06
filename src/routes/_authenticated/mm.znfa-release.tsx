@@ -1069,6 +1069,71 @@ function ZnfaReleasePage() {
     });
   }
 
+  // Display Clarification action (ZNFA_DISPLAY_CLARIFY_API)
+  const [disClarifyOpen, setDisClarifyOpen] = useState(false);
+  const [disClarifyLines, setDisClarifyLines] = useState<string[]>([]);
+  const [disClarifyError, setDisClarifyError] = useState<string | null>(null);
+  const disClarifyMutation = useMutation({
+    mutationFn: (vars: { znfaNum: string; user: string; relCode: string }) =>
+      approveFn({
+        data: {
+          znfaNum: vars.znfaNum,
+          user: vars.user,
+          relCode: vars.relCode,
+          reject: false,
+          reason: "",
+          clarify: false,
+          clarifyText: "",
+          disClarify: true,
+        },
+      }),
+    onSuccess: (res) => {
+      const msg = res.sapMessage ?? res.error;
+      if (!res.ok) {
+        setDisClarifyLines([]);
+        setDisClarifyError(msg ?? "SAP rejected the request.");
+        toast.error(msg ?? "SAP rejected the request.");
+        return;
+      }
+      setDisClarifyError(null);
+      setDisClarifyLines(res.lines ?? []);
+    },
+    onError: (e: any) => {
+      const msg =
+        typeof e?.message === "string" && e.message.trim()
+          ? e.message
+          : "An unexpected error occurred while loading the clarification.";
+      setDisClarifyLines([]);
+      setDisClarifyError(msg);
+      toast.error(msg);
+    },
+  });
+
+  function openDisClarify() {
+    const nfaNo = openedNfaNo?.trim();
+    setDisClarifyLines([]);
+    setDisClarifyError(null);
+    setDisClarifyOpen(true);
+    if (!nfaNo) {
+      setDisClarifyError("No NFA document is open.");
+      return;
+    }
+    if (!releaseId?.trim()) {
+      setDisClarifyError("SAP user id is missing.");
+      return;
+    }
+    if (!releaseCode?.trim()) {
+      setDisClarifyError("Release Code is missing.");
+      return;
+    }
+    disClarifyMutation.mutate({
+      znfaNum: nfaNo,
+      user: releaseId.trim(),
+      relCode: releaseCode.trim(),
+    });
+  }
+
+
 
   function clearReleaseResults() {
     setReleaseRows(null);
