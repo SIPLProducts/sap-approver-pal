@@ -45,6 +45,76 @@ Fix it with section 1 below; nothing else in this deployment needs action.
 
 Then test the login. Everything else is already working.
 
+### Exactly which files must be on the server
+
+Your `frontend/` folder currently contains only `dist/`. `dist/server/index.mjs`
+and `dist/server/wrangler.json` are present, which is good — but a compiled
+Worker bundle cannot run by itself. It needs a runtime (`wrangler`) to host it.
+
+Required at `/data/webapplication/resl_approval/Quality/frontend/`:
+
+| Path | Purpose | Present now |
+| --- | --- | --- |
+| `dist/index.html`, `dist/assets/`, `dist/sw.js`, `dist/favicon.ico` | static shell Nginx serves | yes |
+| `dist/server/` (incl. `index.mjs`, `wrangler.json`) | the app server bundle | yes |
+| `package.json` | defines `npm start` | **missing** |
+| `package-lock.json` | exact dependency versions for `npm ci` | **missing** |
+| `scripts/start-server.mjs` | what `npm start` actually runs | **missing** |
+| `node_modules/wrangler` | the runtime that executes the bundle | **missing** |
+
+Copy the three missing files from your build machine:
+
+```bash
+rsync -a package.json package-lock.json scripts/ \
+  root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/
+```
+
+then on the server:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend
+npm ci --include=dev      # wrangler is a devDependency, so --include=dev is required
+ls -d node_modules/wrangler
+```
+
+Nothing else from the repository is needed on the server — no `src/`, no
+`supabase/`, no `middleware/` (that already runs separately as `Qty_Approval`).
+
+#### If you would rather not copy package.json at all
+
+Installing wrangler standalone works too, and skips `npm ci`:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend
+npm init -y
+npm install wrangler
+PORT=8080 npx wrangler dev --cwd dist/server --ip 127.0.0.1 --port 8080
+```
+
+This is the same command `scripts/start-server.mjs` runs internally. Use whichever
+approach you prefer, then continue with the PM2 step in section 1.
+
+### Your frontend .env has one value that must change
+
+```text
+VITE_SUPABASE_URL=http://10.150.150.130:8000   # wrong for browsers
+```
+
+`VITE_*` values are compiled into the browser bundle, and the browser cannot
+reach port 8000 (it is bound to `127.0.0.1`) — this is exactly the
+`ERR_CONNECTION_REFUSED` you saw. Change it and rebuild:
+
+```text
+VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase
+```
+
+`VITE_SUPABASE_PUBLISHABLE_KEY` must stay byte-identical to `ANON_KEY` in
+`backend/.env`; verify with `grep '^ANON_KEY=' backend/.env`.
+`VITE_SUPABASE_PROJECT_ID=Quality` is only a label and is fine.
+
+Note the two blockers are independent: fixing this URL does not fix the 502, and
+starting 8080 does not fix the browser URL. Both are required.
+
 ### What your two screenshots show
 
 1. **Login page + `502` on Sign in.** The page itself loaded from Nginx, so the
