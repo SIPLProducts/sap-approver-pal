@@ -27,12 +27,29 @@ browser posts to `/_serverFn/<hash>`; Nginx forwards that to `127.0.0.1:8080`;
 nothing listens there, so Nginx answers **502 Bad Gateway** — exactly the popup
 in your screenshot.
 
-### Start it first in the foreground
+### Deploy the runtime files, then start it in the foreground
+
+Your `frontend/` folder currently contains `dist/`, but not `package.json` or
+`node_modules`. This is why `npm start` fails with `ENOENT package.json`.
+`dist/server/index.mjs` is the compiled application, but this project's start
+command also requires the repository runtime files and Wrangler.
+
+Copy these from the project/build machine to the server:
+
+```bash
+rsync -a package.json package-lock.json scripts/ \
+  root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/
+rsync -a --delete dist/ \
+  root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
+```
+
+Then on the server:
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend
-ls dist/server/index.mjs        # must exist (from npm run build)
-ls -d node_modules/wrangler     # if missing: npm ci
+ls package.json scripts/start-server.mjs dist/server/index.mjs
+npm ci --include=dev            # installs Wrangler, which is a build/runtime dependency here
+ls -d node_modules/wrangler
 PORT=8080 HOST=127.0.0.1 npm start
 ```
 
@@ -174,11 +191,15 @@ INSERT INTO public.sap_api_configs
   (name, description, module, endpoint_url, http_method, auth_type, api_type,
    auto_sync_enabled, is_active)
 VALUES
-  ('Login_API', 'SAP user login', 'AUTH', '/login', 'POST', 'none', 'Login',
+  ('Login_API', 'SAP user login', 'COMMON', '/login', 'POST', 'none', 'fetch',
    false, true)
 ON CONFLICT (name) DO UPDATE SET is_active = true;
 SQL
 ```
+
+Your previous insert was rolled back completely because `api_type='Login'` is
+invalid. The schema permits only `sync` or `fetch`; it also permits only `MM`,
+`SD`, or `COMMON` for `module`. The corrected statement above uses valid values.
 
 The middleware path actually called by this app is
 `http://127.0.0.1:3002/login/Login_API`; the config row must exist and be active
@@ -190,7 +211,7 @@ them from backup:
 ```bash
 docker compose -p resl_quality exec -T db psql -U postgres -d postgres <<'SQL'
 UPDATE public.sap_global_settings
-SET connection_mode = 'proxy',
+SET connection_mode = 'via_proxy',
     middleware_url = 'http://127.0.0.1:3002',
     sap_base_url = 'http://10.150.150.155:8005'
 WHERE id = 'default';
@@ -201,9 +222,9 @@ WHERE id = 'default';
 SQL
 ```
 
-Use the exact connection-mode value already present in your previous database
-if it differs from `proxy`; restoring these rows from the backup is safer than
-guessing custom configuration.
+The application accepts `direct` or `via_proxy`; `via_proxy` is the correct
+value for your Node.js middleware setup. Restoring API rows from your backup is
+still preferable if it contains the exact production endpoint configuration.
 
 ## 5. First login and admin creation
 
@@ -239,14 +260,16 @@ profile, roles and RLS data. Nothing works until **both** :8080 and the
 ## 7. Exact order from your current position
 
 1. Keep the successful database/schema as-is; do not rerun migrations.
-2. Verify `dist/server/index.mjs` and `node_modules/wrangler` exist.
-3. Run `PORT=8080 HOST=127.0.0.1 npm start` in the foreground.
-4. Only after foreground startup works, use the direct PM2 command above.
-5. Confirm `pm2 ls` shows `Qty_Approval` and `Qty-App`, and 8080 is listening.
-6. Rebuild with `VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase` if the
+2. Copy `package.json`, `package-lock.json`, `scripts/`, and the whole `dist/`.
+3. Run `npm ci --include=dev`; verify `node_modules/wrangler` exists.
+4. Run `PORT=8080 HOST=127.0.0.1 npm start` in the foreground.
+5. Only after foreground startup works, use the direct PM2 command above.
+6. Confirm `pm2 ls` shows `Qty_Approval` and `Qty-App`, and use `ss -ltnp`
+   (two letters `s`, not the mistyped `s -ltnp`) to verify 8080 is listening.
+7. Rebuild with `VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase` if the
    current build still contains `http://10.150.150.130:8000`.
-7. Seed/restore `Login_API` and SAP global settings.
-8. Log in with a valid SAP user; the first user becomes Admin.
+8. Run the corrected `Login_API` insert and SAP global settings update.
+9. Log in with a valid SAP user; the first user becomes Admin.
 
 ## Notes
 
