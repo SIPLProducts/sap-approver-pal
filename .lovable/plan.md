@@ -1,4 +1,75 @@
-# Quality server: exact next steps after creating the database
+# Quality server: restore frontend and backend access
+
+## Immediate diagnosis for the current outage
+
+The pasted Nginx routing is structurally correct for this deployment, but
+"frontend not coming" does not identify whether Nginx failed to reload, the
+static build is absent, or an upstream is down. Do not edit the configuration
+again until these checks identify the failing layer.
+
+Run on the Ubuntu server, in this order:
+
+```bash
+# 1. Validate Nginx and confirm port 8081 is listening
+sudo nginx -t
+sudo systemctl status nginx --no-pager -l
+sudo ss -ltnp | grep -E ':8081|:8080|:8000|:3000|:3002'
+
+# 2. Confirm the frontend shell and assets exist where Nginx expects them
+sudo ls -lh /data/webapplication/resl_approval/Quality/frontend/dist/index.html
+sudo ls -ld /data/webapplication/resl_approval/Quality/frontend/dist/assets
+sudo -u www-data test -r /data/webapplication/resl_approval/Quality/frontend/dist/index.html \
+  && echo 'frontend readable' || echo 'frontend missing/not readable'
+
+# 3. Test each layer locally, bypassing the browser
+curl -i http://127.0.0.1:8081/login
+curl -i http://127.0.0.1:8000/auth/v1/health
+curl -i http://127.0.0.1:8081/supabase/auth/v1/health
+curl -i http://127.0.0.1:3000/
+
+# 4. Read the actual Nginx failure, if any
+sudo tail -n 100 /data/webapplication/resl_approval/Quality/logs/error.log
+sudo journalctl -u nginx -n 100 --no-pager
+```
+
+Interpret the results as follows:
+
+- `nginx -t` fails: fix the exact file/line reported, then run
+  `sudo systemctl reload nginx`.
+- Nothing listens on `:8081`: Nginx did not start or this server block is not
+  enabled. Confirm the file is linked under `/etc/nginx/sites-enabled/`, retest,
+  and restart Nginx.
+- `/login` returns `404` or the `ls` command fails: deploy the complete `dist/`
+  output to the configured root. The login page is served by `index.html`; it
+  does not depend on port 8080 merely to render.
+- `/login` returns `403`: make the parent directories traversable and the build
+  readable by `www-data`:
+
+  ```bash
+  sudo chmod o+x /data /data/webapplication /data/webapplication/resl_approval \
+    /data/webapplication/resl_approval/Quality \
+    /data/webapplication/resl_approval/Quality/frontend
+  sudo find /data/webapplication/resl_approval/Quality/frontend/dist \
+    -type d -exec chmod 755 {} \;
+  sudo find /data/webapplication/resl_approval/Quality/frontend/dist \
+    -type f -exec chmod 644 {} \;
+  ```
+- Direct `:8000/auth/v1/health` works but the `/supabase/...` test fails: inspect
+  the Nginx error log and ensure the active config contains the trailing slashes
+  exactly as pasted: `location /supabase/` and
+  `proxy_pass http://supabase_api/;`. This intentionally strips `/supabase/`
+  before forwarding to Kong.
+- Both backend health requests return `401` while the service answers: repeat
+  with `-H "apikey: $ANON_KEY"` after loading `backend/.env`; an auth status is
+  not the same as a connection refusal or 502.
+- `/studio/` redirects or loads broken assets: Studio may not be subpath-aware.
+  The application does not require Studio to log in; restore the app first, then
+  expose Studio on a separate protected port/server name if its assets do not
+  support `/studio/`.
+
+After the static login page returns HTTP 200, restore port 8080 using section 1
+below. Without the app server the page renders, but submitting SAP login returns
+502.
 
 The database is now created correctly. The migration output completed without
 an error, `\dt` shows all 26 application tables, and the REST test returned
