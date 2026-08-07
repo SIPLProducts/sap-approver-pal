@@ -37,6 +37,14 @@ at `127.0.0.1:8082` predate the current config and can be ignored.
 
 Fix it with section 1 below; nothing else in this deployment needs action.
 
+### What to do now (next 30 minutes)
+
+1. Start the app server on port 8080 (section 1).
+2. Insert the `Login_API` config row (section 4).
+3. Rebuild the frontend with `VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase` (section 3).
+
+Then test the login. Everything else is already working.
+
 ### What your two screenshots show
 
 1. **Login page + `502` on Sign in.** The page itself loaded from Nginx, so the
