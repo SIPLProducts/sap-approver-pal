@@ -36,6 +36,10 @@ ls -d node_modules/wrangler     # if missing: npm ci
 PORT=8080 HOST=127.0.0.1 npm start
 ```
 
+Run these commands one at a time. Your latest output only shows the three test
+commands; it does not show `npm start` being run. Therefore nothing is listening
+on 8080 and the 502 is expected.
+
 Expect `[start] serving dist/ on http://127.0.0.1:8080`. Leave that terminal
 open and test from a second terminal:
 
@@ -47,40 +51,57 @@ curl -i -X POST http://10.150.150.130:8081/_serverFn/ping
 
 A 404/400/500 from the dummy `ping` path is acceptable; **502 is not**. It only
 tests whether Nginx can reach the app server. Then stop the foreground process
-with Ctrl+C and run it under pm2 as a **second** process:
+with Ctrl+C and run it under pm2 as a **second** process.
 
-```js
-// /data/webapplication/resl_approval/Quality/frontend/ecosystem.config.cjs
-module.exports = {
-  apps: [{
-    name: "Qty-App",
-    cwd: "/data/webapplication/resl_approval/Quality/frontend",
-    script: "npm",
-    args: "start",
-    autorestart: true,
-    env: {
-      PORT: "8080",
-      HOST: "127.0.0.1",
-      NODE_ENV: "production",
-      SUPABASE_URL: "http://127.0.0.1:8000",
-      SUPABASE_PUBLISHABLE_KEY: "<ANON_KEY from backend/.env>",
-      SUPABASE_SERVICE_ROLE_KEY: "<SERVICE_ROLE_KEY from backend/.env>",
-    },
-  }],
-};
-```
+`ecosystem.config.cjs` is **not required**. It is only a convenient way to keep
+all environment variables together. Your other project likely supplies its
+environment another way. Use PM2 directly here:
 
 ```bash
-pm2 start ecosystem.config.cjs && pm2 save
+cd /data/webapplication/resl_approval/Quality/frontend
+
+# Load backend keys without printing them. Confirm these exact variable names
+# exist first: ANON_KEY and SERVICE_ROLE_KEY.
+set -a
+. /data/webapplication/resl_approval/Quality/backend/.env
+set +a
+
+PORT=8080 \
+HOST=127.0.0.1 \
+NODE_ENV=production \
+SUPABASE_URL=http://127.0.0.1:8000 \
+SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" \
+SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+pm2 start npm --name Qty-App -- start
+
+pm2 save
 pm2 ls                       # must now show Qty_Approval AND Qty-App
 pm2 logs Qty-App --lines 50
 ```
+
+If PM2 does not preserve the shell variables after reboot, use a root-owned
+environment file or an ecosystem file later. First make the direct command work.
 
 The **service role key is mandatory** — SAP login uses it to create the user and
 mint the one-time login token. Without it login fails even when SAP accepts the
 password.
 
-## 2. Use the correct browser backend URL
+## 2. Supabase is already created
+
+Do **not** recreate it and do not rerun the migrations. These results confirm a
+successful backend:
+
+- Docker containers are healthy.
+- `\dt public.*` lists all 26 application tables.
+- `/rest/v1/profiles` returned `HTTP 200 []`.
+
+`[]` means the `profiles` table is empty, not that Supabase is missing. It will
+receive its first row after the first successful SAP login.
+
+Supabase is an API/database service, not a normal website on `/`. Its admin UI
+is Studio at `http://10.150.150.130:8081/studio/` through Nginx.
+
+## 3. Use the correct browser backend URL
 
 The Docker configuration binds Kong as:
 
@@ -135,7 +156,7 @@ Key rules:
   identical** to `ANON_KEY`, or every browser call fails with an invalid JWT.
 - Never delete `volumes/db/data` — that is the live database.
 
-## 3. Seed Login_API before the first login
+## 4. Seed Login_API before the first login
 
 The migrations created the SAP settings tables and default global rows, but
 they do **not** insert a `Login_API` configuration. This creates a first-login
@@ -184,7 +205,7 @@ Use the exact connection-mode value already present in your previous database
 if it differs from `proxy`; restoring these rows from the backup is safer than
 guessing custom configuration.
 
-## 4. First login and admin creation
+## 5. First login and admin creation
 
 1. Open `http://10.150.150.130:8081/login` and sign in with a valid SAP user.
    The app creates the backend user on the fly, and the existing
@@ -202,7 +223,7 @@ guessing custom configuration.
 Note: your middleware log shows `app: http://10.150.150.130:8081` — correct. The
 earlier line pointing at `http://10.150.150.155:8005` was an older build.
 
-## 5. Full login flow on the server
+## 6. Full login flow on the server
 
 ```text
 browser :8081  →  Nginx  →  /_serverFn/*  →  app server :8080
@@ -215,14 +236,17 @@ So SAP is the only password authority, and Supabase is required for the session,
 profile, roles and RLS data. Nothing works until **both** :8080 and the
 :8000 schema are in place.
 
-## 6. Order of operations
+## 7. Exact order from your current position
 
 1. Keep the successful database/schema as-is; do not rerun migrations.
-2. Rebuild with `VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase`.
-3. Seed/restore `Login_API` and SAP global settings.
-4. Start `Qty-App` on 8080 with the three runtime Supabase variables.
-5. Confirm `pm2 ls` shows both processes and `/ping` no longer returns 502.
-6. Log in with a valid SAP user; the first user becomes Admin.
+2. Verify `dist/server/index.mjs` and `node_modules/wrangler` exist.
+3. Run `PORT=8080 HOST=127.0.0.1 npm start` in the foreground.
+4. Only after foreground startup works, use the direct PM2 command above.
+5. Confirm `pm2 ls` shows `Qty_Approval` and `Qty-App`, and 8080 is listening.
+6. Rebuild with `VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase` if the
+   current build still contains `http://10.150.150.130:8000`.
+7. Seed/restore `Login_API` and SAP global settings.
+8. Log in with a valid SAP user; the first user becomes Admin.
 
 ## Notes
 
