@@ -1,75 +1,41 @@
 # Quality server: restore frontend and backend access
 
-## Immediate diagnosis for the current outage
+## Diagnosis from your latest output: only port 8080 is missing
 
-The pasted Nginx routing is structurally correct for this deployment, but
-"frontend not coming" does not identify whether Nginx failed to reload, the
-static build is absent, or an upstream is down. Do not edit the configuration
-again until these checks identify the failing layer.
+Your results prove the infrastructure is already correct. Nothing in Nginx, the
+build, Kong or Studio needs to be changed:
 
-Run on the Ubuntu server, in this order:
+| Check | Result | Verdict |
+| --- | --- | --- |
+| `nginx -t` | syntax ok, test successful | correct |
+| `systemctl status nginx` | active (running), reloaded 09:34 | correct |
+| `ss -ltnp` | 8081 nginx, 8000 Kong, 3000 Studio, 3002 middleware | correct |
+| `curl :8081/login` | **HTTP 200**, 4113 bytes | frontend is served |
+| `curl :8000/auth/v1/health` | 401 `No API key found`, `Server: kong` | Kong alive |
+| `curl :8081/supabase/auth/v1/health` | 401 from Kong via `Server: nginx` | proxy route works |
+| `curl :3000/` | 307 -> `/project/default` | Studio alive |
+| `:8080` in `ss` output | **absent** | **the only failure** |
 
-```bash
-# 1. Validate Nginx and confirm port 8081 is listening
-sudo nginx -t
-sudo systemctl status nginx --no-pager -l
-sudo ss -ltnp | grep -E ':8081|:8080|:8000|:3000|:3002'
+Two results that look like errors but are not:
 
-# 2. Confirm the frontend shell and assets exist where Nginx expects them
-sudo ls -lh /data/webapplication/resl_approval/Quality/frontend/dist/index.html
-sudo ls -ld /data/webapplication/resl_approval/Quality/frontend/dist/assets
-sudo -u www-data test -r /data/webapplication/resl_approval/Quality/frontend/dist/index.html \
-  && echo 'frontend readable' || echo 'frontend missing/not readable'
+- `401 {"message":"No API key found in request"}` is Kong correctly rejecting a
+  request without an `apikey` header. It proves the backend is reachable. Add
+  `-H "apikey: $ANON_KEY"` to see `200`.
+- `sudo: unable to load libsss_sudo.so` is unrelated to this app. You are already
+  `root`, so drop the `sudo` prefix from these commands.
 
-# 3. Test each layer locally, bypassing the browser
-curl -i http://127.0.0.1:8081/login
-curl -i http://127.0.0.1:8000/auth/v1/health
-curl -i http://127.0.0.1:8081/supabase/auth/v1/health
-curl -i http://127.0.0.1:3000/
+So the frontend problem is not Nginx: `/login` returns 200, the shell loads, and
+it then fails on its first server call. Your error log confirms it — every line
+is the same fault:
 
-# 4. Read the actual Nginx failure, if any
-sudo tail -n 100 /data/webapplication/resl_approval/Quality/logs/error.log
-sudo journalctl -u nginx -n 100 --no-pager
+```text
+connect() failed (111: Connection refused) ... upstream: "http://127.0.0.1:8080/_serverFn/..."
 ```
 
-Interpret the results as follows:
+The application server on 8080 has never been started. The older lines pointing
+at `127.0.0.1:8082` predate the current config and can be ignored.
 
-- `nginx -t` fails: fix the exact file/line reported, then run
-  `sudo systemctl reload nginx`.
-- Nothing listens on `:8081`: Nginx did not start or this server block is not
-  enabled. Confirm the file is linked under `/etc/nginx/sites-enabled/`, retest,
-  and restart Nginx.
-- `/login` returns `404` or the `ls` command fails: deploy the complete `dist/`
-  output to the configured root. The login page is served by `index.html`; it
-  does not depend on port 8080 merely to render.
-- `/login` returns `403`: make the parent directories traversable and the build
-  readable by `www-data`:
-
-  ```bash
-  sudo chmod o+x /data /data/webapplication /data/webapplication/resl_approval \
-    /data/webapplication/resl_approval/Quality \
-    /data/webapplication/resl_approval/Quality/frontend
-  sudo find /data/webapplication/resl_approval/Quality/frontend/dist \
-    -type d -exec chmod 755 {} \;
-  sudo find /data/webapplication/resl_approval/Quality/frontend/dist \
-    -type f -exec chmod 644 {} \;
-  ```
-- Direct `:8000/auth/v1/health` works but the `/supabase/...` test fails: inspect
-  the Nginx error log and ensure the active config contains the trailing slashes
-  exactly as pasted: `location /supabase/` and
-  `proxy_pass http://supabase_api/;`. This intentionally strips `/supabase/`
-  before forwarding to Kong.
-- Both backend health requests return `401` while the service answers: repeat
-  with `-H "apikey: $ANON_KEY"` after loading `backend/.env`; an auth status is
-  not the same as a connection refusal or 502.
-- `/studio/` redirects or loads broken assets: Studio may not be subpath-aware.
-  The application does not require Studio to log in; restore the app first, then
-  expose Studio on a separate protected port/server name if its assets do not
-  support `/studio/`.
-
-After the static login page returns HTTP 200, restore port 8080 using section 1
-below. Without the app server the page renders, but submitting SAP login returns
-502.
+Fix it with section 1 below; nothing else in this deployment needs action.
 
 The database is now created correctly. The migration output completed without
 an error, `\dt` shows all 26 application tables, and the REST test returned
