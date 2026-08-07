@@ -37,6 +37,30 @@ at `127.0.0.1:8082` predate the current config and can be ignored.
 
 Fix it with section 1 below; nothing else in this deployment needs action.
 
+### What your two screenshots show
+
+1. **Login page + `502` on Sign in.** The page itself loaded from Nginx, so the
+   frontend is deployed correctly. Pressing Sign in posts to
+   `/_serverFn/14406b97...`, Nginx forwards it to `127.0.0.1:8080`, nothing is
+   listening, and Nginx returns its own `502 Bad Gateway` HTML — which the app
+   then displays in that red toast. This is the same missing 8080 process, not a
+   login bug and not an SAP problem.
+2. **`10.150.150.130:8000` → `ERR_CONNECTION_REFUSED`.** This is expected and
+   correct. Kong is deliberately bound to `127.0.0.1:8000`, so it is only
+   reachable from the server itself. Nothing is broken here.
+
+"Supabase not opening" is a misunderstanding of what runs on 8000. It is an
+HTTP API, not a website — opening it in a browser is never the right test, and
+you already proved it is healthy (`Server: kong/3.9.3` with a `401` for a missing
+API key). Use these instead:
+
+- Admin UI: `http://10.150.150.130:8081/studio/` (Studio, behind basic auth).
+- API through Nginx: `http://10.150.150.130:8081/supabase/...` — the browser must
+  use this path, never port 8000.
+- Verify with a key: `curl -i http://10.150.150.130:8081/supabase/auth/v1/health -H "apikey: $ANON_KEY"` → `200`.
+
+Do not open port 8000 to the network to "fix" this.
+
 The database is now created correctly. The migration output completed without
 an error, `\dt` shows all 26 application tables, and the REST test returned
 `HTTP 200 []`. An empty array is expected because no users exist yet.
