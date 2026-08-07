@@ -1,8 +1,15 @@
-# Quality server: app server on 8080 + Supabase (backend) setup
+# Quality server: exact next steps after creating the database
 
-Two separate things are missing. Your `pm2 ls` shows only ONE process
-(`Qty_Approval`), and its logs show it is the **SAP middleware on :3002** — not
-the app server. And the Supabase stack in `backend/` has no schema yet.
+The database is now created correctly. The migration output completed without
+an error, `\dt` shows all 26 application tables, and the REST test returned
+`HTTP 200 []`. An empty array is expected because no users exist yet.
+
+Two deployment items remain:
+
+1. Port 8000 is intentionally bound to `127.0.0.1`, so a browser cannot open
+   `http://10.150.150.130:8000`. Browser traffic must use Nginx at
+   `http://10.150.150.130:8081/supabase`.
+2. The 502 proves that the application server is not listening on port 8080.
 
 ## 1. What "the app server on 8080" is
 
@@ -13,14 +20,14 @@ Your deployment has three app processes, not one:
 | Nginx | 8081 | serves `dist/` + proxies | yes |
 | SAP middleware (`middleware/server.js`) | 3002 | talks to SAP | yes (`Qty_Approval`) |
 | **App server (`npm start` in `frontend/`)** | **8080** | runs every `/_serverFn/*` and `/api/*` — SAP login, PR/PO/ZNFA, MIGO, users, mail, push | **NO — this is the 502** |
-| Supabase stack (Kong) | 8000 | auth + database | containers up, schema missing |
+| Supabase stack (Kong) | 8000 (localhost only) | auth + database | **healthy and schema created** |
 
 The static `dist/` files cannot call SAP or create a session by themselves. The
 browser posts to `/_serverFn/<hash>`; Nginx forwards that to `127.0.0.1:8080`;
 nothing listens there, so Nginx answers **502 Bad Gateway** — exactly the popup
 in your screenshot.
 
-### Start it
+### Start it first in the foreground
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend
@@ -29,8 +36,18 @@ ls -d node_modules/wrangler     # if missing: npm ci
 PORT=8080 HOST=127.0.0.1 npm start
 ```
 
-Expect `[start] serving dist/ on http://127.0.0.1:8080`. Then, once it works,
-run it under pm2 as a **second** process:
+Expect `[start] serving dist/ on http://127.0.0.1:8080`. Leave that terminal
+open and test from a second terminal:
+
+```bash
+ss -ltnp | grep 8080
+curl -i -X POST http://127.0.0.1:8080/_serverFn/ping
+curl -i -X POST http://10.150.150.130:8081/_serverFn/ping
+```
+
+A 404/400/500 from the dummy `ping` path is acceptable; **502 is not**. It only
+tests whether Nginx can reach the app server. Then stop the foreground process
+with Ctrl+C and run it under pm2 as a **second** process:
 
 ```js
 // /data/webapplication/resl_approval/Quality/frontend/ecosystem.config.cjs
@@ -56,42 +73,61 @@ module.exports = {
 ```bash
 pm2 start ecosystem.config.cjs && pm2 save
 pm2 ls                       # must now show Qty_Approval AND Qty-App
-curl -i -X POST http://10.150.150.130:8081/_serverFn/ping   # any answer but 502
+pm2 logs Qty-App --lines 50
 ```
 
 The **service role key is mandatory** — SAP login uses it to create the user and
 mint the one-time login token. Without it login fails even when SAP accepts the
 password.
 
-## 2. Create the Supabase schema (backend)
+## 2. Use the correct browser backend URL
 
-Your containers already came up healthy. What is missing is the **schema**: the
-`profiles`, `user_roles`, `sap_api_configs`, `sap_global_settings` tables, the
-`handle_new_user` trigger, etc. All of it lives in this repo under
-`supabase/migrations/` (about 30 `.sql` files, applied in filename order).
+The Docker configuration binds Kong as:
 
-```bash
-# copy the migration files onto the server (from your build machine)
-rsync -a supabase/migrations/ \
-  root@10.150.150.130:/data/webapplication/resl_approval/Quality/backend/migrations/
-
-# on the server: apply them in order
-cd /data/webapplication/resl_approval/Quality/backend
-for f in $(ls migrations/*.sql | sort); do
-  echo ">> $f"
-  docker compose -p resl_quality exec -T db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || break
-done
+```text
+127.0.0.1:8000 -> container:8000
 ```
 
-Verify:
+This is secure and should remain unchanged. It explains why `curl
+127.0.0.1:8000` works on the server but `10.150.150.130:8000` is refused from a
+user PC. Do **not** expose port 8000 publicly; your Nginx `/supabase/` block
+already supplies the public route.
 
-```bash
-docker compose -p resl_quality exec -T db psql -U postgres -d postgres \
-  -c "\dt public.*"
-curl -i http://127.0.0.1:8000/rest/v1/profiles -H "apikey: <ANON_KEY>"
+Rebuild the app using this frontend environment:
+
+```text
+VITE_SUPABASE_PROJECT_ID=Quality
+VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase
+VITE_SUPABASE_PUBLISHABLE_KEY=<exact ANON_KEY from backend/.env>
 ```
 
-Key rules for this stack:
+Then:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend
+npm ci
+rm -rf dist
+npm run build
+ls dist/index.html dist/server/index.mjs
+```
+
+The runtime app server still uses the private local URL:
+
+```text
+SUPABASE_URL=http://127.0.0.1:8000
+```
+
+Test the browser-facing Nginx route from any user PC or the server:
+
+```bash
+curl -i http://10.150.150.130:8081/supabase/auth/v1/health \
+  -H "apikey: <ANON_KEY>"
+```
+
+`200` confirms the route. Opening the bare API URL in Chrome is not a useful UI
+test; Supabase Studio is at `http://10.150.150.130:8081/studio/`.
+
+Key rules:
 
 - `JWT_SECRET`, `ANON_KEY` and `SERVICE_ROLE_KEY` in `backend/.env` must be
   consistent with each other (the two keys are JWTs signed with that secret).
@@ -99,7 +135,56 @@ Key rules for this stack:
   identical** to `ANON_KEY`, or every browser call fails with an invalid JWT.
 - Never delete `volumes/db/data` — that is the live database.
 
-## 3. Seed the first admin + SAP settings
+## 3. Seed Login_API before the first login
+
+The migrations created the SAP settings tables and default global rows, but
+they do **not** insert a `Login_API` configuration. This creates a first-login
+dependency: SAP login checks that row before it can create the first admin.
+
+Best option: restore/copy the existing `sap_api_configs` and related
+configuration rows from your Quality backup or existing environment. If no
+backup row is available, insert a minimal active row on the server (adjust the
+endpoint URL to the SAP login endpoint expected by your middleware):
+
+```bash
+cd /data/webapplication/resl_approval/Quality/backend
+docker compose -p resl_quality exec -T db psql -U postgres -d postgres <<'SQL'
+INSERT INTO public.sap_api_configs
+  (name, description, module, endpoint_url, http_method, auth_type, api_type,
+   auto_sync_enabled, is_active)
+VALUES
+  ('Login_API', 'SAP user login', 'AUTH', '/login', 'POST', 'none', 'Login',
+   false, true)
+ON CONFLICT (name) DO UPDATE SET is_active = true;
+SQL
+```
+
+The middleware path actually called by this app is
+`http://127.0.0.1:3002/login/Login_API`; the config row must exist and be active
+even in proxy mode.
+
+Configure the existing default global rows directly before login, or restore
+them from backup:
+
+```bash
+docker compose -p resl_quality exec -T db psql -U postgres -d postgres <<'SQL'
+UPDATE public.sap_global_settings
+SET connection_mode = 'proxy',
+    middleware_url = 'http://127.0.0.1:3002',
+    sap_base_url = 'http://10.150.150.155:8005'
+WHERE id = 'default';
+
+UPDATE public.sap_global_secrets
+SET proxy_secret = '<same strong value as middleware MIDDLEWARE_SHARED_SECRET>'
+WHERE id = 'default';
+SQL
+```
+
+Use the exact connection-mode value already present in your previous database
+if it differs from `proxy`; restoring these rows from the backup is safer than
+guessing custom configuration.
+
+## 4. First login and admin creation
 
 1. Open `http://10.150.150.130:8081/login` and sign in with a valid SAP user.
    The app creates the backend user on the fly, and the existing
@@ -117,7 +202,7 @@ Key rules for this stack:
 Note: your middleware log shows `app: http://10.150.150.130:8081` — correct. The
 earlier line pointing at `http://10.150.150.155:8005` was an older build.
 
-## 4. Full login flow on the server
+## 5. Full login flow on the server
 
 ```text
 browser :8081  →  Nginx  →  /_serverFn/*  →  app server :8080
@@ -130,12 +215,14 @@ So SAP is the only password authority, and Supabase is required for the session,
 profile, roles and RLS data. Nothing works until **both** :8080 and the
 :8000 schema are in place.
 
-## 5. Order of operations
+## 6. Order of operations
 
-1. Apply migrations (section 2).
-2. Start `Qty-App` on 8080 with all three Supabase env vars (section 1).
-3. `curl` the `/ping` check → no more 502.
-4. Log in with SAP, configure middleware settings (section 3).
+1. Keep the successful database/schema as-is; do not rerun migrations.
+2. Rebuild with `VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase`.
+3. Seed/restore `Login_API` and SAP global settings.
+4. Start `Qty-App` on 8080 with the three runtime Supabase variables.
+5. Confirm `pm2 ls` shows both processes and `/ping` no longer returns 502.
+6. Log in with a valid SAP user; the first user becomes Admin.
 
 ## Notes
 
