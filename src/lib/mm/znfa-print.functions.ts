@@ -75,8 +75,8 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
     z
       .object({
         znfaNum: z.string().trim().min(1, "NFA Number is required").max(60),
-        relCode: z.string().trim().max(10).optional().default(""),
-        nfaType: z.string().trim().max(20).optional().default(""),
+        relCode: z.string().trim().max(120).optional().default(""),
+        nfaType: z.string().trim().max(120).optional().default(""),
       })
       .parse(d),
   )
@@ -121,10 +121,11 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
     ]);
 
     const inputs: Record<string, any> = {
-      TYPE_NFA: (data.nfaType ?? "").trim(),
+      // Truncate to the SAP field lengths so an over-long value can never block the call.
+      TYPE_NFA: (data.nfaType ?? "").trim().slice(0, 20),
       ZRFQS: [{ RFQ: "" }],
       GET: "",
-      REL_CODE: (data.relCode ?? "").trim(),
+      REL_CODE: (data.relCode ?? "").trim().slice(0, 10),
       ZNFA_NUM: data.znfaNum.trim(),
       PRINT: "X",
     };
