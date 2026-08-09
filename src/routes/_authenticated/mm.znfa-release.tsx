@@ -901,7 +901,7 @@ function ZnfaReleasePage() {
   }
 
   function onPrintDownload() {
-    const href = printBlobUrl ?? printDataUrl;
+    const href = printBlobUrl;
     if (!href) return;
     const a = document.createElement("a");
     a.href = href;
