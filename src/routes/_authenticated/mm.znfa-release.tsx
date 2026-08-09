@@ -834,7 +834,7 @@ function ZnfaReleasePage() {
 
   });
 
-  // Blob URLs render reliably in an <iframe> where large data: URLs can be blocked.
+  // Blob URLs render reliably in an <iframe>; data: URLs of PDFs are blocked by browsers.
   const [printBlobUrl, setPrintBlobUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!printBase64) {
@@ -843,18 +843,29 @@ function ZnfaReleasePage() {
     }
     let url: string | null = null;
     try {
-      const bin = atob(printBase64);
+      let b64 = printBase64.trim().replace(/^["']+/, "").replace(/["']+$/, "");
+      b64 = b64.replace(/^data:[^;,]*;base64,/i, "");
+      b64 = b64
+        .replace(/[^A-Za-z0-9+/=_-]/g, "")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .replace(/=+$/, "");
+      b64 = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=");
+      const bin = atob(b64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
       url = URL.createObjectURL(new Blob([bytes], { type: printMimeType || "application/pdf" }));
       setPrintBlobUrl(url);
+      setPrintError(null);
     } catch {
       setPrintBlobUrl(null);
+      setPrintError("The document returned by SAP could not be decoded for preview.");
     }
     return () => {
       if (url) URL.revokeObjectURL(url);
     };
   }, [printBase64, printMimeType]);
+
 
   const isImagePreview = (printMimeType || "").toLowerCase().startsWith("image/");
 
@@ -890,7 +901,7 @@ function ZnfaReleasePage() {
   }
 
   function onPrintDownload() {
-    const href = printBlobUrl ?? printDataUrl;
+    const href = printBlobUrl;
     if (!href) return;
     const a = document.createElement("a");
     a.href = href;
@@ -2235,20 +2246,20 @@ function ZnfaReleasePage() {
               <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
                 {printError}
               </div>
-            ) : printBlobUrl || printDataUrl ? (
+            ) : printBlobUrl ? (
               <>
                 <div className="rounded-md border bg-white">
                   {isImagePreview ? (
                     <div className="flex h-[65vh] w-full items-center justify-center overflow-auto rounded-md p-2">
                       <img
-                        src={printBlobUrl ?? printDataUrl ?? undefined}
+                        src={printBlobUrl}
                         alt={`NFA preview${openedNfaNo ? ` for ${openedNfaNo}` : ""}`}
                         className="max-h-full max-w-full object-contain"
                       />
                     </div>
                   ) : (
                     <iframe
-                      src={printBlobUrl ?? printDataUrl ?? undefined}
+                      src={printBlobUrl}
                       title="NFA preview"
                       className="h-[65vh] w-full rounded-md"
                     />
@@ -2261,10 +2272,11 @@ function ZnfaReleasePage() {
                     size="sm"
                     variant="outline"
                     className="h-8 px-3 text-xs"
-                    onClick={() => window.open(printBlobUrl ?? printDataUrl ?? "", "_blank")}
+                    onClick={() => window.open(printBlobUrl, "_blank")}
                   >
                     Open in new tab
                   </Button>
+
                   <Button
                     type="button"
                     size="sm"
