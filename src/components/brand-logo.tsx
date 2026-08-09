@@ -1,4 +1,4 @@
-import logo from "@/assets/resl-logo.png.asset.json";
+import logo from "@/assets/re-sustainability-logo.jpg.asset.json";
 import { cn } from "@/lib/utils";
 
 type Props = {
