@@ -280,13 +280,26 @@ export const fetchZnfaPrint = createServerFn({ method: "POST" })
       return errorResponse(null, msg || "SAP did not return a printable document");
     }
 
+    const normalized = normalizeBase64(base64);
+    if (!decodesCleanly(normalized, mimeType)) {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `znfa-print: response could not be decoded (${normalized.length} chars)`,
+      });
+      return errorResponse(
+        "SAP returned a document that could not be decoded. Please retry or contact BASIS.",
+      );
+    }
+
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
       status: "ok",
       latency_ms,
-      message: `znfa-print: ok (${Math.round(base64.length / 1024)} KB base64)`,
+      message: `znfa-print: ok (${Math.round(normalized.length / 1024)} KB base64)`,
     });
 
-    const normalized = normalizeBase64(base64);
     return okResponse(normalized, `data:${mimeType};base64,${normalized}`, mimeType);
   });
+
