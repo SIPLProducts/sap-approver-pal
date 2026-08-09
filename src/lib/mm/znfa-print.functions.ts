@@ -41,6 +41,25 @@ function extractSapMsg(text: string): string | null {
   }
 }
 
+/** Strip JSON quoting, escapes and any data: prefix, keeping only base64 characters. */
+function cleanBase64(raw: string): { base64: string; mimeFromPrefix: string | null } {
+  let s = raw.trim();
+  // Remove one surrounding pair of quotes (SAP/middleware sometimes leaves JSON quoting in place).
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1);
+  }
+  s = s.replace(/^["']+/, "").replace(/["']+$/, "");
+  let mimeFromPrefix: string | null = null;
+  const prefix = s.match(/^data:([^;,]+)?;base64,/i);
+  if (prefix) {
+    mimeFromPrefix = prefix[1]?.trim() || null;
+    s = s.slice(prefix[0].length);
+  }
+  // Drop literal escape sequences and every non-base64 character.
+  s = s.replace(/\\[nrt"'\\/]/g, "").replace(/[^A-Za-z0-9+/=_-]/g, "");
+  return { base64: s, mimeFromPrefix };
+}
+
 function extractBase64Payload(json: any): { base64: string | null; mimeType: string; msg: string | null; status: string | null } {
   const payload: any = Array.isArray(json) ? json[0] : json;
   const status = String(payload?.STATUS ?? payload?.status ?? "").toUpperCase();
@@ -49,14 +68,16 @@ function extractBase64Payload(json: any): { base64: string | null; mimeType: str
 
   // Whole response is a plain base64 string (not wrapped in JSON).
   if (typeof payload === "string") {
-    return { base64: payload.trim(), mimeType: "application/pdf", msg: null, status: null };
+    const { base64, mimeFromPrefix } = cleanBase64(payload);
+    return { base64, mimeType: mimeFromPrefix ?? "application/pdf", msg: null, status: null };
   }
 
   // Common SAP envelope keys that contain the base64-encoded PDF.
   for (const key of ["PDF", "pdf", "DATA", "data", "FILE", "file", "CONTENT", "content", "BASE64", "base64"]) {
     const candidate = payload?.[key];
     if (typeof candidate === "string" && candidate.trim()) {
-      return { base64: candidate.trim(), mimeType: "application/pdf", msg, status };
+      const { base64, mimeFromPrefix } = cleanBase64(candidate);
+      return { base64, mimeType: mimeFromPrefix ?? "application/pdf", msg, status };
     }
   }
 
@@ -65,9 +86,24 @@ function extractBase64Payload(json: any): { base64: string | null; mimeType: str
 
 function normalizeBase64(base64: string): string {
   // SAP sometimes returns base64 without padding or with URL-safe characters.
-  const cleaned = base64.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  const cleaned = cleanBase64(base64).base64.replace(/-/g, "+").replace(/_/g, "/").replace(/=+$/, "");
   return cleaned.padEnd(cleaned.length + ((4 - (cleaned.length % 4)) % 4), "=");
 }
+
+/** Confirm the cleaned base64 really decodes (and looks like the claimed type). */
+function decodesCleanly(base64: string, mimeType: string): boolean {
+  try {
+    const buf = Buffer.from(base64, "base64");
+    if (buf.length < 8) return false;
+    if (mimeType.toLowerCase().includes("pdf")) {
+      return buf.subarray(0, 5).toString("latin1").startsWith("%PDF");
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 
 export const fetchZnfaPrint = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
