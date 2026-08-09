@@ -834,7 +834,7 @@ function ZnfaReleasePage() {
 
   });
 
-  // Blob URLs render reliably in an <iframe> where large data: URLs can be blocked.
+  // Blob URLs render reliably in an <iframe>; data: URLs of PDFs are blocked by browsers.
   const [printBlobUrl, setPrintBlobUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!printBase64) {
@@ -843,18 +843,29 @@ function ZnfaReleasePage() {
     }
     let url: string | null = null;
     try {
-      const bin = atob(printBase64);
+      let b64 = printBase64.trim().replace(/^["']+/, "").replace(/["']+$/, "");
+      b64 = b64.replace(/^data:[^;,]*;base64,/i, "");
+      b64 = b64
+        .replace(/[^A-Za-z0-9+/=_-]/g, "")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .replace(/=+$/, "");
+      b64 = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=");
+      const bin = atob(b64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
       url = URL.createObjectURL(new Blob([bytes], { type: printMimeType || "application/pdf" }));
       setPrintBlobUrl(url);
+      setPrintError(null);
     } catch {
       setPrintBlobUrl(null);
+      setPrintError("The document returned by SAP could not be decoded for preview.");
     }
     return () => {
       if (url) URL.revokeObjectURL(url);
     };
   }, [printBase64, printMimeType]);
+
 
   const isImagePreview = (printMimeType || "").toLowerCase().startsWith("image/");
 
