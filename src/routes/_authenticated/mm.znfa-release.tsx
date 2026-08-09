@@ -2246,20 +2246,20 @@ function ZnfaReleasePage() {
               <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
                 {printError}
               </div>
-            ) : printBlobUrl || printDataUrl ? (
+            ) : printBlobUrl ? (
               <>
                 <div className="rounded-md border bg-white">
                   {isImagePreview ? (
                     <div className="flex h-[65vh] w-full items-center justify-center overflow-auto rounded-md p-2">
                       <img
-                        src={printBlobUrl ?? printDataUrl ?? undefined}
+                        src={printBlobUrl}
                         alt={`NFA preview${openedNfaNo ? ` for ${openedNfaNo}` : ""}`}
                         className="max-h-full max-w-full object-contain"
                       />
                     </div>
                   ) : (
                     <iframe
-                      src={printBlobUrl ?? printDataUrl ?? undefined}
+                      src={printBlobUrl}
                       title="NFA preview"
                       className="h-[65vh] w-full rounded-md"
                     />
@@ -2272,10 +2272,11 @@ function ZnfaReleasePage() {
                     size="sm"
                     variant="outline"
                     className="h-8 px-3 text-xs"
-                    onClick={() => window.open(printBlobUrl ?? printDataUrl ?? "", "_blank")}
+                    onClick={() => window.open(printBlobUrl, "_blank")}
                   >
                     Open in new tab
                   </Button>
+
                   <Button
                     type="button"
                     size="sm"
