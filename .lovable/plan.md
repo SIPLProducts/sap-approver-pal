@@ -1,89 +1,91 @@
-# Fix the deploy script's "keys missing" stop, then bring 8080 up
+# Immediate recovery: populate the empty `.env` and start port 8080
 
-The values you pasted are correct — `SUPABASE_SERVICE_ROLE_KEY` really does decode to
-`"role":"service_role"`, and all four required keys are present. So the script's
-verdict at step 3 is wrong about *your* file, which means the file it read is not the
-one you pasted, or the text has characters the check does not tolerate (BOM, CRLF,
-leading spaces, `export ` prefix, quotes, a trailing space as on
-`MIDDLEWARE_SHARED_SECRET=123456 `).
+The diagnosis is confirmed: `frontend/.env` is **0 bytes**. The deploy script therefore stops before starting the app server. `Qty_App` showing 0 seconds uptime with **1,989 restarts** is a crash loop, not a working process. Nothing listens on 8080, so nginx returns 502 for login requests.
 
-## Step 1 — one command to prove which it is
+Do **not** run `pm2 restart all` again. It only restarts the same broken process and unnecessarily restarts `Qty_Approval`.
 
-```bash
-cd /data/webapplication/resl_approval/Quality/frontend
-ls -l .env; file .env
-grep -nE '^\s*(export\s+)?(SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=' .env | cut -c1-60
-```
+## 1. Populate the empty file
 
-`file` tells us CRLF/BOM; the `grep` tells us whether the keys are really in *this*
-file (paste output back if it looks odd).
-
-## Step 2 — the exact file to write
-
-`/data/webapplication/resl_approval/Quality/frontend/.env`, LF endings, no quotes, no
-trailing spaces:
-
-```ini
-VITE_SUPABASE_URL=http://10.150.150.130:8000
-VITE_SUPABASE_PUBLISHABLE_KEY=<your anon key>
-VITE_SUPABASE_PROJECT_ID=Quality
-
-SUPABASE_URL=http://10.150.150.130:8000
-SUPABASE_PUBLISHABLE_KEY=<your anon key>
-SUPABASE_SERVICE_ROLE_KEY=<your service_role key>
-MIDDLEWARE_URL=http://127.0.0.1:3002
-MIDDLEWARE_SHARED_SECRET=123456
-
-PORT=8080
-HOST=127.0.0.1
-NODE_ENV=production
-```
-
-Then `chmod 600 .env` and, to be safe about invisible characters:
-`sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/[ \t]*$//' .env`
-
-Note the `VITE_*` values are only used at build time (they are baked into `dist/`);
-the four unprefixed ones are what the server on 8080 reads at start.
-
-## Step 3 — script change I will make (so this stops happening)
-
-`scripts/deploy-frontend.sh`, step 3 only:
-
-- strip a UTF-8 BOM, CR characters, an optional `export ` prefix, surrounding quotes
-  and trailing whitespace while generating `.env.runtime`;
-- match keys with `^[[:space:]]*(export[[:space:]]+)?KEY=` instead of a strict `^KEY=`;
-- on failure, print the key names actually found in the file (names only, never
-  values) plus the ready-to-paste template above, so the message says what is wrong
-  rather than only what is missing;
-- keep the service-role sanity check and everything from step 4 onward untouched.
-
-`DEPLOY-QUALITY.md` gets a short "502 on /_serverFn — nothing on 8080" section with
-the same template and the verification commands.
-
-No application code, nginx, Docker, database or middleware changes.
-
-## Step 4 — run and verify
+Run this on the server. It prompts for sensitive values so they do not appear in shell history. Paste the anon key, service-role key, and middleware secret you already have.
 
 ```bash
-cd /data/webapplication/resl_approval/Quality/frontend/dist
+cd /data/webapplication/resl_approval/Quality/frontend || exit 1
+
+read -r -s -p "Paste ANON_KEY, then Enter: " ANON_KEY; echo
+read -r -s -p "Paste SERVICE_ROLE_KEY, then Enter: " SERVICE_KEY; echo
+read -r -s -p "Paste middleware shared secret, then Enter: " MW_SECRET; echo
+
+printf '%s\n' \
+  'SUPABASE_URL=http://127.0.0.1:8000' \
+  "SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}" \
+  "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_KEY}" \
+  'MIDDLEWARE_URL=http://127.0.0.1:3002' \
+  "MIDDLEWARE_SHARED_SECRET=${MW_SECRET}" \
+  'PORT=8080' \
+  'HOST=127.0.0.1' \
+  'NODE_ENV=production' > .env
+
+unset ANON_KEY SERVICE_KEY MW_SECRET
+chmod 600 .env
+
+wc -c .env
+grep -E '^(SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET|PORT|HOST|NODE_ENV)=' .env \
+  | sed 's/=.*$/=<set>/'
+```
+
+Expected: `wc -c .env` is greater than 0 and all eight names print as `<set>`.
+
+## 2. Remove the crash loop and deploy cleanly
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend/dist || exit 1
+pm2 delete Qty_App 2>/dev/null || true
 bash deploy-frontend.sh
-pm2 save && pm2 startup
 ```
+
+The script should now pass step 3, start a fresh `Qty_App`, and complete all seven steps.
+
+## 3. Verify before testing login
 
 ```bash
-ss -lntp | grep ':8080'                        # a node process must appear
-curl -I http://127.0.0.1:8080/                 # 200
+pm2 status Qty_App
+pm2 logs Qty_App --lines 40 --nostream
+ss -lntp | grep ':8080'
+curl -I http://127.0.0.1:8080/
 curl -s -o /dev/null -w '%{http_code}\n' -X POST \
-  http://127.0.0.1:8080/api/public/middleware/config    # 401 = alive, env visible
-curl -I http://10.150.150.130:8081/            # 200 through nginx
-curl -s http://127.0.0.1:3002/__health         # middleware OK
+  http://127.0.0.1:8080/api/public/middleware/config
+curl -s http://127.0.0.1:3002/__health
+curl -I http://10.150.150.130:8081/
 ```
 
-If 8080 answers directly but nginx still 502s, nginx is missing the `/_serverFn/` and
-`/api/` proxy blocks to `127.0.0.1:8080` (`DEPLOY-QUALITY.md` section 3).
+Expected:
 
-## One security note
+- `Qty_App` stays online and its restart count does not increase.
+- Node listens on `127.0.0.1:8080`.
+- The direct app request produces an HTTP response, not connection refused.
+- Middleware-config returns 401 or 200; `000` means the app server remains down.
+- Middleware responds on 3002.
+- Port 8081 responds through nginx without 502.
 
-`MIDDLEWARE_SHARED_SECRET=123456` is guessable. Once login works, replace it with a
-long random value in both `frontend/.env` and `middleware/.env`, and rotate the
-service-role key you pasted in chat.
+Only after these pass:
+
+```bash
+pm2 save
+pm2 startup
+```
+
+Run the command printed by `pm2 startup` if requested, then run `pm2 save` again.
+
+## If it still fails
+
+Do not restart again. Capture the actual startup error:
+
+```bash
+pm2 logs Qty_App --lines 80 --nostream
+```
+
+The repository follow-up will improve the deploy script's empty-file message, but no application-code change is required to resolve this confirmed empty `.env` failure.
+
+## Security follow-up
+
+The service-role key was pasted into chat and the middleware secret is weak. After login works, rotate that key and replace the middleware secret with a long random value in both `frontend/.env` and `middleware/.env`.
