@@ -70,8 +70,21 @@ Nothing touches the SAP middleware on 3002, Docker, or the database.
 ## Verify
 
 ```bash
-curl -s http://127.0.0.1:8081/ | grep -o 'assets/[^"]*\.js' | head
+curl -s --compressed http://127.0.0.1:8081/ | grep -ao 'assets/[^"]*\.js' | head
 ```
 
-Every name printed must exist under `dist/assets/`. Then reload the browser with
-a hard refresh (Ctrl-Shift-R) and log in.
+`grep: binary file matches` just means the response was gzip-compressed — that
+itself is a good sign, because the compressed HTML is coming from the Node app
+server rather than from the stale static shell. `--compressed` plus `grep -a`
+decodes it.
+
+Every name printed must exist under `dist/assets/`, checked with:
+
+```bash
+for f in $(curl -s --compressed http://127.0.0.1:8081/ | grep -ao 'assets/[^"]*\.js' | sort -u); do
+  [ -f "$f" ] && echo "OK   $f" || echo "MISS $f"
+done
+```
+
+All `OK` means the 404s are gone; then hard-refresh the browser (Ctrl-Shift-R)
+and log in.
