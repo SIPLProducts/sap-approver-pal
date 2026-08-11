@@ -19,10 +19,13 @@ duplicate value:
 
 ```ini
 SUPABASE_PUBLISHABLE_KEY=
+ANON_KEY_ASYMMETRIC=
 ```
 
-If `SUPABASE_SECRET_KEY` is also merely a duplicate of `SERVICE_ROLE_KEY`, clear
-`SUPABASE_SECRET_KEY=` as well. Do not print any keys.
+The pasted environment confirms both values currently duplicate `ANON_KEY`.
+Keep `SUPABASE_SECRET_KEY=`, `SERVICE_ROLE_KEY_ASYMMETRIC=`, `JWT_KEYS=`, and
+`JWT_JWKS=` empty for this legacy HS256 setup. Do not print the file or its keys
+again.
 
 Recreate only the gateway, wait for its health probe, then test port 8000:
 
@@ -59,6 +62,10 @@ node start.mjs
 `node start.mjs` is intentionally run in the foreground. Copy the first complete
 error and stack trace; press Ctrl-C only if it remains running. The next code
 fix must be based on that error, not another blind restart.
+
+The current verification confirms port 8080 is not listening. It also confirms
+the browser HTML references ten JavaScript files absent from this `dist`; that
+folder must not be reused even if the PM2 startup error is repaired.
 
 ## Step 3 — create a genuinely clean frontend build
 
@@ -122,3 +129,12 @@ health request says `000`. Keep nginx unchanged. Hard-refresh with Ctrl-Shift-R.
 5. Document atomic `rsync --delete` deployment and both health checks.
 
 Nothing changes SAP middleware behavior or the database schema.
+
+## Required credential rotation
+
+The environment file was pasted into chat and includes live database, JWT,
+service-role, dashboard, storage, and signing credentials. Treat every pasted
+secret as exposed. After service recovery, generate replacement values, update
+the backend and frontend runtime environment consistently, recreate affected
+containers, restart the app, and invalidate old credentials. Do not paste the
+new values into chat or command output.
