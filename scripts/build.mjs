@@ -29,7 +29,15 @@ const shellCacheDir = join(root, "node_modules", ".cache", "tss-shell");
 const shellCacheFile = join(shellCacheDir, "index.html");
 
 // Extra CLI args are forwarded to both passes (e.g. `--mode development`).
-const passthroughArgs = process.argv.slice(2);
+// `--selfhost` is consumed here: it switches the app pass to the plain Node
+// server preset (see vite.config.ts) so dist/ runs with `node start.mjs`.
+const rawArgs = process.argv.slice(2);
+const selfHost = rawArgs.includes("--selfhost") || process.env.SELF_HOST === "1";
+const passthroughArgs = rawArgs.filter((arg) => arg !== "--selfhost");
+if (selfHost) {
+  process.env.SELF_HOST = "1";
+  console.log("[build] self-host mode: the app pass targets a plain Node server.");
+}
 
 function runVite(label, env) {
   console.log(`\n[build] ${label} pass…`);
