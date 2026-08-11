@@ -41,22 +41,46 @@ dist/
 > `dist/server` must run: SAP login, PR/PO/ZNFA release, MIGO, user management,
 > e-mail and push are server functions at `/_serverFn/*` (plus `/api/*`).
 
-The build fails instead of emitting a mixed folder: after collecting `dist/` it
-verifies that every `/assets/...` file referenced by shipped HTML actually exists.
+The build fails instead of emitting a mixed folder: after collecting `dist/` it runs
+`npm run verify:dist`, which checks that the folder is complete (`start.mjs`,
+`build-info.json`, `deploy-frontend.sh`, `server/index.mjs`), is in the right mode,
+carries no stale root `index.html`, and that every `/assets/...` file referenced by
+shipped HTML exists. You can re-run that check at any time:
+
+```bash
+npm run verify:dist
+```
 
 ## 2. Ship and run
 
-```bash
-# copy the whole dist folder — --delete is required, never merge into an old dist/
-rsync -a --delete dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
+**Preferred — one verified archive.** This is the only way that cannot leave a
+half-copied folder behind:
 
-# on the server (Node 20+; nothing else to install)
-cd /data/webapplication/resl_approval/Quality/frontend/dist
-bash deploy-frontend.sh
+```bash
+# build machine
+npm run package:dist          # verifies dist/, then writes quality-frontend-dist.tar.gz
+scp quality-frontend-dist.tar.gz root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/
+
+# server
+cd /data/webapplication/resl_approval/Quality/frontend
+mv dist "dist-broken-$(date +%Y%m%d-%H%M%S)"     # keep the old one, don't merge into it
+mkdir dist && tar -xzf quality-frontend-dist.tar.gz -C dist
+cd dist && bash deploy-frontend.sh
 ```
 
-Without `--delete`, stale chunks from an older build stay behind and the browser
-keeps requesting files that no longer match this build.
+Alternative, if you have `rsync`:
+
+```bash
+# --delete is required, never merge into an old dist/
+rsync -a --delete dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
+```
+
+Never hand-pick files or subfolders in WinSCP, and never rename an older
+`dist_…` folder into place. Without `--delete` (or a fresh empty folder), stale
+chunks from an older build stay behind and the browser keeps requesting files that
+no longer match this build.
+
+
 
 
 `deploy-frontend.sh` regenerates `.env.runtime` from `frontend/.env`, verifies the
