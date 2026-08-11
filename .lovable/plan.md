@@ -86,16 +86,23 @@ docker exec -i supabase-db psql -U postgres -d postgres \
 # 2) get the real shared secret
 grep MIDDLEWARE_SHARED_SECRET /data/webapplication/resl_approval/Quality/middleware/.env
 
-# 3) call the middleware login route with it
-SEC=$(grep -m1 MIDDLEWARE_SHARED_SECRET /data/webapplication/resl_approval/Quality/middleware/.env | cut -d= -f2- | tr -d '"'"'"'')
+# 3) call the middleware login route — paste the secret literally, do not build it in shell
 curl -i -X POST http://127.0.0.1:3002/login/Login_API \
-  -H 'content-type: application/json' -H "x-shared-secret: $SEC" \
+  -H 'content-type: application/json' -H 'x-shared-secret: PASTE_THE_EXACT_SECRET_HERE' \
   -d '{"inputs":{"LOGIN":{"USER":"22011840","PASSWORD":"12345678"}}}'
 ```
 
-The same secret value must appear in three places: `middleware/.env`, `dist/.env.runtime` (as `MIDDLEWARE_SHARED_SECRET`), and `sap_global_secrets.proxy_secret`. If they differ you get exactly the 401 above.
+Why your last attempt returned a bare `HTTP/1.1 400 Bad Request` with `Connection: close` and no body: that response comes from Node's HTTP parser, not from the app — it means the header value itself was malformed. The `$SEC` shell extraction picked up a trailing carriage return or stray quote (the `.env` file likely has Windows line endings), which is illegal in a header. Use the literal value from step 2 instead of the shell variable. If you prefer the variable, strip CR too:
+
+```bash
+SEC=$(grep -m1 '^MIDDLEWARE_SHARED_SECRET=' .env | cut -d= -f2- | tr -d '\r"'"'"' ')
+printf 'len=%s\n' "${#SEC}"   # sanity check: no surprises, no trailing space
+```
+
+The same secret value must appear in three places: `middleware/.env`, `dist/.env.runtime` (as `MIDDLEWARE_SHARED_SECRET`), and `sap_global_secrets.proxy_secret`. If they differ you get a 401 with `{"ok":false,"error":"Invalid or missing x-shared-secret"}`.
 
 Then sign in at `http://10.150.150.130:8081/login`. The red banner must be gone first; if it still shows, the app server did not pick up `.env.runtime`.
+
 
 
 ## Code changes
