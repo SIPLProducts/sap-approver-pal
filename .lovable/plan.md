@@ -1,5 +1,34 @@
 # Fix the Quality login path: correct env values + plain Node app server
 
+## The complete flow, end to end
+
+```text
+Browser (nginx :8081)
+  |  POST /_serverFn/... sapLogin        <- nginx must proxy /_serverFn/ and /api/ to 127.0.0.1:8080
+  v
+App server (PM2 "Qty_App", port 8080)   <- must be a plain Node process, not wrangler
+  |  1. reads Login_API row + middleware URL from the database
+  |     using SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (service_role, not anon)
+  |  2. POST http://127.0.0.1:3002/login/Login_API
+  |     header x-shared-secret: MIDDLEWARE_SHARED_SECRET
+  v
+Middleware (PM2 "Qty_Appr", port 3002)
+  |  3. compares x-shared-secret with its own MIDDLEWARE_SHARED_SECRET
+  |  4. POST {APP_BASE_URL}/api/public/middleware/config  (back to app :8080)
+  |     to resolve SAP URL + SAP credentials
+  |  5. calls SAP Login_API at http://10.150.150.155:8005/...
+  v
+SAP  -> returns USER + PLANTS + roles + release keys
+  |
+App server: creates the backend session (magic-link token), stores the SAP profile
+  |
+Browser: session set, redirected to /inbox
+```
+
+Today the chain breaks at two points: step 2/3 (secret mismatch) and the app server itself (wrangler reload loop). Both are addressed below.
+
+
+
 Two separate blockers are visible in your logs. Both are fixed here.
 
 ## Blocker 1 — the app server is still a Cloudflare worker
