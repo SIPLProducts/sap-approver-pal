@@ -70,7 +70,7 @@ Nothing touches the SAP middleware on 3002, Docker, or the database.
 ## Verify
 
 ```bash
-curl -s http://127.0.0.1:8081/ | grep -o 'assets/[^"]*\.js' | head
+curl -s --compressed http://127.0.0.1:8081/ | grep -ao 'assets/[^"]*\.js' | head
 ```
 
 Every name printed must exist under `dist/assets/`. Then reload the browser with
