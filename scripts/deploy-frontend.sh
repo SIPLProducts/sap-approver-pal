@@ -39,10 +39,29 @@ printf 'App server deploy helper\n  folder : %s\n  port   : %s\n  pm2    : %s\n'
 
 # ---------------------------------------------------------------------------
 step "1/7 Checking the deployed folder"
-for f in index.html server/index.mjs start.mjs; do
-  [ -e "$f" ] || die "$f is missing — this dist/ folder is incomplete. Rebuild with 'npm run build' and copy the whole dist/ folder."
+for f in server/index.mjs start.mjs build-info.json; do
+  [ -e "$f" ] || die "$f is missing — this dist/ folder is incomplete or stale. Rebuild with 'npm run build:selfhost' and copy the WHOLE folder: rsync -a --delete dist/ <server>:$HERE/"
   ok "$f"
 done
+
+MODE="$(sed -n 's/.*"mode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' build-info.json | head -n1)"
+[ -n "$MODE" ] && ok "build mode: $MODE"
+if [ "$MODE" != "selfhost-node" ]; then
+  die "this dist/ was built with 'npm run build' (mode: ${MODE:-unknown}). The self-hosted app server needs 'npm run build:selfhost'."
+fi
+
+# A mixed folder (HTML from one build, assets/ from another) is the classic
+# cause of "404 on every /assets/*.js" in the browser. Refuse to start it.
+miss=0
+for html in *.html; do
+  [ -e "$html" ] || continue
+  for ref in $(grep -ao 'assets/[^"]*\.\(js\|css\)' "$html" | sort -u); do
+    if [ ! -f "$ref" ]; then printf '   MISS %s -> %s\n' "$html" "$ref"; miss=1; fi
+  done
+done
+[ "$miss" = "0" ] || die "this dist/ is inconsistent: HTML references asset files that are not here. Rebuild and redeploy with 'rsync -a --delete'."
+ok "no dangling asset references"
+
 
 # ---------------------------------------------------------------------------
 step "2/7 Removing stale installs from the asset folder"
