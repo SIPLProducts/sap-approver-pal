@@ -218,6 +218,13 @@ if (!existsSync(join(serverDir, "index.mjs"))) {
 
 const port = process.env.PORT ?? "8080";
 const host = process.env.HOST ?? "127.0.0.1";
+
+// Offline/air-gapped servers: skip the Cloudflare metadata download and telemetry,
+// otherwise startup blocks ~30s on a timeout and the local server reload-loops.
+if (process.env.CI === undefined) process.env.CI = "true";
+if (process.env.WRANGLER_SEND_METRICS === undefined) process.env.WRANGLER_SEND_METRICS = "false";
+console.log("[start] offline mode: CI=true, WRANGLER_SEND_METRICS=false");
+
 console.log(\`[start] serving app server on http://\${host}:\${port}\`);
 
 const child = spawn(
