@@ -106,10 +106,11 @@ export default defineConfig({
         }
       : {}),
   tanstackStart: {
-    // Self-host builds use src/server.node.ts, which wraps the same fetch
-    // handler in a real Node http listener (so PORT/HOST actually bind).
-    server: { entry: isSelfHost && !isShellPass ? "server.node" : "server" },
+    // Both builds share this entry. For self-hosting, dist/start.mjs wraps the
+    // exported fetch handler in a real Node http listener (so PORT/HOST bind).
+    server: { entry: "server" },
     ...(isShellPass
+
 
       ? {
           spa: {
