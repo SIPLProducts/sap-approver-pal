@@ -24,18 +24,43 @@ SUPABASE_PUBLISHABLE_KEY=
 If `SUPABASE_SECRET_KEY` is also merely a duplicate of `SERVICE_ROLE_KEY`, clear
 `SUPABASE_SECRET_KEY=` as well. Do not print any keys.
 
-Recreate only the gateway and verify port 8000:
+Recreate only the gateway, wait for its health probe, then test port 8000:
 
 ```bash
 docker compose -p resl_quality up -d --force-recreate kong
+for i in $(seq 1 30); do
+  STATUS=$(docker inspect -f '{{.State.Health.Status}}' supabase-kong 2>/dev/null)
+  echo "kong: $STATUS"
+  [ "$STATUS" = healthy ] && break
+  sleep 2
+done
 docker compose -p resl_quality ps kong
-docker compose -p resl_quality logs --tail 30 kong
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/auth/v1/health
+docker compose -p resl_quality logs --tail 50 kong
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/auth/v1/health
 ```
 
-Expected: Kong is healthy and the last command is not `000`.
+Your shown `000` occurred while the container still said `health: starting`; it
+does not yet prove another Kong failure. Expected after waiting: `healthy` and
+an HTTP result other than `000`. If it becomes `unhealthy`, stop and use the
+last 50 log lines to diagnose that separately.
 
-## Step 2 — create a genuinely clean frontend build
+## Step 2 — capture the frontend crash before rebuilding
+
+Do not rerun the deploy helper yet. It restarted PM2 successfully, but nothing
+answered on port 8080. Capture the actual process failure:
+
+```bash
+pm2 status Qty_App
+pm2 logs Qty_App --err --lines 100 --nostream
+pm2 describe Qty_App
+node start.mjs
+```
+
+`node start.mjs` is intentionally run in the foreground. Copy the first complete
+error and stack trace; press Ctrl-C only if it remains running. The next code
+fix must be based on that error, not another blind restart.
+
+## Step 3 — create a genuinely clean frontend build
 
 Do this on the machine containing the frontend source — **not** inside the
 server's existing `dist/`:
@@ -50,7 +75,7 @@ npm run build:selfhost
 Do not run `bash deploy-frontend.sh` against the old folder again; it validates
 startup files but cannot manufacture the missing hashed JavaScript files.
 
-## Step 3 — replace the whole server dist atomically
+## Step 4 — replace the whole server dist atomically
 
 From the build machine:
 
@@ -69,7 +94,7 @@ bash deploy-frontend.sh
 pm2 save
 ```
 
-## Step 4 — verify before opening the browser
+## Step 5 — verify before opening the browser
 
 ```bash
 ss -ltnp | grep ':8080'
