@@ -376,9 +376,8 @@ module.exports = {
         NODE_ENV: "production",
         PORT: "8080",
         HOST: "0.0.0.0",
-        CI: "true",
-        WRANGLER_SEND_METRICS: "false",
       },
+
     },
   ],
 };
