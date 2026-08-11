@@ -27,10 +27,30 @@ Keep `SUPABASE_SECRET_KEY=`, `SERVICE_ROLE_KEY_ASYMMETRIC=`, `JWT_KEYS=`, and
 `JWT_JWKS=` empty for this legacy HS256 setup. Do not print the file or its keys
 again.
 
-Recreate only the gateway, wait for its health probe, then test port 8000:
+Before recreating the gateway, verify the **container's resolved values** without
+printing any credential. This catches exported shell variables overriding `.env`:
 
 ```bash
-docker compose -p resl_quality up -d --force-recreate kong
+docker inspect supabase-kong | python3 -c '
+import hashlib,json,sys
+e=dict(x.split("=",1) for x in json.load(sys.stdin)[0]["Config"]["Env"] if "=" in x)
+names=["SUPABASE_ANON_KEY","SUPABASE_PUBLISHABLE_KEY","SUPABASE_SERVICE_KEY","SUPABASE_SECRET_KEY"]
+for n in names:
+ v=e.get(n,""); print(n, "set="+str(bool(v)), "fp="+(hashlib.sha256(v.encode()).hexdigest()[:10] if v else "empty"))
+print("anon_duplicate=", bool(e.get("SUPABASE_PUBLISHABLE_KEY")) and e.get("SUPABASE_ANON_KEY")==e.get("SUPABASE_PUBLISHABLE_KEY"))
+print("service_duplicate=", bool(e.get("SUPABASE_SECRET_KEY")) and e.get("SUPABASE_SERVICE_KEY")==e.get("SUPABASE_SECRET_KEY"))
+'
+```
+
+The Kong template has exactly two anon credential entries. The empty second
+entry is removed by its entrypoint, so the continuing `entry 2` duplicate means
+the recreated container still received a non-empty publishable value. Clear any
+shell overrides, explicitly use the edited file, and recreate:
+
+```bash
+unset SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
+unset ANON_KEY_ASYMMETRIC SERVICE_ROLE_KEY_ASYMMETRIC
+docker compose --env-file .env -p resl_quality up -d --force-recreate kong
 for i in $(seq 1 30); do
   STATUS=$(docker inspect -f '{{.State.Health.Status}}' supabase-kong 2>/dev/null)
   echo "kong: $STATUS"
@@ -60,8 +80,21 @@ node start.mjs
 ```
 
 `node start.mjs` is intentionally run in the foreground. Copy the first complete
-error and stack trace; press Ctrl-C only if it remains running. The next code
-fix must be based on that error, not another blind restart.
+error and stack trace; press Ctrl-C only if it remains running. If it returns to
+the prompt, immediately capture its exit status and non-secret bundle signature:
+
+```bash
+node start.mjs; echo "exit=$?"
+wc -c server/index.mjs
+grep -aoE 'node-server|cloudflare:workers|createServer|\.listen' server/index.mjs | sort -u
+pm2 logs Qty_App --lines 100 --nostream
+```
+
+The shown `[start] serving...` line comes from the launcher before it imports
+the generated server. Because port 8080 remains absent, it does **not** prove a
+server is running. A clean `exit=0` would confirm that the generated entry is a
+handler bundle rather than a listening Node-server entry; a non-zero exit plus
+stack trace identifies the actual startup crash.
 
 The current verification confirms port 8080 is not listening. It also confirms
 the browser HTML references ten JavaScript files absent from this `dist`; that
@@ -118,15 +151,17 @@ health request says `000`. Keep nginx unchanged. Hard-refresh with Ctrl-Shift-R.
 ## Permanent repository fixes
 
 1. Update the gateway entrypoint to omit publishable/secret credential entries
-   when they duplicate the legacy anon/service keys, preventing this startup
-   failure even with legacy-only configuration.
+   when they are empty **or duplicate** the legacy anon/service keys, preventing
+   this startup failure even when exported shell variables override `.env`.
 2. Make the build fail unless every asset named by the server manifest exists
    in the same `dist/assets/`.
 3. Add a build fingerprint to `dist/build-info.json`; make the deploy script
    reject mixed or partial folders before restarting PM2.
 4. For self-host builds, stop copying the first-pass static shell into the final
    dist; HTML is rendered by the Node server.
-5. Document atomic `rsync --delete` deployment and both health checks.
+5. Make the launcher fail loudly when importing the generated server returns
+   without opening a listener, instead of logging the misleading “serving” line.
+6. Document atomic `rsync --delete` deployment and both health checks.
 
 Nothing changes SAP middleware behavior or the database schema.
 
