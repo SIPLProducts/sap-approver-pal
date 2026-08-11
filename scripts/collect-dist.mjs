@@ -153,13 +153,22 @@ rmSync(outputDir, { recursive: true, force: true });
 // 5. Drop the static shell in as dist/index.html — nginx serves it via
 //    `root .../dist; index index.html;`. scripts/build.mjs captures it during
 //    the shell pass and points TSS_SHELL_HTML at it.
+//
+//    NOT for self-host builds: there the shell comes from a different Vite pass
+//    than dist/assets/, so its hashed <script> names do not exist in the final
+//    asset folder — the browser then 404s on every chunk. The Node server
+//    (dist/server) renders the HTML itself, so no static shell is needed.
+const selfHost = process.env.SELF_HOST === "1";
 const shellHtml = process.env.TSS_SHELL_HTML;
-if (shellHtml && existsSync(shellHtml) && !existsSync(join(distDir, "index.html"))) {
+if (selfHost) {
+  rmSync(join(distDir, "index.html"), { force: true });
+  console.log("[collect-dist] self-host build: no static index.html (the Node server renders HTML)");
+} else if (shellHtml && existsSync(shellHtml) && !existsSync(join(distDir, "index.html"))) {
   cpSync(shellHtml, join(distDir, "index.html"));
   copied.push("index.html");
 }
 
-if (!existsSync(join(distDir, "index.html"))) {
+if (!selfHost && !existsSync(join(distDir, "index.html"))) {
   console.error(
     [
       "[collect-dist] dist/index.html is missing.",
@@ -170,6 +179,55 @@ if (!existsSync(join(distDir, "index.html"))) {
   process.exit(1);
 }
 
+// 5b. Consistency gate: every hashed asset referenced by shipped HTML must
+//     exist in this dist/. This is what catches a mixed build (server bundle
+//     from one pass, assets/ from another) before it can be deployed.
+const assetsDir = join(distDir, "assets");
+const missingAssets = new Set();
+for (const name of readdirSync(distDir)) {
+  if (!name.endsWith(".html")) continue;
+  const html = readFileSync(join(distDir, name), "utf8");
+  for (const match of html.matchAll(/(?:src|href)="\/(assets\/[^"?#]+)"/g)) {
+    if (!existsSync(join(distDir, match[1]))) missingAssets.add(`${name} -> /${match[1]}`);
+  }
+}
+if (missingAssets.size) {
+  console.error("[collect-dist] this build is inconsistent — HTML references files that do not exist:");
+  for (const entry of [...missingAssets].sort()) console.error(`  MISS ${entry}`);
+  console.error("Do not deploy it. Delete dist/, .output/ and .wrangler/, then rebuild.");
+  process.exit(1);
+}
+console.log(
+  `[collect-dist] asset check OK — ${existsSync(assetsDir) ? readdirSync(assetsDir).length : 0} file(s) in assets/`,
+);
+
+// 5c. Build fingerprint, so the deploy helper can prove server/ and assets/
+//     were produced by the same build.
+const fingerprintSource = [
+  ...(existsSync(assetsDir) ? readdirSync(assetsDir).sort() : []),
+  existsSync(join(distDir, "server", "index.mjs"))
+    ? String(statSync(join(distDir, "server", "index.mjs")).size)
+    : "no-server",
+].join("|");
+let fingerprint = 0;
+for (let i = 0; i < fingerprintSource.length; i += 1) {
+  fingerprint = (fingerprint * 31 + fingerprintSource.charCodeAt(i)) >>> 0;
+}
+writeFileSync(
+  join(distDir, "build-info.json"),
+  JSON.stringify(
+    {
+      mode: selfHost ? "selfhost-node" : "worker",
+      builtAt: new Date().toISOString(),
+      fingerprint: fingerprint.toString(16),
+      assetCount: existsSync(assetsDir) ? readdirSync(assetsDir).length : 0,
+      rendersHtml: selfHost ? "server" : "static-shell",
+    },
+    null,
+    2,
+  ) + "\n",
+);
+console.log("[collect-dist] build fingerprint: dist/build-info.json");
 
 console.log(`[collect-dist] dist/ ready — ${copied.length} static item(s) at the root:`);
 console.log("  " + copied.sort().join("  "));
@@ -178,6 +236,7 @@ for (const name of readdirSync(distDir).sort()) {
   const isDir = statSync(join(distDir, name)).isDirectory();
   console.log(`  ${name}${isDir ? "/" : ""}`);
 }
+
 // 6. Emit a launcher for dist/. The self-host build (`npm run build:selfhost`)
 //    produces dist/server/index.mjs as a plain Node HTTP server, so the
 //    launcher only has to load dist/.env.runtime into process.env and import
