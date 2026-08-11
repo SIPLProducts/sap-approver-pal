@@ -204,3 +204,55 @@ Reload: `nginx -t && systemctl reload nginx`
 
 In **SAP API Settings**, keep "Via Proxy" enabled and set the middleware URL to
 `http://10.150.150.130:3002` (or `http://10.150.150.130:8081/mw`).
+
+## 5. Troubleshooting
+
+### The browser 404s on `/assets/*.js`
+
+The deployed folder is a mix of two builds, or nginx is still serving an old
+static `index.html`. Rebuild and replace the folder atomically:
+
+```bash
+# build machine
+rm -rf dist .output .wrangler && npm run build:selfhost
+rsync -a --delete dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
+```
+
+Then confirm nginx has `location / { proxy_pass http://127.0.0.1:8080; }` (§3)
+and no `try_files ... /index.html`. `bash deploy-frontend.sh` now fails up front
+on both problems instead of letting them reach the browser.
+
+### Nothing answers on port 8080
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+pm2 logs Qty_App --lines 40 --nostream
+node start.mjs            # run in the foreground to see the real error
+```
+
+A healthy start prints `[start] listening on http://127.0.0.1:8080` — that line
+comes from the listen callback only, so if it is absent the port really is closed.
+`[start] cannot bind …` means the port is taken (`ss -ltnp | grep 8080`);
+`[start] server/index.mjs does not export a fetch handler` means the folder was
+built with `npm run build` instead of `npm run build:selfhost`.
+
+### Gateway (port 8000) crash-loops: "uniqueness violation: 'keyauth_credentials'"
+
+Kong was handed the same API key twice. Clear the duplicates and recreate it:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/backend
+# these four must be EMPTY on a legacy-key install
+grep -nE '^(ANON_KEY_ASYMMETRIC|SERVICE_ROLE_KEY_ASYMMETRIC|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SECRET_KEY)=' .env
+
+# inherited shell variables override .env — clear them in this shell first
+unset ANON_KEY_ASYMMETRIC SERVICE_ROLE_KEY_ASYMMETRIC SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
+
+docker compose --env-file .env -p resl_quality up -d --force-recreate kong
+docker logs --tail 30 supabase-kong
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/auth/v1/health   # expect 200
+```
+
+The Kong entrypoint also drops duplicate credentials itself now, so a mis-set
+variable degrades to legacy-key mode instead of taking the gateway down.
+
