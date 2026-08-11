@@ -1,69 +1,74 @@
-# Fix the 502: fill in frontend/.env, then start the app server on 8080
+# Fix the deploy script's "keys missing" stop, then bring 8080 up
 
-The deploy script got as far as step 3 and stopped for one reason: the four keys the
-app server needs are missing (or empty) in
-`/data/webapplication/resl_approval/Quality/frontend/.env`. Until they exist, the
-server on 8080 cannot start, so nginx on 8081 returns 502 for every `/_serverFn/*`
-and `/api/*` call — which is the whole login path.
+The values you pasted are correct — `SUPABASE_SERVICE_ROLE_KEY` really does decode to
+`"role":"service_role"`, and all four required keys are present. So the script's
+verdict at step 3 is wrong about *your* file, which means the file it read is not the
+one you pasted, or the text has characters the check does not tolerate (BOM, CRLF,
+leading spaces, `export ` prefix, quotes, a trailing space as on
+`MIDDLEWARE_SHARED_SECRET=123456 `).
 
-## Why the app server is required for login
-
-```text
-browser (8081) -> nginx -> app server 127.0.0.1:8080  (server functions)
-                                |
-                                +-> SAP middleware 127.0.0.1:3002 -> SAP
-                                +-> Supabase / Kong 127.0.0.1:8000
-```
-
-The app server holds the service-role key and the middleware shared secret, creates
-the session and relays SAP calls. Static files alone cannot log anyone in.
-
-## Step 1 — collect the four values on the server
+## Step 1 — one command to prove which it is
 
 ```bash
-grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=' /data/webapplication/resl_approval/Quality/supabase/.env
-grep -E '^SHARED_SECRET|^MIDDLEWARE_SHARED_SECRET' /data/webapplication/resl_approval/Quality/middleware/.env
+cd /data/webapplication/resl_approval/Quality/frontend
+ls -l .env; file .env
+grep -nE '^\s*(export\s+)?(SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=' .env | cut -c1-60
 ```
 
-(adjust the two paths if the supabase / middleware folders sit elsewhere).
+`file` tells us CRLF/BOM; the `grep` tells us whether the keys are really in *this*
+file (paste output back if it looks odd).
 
-## Step 2 — write frontend/.env
+## Step 2 — the exact file to write
 
-`nano /data/webapplication/resl_approval/Quality/frontend/.env`
+`/data/webapplication/resl_approval/Quality/frontend/.env`, LF endings, no quotes, no
+trailing spaces:
 
 ```ini
-SUPABASE_URL=http://127.0.0.1:8000
-SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from supabase/.env>
-SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from supabase/.env — not the anon key>
-MIDDLEWARE_URL=http://127.0.0.1:3002
-MIDDLEWARE_SHARED_SECRET=<exact value from middleware/.env>
+VITE_SUPABASE_URL=http://10.150.150.130:8000
+VITE_SUPABASE_PUBLISHABLE_KEY=<your anon key>
+VITE_SUPABASE_PROJECT_ID=Quality
 
-VITE_SUPABASE_URL=http://10.150.150.130:8081/supabase
-VITE_SUPABASE_PUBLISHABLE_KEY=<same ANON_KEY>
+SUPABASE_URL=http://10.150.150.130:8000
+SUPABASE_PUBLISHABLE_KEY=<your anon key>
+SUPABASE_SERVICE_ROLE_KEY=<your service_role key>
+MIDDLEWARE_URL=http://127.0.0.1:3002
+MIDDLEWARE_SHARED_SECRET=123456
+
 PORT=8080
 HOST=127.0.0.1
 NODE_ENV=production
 ```
 
-Notes that make this fail silently if ignored: no quotes and no trailing spaces, the
-file must be LF (not CRLF), and the service-role slot must really be the service key
-— the launcher decodes it and prints `holds a 'anon' key` when it is wrong, in which
-case sessions can never be created.
+Then `chmod 600 .env` and, to be safe about invisible characters:
+`sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/[ \t]*$//' .env`
 
-Then `chmod 600` the file.
+Note the `VITE_*` values are only used at build time (they are baked into `dist/`);
+the four unprefixed ones are what the server on 8080 reads at start.
 
-## Step 3 — run the deploy script again
+## Step 3 — script change I will make (so this stops happening)
+
+`scripts/deploy-frontend.sh`, step 3 only:
+
+- strip a UTF-8 BOM, CR characters, an optional `export ` prefix, surrounding quotes
+  and trailing whitespace while generating `.env.runtime`;
+- match keys with `^[[:space:]]*(export[[:space:]]+)?KEY=` instead of a strict `^KEY=`;
+- on failure, print the key names actually found in the file (names only, never
+  values) plus the ready-to-paste template above, so the message says what is wrong
+  rather than only what is missing;
+- keep the service-role sanity check and everything from step 4 onward untouched.
+
+`DEPLOY-QUALITY.md` gets a short "502 on /_serverFn — nothing on 8080" section with
+the same template and the verification commands.
+
+No application code, nginx, Docker, database or middleware changes.
+
+## Step 4 — run and verify
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend/dist
 bash deploy-frontend.sh
 pm2 save && pm2 startup
 ```
-
-It regenerates `.env.runtime` from `frontend/.env`, restarts pm2 `Qty_App` on 8080
-and runs its own checks. It never touches the middleware on 3002.
-
-## Step 4 — verify, in this order
 
 ```bash
 ss -lntp | grep ':8080'                        # a node process must appear
@@ -74,16 +79,11 @@ curl -I http://10.150.150.130:8081/            # 200 through nginx
 curl -s http://127.0.0.1:3002/__health         # middleware OK
 ```
 
-If 8080 answers directly but nginx still 502s, nginx is missing the `/_serverFn/`
-and `/api/` proxy blocks to `127.0.0.1:8080` (both are in `DEPLOY-QUALITY.md`
-section 3). If pm2 restarts in a loop: `pm2 logs Qty_App --lines 50`.
+If 8080 answers directly but nginx still 502s, nginx is missing the `/_serverFn/` and
+`/api/` proxy blocks to `127.0.0.1:8080` (`DEPLOY-QUALITY.md` section 3).
 
-## Repo work in this plan
+## One security note
 
-Documentation and script ergonomics only — no application code changes:
-
-- `DEPLOY-QUALITY.md` gains a "502 on /_serverFn — nothing on 8080" section with the
-  exact `frontend/.env` template above and the verification commands.
-- `scripts/deploy-frontend.sh`: when a key is missing, print the ready-to-paste
-  template block and the two `grep` commands that locate the values, instead of only
-  naming the keys.
+`MIDDLEWARE_SHARED_SECRET=123456` is guessable. Once login works, replace it with a
+long random value in both `frontend/.env` and `middleware/.env`, and rotate the
+service-role key you pasted in chat.
