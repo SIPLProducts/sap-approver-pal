@@ -72,16 +72,31 @@ Allowed values (enforced by the database — this is what your error was about):
 
 To go direct to SAP without the middleware, set `middleware_url = null` instead — then the app server uses `endpoint_url` plus the basic-auth user/password above.
 
-## Verify
+## Verify (corrected for your server)
+
+Both of your commands failed for expected reasons, not because of a bug:
+- there is no local Postgres on that box — the database runs inside the self-hosted container, so `psql` must be run through Docker;
+- the curl sent the literal text `<secret>` as the shared secret, so the middleware correctly rejected it with 401. Replace it with the real value of `MIDDLEWARE_SHARED_SECRET` from `middleware/.env`.
 
 ```bash
-psql -c "select name, endpoint_url, is_active from sap_api_configs where name='Login_API'"
+# 1) read the config row (run from /data/.../supabase or wherever docker-compose.yml lives)
+docker exec -i supabase-db psql -U postgres -d postgres \
+  -c "select name, endpoint_url, is_active from public.sap_api_configs where name='Login_API'"
+
+# 2) get the real shared secret
+grep MIDDLEWARE_SHARED_SECRET /data/webapplication/resl_approval/Quality/middleware/.env
+
+# 3) call the middleware login route with it
+SEC=$(grep -m1 MIDDLEWARE_SHARED_SECRET /data/webapplication/resl_approval/Quality/middleware/.env | cut -d= -f2- | tr -d '"'"'"'')
 curl -i -X POST http://127.0.0.1:3002/login/Login_API \
-  -H 'content-type: application/json' -H 'x-shared-secret: <secret>' \
+  -H 'content-type: application/json' -H "x-shared-secret: $SEC" \
   -d '{"inputs":{"LOGIN":{"USER":"22011840","PASSWORD":"12345678"}}}'
 ```
 
-Then sign in at `http://10.150.150.130:8081/login`. The banner must be gone first; if it still shows, the app server did not pick up `.env.runtime`.
+The same secret value must appear in three places: `middleware/.env`, `dist/.env.runtime` (as `MIDDLEWARE_SHARED_SECRET`), and `sap_global_secrets.proxy_secret`. If they differ you get exactly the 401 above.
+
+Then sign in at `http://10.150.150.130:8081/login`. The red banner must be gone first; if it still shows, the app server did not pick up `.env.runtime`.
+
 
 ## Code changes
 
