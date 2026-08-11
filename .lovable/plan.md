@@ -22,6 +22,12 @@ to multiple hashed JavaScript files that are absent from `assets/`, and the buil
 correctly stopped with `Do not deploy it`. Deploying that output would keep the
 login page blank.
 
+The latest server commands now confirm the same thing for the folder called
+"new build": both `build-info.json` and `deploy-frontend.sh` are absent. Those
+files are emitted only after `npm run build:selfhost` completes successfully.
+Therefore this folder came from a failed build, an ordinary Vite build, or an
+incomplete copy; it is not deployable regardless of its folder date/name.
+
 The screenshot also shows three candidate folders (`dist`, `dist 11-08-2026`,
 and `dist_11082026`). Renaming or selecting an old folder does not repair the
 server/assets pairing. Only one newly produced, validated folder should remain.
@@ -39,8 +45,17 @@ The backend/gateway is fine and is not touched by any step below.
    the whole project source first; copying only a previous `dist` also copies its
    old deploy helper.
 
-2. **On the build machine**, from the project root (where `package.json` and
-   `scripts/` exist), produce the Quality-server build using the required command:
+2. **On the build machine**, first confirm you are in the complete, latest source
+   checkout—not inside `dist/`:
+
+   ```bash
+   pwd
+   test -f package.json && test -f scripts/build.mjs \
+     && test -f scripts/collect-dist.mjs && test -f scripts/deploy-frontend.sh
+   ```
+
+   If any test fails, stop: that machine does not have the current project source.
+   From this project root, produce the Quality-server build using the required command:
 
    ```bash
    rm -rf dist .output .wrangler
@@ -48,8 +63,9 @@ The backend/gateway is fine and is not touched by any step below.
    npm run build:selfhost
    ```
 
-   Do **not** use `npm run build` or `npm run build:dev` for this server. Confirm
-   before copying:
+   The command must finish with exit code 0. The earlier `build:dev exited with
+   code 1` output is a failed build and must never be copied. Do **not** use
+   `npm run build` or `npm run build:dev` for this server. Confirm before copying:
 
    ```bash
    test -f dist/start.mjs && test -f dist/build-info.json \
@@ -60,16 +76,28 @@ The backend/gateway is fine and is not touched by any step below.
    It must say `"mode": "selfhost-node"`. This mode intentionally has no static
    root `index.html`; HTML is rendered by the matching server bundle.
 
-3. **Replace the server folder atomically** (the `--delete` is mandatory):
+   Create one transport archive only after all checks pass:
+
+   ```bash
+   tar -C dist -czf quality-frontend-dist.tar.gz .
+   ```
+
+3. **Transfer that one archive**, rather than selecting files/folders manually in
+   WinSCP. On the server, preserve the current folder, extract into a new empty
+   folder, and switch it into place:
    stale assets that cause the 404s):
 
    ```bash
-   rsync -a --delete dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
+   cd /data/webapplication/resl_approval/Quality/frontend
+   mv dist "dist-broken-$(date +%Y%m%d-%H%M%S)"
+   mkdir dist
+   tar -xzf quality-frontend-dist.tar.gz -C dist
+   test -f dist/build-info.json && test -f dist/deploy-frontend.sh
    ```
 
    Do not rename one of the three old folders into place, and do not copy files
-   over the top with WinSCP merge mode. Move the old folders out of the live
-   path, then synchronize the complete new `dist/` as one unit.
+   over the top with WinSCP merge mode. If either final `test` fails, the archive
+   itself is incomplete; stop and rebuild it at step 2.
 
 4. **On the server**, verify that it is the new bundle, then start it:
 
@@ -105,5 +133,7 @@ The backend/gateway is fine and is not touched by any step below.
   `start.mjs`, `build-info.json` mode, and dangling asset references — so a bad folder
   is caught before it is ever copied to the server.
 - Make `build:selfhost` run that verifier automatically before reporting success.
+- Add a packaging command that emits a single verified
+  `quality-frontend-dist.tar.gz`, eliminating partial/manual folder copies.
 
 No application, database, middleware or gateway logic is changed.
