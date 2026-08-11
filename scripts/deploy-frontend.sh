@@ -202,16 +202,44 @@ if [ "$up" = "1" ]; then
 
   # The login page must be served by this server (it renders the HTML), and
   # every chunk it asks for must exist on disk.
+  lcode="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/login" 2>/dev/null)"
   html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null || true)"
   if [ -z "$html" ]; then
-    fail "/login did not render"
+    fail "/login did not render (HTTP $lcode)"
+    if [ "$lcode" = "500" ]; then
+      echo "   The app server is running but throws while rendering /login."
+      echo "   This is a RUNTIME error, not a missing file. Read the reason with:"
+      echo "     pm2 logs $PM2_NAME --lines 80 --nostream"
+      echo "   Most common cause: a value missing from .env.runtime (see step 3)."
+      echo "   --- first lines the server returned ---"
+      curl -s "http://127.0.0.1:$PORT/login" 2>/dev/null | head -n 15 | sed 's/^/   /'
+    fi
   else
     lmiss=0
     for ref in $(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u); do
       if [ ! -f "$ref" ]; then printf '   MISS /%s\n' "$ref"; lmiss=1; fi
     done
-    if [ "$lmiss" = "0" ]; then ok "/login renders and all its assets exist"
-    else fail "/login references assets that are not in this folder — rebuild and rsync -a --delete"; fi
+    if [ "$lmiss" = "0" ]; then ok "/login renders (HTTP $lcode) and all its assets exist"
+    else fail "/login references assets that are not in this folder — redeploy the whole folder as one unit"; fi
+  fi
+
+  # Whatever the browser actually hits (nginx on 8081) must be the app server's
+  # HTML. A static file answer there is served from disk and will be stale.
+  if command -v curl >/dev/null 2>&1; then
+    hdrs="$(curl -sI http://127.0.0.1:8081/login 2>/dev/null || true)"
+    if [ -n "$hdrs" ]; then
+      if printf '%s' "$hdrs" | grep -qi '^ETag:\|^Last-Modified:'; then
+        fail "nginx on 8081 is serving /login as a STATIC FILE (ETag/Last-Modified present)"
+        echo "   It must proxy instead. In the 8081 server block replace the static"
+        echo "   'root …/dist; try_files … /index.html;' for 'location /' with:"
+        echo "       location / { proxy_pass http://127.0.0.1:$PORT; proxy_set_header Host \$host; }"
+        echo "   then: nginx -t && nginx -s reload   (see DEPLOY-QUALITY.md)"
+      else
+        ok "nginx on 8081 proxies /login to the app server"
+      fi
+    else
+      warn "nothing answering on port 8081 (nginx down?)"
+    fi
   fi
 fi
 
