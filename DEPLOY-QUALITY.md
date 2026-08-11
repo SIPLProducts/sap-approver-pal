@@ -18,38 +18,46 @@ to the server.
 
 ```text
 dist/
-  index.html              <- static app shell (nginx `index index.html`)
-  assets/                 <- hashed JS/CSS (serve directly from nginx)
-  favicon.ico
+  assets/                 <- hashed JS/CSS
+  favicon.png
   manifest.webmanifest
   sw.js
   _headers
-  .assetsignore
-  server/                 <- app server bundle (all server functions)
-  start.mjs               <- launcher: loads .env.runtime, boots server/index.mjs
+  build-info.json         <- build mode + fingerprint (the deploy helper checks it)
+  server/                 <- app server bundle (SSR + all server functions)
+  start.mjs               <- Node HTTP server: loads .env.runtime, serves dist/, calls server/
   .env.runtime            <- generated from frontend/.env (server-side keys)
   ecosystem.config.cjs    <- pm2 config (name Qty_App, port 8080)
   deploy-frontend.sh      <- one-command bring-up + checks
 ```
 
-> `dist/index.html` is a real file, so nginx can use
-> `root .../frontend/dist; index index.html;`.
-> `dist/server` must still run: SAP login, PR/PO/ZNFA release, MIGO, user
-> management, e-mail and push are server functions called at `/_serverFn/*`
-> (plus `/api/*`), and nginx has to proxy those two prefixes to it.
+> There is **no static `index.html`** in a self-host build, and that is deliberate.
+> A static shell is produced by a different Vite pass than `assets/`, so its hashed
+> `<script>` names do not exist in the final `assets/` folder — that combination is
+> exactly what causes "404 on every `/assets/*.js`" in the browser. The app server
+> renders the HTML, so nginx must proxy `location /` to 8080 (see §5) instead of
+> using `try_files ... /index.html`.
+>
+> `dist/server` must run: SAP login, PR/PO/ZNFA release, MIGO, user management,
+> e-mail and push are server functions at `/_serverFn/*` (plus `/api/*`).
 
-
+The build fails instead of emitting a mixed folder: after collecting `dist/` it
+verifies that every `/assets/...` file referenced by shipped HTML actually exists.
 
 ## 2. Ship and run
 
 ```bash
-# copy the whole dist folder
-rsync -a dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
+# copy the whole dist folder — --delete is required, never merge into an old dist/
+rsync -a --delete dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
 
 # on the server (Node 20+; nothing else to install)
 cd /data/webapplication/resl_approval/Quality/frontend/dist
 bash deploy-frontend.sh
 ```
+
+Without `--delete`, stale chunks from an older build stay behind and the browser
+keeps requesting files that no longer match this build.
+
 
 `deploy-frontend.sh` regenerates `.env.runtime` from `frontend/.env`, verifies the
 required keys, starts/restarts pm2 `Qty_App` on 8080, and runs the checks. It never
@@ -118,15 +126,11 @@ server {
     proxy_read_timeout 300s;
     proxy_send_timeout 300s;
 
-    root /data/webapplication/resl_approval/Quality/frontend/dist;
-    index index.html;
+    # No `root`/`index` here: the app server renders the HTML and serves
+    # /assets/ itself with immutable caching. Serving a stale static index.html
+    # from disk is what produced the "404 on every /assets/*.js" failure.
 
-    # hashed assets straight from disk
-    location /assets/ {
-        access_log off;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
+
 
     # server functions + API routes -> app server (SAP, login, e-mail, push)
     location /_serverFn/ {
@@ -173,10 +177,16 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # app routes -> static shell (client-side routing)
+    # everything else (pages + /assets/) -> app server on 8080
     location / {
-        try_files $uri $uri/ /index.html;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
     }
+
 
 }
 ```
@@ -194,3 +204,55 @@ Reload: `nginx -t && systemctl reload nginx`
 
 In **SAP API Settings**, keep "Via Proxy" enabled and set the middleware URL to
 `http://10.150.150.130:3002` (or `http://10.150.150.130:8081/mw`).
+
+## 5. Troubleshooting
+
+### The browser 404s on `/assets/*.js`
+
+The deployed folder is a mix of two builds, or nginx is still serving an old
+static `index.html`. Rebuild and replace the folder atomically:
+
+```bash
+# build machine
+rm -rf dist .output .wrangler && npm run build:selfhost
+rsync -a --delete dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
+```
+
+Then confirm nginx has `location / { proxy_pass http://127.0.0.1:8080; }` (§3)
+and no `try_files ... /index.html`. `bash deploy-frontend.sh` now fails up front
+on both problems instead of letting them reach the browser.
+
+### Nothing answers on port 8080
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+pm2 logs Qty_App --lines 40 --nostream
+node start.mjs            # run in the foreground to see the real error
+```
+
+A healthy start prints `[start] listening on http://127.0.0.1:8080` — that line
+comes from the listen callback only, so if it is absent the port really is closed.
+`[start] cannot bind …` means the port is taken (`ss -ltnp | grep 8080`);
+`[start] server/index.mjs does not export a fetch handler` means the folder was
+built with `npm run build` instead of `npm run build:selfhost`.
+
+### Gateway (port 8000) crash-loops: "uniqueness violation: 'keyauth_credentials'"
+
+Kong was handed the same API key twice. Clear the duplicates and recreate it:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/backend
+# these four must be EMPTY on a legacy-key install
+grep -nE '^(ANON_KEY_ASYMMETRIC|SERVICE_ROLE_KEY_ASYMMETRIC|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SECRET_KEY)=' .env
+
+# inherited shell variables override .env — clear them in this shell first
+unset ANON_KEY_ASYMMETRIC SERVICE_ROLE_KEY_ASYMMETRIC SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
+
+docker compose --env-file .env -p resl_quality up -d --force-recreate kong
+docker logs --tail 30 supabase-kong
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/auth/v1/health   # expect 200
+```
+
+The Kong entrypoint also drops duplicate credentials itself now, so a mis-set
+variable degrades to legacy-key mode instead of taking the gateway down.
+

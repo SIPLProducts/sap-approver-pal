@@ -39,10 +39,29 @@ printf 'App server deploy helper\n  folder : %s\n  port   : %s\n  pm2    : %s\n'
 
 # ---------------------------------------------------------------------------
 step "1/7 Checking the deployed folder"
-for f in index.html server/index.mjs start.mjs; do
-  [ -e "$f" ] || die "$f is missing — this dist/ folder is incomplete. Rebuild with 'npm run build' and copy the whole dist/ folder."
+for f in server/index.mjs start.mjs build-info.json; do
+  [ -e "$f" ] || die "$f is missing — this dist/ folder is incomplete or stale. Rebuild with 'npm run build:selfhost' and copy the WHOLE folder: rsync -a --delete dist/ <server>:$HERE/"
   ok "$f"
 done
+
+MODE="$(sed -n 's/.*"mode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' build-info.json | head -n1)"
+[ -n "$MODE" ] && ok "build mode: $MODE"
+if [ "$MODE" != "selfhost-node" ]; then
+  die "this dist/ was built with 'npm run build' (mode: ${MODE:-unknown}). The self-hosted app server needs 'npm run build:selfhost'."
+fi
+
+# A mixed folder (HTML from one build, assets/ from another) is the classic
+# cause of "404 on every /assets/*.js" in the browser. Refuse to start it.
+miss=0
+for html in *.html; do
+  [ -e "$html" ] || continue
+  for ref in $(grep -ao 'assets/[^"]*\.\(js\|css\)' "$html" | sort -u); do
+    if [ ! -f "$ref" ]; then printf '   MISS %s -> %s\n' "$html" "$ref"; miss=1; fi
+  done
+done
+[ "$miss" = "0" ] || die "this dist/ is inconsistent: HTML references asset files that are not here. Rebuild and redeploy with 'rsync -a --delete'."
+ok "no dangling asset references"
+
 
 # ---------------------------------------------------------------------------
 step "2/7 Removing stale installs from the asset folder"
@@ -139,34 +158,67 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 step "7/7 Connectivity checks"
-echo "   waiting for port $PORT…"
+printf '   waiting for port %s' "$PORT"
 up=0
 i=0
 while [ "$i" -lt 40 ]; do
-  if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/"; then up=1; break; fi
+  if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/" 2>/dev/null; then up=1; break; fi
+  # Stop early when the process already died — no point waiting 80 seconds.
+  if command -v pm2 >/dev/null 2>&1 && pm2 describe "$PM2_NAME" 2>/dev/null | grep -q 'errored\|stopped'; then
+    printf '\n'; fail "$PM2_NAME is not running (pm2 reports it errored/stopped)"; break
+  fi
+  printf '.'
   i=$((i + 1)); sleep 2
 done
+printf '\n'
 
 if [ "$up" = "1" ]; then
   ok "app server answers on http://127.0.0.1:$PORT/"
 else
   fail "nothing answering on port $PORT"
+  echo "   The launcher exits with an explicit error when the bundle opens no listener;"
+  echo "   check the log lines printed below for '[start]' or '[server]' messages."
 fi
 
-code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/api/public/middleware/config" \
-  -H 'content-type: application/json' -d '{"name":"Login_API"}' 2>/dev/null)"
-case "$code" in
-  401|200) ok "backend route reachable (HTTP $code)" ;;
-  000)     fail "backend route unreachable" ;;
-  *)       warn "backend route returned HTTP $code" ;;
-esac
+if [ "$up" = "1" ]; then
+  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/api/public/middleware/config" \
+    -H 'content-type: application/json' -d '{"name":"Login_API"}' 2>/dev/null)"
+  case "$code" in
+    401|200) ok "backend route reachable (HTTP $code)" ;;
+    000)     fail "backend route unreachable" ;;
+    *)       warn "backend route returned HTTP $code" ;;
+  esac
+
+  # The login page must be served by this server (it renders the HTML), and
+  # every chunk it asks for must exist on disk.
+  html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null || true)"
+  if [ -z "$html" ]; then
+    fail "/login did not render"
+  else
+    lmiss=0
+    for ref in $(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u); do
+      if [ ! -f "$ref" ]; then printf '   MISS /%s\n' "$ref"; lmiss=1; fi
+    done
+    if [ "$lmiss" = "0" ]; then ok "/login renders and all its assets exist"
+    else fail "/login references assets that are not in this folder — rebuild and rsync -a --delete"; fi
+  fi
+fi
 
 if curl -fsS -o /dev/null http://127.0.0.1:3002/__health 2>/dev/null; then
   ok "SAP middleware healthy on port 3002"
 else
   warn "SAP middleware not answering on port 3002 (login will fail until it is up)"
 fi
+
+gw="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/auth/v1/health 2>/dev/null)"
+case "$gw" in
+  200|401) ok "database/auth gateway healthy on port 8000" ;;
+  000)     warn "gateway not answering on port 8000 — run: cd ../../backend && docker compose --env-file .env -p resl_quality up -d --force-recreate kong" ;;
+  *)       warn "gateway returned HTTP $gw on port 8000" ;;
+esac
+
 
 # ---------------------------------------------------------------------------
 if [ "$FAILED" = "0" ] && [ "$up" = "1" ]; then

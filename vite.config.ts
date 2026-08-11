@@ -106,8 +106,12 @@ export default defineConfig({
         }
       : {}),
   tanstackStart: {
+    // Both builds share this entry. For self-hosting, dist/start.mjs wraps the
+    // exported fetch handler in a real Node http listener (so PORT/HOST bind).
     server: { entry: "server" },
     ...(isShellPass
+
+
       ? {
           spa: {
             enabled: true,
