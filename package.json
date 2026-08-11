@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "node scripts/build.mjs",
+    "build:selfhost": "node scripts/build.mjs --selfhost",
     "build:dev": "node scripts/build.mjs --mode development",
     "preview": "vite preview",
     "lint": "eslint .",

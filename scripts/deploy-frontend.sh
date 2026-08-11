@@ -3,7 +3,7 @@
 # Bring up the app server (port 8080) from a deployed dist/ folder.
 #
 # Usage (from inside the deployed dist/ folder):
-#   bash deploy-frontend.sh [--reinstall] [--no-restart] [--port 8080]
+#   bash deploy-frontend.sh [--no-restart] [--port 8080]
 #
 # Never touches the SAP middleware process, nginx, Docker or the database.
 # ---------------------------------------------------------------------------
@@ -105,20 +105,17 @@ fi
 
 
 # ---------------------------------------------------------------------------
-step "4/7 Runtime dependencies (.runtime/)"
-if [ ! -f .runtime/package.json ]; then
-  die ".runtime/package.json is missing — rebuild with 'npm run build' so the launcher and its runtime manifest are emitted."
+step "4/7 Server bundle"
+if [ ! -f server/index.mjs ]; then
+  die "server/index.mjs is missing — rebuild with 'npm run build:selfhost' and copy the whole dist/ folder."
 fi
-if [ "$REINSTALL" = "1" ] || [ ! -d .runtime/node_modules ]; then
-  echo "   installing (this can take a minute)…"
-  if npm install --omit=dev --prefix .runtime --no-audit --no-fund; then
-    ok "runtime dependencies installed"
-  else
-    die "npm install in .runtime failed — check network access to the npm registry or copy a prepared .runtime/node_modules onto this machine."
-  fi
-else
-  ok "already installed (use --reinstall to force)"
+if [ -d .runtime ]; then
+  rm -rf .runtime && ok "removed the obsolete .runtime folder (no wrangler needed any more)"
 fi
+if [ "$REINSTALL" = "1" ]; then
+  warn "--reinstall is obsolete: the app server is a plain Node bundle with no runtime install"
+fi
+ok "server/index.mjs present (plain Node server — no npm install required)"
 
 # ---------------------------------------------------------------------------
 step "5/7 Launcher syntax"
