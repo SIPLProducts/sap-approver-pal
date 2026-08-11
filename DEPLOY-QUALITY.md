@@ -4,8 +4,13 @@
 
 ```bash
 npm ci
-npm run build
+npm run build:selfhost
 ```
+
+Use `build:selfhost` for this server. It builds the app server as a **plain Node
+HTTP server** (`dist/server/index.mjs`) instead of a Cloudflare worker bundle —
+no wrangler, no `workerd` binary, no `.runtime` install, and `process.env` is
+visible to server code (which the SAP middleware callback needs).
 
 Output — a single, clean `dist/` folder. No `.output/`, no `.wrangler/`, no duplicate
 `dist/client/`; the build removes them itself. `dist/` is the only artefact you copy
@@ -21,6 +26,10 @@ dist/
   _headers
   .assetsignore
   server/                 <- app server bundle (all server functions)
+  start.mjs               <- launcher: loads .env.runtime, boots server/index.mjs
+  .env.runtime            <- generated from frontend/.env (server-side keys)
+  ecosystem.config.cjs    <- pm2 config (name Qty_App, port 8080)
+  deploy-frontend.sh      <- one-command bring-up + checks
 ```
 
 > `dist/index.html` is a real file, so nginx can use
@@ -37,18 +46,48 @@ dist/
 # copy the whole dist folder
 rsync -a dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
 
-# on the server (Node 20+ installed, project node_modules present for wrangler)
-cd /data/webapplication/resl_approval/Quality/frontend
-PORT=8080 HOST=127.0.0.1 npm start
+# on the server (Node 20+; nothing else to install)
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+bash deploy-frontend.sh
 ```
 
-pm2 (recommended):
+`deploy-frontend.sh` regenerates `.env.runtime` from `frontend/.env`, verifies the
+required keys, starts/restarts pm2 `Qty_App` on 8080, and runs the checks. It never
+touches the SAP middleware on 3002.
+
+Manual equivalent:
 
 ```bash
-pm2 start npm --name resl-app-quality -- start --  # env below
-pm2 set resl-app-quality:PORT 8080
-pm2 save
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+pm2 start ecosystem.config.cjs      # or: pm2 restart Qty_App --update-env
+pm2 save && pm2 startup             # reboot persistence
+systemctl enable nginx
 ```
+
+Required in `frontend/.env` (baked into `dist/.env.runtime` at build time):
+
+```ini
+SUPABASE_URL=http://10.150.150.130:8000
+SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from backend/.env>
+SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from backend/.env — NOT the anon key>
+MIDDLEWARE_URL=http://127.0.0.1:3002
+MIDDLEWARE_SHARED_SECRET=<exact value from middleware/.env>
+```
+
+The launcher decodes `SUPABASE_SERVICE_ROLE_KEY` and prints
+`warning: ... holds a 'anon' key` when the wrong key is used — sessions cannot be
+created in that state.
+
+Verify:
+
+```bash
+curl -I http://10.150.150.130:8081/                                  # frontend 200
+ss -lntp | grep ':8080'                                              # node listening
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  http://127.0.0.1:8080/api/public/middleware/config                 # 401 = alive
+curl -s http://127.0.0.1:3002/__health                               # middleware OK
+```
+
 
 systemd alternative — `/etc/systemd/system/resl-app-quality.service`:
 
