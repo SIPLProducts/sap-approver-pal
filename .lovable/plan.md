@@ -32,14 +32,38 @@ The screenshot also shows three candidate folders (`dist`, `dist 11-08-2026`,
 and `dist_11082026`). Renaming or selecting an old folder does not repair the
 server/assets pairing. Only one newly produced, validated folder should remain.
 
-That explains both symptoms:
+### Two separate faults, both proven by the latest curl output
 
-- port 8080 can answer while the browser still receives HTML referencing missing files
-- the old deploy check reports PASS because it never validates the assets rendered by `/login`
+```text
+127.0.0.1:8080/login -> HTTP/1.1 500  (no Server header)                    = app server
+127.0.0.1:8081/login -> HTTP/1.1 200  Last-Modified + ETag + Content-Length = static file
+```
+
+1. **The app server itself is failing.** `/login` on 8080 returns 500, so the
+   running bundle throws while rendering. `deploy-frontend.sh` PASS only proved the
+   port answers `/` — not that `/login` renders. The exact exception must be read
+   from the process log first; if it is a missing runtime value, no rebuild fixes it.
+2. **Nginx is not proxying at all.** `Last-Modified` (16:35), `ETag` and a fixed
+   `Content-Length` mean nginx served `index.html` from disk instead of forwarding to
+   8080. That stale file is what references the missing hashed assets — exactly the
+   browser 404s you saw.
+
+So the login page is broken twice over: the HTML comes from an old file, and the
+server that should render it errors.
 
 The backend/gateway is fine and is not touched by any step below.
 
 ## Recovery
+
+0. **First capture the 500 — do not rebuild blind:**
+
+   ```bash
+   pm2 logs Qty_App --lines 80 --nostream
+   curl -s http://127.0.0.1:8080/login | head -40
+   ```
+
+   This names the failing module or missing variable. If it is a runtime/config
+   problem rather than a build problem, the plan is adjusted at that point.
 
 1. **Do not deploy the failed `build:dev` output.** On the build machine, update
    the whole project source first; copying only a previous `dist` also copies its
@@ -111,9 +135,12 @@ The backend/gateway is fine and is not touched by any step below.
    Step 7 must include `/login renders and all its assets exist`, followed by
    `RESULT: PASS`.
 
-5. **Nginx on 8081** must proxy `location /` to `127.0.0.1:8080` (not serve
-   `index.html` from disk). If it still has a static `root`/`try_files` block,
-   replace it with the block in §4 of `DEPLOY-QUALITY.md` and `nginx -s reload`.
+5. **Nginx on 8081** must proxy `location /` to `127.0.0.1:8080` and must stop
+   serving `index.html` from disk (the `ETag`/`Last-Modified` above proves it does
+   today). Remove the `root .../dist;` + `try_files ... /index.html;` block for
+   `location /`, put the proxy block from §4 of `DEPLOY-QUALITY.md` in its place,
+   then run `nginx -t && nginx -s reload`. `/assets/` may keep being served by nginx,
+   but only from the same newly deployed folder.
 
 6. **Final verification** from the server:
 
