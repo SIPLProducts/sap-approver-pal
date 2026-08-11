@@ -160,6 +160,72 @@ for (const name of readdirSync(distDir).sort()) {
   const isDir = statSync(join(distDir, name)).isDirectory();
   console.log(`  ${name}${isDir ? "/" : ""}`);
 }
+// 6. Emit a self-contained runtime inside dist/ so the folder can start itself
+//    on a server with only `npm install && npm start` (no source checkout needed).
+const runtimePkg = {
+  name: "app-server-runtime",
+  private: true,
+  type: "module",
+  scripts: { start: "node start.mjs" },
+  dependencies: { wrangler: "^4.45.0" },
+};
+writeFileSync(join(distDir, "package.json"), JSON.stringify(runtimePkg, null, 2) + "\n");
+
+const launcher = `#!/usr/bin/env node
+/**
+ * Self-contained launcher for the built app server.
+ * Usage (inside this dist/ folder):
+ *   npm install
+ *   PORT=8080 HOST=127.0.0.1 npm start
+ *
+ * Optional: put runtime env vars in dist/.env.runtime (KEY=value per line).
+ */
+import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+const envFile = join(here, ".env.runtime");
+if (existsSync(envFile)) {
+  for (const line of readFileSync(envFile, "utf8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+  console.log("[start] loaded env from .env.runtime");
+}
+
+const serverDir = join(here, "server");
+if (!existsSync(join(serverDir, "index.mjs"))) {
+  console.error("[start] server/index.mjs not found next to start.mjs — incomplete dist/.");
+  process.exit(1);
+}
+
+const port = process.env.PORT ?? "8080";
+const host = process.env.HOST ?? "127.0.0.1";
+console.log(\`[start] serving app server on http://\${host}:\${port}\`);
+
+const child = spawn(
+  process.platform === "win32" ? "npx.cmd" : "npx",
+  ["wrangler", "dev", "--cwd", serverDir, "--ip", host, "--port", port],
+  { stdio: "inherit", cwd: here, env: process.env },
+);
+child.on("exit", (code) => process.exit(code ?? 0));
+`;
+writeFileSync(join(distDir, "start.mjs"), launcher);
+
 console.log("[collect-dist] static shell: dist/index.html (nginx root)");
 console.log("[collect-dist] app server bundle: dist/server (run with `npm start`).");
 
