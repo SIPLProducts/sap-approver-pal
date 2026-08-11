@@ -61,10 +61,31 @@ process.env.NITRO_OUTPUT_DIR ||= "dist";
 // all server-function traffic.
 const isShellPass = process.env.TSS_SHELL_PASS === "1";
 
+// `npm run build:selfhost` (SELF_HOST=1) builds the app pass for a plain Node
+// HTTP server instead of the Cloudflare worker runtime. That is what the
+// self-hosted Quality/Production servers run: `node dist/start.mjs` on 8080,
+// a normal Node process that sees process.env directly — no wrangler, no
+// workerd binary, no Cloudflare metadata calls. Lovable preview/publish keep
+// the default worker build because SELF_HOST is unset there.
+const isSelfHost = process.env.SELF_HOST === "1";
+
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
-  ...(isShellPass ? { nitro: false as const } : {}),
+  ...(isShellPass
+    ? { nitro: false as const }
+    : isSelfHost
+      ? {
+          nitro: {
+            preset: "node-server" as const,
+            output: {
+              dir: "dist",
+              serverDir: "dist/server",
+              publicDir: "dist/client",
+            },
+          },
+        }
+      : {}),
   tanstackStart: {
     server: { entry: "server" },
     ...(isShellPass
