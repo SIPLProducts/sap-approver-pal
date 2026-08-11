@@ -135,9 +135,12 @@ The backend/gateway is fine and is not touched by any step below.
    Step 7 must include `/login renders and all its assets exist`, followed by
    `RESULT: PASS`.
 
-5. **Nginx on 8081** must proxy `location /` to `127.0.0.1:8080` (not serve
-   `index.html` from disk). If it still has a static `root`/`try_files` block,
-   replace it with the block in §4 of `DEPLOY-QUALITY.md` and `nginx -s reload`.
+5. **Nginx on 8081** must proxy `location /` to `127.0.0.1:8080` and must stop
+   serving `index.html` from disk (the `ETag`/`Last-Modified` above proves it does
+   today). Remove the `root .../dist;` + `try_files ... /index.html;` block for
+   `location /`, put the proxy block from §4 of `DEPLOY-QUALITY.md` in its place,
+   then run `nginx -t && nginx -s reload`. `/assets/` may keep being served by nginx,
+   but only from the same newly deployed folder.
 
 6. **Final verification** from the server:
 
