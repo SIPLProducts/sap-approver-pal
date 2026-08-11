@@ -8,6 +8,8 @@
     "build": "node scripts/build.mjs",
     "build:selfhost": "node scripts/build.mjs --selfhost",
     "build:dev": "node scripts/build.mjs --mode development",
+    "verify:dist": "node scripts/verify-dist.mjs",
+    "package:dist": "node scripts/package-dist.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",

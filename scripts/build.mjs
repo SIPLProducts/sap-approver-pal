@@ -93,4 +93,21 @@ const collect = spawnSync(process.execPath, [join(root, "scripts", "collect-dist
   stdio: "inherit",
   env: { ...process.env, TSS_SHELL_HTML: shellCacheFile },
 });
-process.exit(collect.status ?? 0);
+if ((collect.status ?? 0) !== 0) process.exit(collect.status ?? 1);
+
+// ------------------------------------------------------------------- verify
+// A build only "succeeds" when the folder it produced is actually deployable:
+// complete, right mode, and with every hashed asset its HTML references.
+const verify = spawnSync(
+  process.execPath,
+  [join(root, "scripts", "verify-dist.mjs"), "--expect", selfHost ? "selfhost-node" : "worker"],
+  { stdio: "inherit" },
+);
+if ((verify.status ?? 0) !== 0) {
+  console.error("[build] the produced dist/ is not deployable — see the failures above.");
+  process.exit(verify.status ?? 1);
+}
+if (selfHost) {
+  console.log("[build] dist/ verified. Package it with `npm run package:dist` before copying.");
+}
+process.exit(0);

@@ -448,9 +448,17 @@ const server = createServer((req, res) => {
         }
       }
       // SSR + /_serverFn/* + /api/*
-      await sendWebResponse(res, await handler.fetch(toWebRequest(req), process.env, undefined));
+      const upstream = await handler.fetch(toWebRequest(req), process.env, undefined);
+      // A 5xx produced *inside* the app (SSR render error) never reaches the catch
+      // below, so log it here — otherwise pm2 logs stay silent while the browser
+      // shows a blank page.
+      if (upstream && upstream.status >= 500) {
+        console.error("[server] " + req.method + " " + req.url + " -> HTTP " + upstream.status +
+          " (rendered by the app; check the stack trace above/below)");
+      }
+      await sendWebResponse(res, upstream);
     } catch (error) {
-      console.error("[server] request failed:", error);
+      console.error("[server] request failed:", req.method, req.url, error);
       if (!res.headersSent) res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
       res.end("Internal Server Error");
     }

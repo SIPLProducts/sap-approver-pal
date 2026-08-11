@@ -36,11 +36,12 @@ fail()  { printf '   FAIL %s\n' "$1"; FAILED=1; }
 die()   { printf '\n   FAIL %s\n\n' "$1"; exit 1; }
 
 printf 'App server deploy helper\n  folder : %s\n  port   : %s\n  pm2    : %s\n' "$HERE" "$PORT" "$PM2_NAME"
-
 # ---------------------------------------------------------------------------
 step "1/7 Checking the deployed folder"
+HELPER_REV="2026-08-11c"
+ok "deploy helper revision: $HELPER_REV"
 for f in server/index.mjs start.mjs build-info.json; do
-  [ -e "$f" ] || die "$f is missing — this dist/ folder is incomplete or stale. Rebuild with 'npm run build:selfhost' and copy the WHOLE folder: rsync -a --delete dist/ <server>:$HERE/"
+  [ -e "$f" ] || die "$f is missing — this dist/ folder is incomplete or stale. Rebuild with 'npm run build:selfhost', package it with 'npm run package:dist', then extract the WHOLE archive into an EMPTY dist/ folder."
   ok "$f"
 done
 
@@ -49,6 +50,14 @@ MODE="$(sed -n 's/.*"mode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' build-inf
 if [ "$MODE" != "selfhost-node" ]; then
   die "this dist/ was built with 'npm run build' (mode: ${MODE:-unknown}). The self-hosted app server needs 'npm run build:selfhost'."
 fi
+
+# In self-host mode the app server renders every page. A static index.html here
+# is always a leftover from an older build, and nginx will happily serve it —
+# which is exactly how the browser ends up 404ing on hashed asset files.
+if [ -e index.html ]; then
+  die "index.html must NOT exist in a self-host bundle (mode: $MODE) — this folder is a MIX of an old build and a new one. Do not patch it: move it aside, create an empty dist/, and extract one freshly built archive into it."
+fi
+ok "no stale static index.html"
 
 # A mixed folder (HTML from one build, assets/ from another) is the classic
 # cause of "404 on every /assets/*.js" in the browser. Refuse to start it.
@@ -59,7 +68,7 @@ for html in *.html; do
     if [ ! -f "$ref" ]; then printf '   MISS %s -> %s\n' "$html" "$ref"; miss=1; fi
   done
 done
-[ "$miss" = "0" ] || die "this dist/ is inconsistent: HTML references asset files that are not here. Rebuild and redeploy with 'rsync -a --delete'."
+[ "$miss" = "0" ] || die "this dist/ is inconsistent: HTML references asset files that are not here. Rebuild and redeploy the whole folder as one unit."
 ok "no dangling asset references"
 
 
@@ -193,16 +202,44 @@ if [ "$up" = "1" ]; then
 
   # The login page must be served by this server (it renders the HTML), and
   # every chunk it asks for must exist on disk.
+  lcode="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/login" 2>/dev/null)"
   html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null || true)"
   if [ -z "$html" ]; then
-    fail "/login did not render"
+    fail "/login did not render (HTTP $lcode)"
+    if [ "$lcode" = "500" ]; then
+      echo "   The app server is running but throws while rendering /login."
+      echo "   This is a RUNTIME error, not a missing file. Read the reason with:"
+      echo "     pm2 logs $PM2_NAME --lines 80 --nostream"
+      echo "   Most common cause: a value missing from .env.runtime (see step 3)."
+      echo "   --- first lines the server returned ---"
+      curl -s "http://127.0.0.1:$PORT/login" 2>/dev/null | head -n 15 | sed 's/^/   /'
+    fi
   else
     lmiss=0
     for ref in $(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u); do
       if [ ! -f "$ref" ]; then printf '   MISS /%s\n' "$ref"; lmiss=1; fi
     done
-    if [ "$lmiss" = "0" ]; then ok "/login renders and all its assets exist"
-    else fail "/login references assets that are not in this folder — rebuild and rsync -a --delete"; fi
+    if [ "$lmiss" = "0" ]; then ok "/login renders (HTTP $lcode) and all its assets exist"
+    else fail "/login references assets that are not in this folder — redeploy the whole folder as one unit"; fi
+  fi
+
+  # Whatever the browser actually hits (nginx on 8081) must be the app server's
+  # HTML. A static file answer there is served from disk and will be stale.
+  if command -v curl >/dev/null 2>&1; then
+    hdrs="$(curl -sI http://127.0.0.1:8081/login 2>/dev/null || true)"
+    if [ -n "$hdrs" ]; then
+      if printf '%s' "$hdrs" | grep -qi '^ETag:\|^Last-Modified:'; then
+        fail "nginx on 8081 is serving /login as a STATIC FILE (ETag/Last-Modified present)"
+        echo "   It must proxy instead. In the 8081 server block replace the static"
+        echo "   'root …/dist; try_files … /index.html;' for 'location /' with:"
+        echo "       location / { proxy_pass http://127.0.0.1:$PORT; proxy_set_header Host \$host; }"
+        echo "   then: nginx -t && nginx -s reload   (see DEPLOY-QUALITY.md)"
+      else
+        ok "nginx on 8081 proxies /login to the app server"
+      fi
+    else
+      warn "nothing answering on port 8081 (nginx down?)"
+    fi
   fi
 fi
 
