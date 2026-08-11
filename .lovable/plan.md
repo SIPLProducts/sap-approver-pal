@@ -1,126 +1,149 @@
-# Restore SAP login on the Quality server
+# Start the app server on 8080 (fixes the login 502)
 
-## Confirmed request path
+## What the evidence shows
+
+SAP is now reachable from the Quality server — your direct `curl` returned the full `USER`/`PLANTS` JSON for `22011840`. So SAP, credentials, and network access are no longer the problem.
+
+`pm2 ls` shows exactly one process, `Qty_Approval`, and its output is:
 
 ```text
-Browser :8081
-  -> Nginx /_serverFn/*
-  -> app runtime 127.0.0.1:8080
-  -> middleware 127.0.0.1:3002 /login/Login_API
-  -> SAP 10.150.150.155:8005
+[sap-middleware] listening on :3002 (live mode)
+[sap-middleware] app: http://10.150.150.130:8081
 ```
 
-The Nginx routing shown is correct for this flow. The HTML `502 Bad Gateway` shown in the login popup occurs before SAP processing: Nginx could not get a valid response from the app runtime at `127.0.0.1:8080`. The middleware PM2 output confirms it is listening on `3002`, but it does not confirm that the app runtime is running.
+That is the **middleware** — not the application server. Nothing is running on port 8080, which is why Nginx logs `connect() failed (111: Connection refused) ... upstream: http://127.0.0.1:8080/_serverFn/...` and the browser shows `502 Bad Gateway`.
 
-Separately, `curl` and `nc` from the Quality server to the SAP host/port hang. That confirms the Quality server currently has no usable TCP path to `10.150.150.155:8005`. Even after port 8080 is restored, SAP login will time out until that network path is allowed.
+## Why 8080 is required and separate from 3002
 
-## 1. Restore the app runtime on port 8080
+They are two different programs with two different jobs:
 
-Run on the Quality server:
+```text
+Browser  ->  Nginx :8081
+               |
+               |-- /                 -> frontend static files (dist)
+               |-- /_serverFn/*      -> APP SERVER :8080     <-- MISSING
+               |-- /mw/              -> MIDDLEWARE :3002     <-- running
+```
+
+- **Port 8080 (app server)** runs your application's backend logic: the `sapLogin` server function, the backend session/token creation, profile storage, all SAP screen calls. Every login click posts to `/_serverFn/<hash>`, which only this process can answer.
+- **Port 3002 (middleware)** is only a relay to SAP. It is called *by* the app server on 8080, not by the browser.
+
+So the middleware being healthy on 3002 does not help: the request never gets that far, because the process that would call it does not exist. That is also why the direct `curl` works while the app fails — `curl` skips the missing 8080 hop entirely.
+
+## 1. Confirm nothing is on 8080
 
 ```bash
-ss -ltnp | grep ':8080' || true
-curl -sv --connect-timeout 5 http://127.0.0.1:8080/ -o /dev/null
-pm2 status
-tail -n 100 /data/webapplication/resl_approval/Quality/logs/error.log
+ss -ltnp | grep ':8080' || echo "NOTHING LISTENING ON 8080"
 ```
 
-If nothing listens on 8080, start the built server from the frontend directory, not from the middleware directory:
+## 2. Check the app build and dependencies are present
 
-```bash
-cd /data/webapplication/resl_approval/Quality/frontend
-test -f dist/server/index.mjs
-test -f package.json
-test -f scripts/start-server.mjs
-npm ci --include=dev
-PORT=8080 HOST=127.0.0.1 npm start
-```
-
-Once that foreground test answers on 8080, run it under PM2 with the same backend environment required by the app, then save the process list:
+The app server is started by `scripts/start-server.mjs`, which requires both `dist/server/index.mjs` and installed `node_modules` (it serves the bundle with wrangler).
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend
-PORT=8080 HOST=127.0.0.1 pm2 start npm --name resl-app-quality -- start
-pm2 save
+pwd
+ls -l dist/server/index.mjs
+ls -l package.json scripts/start-server.mjs
+ls -d node_modules/wrangler 2>/dev/null || echo "node_modules MISSING"
+node -v
+```
+
+- `dist/server/index.mjs` missing: the build was copied without the server bundle. Re-run `npm run build` on the build machine and copy the whole `dist/` tree, including `dist/server`.
+- `node_modules/wrangler` missing: run `npm ci --include=dev` in this folder.
+- Node must be 20 or newer.
+
+## 3. Start it in the foreground first
+
+Run it directly so any startup error is visible instead of hidden by PM2:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend
+PORT=8080 HOST=127.0.0.1 \
+NODE_ENV=production \
+SUPABASE_URL=http://127.0.0.1:8000 \
+SUPABASE_PUBLISHABLE_KEY='<ANON_KEY from backend/.env>' \
+SUPABASE_ANON_KEY='<ANON_KEY from backend/.env>' \
+SUPABASE_SERVICE_ROLE_KEY='<SERVICE_ROLE_KEY from backend/.env>' \
+MIDDLEWARE_SHARED_SECRET='<same secret as the middleware>' \
+npm start
+```
+
+Expect `[start] serving dist/ on http://127.0.0.1:8080`. From a second shell:
+
+```bash
+ss -ltnp | grep ':8080'
 curl -i --connect-timeout 5 http://127.0.0.1:8080/login
-curl -i --connect-timeout 5 http://10.150.150.130:8081/login
 ```
 
-The app runtime must have its server-side backend variables and `MIDDLEWARE_SHARED_SECRET`; the browser build variables alone are not sufficient.
-
-## 2. Verify the middleware independently
-
-The active PM2 output says the middleware listens on `3002`, matching the Nginx upstream. Confirm the live process and its current environment:
+`SUPABASE_SERVICE_ROLE_KEY` is mandatory: after SAP accepts the password, the app server uses it to create the backend session. Without it, login fails even though SAP said OK. Read the values from `backend/.env`:
 
 ```bash
-curl -sS http://127.0.0.1:3002/__health
-pm2 describe 1
-pm2 env 1 | grep -E '^(PORT|APP_BASE_URL|MIDDLEWARE_MOCK)='
+grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=' /data/webapplication/resl_approval/Quality/backend/.env
 ```
 
-Expected health output: `ok: true`, port `3002`, live mode, and app base URL `http://10.150.150.130:8081`.
+## 4. Run it permanently under PM2 as a second process
 
-Test middleware-to-app configuration lookup using the shared secret from the server environment (do not paste it into chat):
+Keep the middleware process as it is and add the app server alongside it. Create `/data/webapplication/resl_approval/Quality/frontend/ecosystem.config.cjs`:
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: "Qty_App",
+      cwd: "/data/webapplication/resl_approval/Quality/frontend",
+      script: "npm",
+      args: "start",
+      autorestart: true,
+      env: {
+        PORT: "8080",
+        HOST: "127.0.0.1",
+        NODE_ENV: "production",
+        SUPABASE_URL: "http://127.0.0.1:8000",
+        SUPABASE_PUBLISHABLE_KEY: "<ANON_KEY>",
+        SUPABASE_ANON_KEY: "<ANON_KEY>",
+        SUPABASE_SERVICE_ROLE_KEY: "<SERVICE_ROLE_KEY>",
+        MIDDLEWARE_SHARED_SECRET: "<same secret as the middleware>",
+      },
+    },
+  ],
+};
+```
 
 ```bash
-curl -sS -i -X POST http://127.0.0.1:8080/api/public/middleware/config \
-  -H 'Content-Type: application/json' \
-  -H 'x-shared-secret: <SAME_SHARED_SECRET>' \
-  -d '{"name":"Login_API"}'
+cd /data/webapplication/resl_approval/Quality/frontend
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 ls          # must now show TWO processes: Qty_Approval (3002) and Qty_App (8080)
+pm2 logs Qty_App --lines 40
 ```
 
-Expected: HTTP 200 with an active `Login_API`, the SAP endpoint, and non-empty global Basic-auth credentials. A 401 means the app and middleware secrets differ; 404 means the API row is missing; 422 means the saved SAP URL/base URL is invalid.
+## 5. Point the app at the middleware and retry login
 
-## 3. Confirm that browser login reaches the middleware
+In the app, under SAP API Settings, Middleware Configuration:
 
-Keep these running in separate terminals, then click **Sign in** once:
+- Middleware URL: `http://127.0.0.1:3002` (the app server calls it locally; `http://10.150.150.130:8081/mw` also works if you prefer to go through Nginx)
+- Proxy Secret: identical to the middleware's shared secret
+- SAP Base URL: `http://10.150.150.155:8005`
+- `Login_API` row: active, POST, endpoint `/sd_approval_mng/login/login?sap-client=300`
+- Global SAP Connection username/password: the same pair that worked in your `curl`
+
+Then watch both processes and click Sign in once:
 
 ```bash
-pm2 logs resl-app-quality --lines 100
-pm2 logs 1 --lines 100
-tail -f /data/webapplication/resl_approval/Quality/logs/error.log
+pm2 logs Qty_App --lines 50
+pm2 logs Qty_Approval --lines 50
 ```
 
-Interpretation:
+- No more 502 and a middleware log line `POST /login/Login_API`: the chain is complete.
+- App log shows a middleware connection error: the saved middleware URL is wrong.
+- Middleware returns 401: the proxy secret and `MIDDLEWARE_SHARED_SECRET` differ.
 
-- Nginx 502 and no app log: app runtime on 8080 is unavailable or crashed.
-- App log appears but no middleware `[request] POST /login/Login_API`: the saved middleware URL is wrong. Set it to `http://127.0.0.1:3002`.
-- Middleware receives the request and returns 401: shared-secret mismatch.
-- Middleware logs the request and then times out calling SAP: the application path is correct; only SAP network access remains blocked.
+## 6. Success criteria
 
-## 4. Test the exact middleware login route
+1. `ss -ltnp | grep ':8080'` shows a listener.
+2. `pm2 ls` shows two online processes.
+3. `curl -i http://10.150.150.130:8081/_serverFn/ping` returns anything other than 502.
+4. Browser login for `22011840` reaches the inbox.
 
-After the config lookup succeeds:
-
-```bash
-curl -sS -i -X POST http://127.0.0.1:3002/login/Login_API \
-  -H 'Content-Type: application/json' \
-  -H 'x-shared-secret: <SAME_SHARED_SECRET>' \
-  -d '{"inputs":{"LOGIN":{"USER":"<SAP_USER_ID>","PASSWORD":"<SAP_LOGIN_PASSWORD>"}}}' \
-  --connect-timeout 10 --max-time 150
-```
-
-This is the same route and payload shape used by the app. It should produce a request entry in the middleware PM2 log immediately, even if SAP later times out.
-
-## 5. Request the required network/firewall change
-
-Ask the network/SAP team to permit outbound TCP from the Quality application server `10.150.150.130` to SAP `10.150.150.155` on port `8005`. If SAP restricts source IPs, the Quality server must be allow-listed. Then verify:
-
-```bash
-nc -vz -w 10 10.150.150.155 8005
-curl -sv --connect-timeout 10 --max-time 60 \
-  http://10.150.150.155:8005/ -o /dev/null
-```
-
-Only after TCP connectivity succeeds should the full direct SAP POST and middleware login POST be retried. A timeout is a routing/firewall issue; changing application code, Nginx proxy timeouts, or SAP credentials will not fix it.
-
-## 6. Final end-to-end verification
-
-1. `127.0.0.1:8080/login` responds without 502.
-2. `127.0.0.1:3002/__health` returns `ok: true`.
-3. Middleware config lookup returns HTTP 200.
-4. `nc` to the SAP host/port succeeds.
-5. Middleware login returns the SAP `USER`/`PLANTS` JSON.
-6. Browser login creates the app session and opens the inbox.
-
-Because SAP and login credentials were included in shared screenshots/messages, rotate those exposed credentials after connectivity is restored.
+No application code changes are needed for this — it is entirely a process/startup issue on the server. Because SAP and login credentials were pasted into shared messages, rotate them once login is working.
