@@ -126,15 +126,11 @@ server {
     proxy_read_timeout 300s;
     proxy_send_timeout 300s;
 
-    root /data/webapplication/resl_approval/Quality/frontend/dist;
-    index index.html;
+    # No `root`/`index` here: the app server renders the HTML and serves
+    # /assets/ itself with immutable caching. Serving a stale static index.html
+    # from disk is what produced the "404 on every /assets/*.js" failure.
 
-    # hashed assets straight from disk
-    location /assets/ {
-        access_log off;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
+
 
     # server functions + API routes -> app server (SAP, login, e-mail, push)
     location /_serverFn/ {
