@@ -177,10 +177,16 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # app routes -> static shell (client-side routing)
+    # everything else (pages + /assets/) -> app server on 8080
     location / {
-        try_files $uri $uri/ /index.html;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
     }
+
 
 }
 ```
