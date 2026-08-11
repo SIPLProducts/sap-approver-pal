@@ -351,8 +351,26 @@ process.env.NITRO_PORT ??= port;
 process.env.NITRO_HOST ??= host;
 if (process.env.NODE_ENV === undefined) process.env.NODE_ENV = "production";
 
-console.log(\`[start] serving app server on http://\${host}:\${port}\`);
+console.log(\`[start] booting app server for http://\${host}:\${port}\`);
 await import(pathToFileURL(entry).href);
+
+// The self-host bundle (src/server.node.ts) sets this flag from inside the
+// listen() callback. If it is still unset shortly after the import resolved,
+// the bundle is NOT a listening Node server (e.g. a worker-style build was
+// deployed by mistake) — fail loudly instead of idling on a dead port, so pm2
+// and deploy-frontend.sh cannot report a false success.
+await new Promise((done) => setTimeout(done, 1500));
+if (!globalThis.__RESL_APP_LISTENING__) {
+  console.error(
+    "[start] server/index.mjs finished loading without opening a listener on port " +
+      port +
+      ".\\n" +
+      "[start] This dist/ was NOT built for self-hosting. Rebuild with 'npm run build:selfhost'\\n" +
+      "[start] and copy the whole folder across with: rsync -a --delete dist/ <server>:<path>/dist/",
+  );
+  process.exit(1);
+}
+
 `;
 writeFileSync(join(distDir, "start.mjs"), launcher);
 
