@@ -121,7 +121,7 @@ export default defineConfig({
       : {}),
   },
   vite: {
-    plugins: [windowsSafeMcpPlugin()],
+    plugins: [windowsSafeMcpPlugin(), ...(isSelfHost ? [cloudflareWorkersStub()] : [])],
   },
 });
 
