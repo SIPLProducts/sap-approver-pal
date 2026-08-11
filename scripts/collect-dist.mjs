@@ -192,7 +192,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 const envFile = join(here, ".env.runtime");
 if (existsSync(envFile)) {
-  for (const line of readFileSync(envFile, "utf8").split(/\r?\n/)) {
+  for (const line of readFileSync(envFile, "utf8").split(String.fromCharCode(10))) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     const eq = trimmed.indexOf("=");
