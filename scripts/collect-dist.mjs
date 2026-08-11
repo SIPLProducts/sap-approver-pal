@@ -268,11 +268,15 @@ child.on("exit", (code) => process.exit(code ?? 0));
 writeFileSync(join(distDir, "start.mjs"), launcher);
 
 // 7. Ship the one-command deploy helper next to what it manages.
+//    Always write LF endings: a CRLF copy (Windows checkout) makes bash fail
+//    with "$'\r': command not found" on the server.
 const helper = join(root, "scripts", "deploy-frontend.sh");
 if (existsSync(helper)) {
-  cpSync(helper, join(distDir, "deploy-frontend.sh"));
+  const helperText = readFileSync(helper, "utf8").replace(/\r\n/g, "\n");
+  writeFileSync(join(distDir, "deploy-frontend.sh"), helperText, { mode: 0o755 });
   console.log("[collect-dist] deploy helper: dist/deploy-frontend.sh (run `bash deploy-frontend.sh`)");
 }
+
 
 console.log("[collect-dist] static shell: dist/index.html (nginx root)");
 console.log("[collect-dist] app server bundle: dist/server (start with `node start.mjs`).");
