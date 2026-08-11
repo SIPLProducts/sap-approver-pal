@@ -1,91 +1,72 @@
-# Immediate recovery: populate the empty `.env` and start port 8080
+# Next: find out why the started process never binds 8080
 
-The diagnosis is confirmed: `frontend/.env` is **0 bytes**. The deploy script therefore stops before starting the app server. `Qty_App` showing 0 seconds uptime with **1,989 restarts** is a crash loop, not a working process. Nothing listens on 8080, so nginx returns 502 for login requests.
+Progress is real — `.env` is now valid and steps 1-6 all pass, so the env problem is
+closed. The remaining fact: pm2 starts `Qty_App`, but nothing ever listens on 8080.
+That means the process either exits immediately or boots a bundle that does not start
+an HTTP listener. Two read-only checks settle it.
 
-Do **not** run `pm2 restart all` again. It only restarts the same broken process and unnecessarily restarts `Qty_Approval`.
+## Check A — run the launcher in the foreground
 
-## 1. Populate the empty file
-
-Run this on the server. It prompts for sensitive values so they do not appear in shell history. Paste the anon key, service-role key, and middleware secret you already have.
-
-```bash
-cd /data/webapplication/resl_approval/Quality/frontend || exit 1
-
-read -r -s -p "Paste ANON_KEY, then Enter: " ANON_KEY; echo
-read -r -s -p "Paste SERVICE_ROLE_KEY, then Enter: " SERVICE_KEY; echo
-read -r -s -p "Paste middleware shared secret, then Enter: " MW_SECRET; echo
-
-printf '%s\n' \
-  'SUPABASE_URL=http://127.0.0.1:8000' \
-  "SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}" \
-  "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_KEY}" \
-  'MIDDLEWARE_URL=http://127.0.0.1:3002' \
-  "MIDDLEWARE_SHARED_SECRET=${MW_SECRET}" \
-  'PORT=8080' \
-  'HOST=127.0.0.1' \
-  'NODE_ENV=production' > .env
-
-unset ANON_KEY SERVICE_KEY MW_SECRET
-chmod 600 .env
-
-wc -c .env
-grep -E '^(SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET|PORT|HOST|NODE_ENV)=' .env \
-  | sed 's/=.*$/=<set>/'
-```
-
-Expected: `wc -c .env` is greater than 0 and all eight names print as `<set>`.
-
-## 2. Remove the crash loop and deploy cleanly
+pm2 hides the failure. This prints it:
 
 ```bash
-cd /data/webapplication/resl_approval/Quality/frontend/dist || exit 1
-pm2 delete Qty_App 2>/dev/null || true
-bash deploy-frontend.sh
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+PORT=8080 HOST=127.0.0.1 node start.mjs
 ```
 
-The script should now pass step 3, start a fresh `Qty_App`, and complete all seven steps.
+Healthy output: `[start] loaded env from .env.runtime`, an `env present:` line, a
+listening line, and the command stays running. A stack trace, or an immediate return
+to the prompt, is the answer.
 
-## 3. Verify before testing login
+Equivalent from pm2, if you prefer: `pm2 logs Qty_App --lines 60 --nostream`.
+
+## Check B — is this dist/ actually the self-host build?
+
+Most likely cause. `npm run build` produces a Cloudflare worker bundle, which exports
+a fetch handler and opens **no port**; only `npm run build:selfhost` produces a Node
+HTTP server. Both leave a `server/index.mjs`, so step 4 of the deploy script cannot
+tell them apart today.
 
 ```bash
-pm2 status Qty_App
-pm2 logs Qty_App --lines 40 --nostream
-ss -lntp | grep ':8080'
-curl -I http://127.0.0.1:8080/
-curl -s -o /dev/null -w '%{http_code}\n' -X POST \
-  http://127.0.0.1:8080/api/public/middleware/config
-curl -s http://127.0.0.1:3002/__health
-curl -I http://10.150.150.130:8081/
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+grep -c -E 'createServer|\.listen\(' server/index.mjs
+grep -c -E 'cloudflare|workerd' server/index.mjs
 ```
 
-Expected:
+A worker bundle scores 0 on the first command. The fix in that case is to rebuild on
+your build machine with `npm run build:selfhost` and copy the whole `dist/` again —
+no server-side change needed.
 
-- `Qty_App` stays online and its restart count does not increase.
-- Node listens on `127.0.0.1:8080`.
-- The direct app request produces an HTTP response, not connection refused.
-- Middleware-config returns 401 or 200; `000` means the app server remains down.
-- Middleware responds on 3002.
-- Port 8081 responds through nginx without 502.
+Also from your pm2 output: `/var` is 95.4% full. Free space there if the foreground
+run complains about writes.
 
-Only after these pass:
+## Repo changes this plan makes
 
-```bash
-pm2 save
-pm2 startup
-```
+No application code. Three deployment-tooling fixes so this failure reports itself:
 
-Run the command printed by `pm2 startup` if requested, then run `pm2 save` again.
+1. `scripts/collect-dist.mjs`: write `dist/build-info.json` recording whether the
+   bundle came from the self-host (`node-server`) or worker pass, plus a timestamp.
+2. `scripts/deploy-frontend.sh` step 4: read that marker and stop with a clear
+   message — "this dist/ is a worker build, rebuild with `npm run build:selfhost`" —
+   instead of proceeding into a 40-attempt curl loop. If the marker is absent (older
+   dist), fall back to scanning `server/index.mjs` for a listener.
+3. `scripts/deploy-frontend.sh` step 7: on timeout, automatically print the last 30
+   lines of `pm2 logs Qty_App` and shorten the wait, so the cause is visible without
+   another round trip.
 
-## If it still fails
+`DEPLOY-QUALITY.md` gains a matching entry: process starts, port never opens —
+worker-vs-node build is the first thing to check.
 
-Do not restart again. Capture the actual startup error:
+## What I need from you
 
-```bash
-pm2 logs Qty_App --lines 80 --nostream
-```
+Paste the output of Check A and Check B. If Check B shows a worker build, rebuild with
+`npm run build:selfhost`, re-copy `dist/`, re-run `bash deploy-frontend.sh` — that
+alone should bring 8080 up and clear the 502.
 
-The repository follow-up will improve the deploy script's empty-file message, but no application-code change is required to resolve this confirmed empty `.env` failure.
+Nothing here touches the SAP middleware on 3002, nginx, Docker or the database.
 
 ## Security follow-up
 
-The service-role key was pasted into chat and the middleware secret is weak. After login works, rotate that key and replace the middleware secret with a long random value in both `frontend/.env` and `middleware/.env`.
+The service-role key was pasted into chat and the middleware secret is `123456`. Once
+login works, rotate the key and replace the secret with a long random value in both
+`frontend/.env` and `middleware/.env`.
