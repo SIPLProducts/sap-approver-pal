@@ -237,18 +237,20 @@ for (const name of readdirSync(distDir).sort()) {
   console.log(`  ${name}${isDir ? "/" : ""}`);
 }
 
-// 6. Emit a launcher for dist/. The self-host build (`npm run build:selfhost`)
-//    produces dist/server/index.mjs as a plain Node HTTP server, so the
-//    launcher only has to load dist/.env.runtime into process.env and import
-//    it. No wrangler, no .runtime install, no Cloudflare calls — and every
-//    variable is genuinely visible to server code (process.env), which is what
-//    the SAP middleware callback (MIDDLEWARE_SHARED_SECRET) needs.
+// 6. Emit a launcher for dist/. The built dist/server/index.mjs only *exports*
+//    a fetch handler — it never opens a socket by itself. The launcher is
+//    therefore the Node HTTP server: it loads dist/.env.runtime into
+//    process.env, serves the static files in dist/, and forwards everything
+//    else to that fetch handler. No wrangler, no .runtime install, no
+//    Cloudflare calls — and every variable is genuinely visible to server code
+//    (process.env), which is what the SAP middleware callback
+//    (MIDDLEWARE_SHARED_SECRET) needs.
 rmSync(join(distDir, ".runtime"), { recursive: true, force: true });
 rmSync(join(distDir, "package.json"), { force: true });
 
 const launcher = `#!/usr/bin/env node
 /**
- * Launcher for the built app server (plain Node).
+ * Launcher + HTTP server for the built app server (plain Node).
  * Usage (inside this dist/ folder):
  *   PORT=8080 HOST=0.0.0.0 node start.mjs
  * or with pm2:
@@ -256,9 +258,13 @@ const launcher = `#!/usr/bin/env node
  *
  * Runtime env vars live in dist/.env.runtime (KEY=value per line).
  */
-import { existsSync, readFileSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { createReadStream, existsSync, readFileSync, rmSync, statSync } from "node:fs";
+import { createServer } from "node:http";
+import { dirname, extname, join, normalize, resolve, sep } from "node:path";
+import { Readable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+
 
 const here = dirname(fileURLToPath(import.meta.url));
 
