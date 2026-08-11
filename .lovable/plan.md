@@ -1,67 +1,77 @@
-# Which SAP the Lovable preview login uses, and why it failed
+# Quiet the app server's offline warnings on the Quality box
 
-## What is configured right now (read from your backend settings)
+## What the log actually shows
 
-| Hop | Value |
-|---|---|
-| Middleware the app calls | `https://sector-protozoan-humorist.ngrok-free.dev` (ngrok tunnel to your local/on-prem middleware) |
-| SAP base URL the middleware calls | `http://10.150.150.154:8103` |
-| SAP technical user | `SARVIINFO` |
-| Shared secret | present (6 characters) |
-| Login endpoint used | `POST <middleware>/login/Login_API` with `{"inputs":{"LOGIN":{"USER":...,"PASSWORD":...}}}` |
-
-So the Lovable preview does **not** talk to SAP directly, and Supabase never validates the password. The chain is:
+`Qty_App` is now starting correctly. The important lines are:
 
 ```text
-Preview browser → Lovable server function (sapLogin)
-  → ngrok middleware → SAP 10.150.150.154:8103 (Login_API)
-  → back to server function → backend session created
+[wrangler:info] Parsed 1 valid header rule.
+Local server updated and ready
 ```
 
-## Why your login attempts failed
+The `TimeoutError: The operation was aborted due to timeout` at `setupCf` is **not** your application failing. On startup the runtime tries to download a Cloudflare metadata file (`Request.cf` placeholder data) from the internet. The Quality server has no outbound internet access, so that request times out after ~30 s, the runtime falls back to a placeholder, and it reconfigures itself — which is why you also see the repeating `Reloading local server...`.
 
-The three attempts at 07:08, 07:11 and 07:12 UTC all returned `status 500, error "fetch failed"` and each took about 14–15 seconds. The login log stores them as `login middleware: 500`. A 14-second `fetch failed` is a connection timeout from the Lovable server to the ngrok URL — the request never reached SAP, so it is not a credential problem.
+Effects: slow startup, noisy logs, and a restart loop that can make port `8080` intermittently refuse connections. Login itself is unaffected once the server settles.
 
-Checked again just now:
-
-- `GET <middleware>/__health` → `200 {"ok":true,"service":"sap-middleware","mode":"live"}`
-- `POST <middleware>/login/Login_API` without the secret → `401 Invalid or missing x-shared-secret`
-
-The tunnel is reachable again, and the login route exists and enforces the shared secret. The most recent successful preview logins were `login middleware: 200` on 10 Aug. The failures line up with the tunnel or middleware being restarted or offline during that window.
-
-## Step 1 — Retry login in the preview
-
-Sign in again with your SAP user. Because the middleware answers now, this is expected to succeed without any code change.
-
-## Step 2 — If it fails again, identify the exact hop
-
-Run these on the machine that hosts the middleware:
+## Step 1 — Confirm the server is actually serving
 
 ```bash
-curl -i http://127.0.0.1:3002/__health
-curl -i -X POST http://127.0.0.1:3002/login/Login_API \
-  -H 'content-type: application/json' \
-  -H 'x-shared-secret: <proxy secret from SAP settings>' \
-  -d '{"inputs":{"LOGIN":{"USER":"<sap user>","PASSWORD":"<password>"}}}'
+ss -ltnp | grep ':8080'
+curl -i http://127.0.0.1:8080/
+curl -i -X POST http://127.0.0.1:8081/api/public/middleware/config \
+  -H 'content-type: application/json' -d '{"name":"Login_API"}'
 ```
 
-Interpretation:
+Expected: `8080` listening, `/` returns HTML, and the config route returns `401 Invalid or missing x-shared-secret` (proof the request reached the app server).
 
-- Local health fails → the middleware process is down; start it.
-- Local health works but the public ngrok URL fails → the tunnel died and now has a **different** URL. ngrok free URLs change on restart, so the stored middleware URL must be updated in SAP Settings.
-- Both work but the app still reports `fetch failed` → the tunnel is dropping the Lovable request; restart the tunnel.
-- SAP returns an HTML `Anmeldung fehlgeschlagen` page → the SAP technical user/password or `sap-client` is wrong, not the app.
+If those pass, login should already work through Nginx on `:8081`.
 
-## Step 3 — Make the failure readable instead of `fetch failed`
+## Step 2 — Stop the metadata fetch (code change)
 
-Small improvement to the login server function so the cause is obvious in the UI instead of a bare `fetch failed`:
+Update the launcher generated into `dist/start.mjs` by `scripts/collect-dist.mjs`:
 
-- Add an explicit request timeout (about 20 s) to the middleware `fetch`.
-- On a network-level failure, return a message naming the hop, for example: `Cannot reach the SAP middleware at <host>. The middleware or its tunnel is offline.`
-- Keep the existing 401 / 404 / 403 messages unchanged.
+- Set `CI=true` in the child process environment unless it is already set. The runtime skips the Cloudflare metadata download in CI mode, which removes both the `setupCf` timeout and the reload churn.
+- Set `WRANGLER_SEND_METRICS=false` so no telemetry call is attempted on the closed network.
+- Pass `--no-live-reload` is not needed; disabling the metadata fetch stops the reload loop.
+- Print a single line at startup confirming offline mode, so future logs are easy to read.
 
-Files touched: `src/lib/auth/sap-login.functions.ts` only. No change to the middleware, the deployed server, or SAP settings.
+Only `scripts/collect-dist.mjs` changes. No application, middleware, Nginx, or SAP configuration change.
 
-## Note on the Quality server
+## Step 3 — Optional immediate workaround (no rebuild)
 
-This is separate from the on-prem Quality deployment. There, the app server uses the middleware at `http://127.0.0.1:3002`, not this ngrok URL. The ngrok URL only exists so the hosted Lovable preview can reach your internal SAP network.
+If you do not want to rebuild right now, restart the existing process with those variables injected:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+pm2 delete Qty_App
+CI=true WRANGLER_SEND_METRICS=false PORT=8080 HOST=127.0.0.1 \
+  pm2 start start.mjs --name Qty_App --cwd "$PWD" --interpreter node --time --update-env
+pm2 save
+pm2 logs Qty_App --lines 40 --nostream
+```
+
+The `setupCf` timeout and the repeating reload lines should disappear.
+
+## Step 4 — Redeploy with the fix
+
+```bash
+npm run build          # on the dev machine
+node --check dist/start.mjs
+```
+
+Copy `dist/` to the server, keep `.env.runtime`, then:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+npm install --omit=dev
+pm2 restart Qty_App --update-env
+```
+
+## Then verify login end to end
+
+```bash
+pm2 logs Qty_App --lines 100
+pm2 logs Qty_Approval --lines 100
+```
+
+Sign in once. Expected order: the request appears in `Qty_App`, then `/login/Login_API` appears in `Qty_Approval`, then SAP responds and `Qty_App` creates the backend session.
