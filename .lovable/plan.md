@@ -1,67 +1,64 @@
-# Why the login request stays "pending", and what Quality's database needs
+# Login on Quality: remaining blocker is the middleware shared secret
 
-## Why `/_serverFn/...` never finishes
+## Where things stand now (from your output)
 
-That URL is the login server function. It is not a static page — it runs on the app server (port 8080) and does real work before answering. Confirmed from the login code, it does this in order:
+- App server is finally up: `[start] serving app server on http://0.0.0.0:8080`. The earlier `start.mjs not found` lines are old log entries from before the folder was complete — ignore them.
+- `Login_API` row exists and is active, pointing at `http://10.150.150.155:8005/sd_approval_mng/login/login?sap-client=300`.
+- The middleware answers, but rejects the call: `{"ok":false,"error":"Invalid or missing x-shared-secret"}`. So `123456` is **not** the secret the middleware expects.
+- The repeating `Unable to fetch the Request.cf object` / `TimeoutError` lines are harmless: the local runtime tries to reach Cloudflare for request metadata, has no internet, and falls back to a placeholder. They do not stop the server.
 
-1. Opens a privileged database client (needs `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`).
-2. Reads the `Login_API` row from `sap_api_configs` (must exist and be active).
-3. Reads `sap_global_settings` and `sap_global_secrets` to find the middleware URL and shared secret.
-4. Calls the middleware, which calls SAP.
-5. Creates a backend auth user/session and writes the profile.
+## The one thing that is still wrong
 
-The request hangs instead of erroring because of steps 1 and 4:
+Three places must hold the **same** secret string, and today they don't:
 
-- The privileged client is created with `SUPABASE_SERVICE_ROLE_KEY`. The value currently in your `.env` decodes to `"role":"anon"`, so it is not a service-role key. Admin calls made in step 5 (`auth.admin.listUsers`, `createUser`, `generateLink`) are refused with that key.
-- The outbound call to the middleware in step 4 has no timeout in this path, so if the middleware or SAP does not answer, the browser request simply sits in "pending" until the proxy gives up rather than showing a message.
+1. `middleware/.env` -> `MIDDLEWARE_SHARED_SECRET` (the value the middleware actually checks)
+2. `frontend/.env` -> `MIDDLEWARE_SHARED_SECRET` (baked into `dist/.env.runtime` at build time)
+3. Database table `sap_global_secrets` -> `proxy_secret` (what the login server function sends as `x-shared-secret`)
 
-So "pending" is the visible symptom; the causes are the wrong service-role key plus the empty configuration rows below.
+The login code reads the secret from `sap_global_secrets.proxy_secret`, not from the environment file, so that row is mandatory even after the env file is right.
 
-## What must exist in the Quality database
-
-All four are currently empty, and login cannot work without them.
-
-1. `sap_api_configs` — one active row named exactly `Login_API`, method `POST`, pointing at your SAP login endpoint:
-   `http://10.150.150.155:8005/sd_approval_mng/login/login?sap-client=300`
-2. `sap_global_settings` (id `default`) — `middleware_url` = `http://127.0.0.1:3002`, plus the SAP base URL and SAP username. `connection_mode` must be `via_proxy` and `deployment_mode` must be `self_hosted` to satisfy the table's check constraints.
-3. `sap_global_secrets` (id `default`) — `proxy_secret` = the same value as `MIDDLEWARE_SHARED_SECRET` in `middleware/.env`, and `sap_password` for SAP Basic authentication.
-4. `sap_api_credentials` — only needed if that API requires extra headers; optional otherwise.
-
-Note the login row is looked up by the exact name `Login_API`. A different name, or `is_active` set to false, produces "Login_API is not configured".
-
-## Implementation
-
-1. Write one seed migration that inserts/updates those rows for the Quality environment, using values that satisfy the existing check constraints, and is safe to re-run.
-2. Update the generated `dist/start.mjs` launcher to explicitly expose the server variables to the local runtime, and to refuse to start when `SUPABASE_SERVICE_ROLE_KEY` is not actually a service-role key — with names only in the log, never key material.
-3. Add a request timeout to the middleware call in the login path, so a silent middleware returns a clear message instead of a pending request.
-4. Fix the environment file: `SUPABASE_SERVICE_ROLE_KEY` must be the real service-role value from the self-hosted stack:
+Read the real value first:
 
 ```bash
-grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=' /data/webapplication/resl_approval/Quality/supabase/.env
+grep -m1 MIDDLEWARE_SHARED_SECRET /data/webapplication/resl_approval/Quality/middleware/.env
 ```
 
-Everything else you pasted is correct: both URLs, both publishable/anon keys, `VITE_SUPABASE_PROJECT_ID`, `MIDDLEWARE_URL`, and `MIDDLEWARE_SHARED_SECRET=123456` (valid only if identical to `middleware/.env`). Rotate the keys pasted in chat once login works.
-
-## Deployment and verification
-
-Build locally, copy `dist/` to the server, then:
+Then re-test with exactly that value (paste it literally, no shell variable — a stray carriage return in the variable produced the earlier 400):
 
 ```bash
-cd /data/webapplication/resl_approval/Quality/frontend/dist
-npm install --omit=dev --prefix .runtime
-pm2 restart Qty_App --update-env
-pm2 logs Qty_App --lines 50 --nostream
-```
-
-Then confirm the rows and the hop that was hanging:
-
-```bash
-docker exec -i supabase-db psql -U postgres -c \
-  "select name, endpoint_url, is_active from sap_api_configs where name='Login_API';"
-
 curl -i -X POST http://127.0.0.1:3002/login/Login_API \
-  -H 'content-type: application/json' -H 'x-shared-secret: 123456' \
+  -H 'content-type: application/json' -H 'x-shared-secret: <real value>' \
   -d '{"inputs":{"LOGIN":{"USER":"22011840","PASSWORD":"12345678"}}}'
 ```
 
-Expected: one active `Login_API` row, the middleware returning the SAP user JSON, and the login request in the browser completing with a result instead of staying pending.
+Expect the SAP user JSON. If it still rejects, the middleware is running with an older environment — `pm2 restart Qty_Approval --update-env`.
+
+## Database rows the login path still needs
+
+`Login_API` is done. Two rows remain, both keyed `default`:
+
+- `sap_global_settings`: `middleware_url` = `http://127.0.0.1:3002`, SAP base URL, SAP username, `connection_mode` = `via_proxy`, `deployment_mode` = `self_hosted`.
+- `sap_global_secrets`: `proxy_secret` = the real middleware secret above, `sap_password` for SAP.
+
+Without `middleware_url` the login function tries to reach SAP directly from the app server instead of going through your middleware.
+
+## Implementation
+
+1. Write one re-runnable seed migration inserting/updating those two `default` rows with the Quality values, satisfying the existing check constraints.
+2. Add a request timeout to the middleware call in the login path so an unresponsive middleware returns a clear message instead of a pending request.
+3. Quiet the startup noise: keep the launcher in offline mode and stop the reload loop so the log shows the single "serving app server" line rather than repeated Cloudflare timeouts.
+4. Still fix `SUPABASE_SERVICE_ROLE_KEY` in `frontend/.env` — the value you pasted decodes to `"role":"anon"`, and the login function needs a true service-role key to create the backend session. Get it from the self-hosted stack:
+
+```bash
+grep -E '^SERVICE_ROLE_KEY=' /data/webapplication/resl_approval/Quality/supabase/.env
+```
+
+Rotate the keys and the secret pasted into chat once login works.
+
+## Verification
+
+After rebuilding, copying `dist/`, and `pm2 restart Qty_App --update-env`:
+
+1. `curl -i http://127.0.0.1:8080/` returns the login page HTML.
+2. The middleware `curl` above returns the SAP user JSON.
+3. Signing in through `http://10.150.150.130:8081` completes instead of leaving `/_serverFn/...` pending.
