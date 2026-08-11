@@ -132,6 +132,7 @@ writeFileSync(
     "package-lock.json",
     "start.mjs",
     "deploy-frontend.sh",
+    "ecosystem.config.cjs",
     ".env.runtime",
     "node_modules",
     "/node_modules",
