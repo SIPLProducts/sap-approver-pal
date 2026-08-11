@@ -178,37 +178,28 @@ for (const name of readdirSync(distDir).sort()) {
   const isDir = statSync(join(distDir, name)).isDirectory();
   console.log(`  ${name}${isDir ? "/" : ""}`);
 }
-// 6. Emit a self-contained runtime for dist/ so the folder can start itself on a
-//    server with `npm install --prefix .runtime && node start.mjs`.
-//    The install MUST live in dist/.runtime (never dist/node_modules): the whole
-//    dist/ folder is the served asset directory and the workerd binary (~122 MiB)
-//    exceeds the 25 MiB per-asset limit, which aborts startup.
-const runtimePkg = {
-  name: "app-server-runtime",
-  private: true,
-  type: "module",
-  dependencies: { wrangler: "^4.45.0" },
-};
-mkdirSync(join(distDir, ".runtime"), { recursive: true });
-writeFileSync(
-  join(distDir, ".runtime", "package.json"),
-  JSON.stringify(runtimePkg, null, 2) + "\n",
-);
+// 6. Emit a launcher for dist/. The self-host build (`npm run build:selfhost`)
+//    produces dist/server/index.mjs as a plain Node HTTP server, so the
+//    launcher only has to load dist/.env.runtime into process.env and import
+//    it. No wrangler, no .runtime install, no Cloudflare calls — and every
+//    variable is genuinely visible to server code (process.env), which is what
+//    the SAP middleware callback (MIDDLEWARE_SHARED_SECRET) needs.
+rmSync(join(distDir, ".runtime"), { recursive: true, force: true });
 rmSync(join(distDir, "package.json"), { force: true });
 
 const launcher = `#!/usr/bin/env node
 /**
- * Self-contained launcher for the built app server.
+ * Launcher for the built app server (plain Node).
  * Usage (inside this dist/ folder):
- *   npm install --omit=dev --prefix .runtime
- *   PORT=8080 HOST=127.0.0.1 node start.mjs
+ *   PORT=8080 HOST=0.0.0.0 node start.mjs
+ * or with pm2:
+ *   pm2 start ecosystem.config.cjs
  *
- * Optional: put runtime env vars in dist/.env.runtime (KEY=value per line).
+ * Runtime env vars live in dist/.env.runtime (KEY=value per line).
  */
-import { spawn } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -230,28 +221,37 @@ if (existsSync(envFile)) {
     if (process.env[key] === undefined) process.env[key] = value;
   }
   console.log("[start] loaded env from .env.runtime");
+} else {
+  console.log("[start] no .env.runtime found — using the process environment as-is");
 }
 
-// Self-heal: a stray dist/node_modules (from a wrong \`npm install\` inside dist/)
-// contains the ~122 MiB workerd binary and aborts startup with "Asset too large".
+// Self-heal: a stray dist/node_modules (from an old wrangler-based install)
+// serves no purpose now and only bloats the asset folder.
 const strayModules = join(here, "node_modules");
 if (existsSync(strayModules)) {
   rmSync(strayModules, { recursive: true, force: true });
-  console.log("[start] removed stray dist/node_modules (assets must stay under 25 MiB)");
+  console.log("[start] removed stray dist/node_modules (not needed by the Node server)");
 }
 
-const serverDir = join(here, "server");
-if (!existsSync(join(serverDir, "index.mjs"))) {
-  console.error("[start] server/index.mjs not found next to start.mjs — incomplete dist/.");
+const entry = join(here, "server", "index.mjs");
+if (!existsSync(entry)) {
+  console.error(
+    "[start] server/index.mjs not found next to start.mjs — incomplete dist/. " +
+      "Rebuild with 'npm run build:selfhost' and copy the whole dist/ folder.",
+  );
   process.exit(1);
 }
 
-const port = process.env.PORT ?? "8080";
-const host = process.env.HOST ?? "127.0.0.1";
+const REQUIRED = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+const missingRequired = REQUIRED.filter((key) => !process.env[key]);
+if (missingRequired.length) {
+  console.error(
+    "[start] missing required value(s) in .env.runtime: " + missingRequired.join(", "),
+  );
+  process.exit(1);
+}
 
-// The app runs inside the local worker sandbox, which does NOT inherit this
-// process's environment. Every server variable must be passed as a binding.
-const BINDING_KEYS = [
+const EXPECTED = [
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
   "SUPABASE_PUBLISHABLE_KEY",
@@ -261,44 +261,15 @@ const BINDING_KEYS = [
   "MIDDLEWARE_SHARED_SECRET",
   "MIDDLEWARE_TIMEOUT_MS",
 ];
-const SKIP_BINDING = new Set([
-  "PORT", "HOST", "NODE_ENV", "CI", "NO_COLOR", "WRANGLER_SEND_METRICS", "PATH", "PWD",
-]);
-
-const bindings = new Map();
-for (const key of BINDING_KEYS) {
-  const value = process.env[key];
-  if (value) bindings.set(key, value);
-}
-// Also forward any other non-VITE_ key that came from .env.runtime.
-if (existsSync(envFile)) {
-  for (const line of readFileSync(envFile, "utf8").split(String.fromCharCode(10))) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq < 1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    if (key.startsWith("VITE_") || SKIP_BINDING.has(key) || bindings.has(key)) continue;
-    const value = process.env[key];
-    if (value) bindings.set(key, value);
-  }
-}
-
-const required = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
-const missingRequired = required.filter((key) => !bindings.get(key));
-if (missingRequired.length) {
-  console.error(
-    "[start] missing required value(s) in .env.runtime: " + missingRequired.join(", "),
-  );
-  process.exit(1);
-}
-
-console.log("[start] bindings passed to the app: " + [...bindings.keys()].join(", "));
+const found = EXPECTED.filter((key) => !!process.env[key]);
+const absent = EXPECTED.filter((key) => !process.env[key]);
+console.log("[start] env present: " + (found.join(", ") || "(none)"));
+if (absent.length) console.log("[start] env absent : " + absent.join(", "));
 
 // Warn when the service-role slot actually holds an anon key: login can then
 // read config but cannot create the backend session.
 try {
-  const part = String(bindings.get("SUPABASE_SERVICE_ROLE_KEY")).split(".")[1];
+  const part = String(process.env.SUPABASE_SERVICE_ROLE_KEY).split(".")[1];
   if (part) {
     const json = JSON.parse(Buffer.from(part, "base64url").toString("utf8"));
     if (json && json.role && json.role !== "service_role") {
@@ -313,34 +284,16 @@ try {
   /* not a JWT-format key — nothing to check */
 }
 
-// Offline/air-gapped servers: skip the Cloudflare metadata download and telemetry,
-// otherwise startup blocks on a timeout and the local server reload-loops.
-if (process.env.CI === undefined) process.env.CI = "true";
-if (process.env.WRANGLER_SEND_METRICS === undefined) process.env.WRANGLER_SEND_METRICS = "false";
-if (process.env.NO_COLOR === undefined) process.env.NO_COLOR = "1";
-console.log("[start] offline mode: CI=true, WRANGLER_SEND_METRICS=false");
-
-const isWin = process.platform === "win32";
-const localBin = join(here, ".runtime", "node_modules", ".bin", isWin ? "wrangler.cmd" : "wrangler");
-if (!existsSync(localBin)) {
-  console.error(
-    "[start] wrangler is not installed. Run: npm install --omit=dev --prefix .runtime",
-  );
-  process.exit(1);
-}
-
-const varArgs = [];
-for (const [key, value] of bindings) varArgs.push("--var", key + ":" + value);
+const port = process.env.PORT ?? "8080";
+const host = process.env.HOST ?? "0.0.0.0";
+process.env.PORT = port;
+process.env.HOST = host;
+process.env.NITRO_PORT ??= port;
+process.env.NITRO_HOST ??= host;
+if (process.env.NODE_ENV === undefined) process.env.NODE_ENV = "production";
 
 console.log(\`[start] serving app server on http://\${host}:\${port}\`);
-
-const child = spawn(
-  localBin,
-  ["dev", "--cwd", serverDir, "--ip", host, "--port", port, "--no-live-reload", ...varArgs],
-  { stdio: "inherit", cwd: here, env: process.env, shell: isWin },
-);
-child.on("exit", (code) => process.exit(code ?? 0));
-
+await import(pathToFileURL(entry).href);
 `;
 writeFileSync(join(distDir, "start.mjs"), launcher);
 
