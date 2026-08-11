@@ -20,11 +20,17 @@ Quick confirmation on the server:
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend/dist
-grep -o 'assets/[^"]*\.js' index.html | head
-ls assets | head
+grep -ao 'assets/[^"]*\.js' index.html | sort -u | head
+for f in $(grep -ao 'assets/[^"]*\.js' index.html | sort -u); do
+  [ -f "$f" ] && echo "OK   $f" || echo "MISS $f"
+done
 ```
 
-The names will not match.
+`grep -a` is needed because `index.html` contains bytes grep treats as binary
+(that is also why the earlier command said "binary file matches" instead of
+printing anything). The `MISS` lines will be exactly the files the browser is
+404ing on — `index-BefOrEbA.js`, `brand-logo-Bg-J4IjP.js`, and the rest — while
+`ls assets` shows differently-hashed siblings.
 
 ## Fix: let the app server serve the HTML
 
