@@ -69,6 +69,25 @@ const isShellPass = process.env.TSS_SHELL_PASS === "1";
 // the default worker build because SELF_HOST is unset there.
 const isSelfHost = process.env.SELF_HOST === "1";
 
+// The bundled MCP helper dynamically imports `cloudflare:workers` to read secrets
+// from the worker env binding. That module does not exist outside workerd, so the
+// Node build fails to resolve it. Provide an empty stub: the helper already falls
+// back to process.env, which is the correct source on a self-hosted Node server.
+function cloudflareWorkersStub() {
+  const id = "cloudflare:workers";
+  const resolved = "\0virtual:cloudflare-workers-stub";
+  return {
+    name: "self-host-cloudflare-workers-stub",
+    enforce: "pre" as const,
+    resolveId(source: string) {
+      return source === id ? resolved : null;
+    },
+    load(loadedId: string) {
+      return loadedId === resolved ? "export const env = {};\nexport default { env };\n" : null;
+    },
+  };
+}
+
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
