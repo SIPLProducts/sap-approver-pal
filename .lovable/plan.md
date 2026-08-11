@@ -1,71 +1,50 @@
-# Fix missing backend environment variables on Quality
+# Why the login request stays "pending", and what Quality's database needs
 
-## Confirmed cause
+## Why `/_serverFn/...` never finishes
 
-The frontend and app server are reachable, which is why the branded error page appears instead of an Nginx 502.
+That URL is the login server function. It is not a static page — it runs on the app server (port 8080) and does real work before answering. Confirmed from the login code, it does this in order:
 
-The built `dist/.env.runtime` contains `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, and `start.mjs` reads that file. However, it only passes the values as operating-system environment variables to Wrangler. The Worker configuration in `dist/server/wrangler.json` has no variable bindings, so the running application cannot read them and reports:
+1. Opens a privileged database client (needs `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`).
+2. Reads the `Login_API` row from `sap_api_configs` (must exist and be active).
+3. Reads `sap_global_settings` and `sap_global_secrets` to find the middleware URL and shared secret.
+4. Calls the middleware, which calls SAP.
+5. Creates a backend auth user/session and writes the profile.
 
-```text
-Missing Supabase environment variable(s): SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
-```
+The request hangs instead of erroring because of steps 1 and 4:
 
-The current build artifact also has blank `SUPABASE_SERVICE_ROLE_KEY`, `MIDDLEWARE_URL`, and `MIDDLEWARE_SHARED_SECRET`; those must be populated with the Quality environment values before SAP login can complete.
+- The privileged client is created with `SUPABASE_SERVICE_ROLE_KEY`. The value currently in your `.env` decodes to `"role":"anon"`, so it is not a service-role key. Admin calls made in step 5 (`auth.admin.listUsers`, `createUser`, `generateLink`) are refused with that key.
+- The outbound call to the middleware in step 4 has no timeout in this path, so if the middleware or SAP does not answer, the browser request simply sits in "pending" until the proxy gives up rather than showing a message.
 
-## Review of the values you pasted
+So "pending" is the visible symptom; the causes are the wrong service-role key plus the empty configuration rows below.
 
-Correct as-is:
+## What must exist in the Quality database
 
-- `VITE_SUPABASE_URL` and `SUPABASE_URL` = `http://10.150.150.130:8000`
-- `VITE_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_PUBLISHABLE_KEY` (both decode to `"role":"anon"`, which is right for these)
-- `VITE_SUPABASE_PROJECT_ID=Quality`
-- `MIDDLEWARE_URL=http://127.0.0.1:3002`
-- `MIDDLEWARE_SHARED_SECRET=123456` — valid only if byte-identical to `middleware/.env`, otherwise the middleware answers `401 Invalid or missing x-shared-secret`
+All four are currently empty, and login cannot work without them.
 
-One line is wrong:
+1. `sap_api_configs` — one active row named exactly `Login_API`, method `POST`, pointing at your SAP login endpoint:
+   `http://10.150.150.155:8005/sd_approval_mng/login/login?sap-client=300`
+2. `sap_global_settings` (id `default`) — `middleware_url` = `http://127.0.0.1:3002`, plus the SAP base URL and SAP username. `connection_mode` must be `via_proxy` and `deployment_mode` must be `self_hosted` to satisfy the table's check constraints.
+3. `sap_global_secrets` (id `default`) — `proxy_secret` = the same value as `MIDDLEWARE_SHARED_SECRET` in `middleware/.env`, and `sap_password` for SAP Basic authentication.
+4. `sap_api_credentials` — only needed if that API requires extra headers; optional otherwise.
 
-- `SUPABASE_SERVICE_ROLE_KEY` currently holds the same anon key. Its payload decodes to `"role":"anon"`, so it is not a service-role key. With it, privileged server work (session creation, SAP config lookup, sync-log writes) is refused by row-level security and login still fails — with a permissions error instead of the current one.
+Note the login row is looked up by the exact name `Login_API`. A different name, or `is_active` set to false, produces "Login_API is not configured".
 
-Replace only that line with the real service-role key from the self-hosted stack:
+## Implementation
+
+1. Write one seed migration that inserts/updates those rows for the Quality environment, using values that satisfy the existing check constraints, and is safe to re-run.
+2. Update the generated `dist/start.mjs` launcher to explicitly expose the server variables to the local runtime, and to refuse to start when `SUPABASE_SERVICE_ROLE_KEY` is not actually a service-role key — with names only in the log, never key material.
+3. Add a request timeout to the middleware call in the login path, so a silent middleware returns a clear message instead of a pending request.
+4. Fix the environment file: `SUPABASE_SERVICE_ROLE_KEY` must be the real service-role value from the self-hosted stack:
 
 ```bash
 grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=' /data/webapplication/resl_approval/Quality/supabase/.env
 ```
 
-Use the `SERVICE_ROLE_KEY` value; its payload must decode to `"role":"service_role"`. Also note the browser must reach `10.150.150.130:8000` directly with this configuration — if it cannot, the backend URL has to be the Nginx-exposed path instead.
+Everything else you pasted is correct: both URLs, both publishable/anon keys, `VITE_SUPABASE_PROJECT_ID`, `MIDDLEWARE_URL`, and `MIDDLEWARE_SHARED_SECRET=123456` (valid only if identical to `middleware/.env`). Rotate the keys pasted in chat once login works.
 
-Since these keys have now been pasted into chat, rotate them once login is confirmed working.
+## Deployment and verification
 
-## Implementation
-
-1. Update the generated `dist/start.mjs` launcher to explicitly expose the approved server variables to the local Worker runtime instead of relying on inherited process environment behavior.
-2. Validate all login-critical values before starting port 8080:
-   - `SUPABASE_URL`
-   - `SUPABASE_PUBLISHABLE_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `MIDDLEWARE_URL`
-   - `MIDDLEWARE_SHARED_SECRET`
-3. Reject a `SUPABASE_SERVICE_ROLE_KEY` whose payload is not `service_role`, with a clear startup message and no key material in the log — this exact mistake otherwise surfaces much later as a confusing permissions error.
-4. Keep private values out of logs and error output; only print the names of offending variables.
-5. Update the deployment helper to validate the publishable key as well, then restart `Qty_App` with the corrected runtime bindings.
-6. Keep the existing architecture unchanged:
-
-```text
-Browser :8081 -> Nginx -> App server :8080 -> Middleware :3002 -> SAP
-                                |
-                                +-> Quality backend :8000
-```
-
-## Deployment after the change
-
-On the development machine:
-
-1. Put the corrected Quality values in the frontend `.env` (real service-role key).
-2. Run `npm run build`.
-3. Copy the complete new `dist/` to the Quality server.
-
-
-On the Quality server:
+Build locally, copy `dist/` to the server, then:
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend/dist
@@ -74,14 +53,15 @@ pm2 restart Qty_App --update-env
 pm2 logs Qty_App --lines 50 --nostream
 ```
 
-No middleware, Docker, database, SAP URL, or Nginx change is required for this specific error.
-
-## Verification
+Then confirm the rows and the hop that was hanging:
 
 ```bash
-curl -i http://127.0.0.1:8080/login
-curl -i http://127.0.0.1:8081/login
-ss -ltnp | grep ':8080'
+docker exec -i supabase-db psql -U postgres -c \
+  "select name, endpoint_url, is_active from sap_api_configs where name='Login_API';"
+
+curl -i -X POST http://127.0.0.1:3002/login/Login_API \
+  -H 'content-type: application/json' -H 'x-shared-secret: 123456' \
+  -d '{"inputs":{"LOGIN":{"USER":"22011840","PASSWORD":"12345678"}}}'
 ```
 
-Expected result: the login page renders without the missing-environment error. A login attempt then reaches `Qty_App`, followed by `Qty_Approval` on port 3002.
+Expected: one active `Login_API` row, the middleware returning the SAP user JSON, and the login request in the browser completing with a result instead of staying pending.
