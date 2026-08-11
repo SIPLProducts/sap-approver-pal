@@ -63,4 +63,24 @@ pm2 logs Qty_App --lines 30 --nostream
 
 Expected: no wrangler output, no anon-key warning, and the middleware's next log line is the SAP response instead of the shared-secret rejection.
 
+## Reboot persistence and verification
+
+```bash
+pm2 start start.mjs --name Qty_App --cwd <dist>   # only if not already registered
+pm2 save && pm2 startup                            # survives reboot
+systemctl enable nginx
+```
+
+Checklist after restart — the middleware on 3002 is never touched by any step above:
+
+```bash
+curl -I  http://10.150.150.130:8081/                         # frontend 200
+ss -lntp | grep ':8080'                                      # node (not workerd) listening
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST http://127.0.0.1:8080/api/public/middleware/config  # 401 = app server alive
+curl -s http://127.0.0.1:3002/__health                        # middleware still OK
+# then sign in through 8081: /_serverFn/* must return 200, not 502
+```
+
 `123456` is a weak shared secret; worth replacing with a long random value in both `.env` files once login works.
+
