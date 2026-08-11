@@ -57,7 +57,18 @@ ok "asset folder clean"
 
 # ---------------------------------------------------------------------------
 step "3/7 Runtime environment (.env.runtime)"
-if [ ! -f .env.runtime ]; then
+SHARED_ENV="../.env"
+if [ -f "$SHARED_ENV" ]; then
+  # Single source of truth: the frontend folder's .env. Regenerated every run.
+  {
+    tr -d '\r' < "$SHARED_ENV"
+    echo ""
+    grep -q '^PORT=' "$SHARED_ENV" || echo "PORT=$PORT"
+    grep -q '^HOST=' "$SHARED_ENV" || echo "HOST=127.0.0.1"
+    grep -q '^NODE_ENV=' "$SHARED_ENV" || echo "NODE_ENV=production"
+  } > .env.runtime
+  ok "copied from frontend/.env"
+elif [ ! -f .env.runtime ]; then
   cat > .env.runtime <<EOF
 PORT=$PORT
 HOST=127.0.0.1
@@ -68,20 +79,11 @@ SUPABASE_SERVICE_ROLE_KEY=
 MIDDLEWARE_SHARED_SECRET=
 EOF
   chmod 600 .env.runtime
-  die ".env.runtime was created as a template. Fill in SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY and MIDDLEWARE_SHARED_SECRET, then run this script again."
+  die "no ../.env found, so .env.runtime was created as a template. Fill in SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY and MIDDLEWARE_SHARED_SECRET, then run this script again."
 fi
 
 chmod 600 .env.runtime
-missing=""
-for key in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY MIDDLEWARE_SHARED_SECRET; do
-  value="$(grep -m1 "^${key}=" .env.runtime | cut -d= -f2- | tr -d '\r' | tr -d '"' | tr -d "'" | sed 's/^ *//; s/ *$//')"
-  if [ -z "$value" ]; then
-    missing="$missing $key"
-  else
-    ok "$key is set"
-  fi
-done
-[ -n "$missing" ] && die "these values are empty in .env.runtime:$missing (the keys are in the self-hosted supabase/.env on this machine; the shared secret must match middleware/.env)"
+
 
 # ---------------------------------------------------------------------------
 step "4/7 Runtime dependencies (.runtime/)"
