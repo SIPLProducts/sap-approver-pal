@@ -1,175 +1,89 @@
-# One recovery sequence — do not rerun the stale dist
+# Permanent fix for Quality frontend and gateway startup
 
-You have two confirmed faults. Follow these steps in order.
+## Confirmed causes
 
-## Step 1 — repair the backend gateway
+1. **Port 8080:** `src/server.ts` exports a Worker-style `fetch(request, env,
+   ctx)` handler. The generated `start.mjs` only imports `server/index.mjs` and
+   assumes that import opens a Node listener. The log therefore says “serving”
+   before any socket exists, and the process can return without binding 8080.
+2. **Missing browser assets:** the deployed `index.html` and `assets/` came
+   from different build passes/releases. The current deployment helper checks
+   only that files exist, not that every hashed asset referenced by HTML exists.
+3. **Gateway:** `kong.yml` always declares legacy and modern key credentials.
+   Its entrypoint removes empty rows but not duplicate rows, so any inherited or
+   stale modern key equal to the legacy anon/service key makes Kong crash.
 
-The gateway log proves `ANON_KEY` and `SUPABASE_PUBLISHABLE_KEY` contain the
-same legacy anon JWT. The gateway registers both and refuses the duplicate.
+## Implementation
 
-On the server, open:
+### 1. Make the self-hosted server actually listen
 
-```bash
-cd /data/webapplication/resl_approval/Quality/backend
-nano .env
-```
+- Add a Node-only HTTP adapter used exclusively by `npm run build:selfhost`.
+- Convert incoming Node requests to Web `Request`, call the existing
+  `src/server.ts` fetch handler, and stream the Web `Response` back to Node.
+- Bind `HOST`/`PORT` explicitly and log “listening” only from the successful
+  listen callback.
+- Preserve the existing Worker entry for Lovable preview/publish; self-hosting
+  must not change the cloud runtime.
+- Make `start.mjs` treat an imported bundle that returns without a listener as
+  a startup error, so PM2 cannot report a false success again.
 
-Keep `ANON_KEY` unchanged. Find `SUPABASE_PUBLISHABLE_KEY` and clear only that
-duplicate value:
+### 2. Produce one internally consistent deployment artifact
 
-```ini
-SUPABASE_PUBLISHABLE_KEY=
-ANON_KEY_ASYMMETRIC=
-```
+- Keep the two-pass build only where the static shell is required, but record a
+  build fingerprint shared by `index.html`, `assets/`, and `server/`.
+- Validate every local `/assets/...` reference in the final HTML after
+  collection; fail `npm run build:selfhost` if any referenced file is absent.
+- Emit `build-info.json` with build mode and fingerprint.
+- Ensure the final self-host artifact is assembled from one clean build output,
+  with stale `dist`, `.output`, and `.wrangler` removed first.
 
-The pasted environment confirms both values currently duplicate `ANON_KEY`.
-Keep `SUPABASE_SECRET_KEY=`, `SERVICE_ROLE_KEY_ASYMMETRIC=`, `JWT_KEYS=`, and
-`JWT_JWKS=` empty for this legacy HS256 setup. Do not print the file or its keys
-again.
+### 3. Make deployment fail fast instead of waiting indefinitely
 
-Before recreating the gateway, verify the **container's resolved values** without
-printing any credential. This catches exported shell variables overriding `.env`:
+- Require `build-info.json` and validate hashed HTML assets before restarting
+  PM2.
+- Replace the repeated noisy curl loop with bounded silent polling.
+- If the process exits or 8080 does not bind, stop immediately and print PM2’s
+  exit code and error log.
+- Verify `/`, the middleware config route, SAP middleware health, and gateway
+  health only after the listener is confirmed.
+- Require atomic deployment with `rsync -a --delete`; never merge into an old
+  `dist`.
 
-```bash
-docker inspect supabase-kong | python3 -c '
-import hashlib,json,sys
-e=dict(x.split("=",1) for x in json.load(sys.stdin)[0]["Config"]["Env"] if "=" in x)
-names=["SUPABASE_ANON_KEY","SUPABASE_PUBLISHABLE_KEY","SUPABASE_SERVICE_KEY","SUPABASE_SECRET_KEY"]
-for n in names:
- v=e.get(n,""); print(n, "set="+str(bool(v)), "fp="+(hashlib.sha256(v.encode()).hexdigest()[:10] if v else "empty"))
-print("anon_duplicate=", bool(e.get("SUPABASE_PUBLISHABLE_KEY")) and e.get("SUPABASE_ANON_KEY")==e.get("SUPABASE_PUBLISHABLE_KEY"))
-print("service_duplicate=", bool(e.get("SUPABASE_SECRET_KEY")) and e.get("SUPABASE_SERVICE_KEY")==e.get("SUPABASE_SECRET_KEY"))
-'
-```
+### 4. Make Kong tolerate legacy-only configuration safely
 
-The Kong template has exactly two anon credential entries. The empty second
-entry is removed by its entrypoint, so the continuing `entry 2` duplicate means
-the recreated container still received a non-empty publishable value. Clear any
-shell overrides, explicitly use the edited file, and recreate:
+- In `kong-entrypoint.sh`, render the config and remove modern publishable or
+  secret credential rows when they are empty **or equal** to the corresponding
+  legacy anon/service credential.
+- Validate the rendered declarative config before starting Kong and print only
+  credential names/status—never values.
+- Update Quality environment examples to leave asymmetric and modern opaque
+  key variables empty unless that mode is intentionally configured.
 
-```bash
-unset SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
-unset ANON_KEY_ASYMMETRIC SERVICE_ROLE_KEY_ASYMMETRIC
-docker compose --env-file .env -p resl_quality up -d --force-recreate kong
-for i in $(seq 1 30); do
-  STATUS=$(docker inspect -f '{{.State.Health.Status}}' supabase-kong 2>/dev/null)
-  echo "kong: $STATUS"
-  [ "$STATUS" = healthy ] && break
-  sleep 2
-done
-docker compose -p resl_quality ps kong
-docker compose -p resl_quality logs --tail 50 kong
-curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/auth/v1/health
-```
+### 5. Update the Quality runbook
 
-Your shown `000` occurred while the container still said `health: starting`; it
-does not yet prove another Kong failure. Expected after waiting: `healthy` and
-an HTTP result other than `000`. If it becomes `unhealthy`, stop and use the
-last 50 log lines to diagnose that separately.
-
-## Step 2 — capture the frontend crash before rebuilding
-
-Do not rerun the deploy helper yet. It restarted PM2 successfully, but nothing
-answered on port 8080. Capture the actual process failure:
+Document one supported flow:
 
 ```bash
-pm2 status Qty_App
-pm2 logs Qty_App --err --lines 100 --nostream
-pm2 describe Qty_App
-node start.mjs
-```
-
-`node start.mjs` is intentionally run in the foreground. Copy the first complete
-error and stack trace; press Ctrl-C only if it remains running. If it returns to
-the prompt, immediately capture its exit status and non-secret bundle signature:
-
-```bash
-node start.mjs; echo "exit=$?"
-wc -c server/index.mjs
-grep -aoE 'node-server|cloudflare:workers|createServer|\.listen' server/index.mjs | sort -u
-pm2 logs Qty_App --lines 100 --nostream
-```
-
-The shown `[start] serving...` line comes from the launcher before it imports
-the generated server. Because port 8080 remains absent, it does **not** prove a
-server is running. A clean `exit=0` would confirm that the generated entry is a
-handler bundle rather than a listening Node-server entry; a non-zero exit plus
-stack trace identifies the actual startup crash.
-
-The current verification confirms port 8080 is not listening. It also confirms
-the browser HTML references ten JavaScript files absent from this `dist`; that
-folder must not be reused even if the PM2 startup error is repaired.
-
-## Step 3 — create a genuinely clean frontend build
-
-Do this on the machine containing the frontend source — **not** inside the
-server's existing `dist/`:
-
-```bash
-cd <frontend-source-folder>
+# Build machine
 npm ci
-rm -rf dist .output .wrangler
 npm run build:selfhost
-```
-
-Do not run `bash deploy-frontend.sh` against the old folder again; it validates
-startup files but cannot manufacture the missing hashed JavaScript files.
-
-## Step 4 — replace the whole server dist atomically
-
-From the build machine:
-
-```bash
 rsync -a --delete dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
-```
 
-If rsync is unavailable, rename/delete the old server `dist` first and copy the
-entire newly-built folder. Never merge one `dist` over another.
+# Quality server
+cd /data/webapplication/resl_approval/Quality/backend
+docker compose --env-file .env -p resl_quality up -d --force-recreate kong
 
-Then on the server:
-
-```bash
 cd /data/webapplication/resl_approval/Quality/frontend/dist
 bash deploy-frontend.sh
-pm2 save
 ```
 
-## Step 5 — verify before opening the browser
+Expected checks: gateway healthy, Node listening on 127.0.0.1:8080, no missing
+hashed assets, middleware health 200, and the login route loads through 8081.
 
-```bash
-ss -ltnp | grep ':8080'
-curl -s --compressed http://127.0.0.1:8081/login \
-  | grep -ao 'assets/[^"]*\.js' | sort -u \
-  | while read f; do [ -f "$f" ] && echo "OK   $f" || echo "MISS $f"; done
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/auth/v1/health
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3002/__health
-```
+## Security follow-up
 
-Required result: port 8080 is listening, every asset says `OK`, and neither
-health request says `000`. Keep nginx unchanged. Hard-refresh with Ctrl-Shift-R.
+All credentials pasted into chat must be rotated after recovery: database,
+JWT/signing, anon/service role, dashboard, storage, and related application
+runtime values. Replacement values must not be pasted into chat or committed.
 
-## Permanent repository fixes
-
-1. Update the gateway entrypoint to omit publishable/secret credential entries
-   when they are empty **or duplicate** the legacy anon/service keys, preventing
-   this startup failure even when exported shell variables override `.env`.
-2. Make the build fail unless every asset named by the server manifest exists
-   in the same `dist/assets/`.
-3. Add a build fingerprint to `dist/build-info.json`; make the deploy script
-   reject mixed or partial folders before restarting PM2.
-4. For self-host builds, stop copying the first-pass static shell into the final
-   dist; HTML is rendered by the Node server.
-5. Make the launcher fail loudly when importing the generated server returns
-   without opening a listener, instead of logging the misleading “serving” line.
-6. Document atomic `rsync --delete` deployment and both health checks.
-
-Nothing changes SAP middleware behavior or the database schema.
-
-## Required credential rotation
-
-The environment file was pasted into chat and includes live database, JWT,
-service-role, dashboard, storage, and signing credentials. Treat every pasted
-secret as exposed. After service recovery, generate replacement values, update
-the backend and frontend runtime environment consistently, recreate affected
-containers, restart the app, and invalidate old credentials. Do not paste the
-new values into chat or command output.
+No SAP business logic, UI behavior, or database schema changes are included.
