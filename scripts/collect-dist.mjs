@@ -576,7 +576,12 @@ if (existsSync(helper)) {
 }
 
 
-console.log("[collect-dist] static shell: dist/index.html (nginx root)");
+console.log(
+  selfHost
+    ? "[collect-dist] HTML is rendered by the app server — point nginx `location /` at port 8080"
+    : "[collect-dist] static shell: dist/index.html (nginx root)",
+);
+
 console.log("[collect-dist] app server bundle: dist/server (start with `node start.mjs`).");
 
 
