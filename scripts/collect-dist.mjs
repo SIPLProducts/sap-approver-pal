@@ -249,6 +249,70 @@ if (!existsSync(join(serverDir, "index.mjs"))) {
 const port = process.env.PORT ?? "8080";
 const host = process.env.HOST ?? "127.0.0.1";
 
+// The app runs inside the local worker sandbox, which does NOT inherit this
+// process's environment. Every server variable must be passed as a binding.
+const BINDING_KEYS = [
+  "SUPABASE_URL",
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_PROJECT_ID",
+  "MIDDLEWARE_URL",
+  "MIDDLEWARE_SHARED_SECRET",
+  "MIDDLEWARE_TIMEOUT_MS",
+];
+const SKIP_BINDING = new Set([
+  "PORT", "HOST", "NODE_ENV", "CI", "NO_COLOR", "WRANGLER_SEND_METRICS", "PATH", "PWD",
+]);
+
+const bindings = new Map();
+for (const key of BINDING_KEYS) {
+  const value = process.env[key];
+  if (value) bindings.set(key, value);
+}
+// Also forward any other non-VITE_ key that came from .env.runtime.
+if (existsSync(envFile)) {
+  for (const line of readFileSync(envFile, "utf8").split(String.fromCharCode(10))) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (key.startsWith("VITE_") || SKIP_BINDING.has(key) || bindings.has(key)) continue;
+    const value = process.env[key];
+    if (value) bindings.set(key, value);
+  }
+}
+
+const required = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+const missingRequired = required.filter((key) => !bindings.get(key));
+if (missingRequired.length) {
+  console.error(
+    "[start] missing required value(s) in .env.runtime: " + missingRequired.join(", "),
+  );
+  process.exit(1);
+}
+
+console.log("[start] bindings passed to the app: " + [...bindings.keys()].join(", "));
+
+// Warn when the service-role slot actually holds an anon key: login can then
+// read config but cannot create the backend session.
+try {
+  const part = String(bindings.get("SUPABASE_SERVICE_ROLE_KEY")).split(".")[1];
+  if (part) {
+    const json = JSON.parse(Buffer.from(part, "base64url").toString("utf8"));
+    if (json && json.role && json.role !== "service_role") {
+      console.warn(
+        "[start] warning: SUPABASE_SERVICE_ROLE_KEY holds a '" +
+          json.role +
+          "' key. Use SERVICE_ROLE_KEY from supabase/.env.",
+      );
+    }
+  }
+} catch {
+  /* not a JWT-format key — nothing to check */
+}
+
 // Offline/air-gapped servers: skip the Cloudflare metadata download and telemetry,
 // otherwise startup blocks on a timeout and the local server reload-loops.
 if (process.env.CI === undefined) process.env.CI = "true";
@@ -265,14 +329,18 @@ if (!existsSync(localBin)) {
   process.exit(1);
 }
 
+const varArgs = [];
+for (const [key, value] of bindings) varArgs.push("--var", key + ":" + value);
+
 console.log(\`[start] serving app server on http://\${host}:\${port}\`);
 
 const child = spawn(
   localBin,
-  ["dev", "--cwd", serverDir, "--ip", host, "--port", port, "--no-live-reload"],
+  ["dev", "--cwd", serverDir, "--ip", host, "--port", port, "--no-live-reload", ...varArgs],
   { stdio: "inherit", cwd: here, env: process.env, shell: isWin },
 );
 child.on("exit", (code) => process.exit(code ?? 0));
+
 `;
 writeFileSync(join(distDir, "start.mjs"), launcher);
 
