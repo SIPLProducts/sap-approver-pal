@@ -232,6 +232,14 @@ if (existsSync(envFile)) {
   console.log("[start] loaded env from .env.runtime");
 }
 
+// Self-heal: a stray dist/node_modules (from a wrong \`npm install\` inside dist/)
+// contains the ~122 MiB workerd binary and aborts startup with "Asset too large".
+const strayModules = join(here, "node_modules");
+if (existsSync(strayModules)) {
+  rmSync(strayModules, { recursive: true, force: true });
+  console.log("[start] removed stray dist/node_modules (assets must stay under 25 MiB)");
+}
+
 const serverDir = join(here, "server");
 if (!existsSync(join(serverDir, "index.mjs"))) {
   console.error("[start] server/index.mjs not found next to start.mjs — incomplete dist/.");
