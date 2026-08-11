@@ -158,34 +158,67 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 step "7/7 Connectivity checks"
-echo "   waiting for port $PORT…"
+printf '   waiting for port %s' "$PORT"
 up=0
 i=0
 while [ "$i" -lt 40 ]; do
-  if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/"; then up=1; break; fi
+  if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/" 2>/dev/null; then up=1; break; fi
+  # Stop early when the process already died — no point waiting 80 seconds.
+  if command -v pm2 >/dev/null 2>&1 && pm2 describe "$PM2_NAME" 2>/dev/null | grep -q 'errored\|stopped'; then
+    printf '\n'; fail "$PM2_NAME is not running (pm2 reports it errored/stopped)"; break
+  fi
+  printf '.'
   i=$((i + 1)); sleep 2
 done
+printf '\n'
 
 if [ "$up" = "1" ]; then
   ok "app server answers on http://127.0.0.1:$PORT/"
 else
   fail "nothing answering on port $PORT"
+  echo "   The launcher exits with an explicit error when the bundle opens no listener;"
+  echo "   check the log lines printed below for '[start]' or '[server]' messages."
 fi
 
-code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/api/public/middleware/config" \
-  -H 'content-type: application/json' -d '{"name":"Login_API"}' 2>/dev/null)"
-case "$code" in
-  401|200) ok "backend route reachable (HTTP $code)" ;;
-  000)     fail "backend route unreachable" ;;
-  *)       warn "backend route returned HTTP $code" ;;
-esac
+if [ "$up" = "1" ]; then
+  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/api/public/middleware/config" \
+    -H 'content-type: application/json' -d '{"name":"Login_API"}' 2>/dev/null)"
+  case "$code" in
+    401|200) ok "backend route reachable (HTTP $code)" ;;
+    000)     fail "backend route unreachable" ;;
+    *)       warn "backend route returned HTTP $code" ;;
+  esac
+
+  # The login page must be served by this server (it renders the HTML), and
+  # every chunk it asks for must exist on disk.
+  html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null || true)"
+  if [ -z "$html" ]; then
+    fail "/login did not render"
+  else
+    lmiss=0
+    for ref in $(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u); do
+      if [ ! -f "$ref" ]; then printf '   MISS /%s\n' "$ref"; lmiss=1; fi
+    done
+    if [ "$lmiss" = "0" ]; then ok "/login renders and all its assets exist"
+    else fail "/login references assets that are not in this folder — rebuild and rsync -a --delete"; fi
+  fi
+fi
 
 if curl -fsS -o /dev/null http://127.0.0.1:3002/__health 2>/dev/null; then
   ok "SAP middleware healthy on port 3002"
 else
   warn "SAP middleware not answering on port 3002 (login will fail until it is up)"
 fi
+
+gw="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/auth/v1/health 2>/dev/null)"
+case "$gw" in
+  200|401) ok "database/auth gateway healthy on port 8000" ;;
+  000)     warn "gateway not answering on port 8000 — run: cd ../../backend && docker compose --env-file .env -p resl_quality up -d --force-recreate kong" ;;
+  *)       warn "gateway returned HTTP $gw on port 8000" ;;
+esac
+
 
 # ---------------------------------------------------------------------------
 if [ "$FAILED" = "0" ] && [ "$up" = "1" ]; then
