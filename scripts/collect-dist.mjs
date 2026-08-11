@@ -121,11 +121,25 @@ if (existsSync(serverWrangler)) {
     console.warn("[collect-dist] warning: could not rewrite server/wrangler.json —", err.message);
   }
 }
-// Keep the server bundle itself out of the publicly served asset set.
+// Keep the server bundle and the runtime install out of the served asset set.
+// (dist/node_modules would include the ~122 MiB workerd binary and abort startup.)
 writeFileSync(
   join(distDir, ".assetsignore"),
-  "/server\n.assetsignore\npackage.json\npackage-lock.json\nstart.mjs\n.env.runtime\nnode_modules\n",
+  [
+    "/server",
+    ".assetsignore",
+    "package.json",
+    "package-lock.json",
+    "start.mjs",
+    "deploy-frontend.sh",
+    ".env.runtime",
+    "node_modules",
+    "/node_modules",
+    "/.runtime",
+    "",
+  ].join("\n"),
 );
+
 rmSync(clientDir, { recursive: true, force: true });
 
 // 4. Remove build-machinery leftovers and local caches.
@@ -163,23 +177,30 @@ for (const name of readdirSync(distDir).sort()) {
   const isDir = statSync(join(distDir, name)).isDirectory();
   console.log(`  ${name}${isDir ? "/" : ""}`);
 }
-// 6. Emit a self-contained runtime inside dist/ so the folder can start itself
-//    on a server with only `npm install && npm start` (no source checkout needed).
+// 6. Emit a self-contained runtime for dist/ so the folder can start itself on a
+//    server with `npm install --prefix .runtime && node start.mjs`.
+//    The install MUST live in dist/.runtime (never dist/node_modules): the whole
+//    dist/ folder is the served asset directory and the workerd binary (~122 MiB)
+//    exceeds the 25 MiB per-asset limit, which aborts startup.
 const runtimePkg = {
   name: "app-server-runtime",
   private: true,
   type: "module",
-  scripts: { start: "node start.mjs" },
   dependencies: { wrangler: "^4.45.0" },
 };
-writeFileSync(join(distDir, "package.json"), JSON.stringify(runtimePkg, null, 2) + "\n");
+mkdirSync(join(distDir, ".runtime"), { recursive: true });
+writeFileSync(
+  join(distDir, ".runtime", "package.json"),
+  JSON.stringify(runtimePkg, null, 2) + "\n",
+);
+rmSync(join(distDir, "package.json"), { force: true });
 
 const launcher = `#!/usr/bin/env node
 /**
  * Self-contained launcher for the built app server.
  * Usage (inside this dist/ folder):
- *   npm install
- *   PORT=8080 HOST=127.0.0.1 npm start
+ *   npm install --omit=dev --prefix .runtime
+ *   PORT=8080 HOST=127.0.0.1 node start.mjs
  *
  * Optional: put runtime env vars in dist/.env.runtime (KEY=value per line).
  */
@@ -220,22 +241,40 @@ const port = process.env.PORT ?? "8080";
 const host = process.env.HOST ?? "127.0.0.1";
 
 // Offline/air-gapped servers: skip the Cloudflare metadata download and telemetry,
-// otherwise startup blocks ~30s on a timeout and the local server reload-loops.
+// otherwise startup blocks on a timeout and the local server reload-loops.
 if (process.env.CI === undefined) process.env.CI = "true";
 if (process.env.WRANGLER_SEND_METRICS === undefined) process.env.WRANGLER_SEND_METRICS = "false";
+if (process.env.NO_COLOR === undefined) process.env.NO_COLOR = "1";
 console.log("[start] offline mode: CI=true, WRANGLER_SEND_METRICS=false");
+
+const isWin = process.platform === "win32";
+const localBin = join(here, ".runtime", "node_modules", ".bin", isWin ? "wrangler.cmd" : "wrangler");
+if (!existsSync(localBin)) {
+  console.error(
+    "[start] wrangler is not installed. Run: npm install --omit=dev --prefix .runtime",
+  );
+  process.exit(1);
+}
 
 console.log(\`[start] serving app server on http://\${host}:\${port}\`);
 
 const child = spawn(
-  process.platform === "win32" ? "npx.cmd" : "npx",
-  ["wrangler", "dev", "--cwd", serverDir, "--ip", host, "--port", port],
-  { stdio: "inherit", cwd: here, env: process.env },
+  localBin,
+  ["dev", "--cwd", serverDir, "--ip", host, "--port", port, "--no-live-reload"],
+  { stdio: "inherit", cwd: here, env: process.env, shell: isWin },
 );
 child.on("exit", (code) => process.exit(code ?? 0));
 `;
 writeFileSync(join(distDir, "start.mjs"), launcher);
 
+// 7. Ship the one-command deploy helper next to what it manages.
+const helper = join(root, "scripts", "deploy-frontend.sh");
+if (existsSync(helper)) {
+  cpSync(helper, join(distDir, "deploy-frontend.sh"));
+  console.log("[collect-dist] deploy helper: dist/deploy-frontend.sh (run `bash deploy-frontend.sh`)");
+}
+
 console.log("[collect-dist] static shell: dist/index.html (nginx root)");
-console.log("[collect-dist] app server bundle: dist/server (run with `npm start`).");
+console.log("[collect-dist] app server bundle: dist/server (start with `node start.mjs`).");
+
 
