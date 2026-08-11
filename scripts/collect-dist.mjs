@@ -121,11 +121,25 @@ if (existsSync(serverWrangler)) {
     console.warn("[collect-dist] warning: could not rewrite server/wrangler.json —", err.message);
   }
 }
-// Keep the server bundle itself out of the publicly served asset set.
+// Keep the server bundle and the runtime install out of the served asset set.
+// (dist/node_modules would include the ~122 MiB workerd binary and abort startup.)
 writeFileSync(
   join(distDir, ".assetsignore"),
-  "/server\n.assetsignore\npackage.json\npackage-lock.json\nstart.mjs\n.env.runtime\nnode_modules\n",
+  [
+    "/server",
+    ".assetsignore",
+    "package.json",
+    "package-lock.json",
+    "start.mjs",
+    "deploy-frontend.sh",
+    ".env.runtime",
+    "node_modules",
+    "/node_modules",
+    "/.runtime",
+    "",
+  ].join("\n"),
 );
+
 rmSync(clientDir, { recursive: true, force: true });
 
 // 4. Remove build-machinery leftovers and local caches.
