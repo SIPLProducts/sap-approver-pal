@@ -76,13 +76,32 @@ NODE_ENV=production
 SUPABASE_URL=http://127.0.0.1:8000
 SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+MIDDLEWARE_URL=http://127.0.0.1:3002
 MIDDLEWARE_SHARED_SECRET=
 EOF
   chmod 600 .env.runtime
-  die "no ../.env found, so .env.runtime was created as a template. Fill in SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY and MIDDLEWARE_SHARED_SECRET, then run this script again."
+  die "no ../.env found, so .env.runtime was created as a template. Fill in SUPABASE_SERVICE_ROLE_KEY and MIDDLEWARE_SHARED_SECRET (or better: create ../.env in the frontend folder with those keys), then run this script again."
 fi
 
+
 chmod 600 .env.runtime
+
+missing=""
+for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY MIDDLEWARE_URL MIDDLEWARE_SHARED_SECRET; do
+  value="$(grep -m1 "^${key}=" .env.runtime | cut -d= -f2- | tr -d '\r' | tr -d '"' | tr -d "'" | sed 's/^ *//; s/ *$//')"
+  if [ -z "$value" ]; then
+    missing="$missing $key"
+  else
+    ok "$key is set"
+  fi
+done
+if [ -n "$missing" ]; then
+  if [ -f "$SHARED_ENV" ]; then
+    die "these keys are missing or empty in $(cd .. && pwd)/.env:$missing (SUPABASE_* come from the self-hosted supabase/.env; MIDDLEWARE_SHARED_SECRET must match middleware/.env)"
+  fi
+  die "these values are empty in .env.runtime:$missing"
+fi
+
 
 
 # ---------------------------------------------------------------------------
