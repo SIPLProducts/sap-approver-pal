@@ -12,6 +12,34 @@ Missing Supabase environment variable(s): SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 
 The current build artifact also has blank `SUPABASE_SERVICE_ROLE_KEY`, `MIDDLEWARE_URL`, and `MIDDLEWARE_SHARED_SECRET`; those must be populated with the Quality environment values before SAP login can complete.
 
+## Two problems in the values you pasted
+
+1. The value placed under `SUPABASE_SERVICE_ROLE_KEY` decodes to `"role":"anon"`. That is the anon/publishable key, not the service-role key. With it, every privileged server operation (session creation, SAP config lookup, sync log writes) is refused by row-level security and login still fails — with a permissions error instead of the current one.
+2. There is no publishable/anon key line, and `VITE_SUPABASE_PROJECT_ID=Quality` alone does not give the browser a backend URL or key.
+
+Correct frontend `.env` for Quality (browser values are `VITE_*`, server values are unprefixed):
+
+```text
+VITE_SUPABASE_URL=http://10.150.150.130:8000
+VITE_SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from supabase/.env>
+VITE_SUPABASE_PROJECT_ID=Quality
+
+SUPABASE_URL=http://10.150.150.130:8000
+SUPABASE_PUBLISHABLE_KEY=<same ANON_KEY>
+SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from supabase/.env — must decode to role:service_role>
+MIDDLEWARE_URL=http://127.0.0.1:3002
+MIDDLEWARE_SHARED_SECRET=123456
+```
+
+Get the two real keys from the self-hosted stack, then rotate the key you pasted in chat once login works:
+
+```bash
+grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=' /data/webapplication/resl_approval/Quality/supabase/.env
+```
+
+`MIDDLEWARE_SHARED_SECRET=123456` must be byte-identical to the value in `middleware/.env`, otherwise the middleware answers `401 Invalid or missing x-shared-secret`.
+
+
 ## Implementation
 
 1. Update the generated `dist/start.mjs` launcher to explicitly expose the approved server variables to the local Worker runtime instead of relying on inherited process environment behavior.
