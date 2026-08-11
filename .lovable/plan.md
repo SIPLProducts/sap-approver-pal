@@ -28,33 +28,51 @@ That is the only change. After it, `npm run build` emits a `dist/start.mjs` that
 
 ## Unblock the server right now without rebuilding
 
-You do not have to rebuild to get login working today — patch the one line in place:
+You do not have to rebuild to get login working today. **Stop PM2 first, apply the patch, and only restart after `node --check` succeeds:**
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend/dist
-grep -n 'split(/' start.mjs
-```
+pm2 stop Qty_App
 
-You will see the regex split across two lines. Replace those with a single correct line, then:
-
-```bash
-node --check start.mjs        # must print nothing
-pm2 restart Qty_App
-pm2 logs Qty_App --lines 40
-```
-
-Simplest patch, safe because the env-file loader does not need a regex at all:
-
-```bash
+cp start.mjs start.mjs.bak
 python3 - <<'PY'
-import re, pathlib
+import pathlib
+import re
+
 p = pathlib.Path("start.mjs")
 s = p.read_text()
-s = re.sub(r'\.split\(/\s*\r?\n?\s*/\)', '.split("\\n")', s)
-p.write_text(s)
+fixed, count = re.subn(
+    r'\.split\(/.*?/\)',
+    lambda _match: '.split("\\n")',
+    s,
+    count=1,
+    flags=re.DOTALL,
+)
+if count != 1:
+    raise SystemExit("Could not locate the broken split regex; start.mjs was not changed")
+p.write_text(fixed)
+print("Patched the broken split regex")
 PY
+
 node --check start.mjs
 ```
+
+`node --check start.mjs` must return to the prompt with **no error**. Confirm the repaired line:
+
+```bash
+grep -n 'split' start.mjs
+```
+
+It should now show one complete line containing `.split("\n")`. Only then restart:
+
+```bash
+pm2 restart Qty_App --update-env
+sleep 3
+pm2 status Qty_App
+pm2 logs Qty_App --lines 40 --nostream
+```
+
+Do not restart while `node --check` still reports the syntax error; PM2 may briefly display `online` while continuously crashing and restarting.
 
 ## Before restarting, create `dist/.env.runtime`
 
