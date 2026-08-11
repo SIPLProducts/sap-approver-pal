@@ -46,9 +46,12 @@ insert into public.sap_global_settings
   (id, connection_mode, deployment_mode, middleware_port, middleware_url,
    sap_environment, sap_base_url, sap_username)
 values
-  ('default', 'middleware', 'on_prem', 3002, 'http://127.0.0.1:3002',
+  ('default', 'via_proxy', 'self_hosted', 3002, 'http://127.0.0.1:3002',
    'quality', 'http://10.150.150.155:8005', 'SHARVI_INFO')
 on conflict (id) do update set
+  connection_mode = excluded.connection_mode,
+  deployment_mode = excluded.deployment_mode,
+  middleware_port = excluded.middleware_port,
   middleware_url = excluded.middleware_url,
   sap_base_url   = excluded.sap_base_url,
   sap_username   = excluded.sap_username;
@@ -61,7 +64,11 @@ on conflict (id) do update set
   proxy_secret = excluded.proxy_secret;
 ```
 
-Notes on allowed values (enforced by the database): `module` must be `MM`, `SD` or `COMMON`; `auth_type` one of `basic`, `oauth`, `none`, `proxy`; `api_type` `sync` or `fetch`.
+Allowed values (enforced by the database — this is what your error was about):
+- `connection_mode`: `direct` or `via_proxy` (not `middleware`)
+- `deployment_mode`: `lovable_cloud` or `self_hosted` (not `on_prem`)
+- `sap_api_configs.module`: `MM`, `SD`, `COMMON`; `auth_type`: `basic`, `oauth`, `none`, `proxy`; `api_type`: `sync`, `fetch`
+
 
 To go direct to SAP without the middleware, set `middleware_url = null` instead — then the app server uses `endpoint_url` plus the basic-auth user/password above.
 
