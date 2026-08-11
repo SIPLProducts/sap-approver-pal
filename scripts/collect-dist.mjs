@@ -122,7 +122,10 @@ if (existsSync(serverWrangler)) {
   }
 }
 // Keep the server bundle itself out of the publicly served asset set.
-writeFileSync(join(distDir, ".assetsignore"), "/server\n.assetsignore\n");
+writeFileSync(
+  join(distDir, ".assetsignore"),
+  "/server\n.assetsignore\npackage.json\npackage-lock.json\nstart.mjs\n.env.runtime\nnode_modules\n",
+);
 rmSync(clientDir, { recursive: true, force: true });
 
 // 4. Remove build-machinery leftovers and local caches.
