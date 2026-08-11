@@ -1,45 +1,38 @@
-# Stabilise the Quality app server on port 8080
+# One script to bring up the Quality frontend / app server
 
-Your logs show three distinct things. Only two are real failures.
+Instead of typing the recovery steps, you get a single script you run on the server after copying the new `dist/` in.
 
-## What the logs actually say
+## What ships
 
-1. **Fatal — asset too large.** `npm install` inside `dist/` created `dist/node_modules`, which contains the 122 MiB `workerd` binary. The whole `dist/` folder is the served asset directory, so startup aborts. This is the reason nothing ever holds port 8080 for long.
-2. **Fatal — missing backend env.** `Missing Supabase environment variable(s): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY` — `dist/.env.runtime` is absent or was not read. This is the same red banner you saw on the login page.
-3. **Not fatal — `Request.cf` timeout.** The offline box cannot reach Cloudflare's metadata endpoint, so it warns and falls back to a placeholder. Combined with the file watcher seeing `dist/node_modules` change, it turns into the visible reload churn. Fixing (1) removes the churn.
+1. **`scripts/collect-dist.mjs` change** — the runtime stops polluting the asset folder:
+   - `wrangler` is installed into `dist/.runtime/` (not `dist/node_modules/`), so the 122 MiB `workerd` binary is never treated as a served asset — this is what kills startup today;
+   - `dist/start.mjs` runs wrangler from `.runtime`, adds `--no-live-reload`, keeps loading `dist/.env.runtime`, keeps offline mode (`CI=true`, `WRANGLER_SEND_METRICS=false`);
+   - `.assetsignore` also lists `/node_modules`, `/.runtime`, `/.env.runtime`.
 
-There is also an older `ENOENT .../dist/server/index.mjs` line, meaning at that moment the deployed folder was incomplete. The new build must always contain `dist/server/index.mjs`.
-
-## Code change: keep runtime dependencies out of the asset folder
-
-Edit `scripts/collect-dist.mjs` so the self-contained runtime lives in `dist/.runtime/` instead of `dist/`:
-
-- Write `dist/.runtime/package.json` with the `wrangler` dependency (instead of `dist/package.json`).
-- `dist/start.mjs` spawns wrangler from `dist/.runtime/node_modules/.bin/wrangler`, adds `--no-live-reload`, and keeps loading `dist/.env.runtime` as it does today.
-- Extend the generated `.assetsignore` with `/node_modules`, `/.runtime`, and `/.env.runtime` so nothing large is ever treated as a served asset.
-- Keep the existing offline defaults (`CI=true`, `WRANGLER_SEND_METRICS=false`) and add `NO_COLOR=1` for readable PM2 logs.
-
-No application, middleware, Nginx, or database logic changes.
-
-## What you do on the server
+2. **New `scripts/deploy-frontend.sh`**, also copied into `dist/` by the build so it is right next to what it manages. You run this one command on the server:
 
 ```bash
-pm2 stop Qty_App
-
-cd /data/webapplication/resl_approval/Quality/frontend
-# remove the bad install that broke startup
-rm -rf dist/node_modules dist/package-lock.json
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+bash deploy-frontend.sh
 ```
 
-Then deploy the freshly built `dist/` from VS Code (`npm run build`), and:
+It performs, in order, and stops with a clear message on the first failure:
 
-```bash
-cd dist
-ls server/index.mjs            # must exist
-npm install --omit=dev --prefix .runtime
-```
+- sanity-check the folder: `index.html`, `server/index.mjs`, `start.mjs` must exist;
+- delete a stale `dist/node_modules` and `package-lock.json` left from the earlier bad install;
+- create `.env.runtime` from a template if missing, then refuse to continue until you fill in the two keys (it tells you which are blank);
+- verify `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MIDDLEWARE_SHARED_SECRET` are non-empty and `chmod 600` the file;
+- `npm install --omit=dev --prefix .runtime` (only if `.runtime/node_modules` is missing or `--reinstall` is passed);
+- `node --check start.mjs`;
+- `pm2 restart Qty_App --update-env` (or `pm2 start start.mjs --name Qty_App` if the process does not exist), then `pm2 save`;
+- wait for port 8080 to answer, then run the three checks: `/`, `/api/public/middleware/config` (401 about the shared secret is the success signal), and the middleware `__health` on 3002;
+- print a short PASS/FAIL summary and the last 20 lines of `pm2 logs Qty_App` when anything fails.
 
-Create `dist/.env.runtime` (this is the fix for problem 2):
+It never touches `Qty_Approval`, Nginx, Docker, or the database.
+
+Options: `--reinstall` (force the `.runtime` install), `--no-restart` (checks only), `--port 8080`.
+
+## Values you must put in `.env.runtime`
 
 ```ini
 PORT=8080
@@ -51,21 +44,15 @@ SUPABASE_SERVICE_ROLE_KEY=<Quality SERVICE_ROLE_KEY>
 MIDDLEWARE_SHARED_SECRET=<exact same secret as middleware/.env>
 ```
 
-```bash
-chmod 600 .env.runtime
-pm2 restart Qty_App --update-env
-pm2 logs Qty_App --lines 40 --nostream
-```
+Both keys come from the self-hosted `supabase/.env` on that box. Without them login fails with the red "Missing Supabase environment variable(s)" banner, which is exactly what your logs show.
 
-## Verify
+## Your flow from now on
 
 ```bash
-ss -ltnp | grep ':8080'                 # must show the node/workerd process
-curl -i http://127.0.0.1:8080/          # 200
-curl -i -X POST http://127.0.0.1:8080/api/public/middleware/config \
-  -H 'content-type: application/json' -d '{"name":"Login_API"}'
+# VS Code
+npm run build
+
+# copy dist/ to the server, then
+cd /data/webapplication/resl_approval/Quality/frontend/dist
+bash deploy-frontend.sh
 ```
-
-Expected: no "Asset too large", no "Missing Supabase environment variable(s)", and the config call answers 401 about the shared secret (proving the route ran). A `Request.cf` warning may still appear once at startup — it is harmless.
-
-Then log in at `http://10.150.150.130:8081/login`.
