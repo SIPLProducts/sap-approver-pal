@@ -76,11 +76,13 @@ NODE_ENV=production
 SUPABASE_URL=http://127.0.0.1:8000
 SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+MIDDLEWARE_URL=http://127.0.0.1:3002
 MIDDLEWARE_SHARED_SECRET=
 EOF
   chmod 600 .env.runtime
-  die "no ../.env found, so .env.runtime was created as a template. Fill in SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY and MIDDLEWARE_SHARED_SECRET, then run this script again."
+  die "no ../.env found, so .env.runtime was created as a template. Fill in SUPABASE_SERVICE_ROLE_KEY and MIDDLEWARE_SHARED_SECRET (or better: create ../.env in the frontend folder with those keys), then run this script again."
 fi
+
 
 chmod 600 .env.runtime
 
