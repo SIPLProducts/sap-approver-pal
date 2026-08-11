@@ -231,20 +231,43 @@ In **SAP API Settings**, keep "Via Proxy" enabled and set the middleware URL to
 
 ## 5. Troubleshooting
 
+### How to tell which of the two faults you have
+
+```bash
+curl -I http://127.0.0.1:8080/login    # the app server
+curl -I http://127.0.0.1:8081/login    # what the browser gets (nginx)
+```
+
+| What you see on 8081 | Meaning |
+| --- | --- |
+| `ETag:` / `Last-Modified:` / fixed `Content-Length` | nginx served a **static file** from disk — it is not proxying. Fix §3. |
+| no `ETag`, no `Last-Modified` | nginx is proxying correctly. |
+
+| What you see on 8080 | Meaning |
+| --- | --- |
+| `500` | the app server runs but **throws while rendering**. Not a missing file — read `pm2 logs Qty_App --lines 80 --nostream`. Usually a value missing or wrong in `dist/.env.runtime` (step 3 of the deploy helper). |
+| `200` | the app server is healthy; any remaining problem is nginx or browser cache. |
+
+After any fix, test in a private/incognito window — the old service worker (`sw.js`)
+and HTTP cache will otherwise keep replaying the broken page.
+
 ### The browser 404s on `/assets/*.js`
 
 The deployed folder is a mix of two builds, or nginx is still serving an old
-static `index.html`. Rebuild and replace the folder atomically:
+static `index.html`. Rebuild and replace the folder as one unit:
 
 ```bash
 # build machine
-rm -rf dist .output .wrangler && npm run build:selfhost
-rsync -a --delete dist/ root@10.150.150.130:/data/webapplication/resl_approval/Quality/frontend/dist/
+rm -rf dist .output .wrangler && npm run build:selfhost && npm run package:dist
 ```
 
-Then confirm nginx has `location / { proxy_pass http://127.0.0.1:8080; }` (§3)
-and no `try_files ... /index.html`. `bash deploy-frontend.sh` now fails up front
-on both problems instead of letting them reach the browser.
+Then ship the archive as in §2 and confirm nginx has
+`location / { proxy_pass http://127.0.0.1:8080; }` (§3) and no
+`try_files ... /index.html`. `bash deploy-frontend.sh` now fails up front on a
+stale root `index.html`, a missing `build-info.json`, dangling asset references,
+a `/login` that returns 500, and an nginx that serves `/login` statically —
+instead of letting any of them reach the browser.
+
 
 ### Nothing answers on port 8080
 
