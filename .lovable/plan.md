@@ -12,33 +12,29 @@ Missing Supabase environment variable(s): SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 
 The current build artifact also has blank `SUPABASE_SERVICE_ROLE_KEY`, `MIDDLEWARE_URL`, and `MIDDLEWARE_SHARED_SECRET`; those must be populated with the Quality environment values before SAP login can complete.
 
-## Two problems in the values you pasted
+## Review of the values you pasted
 
-1. The value placed under `SUPABASE_SERVICE_ROLE_KEY` decodes to `"role":"anon"`. That is the anon/publishable key, not the service-role key. With it, every privileged server operation (session creation, SAP config lookup, sync log writes) is refused by row-level security and login still fails — with a permissions error instead of the current one.
-2. There is no publishable/anon key line, and `VITE_SUPABASE_PROJECT_ID=Quality` alone does not give the browser a backend URL or key.
+Correct as-is:
 
-Correct frontend `.env` for Quality (browser values are `VITE_*`, server values are unprefixed):
+- `VITE_SUPABASE_URL` and `SUPABASE_URL` = `http://10.150.150.130:8000`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_PUBLISHABLE_KEY` (both decode to `"role":"anon"`, which is right for these)
+- `VITE_SUPABASE_PROJECT_ID=Quality`
+- `MIDDLEWARE_URL=http://127.0.0.1:3002`
+- `MIDDLEWARE_SHARED_SECRET=123456` — valid only if byte-identical to `middleware/.env`, otherwise the middleware answers `401 Invalid or missing x-shared-secret`
 
-```text
-VITE_SUPABASE_URL=http://10.150.150.130:8000
-VITE_SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from supabase/.env>
-VITE_SUPABASE_PROJECT_ID=Quality
+One line is wrong:
 
-SUPABASE_URL=http://10.150.150.130:8000
-SUPABASE_PUBLISHABLE_KEY=<same ANON_KEY>
-SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from supabase/.env — must decode to role:service_role>
-MIDDLEWARE_URL=http://127.0.0.1:3002
-MIDDLEWARE_SHARED_SECRET=123456
-```
+- `SUPABASE_SERVICE_ROLE_KEY` currently holds the same anon key. Its payload decodes to `"role":"anon"`, so it is not a service-role key. With it, privileged server work (session creation, SAP config lookup, sync-log writes) is refused by row-level security and login still fails — with a permissions error instead of the current one.
 
-Get the two real keys from the self-hosted stack, then rotate the key you pasted in chat once login works:
+Replace only that line with the real service-role key from the self-hosted stack:
 
 ```bash
 grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=' /data/webapplication/resl_approval/Quality/supabase/.env
 ```
 
-`MIDDLEWARE_SHARED_SECRET=123456` must be byte-identical to the value in `middleware/.env`, otherwise the middleware answers `401 Invalid or missing x-shared-secret`.
+Use the `SERVICE_ROLE_KEY` value; its payload must decode to `"role":"service_role"`. Also note the browser must reach `10.150.150.130:8000` directly with this configuration — if it cannot, the backend URL has to be the Nginx-exposed path instead.
 
+Since these keys have now been pasted into chat, rotate them once login is confirmed working.
 
 ## Implementation
 
@@ -49,9 +45,10 @@ grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=' /data/webapplication/resl_approval/Quali
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `MIDDLEWARE_URL`
    - `MIDDLEWARE_SHARED_SECRET`
-3. Keep private values out of logs and error output; only print the names of missing variables.
-4. Update the deployment helper to validate the publishable key as well, then restart `Qty_App` with the corrected runtime bindings.
-5. Keep the existing architecture unchanged:
+3. Reject a `SUPABASE_SERVICE_ROLE_KEY` whose payload is not `service_role`, with a clear startup message and no key material in the log — this exact mistake otherwise surfaces much later as a confusing permissions error.
+4. Keep private values out of logs and error output; only print the names of offending variables.
+5. Update the deployment helper to validate the publishable key as well, then restart `Qty_App` with the corrected runtime bindings.
+6. Keep the existing architecture unchanged:
 
 ```text
 Browser :8081 -> Nginx -> App server :8080 -> Middleware :3002 -> SAP
@@ -63,9 +60,10 @@ Browser :8081 -> Nginx -> App server :8080 -> Middleware :3002 -> SAP
 
 On the development machine:
 
-1. Put the real Quality values in the frontend `.env`; do not leave the three currently blank server values empty.
+1. Put the corrected Quality values in the frontend `.env` (real service-role key).
 2. Run `npm run build`.
 3. Copy the complete new `dist/` to the Quality server.
+
 
 On the Quality server:
 
