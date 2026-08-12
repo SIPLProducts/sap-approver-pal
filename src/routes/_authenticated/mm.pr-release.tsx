@@ -381,16 +381,19 @@ function PrReleasePage() {
     }) => rejectFn({ data: input }),
     onSuccess: (res) => {
       const rejectedKeys = new Set<string>();
-      for (const r of res.results) {
-        const label = `PR ${r.preq_no}/${r.preq_item}`;
-        const msg = r.msgtxt || r.error || (r.ok ? "Rejected" : "Failed");
-        if (r.ok) {
-          toast.success(`${label}: ${msg}`);
-          rejectedKeys.add(`${r.preq_no}-${r.preq_item}`);
-        } else {
-          toast.error(`${label}: ${msg}`);
-        }
-      }
+      for (const r of res.results) if (r.ok) rejectedKeys.add(`${r.preq_no}-${r.preq_item}`);
+
+      setResponseDialog({
+        open: true,
+        title: "PR Reject — SAP Response",
+        results: res.results.map((r: any) => ({
+          preq: `${r.preq_no}/${r.preq_item}`,
+          message: r.msgtxt || r.MSGTXT || r.error || (r.ok ? "Rejected" : "Failed"),
+          ok: !!r.ok,
+          response: r.response,
+        })),
+      });
+
       if (rejectedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
@@ -401,11 +404,16 @@ function PrReleasePage() {
         setRemarks({});
       }
       if (releaseGroup.trim() && releaseCode.trim()) {
+        silentRefreshRef.current = true;
         mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
       }
     },
     onError: (e: any) => {
-      toast.error(e?.message ?? "Reject failed.");
+      setResponseDialog({
+        open: true,
+        title: "PR Reject — SAP Response",
+        results: [{ preq: "", message: e?.message ?? "Reject failed.", ok: false }],
+      });
     },
   });
 
