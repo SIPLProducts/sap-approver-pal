@@ -8,15 +8,15 @@
 SUPABASE_PUBLISHABLE_KEY=eyJ...D9DkeyJ...D9Dk
 ```
 
-That is the anon key concatenated with itself — the same token twice, back to back, with no separator. A JWT has exactly three dot-separated parts; this value has six. So every server-side call the app server makes with it is rejected by the backend, and the authenticated server functions collapse that into the message you see: **"Unauthorized: Invalid token"**. This is why SAP API Settings shows no rows and Users & Roles shows "Failed to load users" while login still works (login is a public call that uses the service-role key, not this one).
+That is the anon key concatenated with itself — the same token twice, back to back, with no separator. One JWT has three dot-separated fields; two JWTs joined without a separator produce five fields, which is exactly what your latest command printed. So every server-side call the app server makes with it is rejected by the backend, and the authenticated server functions collapse that into the message you see: **"Unauthorized: Invalid token"**. This is why SAP API Settings shows no rows and Users & Roles shows "Failed to load users" while login still works (login is a public call that uses the service-role key, not this one).
 
 The doubling did not come from the build script — it writes one `KEY=value` line per key. It came from `frontend/.env`, where the `ANON_KEY` value was pasted twice into one line (an easy wrap/copy accident with a long token).
 
 Secondary, non-fatal: the browser bundle points at `http://10.150.150.130:8000` while the app server uses `http://127.0.0.1:8000`. Same backend if it runs on that host, so this is not the failure — but the two should be spelled the same way to keep the token issuer consistent. Your two `curl` checks returning `000` only means `$SUPABASE_URL` was not set in that shell, not that the backend is down.
 
-## Fix on the server (2 minutes, no rebuild strictly needed)
+## Fix on the server now
 
-1. In `frontend/.env`, set the value on a single line, exactly once:
+1. You are currently in `/data/webapplication/resl_approval/Quality/frontend`. Edit `.env` and set the value on a single line, exactly once. Copy the complete `ANON_KEY` from `../backend/.env`; do not copy the shortened value ending in `>` from the message:
    ```text
    SUPABASE_URL=http://10.150.150.130:8000
    SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from backend .env, once>
@@ -25,17 +25,20 @@ Secondary, non-fatal: the browser bundle points at `http://10.150.150.130:8000` 
    VITE_SUPABASE_URL=http://10.150.150.130:8000
    VITE_SUPABASE_PUBLISHABLE_KEY=<same anon key>
    ```
-2. Apply the same corrected values to `dist/.env.runtime` (or rebuild so it regenerates), then:
+2. From the `frontend` folder, regenerate `dist/.env.runtime` and restart using the existing helper (it copies `.env` correctly):
    ```bash
-   pm2 restart Qty_App --update-env
+   cd /data/webapplication/resl_approval/Quality/frontend/dist
+   bash deploy-frontend.sh
    ```
-3. Verify before touching the browser — each token must show 3 parts and the REST call must not be 401:
+3. Verify from inside the `dist` folder. Type `set`, not `et`, and use `.env.runtime` without the extra `dist/` prefix:
    ```bash
-   set -a; . dist/.env.runtime; set +a
+   set -a; . ./.env.runtime; set +a
    awk -F. '{print NF}' <<<"$SUPABASE_PUBLISHABLE_KEY"     # must print 3
+   awk -F. '{print NF}' <<<"$SUPABASE_SERVICE_ROLE_KEY"    # must print 3
    curl -s -o /dev/null -w '%{http_code}\n' "$SUPABASE_URL/auth/v1/health"                    # 200
    curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/rest/v1/"   # 200
    ```
+   Your previous `401 / 401` results are expected with the malformed five-field key. Do not continue until the first command prints `3` and both curl calls return `200`.
 4. Sign out and sign in again in the browser, then open SAP API Settings and Users & Roles. Rows should appear. Only after that is it worth re-checking the seed counts.
 
 Note: the `VITE_*` values are compiled into the browser bundle, so changing the URL there requires a rebuild and redeploy of `dist`. The server-side values in `.env.runtime` take effect on restart alone.
