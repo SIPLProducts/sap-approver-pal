@@ -14,8 +14,10 @@
  *
  * Exit code 0 = safe to deploy. Anything else = do not copy this folder.
  */
+import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+
 
 const args = process.argv.slice(2);
 function argValue(name) {
