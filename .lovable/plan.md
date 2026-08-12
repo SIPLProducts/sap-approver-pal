@@ -64,6 +64,18 @@ Do not move on until you see `3`, `3`, `200`, `200`. Then sign out, sign in agai
 
 Important: the SAP Connection and Middleware Configuration tabs use the URL as the **app server** sees it, so keep `SUPABASE_URL` and `VITE_SUPABASE_URL` spelled identically (`10.150.150.130:8000`, not `127.0.0.1`), otherwise the token issuer and the validating host disagree.
 
+### About the `.env.runtime` you just opened in nano
+
+Three things about that file:
+
+- `nano` truncates each long line on screen with a `>` at the right edge, so seeing `...EhhlW>` tells you nothing about whether the key is doubled. The only reliable check is `awk -F. '{print NF}'` — it must print `3`.
+- `MIDDLEWARE_URL` appears **twice**; the second one wins. Harmless here since both are identical, but it is a sign the file was hand-edited.
+- `SUPABASE_URL=http://127.0.0.1:8000` while the browser bundle was built with `10.150.150.130:8000`. Make both `10.150.150.130:8000`.
+
+Most importantly: **editing `dist/.env.runtime` by hand is temporary** — `deploy-frontend.sh` regenerates it from `frontend/.env` on the next deploy and your edit disappears. Fix `frontend/.env` with the commands above; that is the file that survives.
+
+
+
 ## Code changes I will make so this cannot silently happen again
 
 1. **Boot guard in the generated `dist/start.mjs`** (from `scripts/collect-dist.mjs`): validate each Supabase key is a 3-part JWT carrying the expected role (`anon` / `service_role`), and refuse to start with a message naming the offending variable. Names only, never values.
