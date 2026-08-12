@@ -1,45 +1,103 @@
-# Fix the self-host bundle contract and stale shell failure
+# Fixing the Quality login page — explained simply
 
-## Confirmed diagnosis
+## What is broken right now (two separate problems)
 
-- The immediate port 8080 failure is **not caused by a missing `index.html`**. `start.mjs` exits because it assumes `server/index.mjs` must export `default.fetch`; the deployed generated server is a standalone Node-server shape that starts its own listener instead.
-- The current verifier checks that files exist, but it does not prove that `start.mjs` can actually start the generated server. That is why this incompatible archive passed verification.
-- The reported `TypeError: jsxDevRuntimeExports.jsxDEV is not a function` is a second, independent failure inside the generated SSR bundle. The local generated bundle is not currently present to identify its exact injection point, so the fix will inspect the fresh production output and remove the development/production React runtime mismatch before packaging.
-- A self-host build intentionally has no root `index.html`: pages are rendered by the app server. Adding one would recreate the stale-hash problem.
-- The first screenshot shows an older HTML shell requesting obsolete hashes such as `index-BefOrEbA.js`, while the current generated assets use different hashes. Nginx or browser/service-worker cache is therefore still serving the old shell independently of the port 8080 startup failure.
+**Problem 1 — the app server never starts.**
+Your `dist/` folder has two parts that must agree with each other:
 
-## Implementation
+- `server/index.mjs` — the real application (built by the build).
+- `start.mjs` — a small starter file whose only job is to run that application.
 
-1. **Make the launcher understand both valid server outputs**
-   - Load runtime environment before importing the generated server.
-   - If the module exports a Fetch-compatible handler, keep using the existing Node HTTP adapter.
-   - If it is a standalone Node-server entry, let that entry own the listener instead of exiting with “does not export a fetch handler.”
-   - Correct the generated `NITRO_HOST` value so it receives the configured host, not the port.
+The starter is written to expect the application in one particular shape.
+The build produced it in a different (also valid) shape. So the starter says
+"this is not a usable build" and exits. PM2 then keeps retrying and gives up
+(`status: errored`, restarts = 31).
 
-2. **Fix and gate the React SSR runtime**
-   - Force the self-host app pass and its launcher to use a consistent production React runtime from build start, rather than relying on an environment value applied after modules begin loading.
-   - Inspect the fresh `dist/server` output for `jsxDEV` / development JSX-runtime references and trace any remaining reference back to the build configuration or dependency that emitted it.
-   - Keep React and React DOM resolved as one matching pair in the server bundle; do not patch generated JavaScript by hand.
-   - Make `/login` rendering part of the build gate so a `jsxDEV is not a function` crash can never reach the deployment archive.
+Because nothing is listening on port 8080, Nginx on 8081 has nothing to talk to,
+so the browser gets errors and no login page.
 
-3. **Preserve assets required by a standalone server**
-   - Keep the generated client asset directory where the Node-server bundle expects it, while retaining the root asset copy used by Nginx/static handling.
-   - Continue forbidding a root `index.html` for `selfhost-node` builds.
+**Problem 2 — a React error inside the built application.**
+`TypeError: jsxDevRuntimeExports.jsxDEV is not a function`
 
-4. **Turn verification into a real runtime gate**
-   - Extend self-host verification to launch `dist/start.mjs` on a temporary local port, wait for it to listen, request `/login` and a known hashed asset, then stop it.
-   - Fail `npm run build:selfhost` and `npm run package:dist` if the process exits, does not bind, returns a server error, or cannot serve its assets.
-   - Record the detected server shape in `build-info.json` and have the deployment helper print/check it.
+React has two internal modes: a *development* mode and a *production* mode.
+The built server file is mixing them — it asks for a development-only function
+that does not exist in the production build. Even after Problem 1 is fixed, this
+would make pages fail to render on the server.
 
-5. **Eliminate the stale Nginx/browser shell path**
-   - Keep `location /` proxied to the app server and serve only versioned `/assets/` from the same extracted archive.
-   - Update deployment checks to fail if `/login` from port 8081 has static-file headers or references any missing hashed asset.
-   - Provide one clean replacement procedure: extract the verified archive into an empty `dist/`, reload the supplied Nginx config, restart the app, and clear/unregister the old service worker once.
+These two problems are unrelated. Both must be fixed, or you will fix one and
+still see a broken site.
 
-## Success checks
+## What I will change (all on the build side, not your app screens)
 
-- `npm run build:selfhost` proves the generated `start.mjs` listens and `/login` responds before completing.
-- The production server bundle no longer throws `jsxDevRuntimeExports.jsxDEV is not a function`; the verifier confirms `/login` returns usable HTML and every referenced hashed asset exists.
-- `npm run package:dist` cannot package a server/launcher mismatch.
-- On the Quality server, `bash deploy-frontend.sh` reports port 8080 healthy and `/login` plus all referenced assets available through 8081.
-- No root `dist/index.html` is required or generated.
+**1. Make the starter accept both shapes**
+`start.mjs` will check the application it just loaded:
+
+- if the application expects the starter to open the network port, the starter
+  opens it (today's behaviour), or
+- if the application already opens its own port, the starter simply lets it do
+  that instead of exiting with an error.
+
+Either way port 8080 comes up. I will also fix a small bug where the starter
+passes the port number where the host address belongs.
+
+**2. Fix the React development/production mixing**
+The build will be told, from the very first moment, to use React's production
+mode consistently. I will then look inside the freshly built server file for any
+leftover development-mode references and remove the cause in the build
+configuration. I will not hand-edit generated files, because the next build would
+overwrite that.
+
+**3. Make the build refuse to produce a broken folder**
+This is the part that stops the repeated cycle you have been living through.
+Today the check only confirms *files exist*. After this change, the build will
+actually:
+
+- start the built server on a temporary spare port,
+- wait for it to answer,
+- request `/login` and one asset file,
+- shut it down again.
+
+If it does not start, or `/login` errors, the build **fails** and no archive is
+produced. So a folder that cannot run can no longer reach your server.
+
+**4. Remove the stale-page problem for good**
+The old 404 errors (files like `index-BefOrEbA.js`) came from Nginx serving an
+old saved page. The corrected Nginx file already in the project sends normal
+pages to the app server and serves only the versioned `/assets/` files from disk.
+The deployment helper will also fail loudly if it detects the old behaviour, and
+I will include a one-time step to clear the old cached service worker in the
+browser.
+
+Note: a `index.html` in the root of `dist/` is intentionally *absent* in this
+setup. The app server builds each page. Putting one back is what caused the
+original 404 errors, so it stays out.
+
+## What you will do afterwards (short and fixed)
+
+On your development machine, in the project folder (**not** inside `dist/`):
+
+```bash
+npm run build:selfhost
+npm run package:dist
+```
+
+If either command fails, the folder was broken and must not be copied — that is
+the new safety net working.
+
+Then copy `quality-frontend-dist.tar.gz` to the server and:
+
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend
+mv dist "dist-old-$(date +%Y%m%d-%H%M%S)"
+mkdir dist && tar -xzf quality-frontend-dist.tar.gz -C dist
+cd dist && bash deploy-frontend.sh
+```
+
+Nothing about the database, SAP middleware, or your application screens changes.
+
+## How we will know it is actually fixed
+
+- `pm2 ls` shows `Qty_App` as **online**, not errored.
+- `curl -I http://127.0.0.1:8080/login` returns `HTTP/1.1 200`.
+- The browser shows the login page at port 8081 with no 404 asset errors.
+- The `jsxDEV` error no longer appears in `pm2 logs Qty_App`.
