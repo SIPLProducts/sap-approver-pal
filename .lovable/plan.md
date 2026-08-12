@@ -6,31 +6,38 @@ The screens are empty for a different reason. Every admin screen (APIs list, SAP
 
 Screenshot 2 confirms the browser IS sending a proper `Authorization: Bearer …` header, and screenshot 3 confirms the server's answer is `Unauthorized: Invalid token`. So the token is sent and the *server side* rejects it.
 
-Why the server rejects a valid token: to validate it, the app server calls your self-hosted backend using `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` from `dist/.env.runtime`. Your own checks on the server printed:
+Why the server rejects a valid token: to validate it, the app server calls your self-hosted backend using `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` from `dist/.env.runtime`. The first copy of the key had 5 JWT parts. After the latest edit, deployment starts, but sourcing the generated runtime file now reports:
 
 ```text
-awk -F. '{print NF}' <<<"$SUPABASE_PUBLISHABLE_KEY"   ->  5
+./.env.runtime: line 7: syntax error near unexpected token `newline'
+SUPABASE_ANON_KEY=...EhhlWM2Kq2YP>
 curl .../auth/v1/health                               ->  401
-curl -H "apikey: $KEY" .../rest/v1/                   ->  401
+curl -H "apikey: $KEY" .../rest/v1/                   ->  403
 ```
 
-A valid key has **3** dot-separated parts. Yours has **5** — the anon key is pasted twice into one line. So every validation call the app server makes is rejected, and that surfaces as "Invalid token". Login still works because login is a public call that does not go through this validation.
+A valid legacy self-hosted key has **3** dot-separated parts, but that check alone is not enough: the current value literally ends with `>`. The shell treats that character as an incomplete redirection, and the backend rejects the damaged key. The successful deploy only proves the required variables are non-empty; the current helper does not yet validate their contents.
 
-So: database good, browser good, **one malformed line in the environment file** is the whole failure.
+So: database good, browser good, app server running, but **the anon/publishable key copied into the app environment is still malformed**. That prevents protected functions from reaching the 47 database rows.
 
 ## Fix on the server (do this first — no code change needed)
 
-Rebuild `frontend/.env` with commands instead of pasting, so long tokens cannot wrap or double:
+Do not edit either key in `nano`. Rebuild `frontend/.env` by reading the exact keys directly from the self-hosted backend environment:
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend
 cp .env .env.bak.$(date +%s)
-SB=/data/webapplication/resl_approval/Quality/supabase/.env   # adjust if your path differs
+SB=/data/webapplication/resl_approval/Quality/supabase/.env
+test -f "$SB" || { echo "STOP: $SB not found"; exit 1; }
 
-ANON="$(grep -m1 '^ANON_KEY=' "$SB" | cut -d= -f2- | tr -d '\r\n "')"
-SRV="$(grep -m1 '^SERVICE_ROLE_KEY=' "$SB" | cut -d= -f2- | tr -d '\r\n "')"
-awk -F. '{print NF}' <<<"$ANON"   # must print 3
-awk -F. '{print NF}' <<<"$SRV"    # must print 3
+ANON="$(grep -m1 '^ANON_KEY=' "$SB" | cut -d= -f2- | tr -d '\r\n' | sed 's/^["'"']\|["'"']$//g')"
+SRV="$(grep -m1 '^SERVICE_ROLE_KEY=' "$SB" | cut -d= -f2- | tr -d '\r\n' | sed 's/^["'"']\|["'"']$//g')"
+
+# Validate without printing either secret.
+test -n "$ANON" && test -n "$SRV" || { echo "STOP: source keys are empty"; exit 1; }
+test "$(awk -F. '{print NF}' <<<"$ANON")" = 3 || { echo "STOP: source ANON_KEY is malformed"; exit 1; }
+test "$(awk -F. '{print NF}' <<<"$SRV")" = 3 || { echo "STOP: source SERVICE_ROLE_KEY is malformed"; exit 1; }
+case "$ANON$SRV" in *'>'*|*'<'*) echo "STOP: source key contains < or >"; exit 1;; esac
+echo "Source keys pass format checks"
 
 grep -vE '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=' .env > .env.new
 {
@@ -49,18 +56,19 @@ mv .env.new .env && chmod 600 .env
 grep -cE '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=.+' .env
 ```
 
-Then redeploy and verify:
+Then redeploy and verify. Source the file before running any checks; if sourcing prints any error, stop:
 
 ```bash
 cd dist && bash deploy-frontend.sh
 set -a; . ./.env.runtime; set +a
 awk -F. '{print NF}' <<<"$SUPABASE_PUBLISHABLE_KEY"    # 3
 awk -F. '{print NF}' <<<"$SUPABASE_SERVICE_ROLE_KEY"   # 3
-curl -s -o /dev/null -w '%{http_code}\n' "$SUPABASE_URL/auth/v1/health"                                   # 200
+case "$SUPABASE_PUBLISHABLE_KEY$SUPABASE_SERVICE_ROLE_KEY" in *'>'*|*'<'*) echo "BAD KEY";; *) echo "KEY CHARACTERS OK";; esac
+curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/auth/v1/health" # 200
 curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/rest/v1/"  # 200
 ```
 
-Do not move on until you see `3`, `3`, `200`, `200`. Then sign out, sign in again, and open SAP API Settings — the 47 endpoints should appear, and saving SAP Connection / Middleware Configuration should succeed.
+Do not move on until the source command has no syntax error and you see `3`, `3`, `KEY CHARACTERS OK`, `200`, `200`. Then sign out, sign in again to obtain a fresh session, and open SAP API Settings — the 47 endpoints should appear, and saving SAP Connection / Middleware Configuration should succeed.
 
 Important: the SAP Connection and Middleware Configuration tabs use the URL as the **app server** sees it, so keep `SUPABASE_URL` and `VITE_SUPABASE_URL` spelled identically (`10.150.150.130:8000`, not `127.0.0.1`), otherwise the token issuer and the validating host disagree.
 
@@ -68,7 +76,7 @@ Important: the SAP Connection and Middleware Configuration tabs use the URL as t
 
 Three things about that file:
 
-- `nano` truncates each long line on screen with a `>` at the right edge, so seeing `...EhhlW>` tells you nothing about whether the key is doubled. The only reliable check is `awk -F. '{print NF}'` — it must print `3`.
+- A `>` visible only at nano's screen edge can be a continuation marker. However, the shell has now quoted the complete failing line and shown `...EhhlWM2Kq2YP>` in the file, proving this `>` is part of the saved value and must be removed by recopying the source key.
 - `MIDDLEWARE_URL` appears **twice**; the second one wins. Harmless here since both are identical, but it is a sign the file was hand-edited.
 - `SUPABASE_URL=http://127.0.0.1:8000` while the browser bundle was built with `10.150.150.130:8000`. Make both `10.150.150.130:8000`.
 
@@ -78,8 +86,8 @@ Most importantly: **editing `dist/.env.runtime` by hand is temporary** — `depl
 
 ## Code changes I will make so this cannot silently happen again
 
-1. **Boot guard in the generated `dist/start.mjs`** (from `scripts/collect-dist.mjs`): validate each Supabase key is a 3-part JWT carrying the expected role (`anon` / `service_role`), and refuse to start with a message naming the offending variable. Names only, never values.
-2. **Same validation at build time** in `scripts/collect-dist.mjs` when writing `.env.runtime`, plus a warning when `SUPABASE_URL` and `VITE_SUPABASE_URL` disagree on host.
+1. **Boot guard in the generated `dist/start.mjs`** (from `scripts/collect-dist.mjs`): validate each backend key is a 3-part JWT carrying the expected role (`anon` / `service_role`), reject shell metacharacters such as `<` and `>`, and refuse to start with a message naming only the offending variable—never its value.
+2. **Same validation in deployment and at build time** in `scripts/deploy-frontend.sh` and `scripts/collect-dist.mjs` when writing `.env.runtime`. Require `SUPABASE_PUBLISHABLE_KEY` as well as the existing variables, and warn when `SUPABASE_URL` and `VITE_SUPABASE_URL` disagree on host.
 3. **Precise auth errors** in `src/integrations/supabase/auth-middleware.ts`: replace the single `Unauthorized: Invalid token` with distinct causes — backend unreachable, apikey rejected, token expired, token valid but no subject — so the next occurrence names itself.
 4. **Admin diagnostics panel** on the SAP API Settings page (admin-only, no secret values): backend host as the server sees it, auth health reachable yes/no, apikey accepted yes/no, presented bearer validates yes/no. Replaces the manual curl sequence above.
 5. **Unblock the build.** The last build stopped at the packaging check in `scripts/verify-dist.mjs` with `dangling asset reference(s) — server/ and assets/ come from different builds`: `dist/index.html` still points at hashed files from a previous build. I will make the build clear `dist/`, `.output/` and `.wrangler/` before it writes anything, so `index.html` and `assets/` always come from the same run.
