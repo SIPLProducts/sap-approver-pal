@@ -404,20 +404,51 @@ const host = process.env.HOST ?? "0.0.0.0";
 process.env.PORT = String(port);
 process.env.HOST = host;
 process.env.NITRO_PORT ??= String(port);
-process.env.NITRO_HOST ??= String(port);
+// NITRO_HOST is a host, not a port. Passing the port here made a standalone
+// server bundle try to bind an address like "8080".
+process.env.NITRO_HOST ??= host;
+// React picks its dev/prod runtime from NODE_ENV at import time, so this must
+// be set BEFORE the bundle is imported below.
 if (process.env.NODE_ENV === undefined) process.env.NODE_ENV = "production";
+
+async function portIsOpen() {
+  return await new Promise((done) => {
+    const probe = connect({ port, host: host === "0.0.0.0" ? "127.0.0.1" : host });
+    const finish = (value) => { probe.destroy(); done(value); };
+    probe.once("connect", () => finish(true));
+    probe.once("error", () => finish(false));
+    probe.setTimeout(1000, () => finish(false));
+  });
+}
 
 console.log("[start] loading " + entry);
 const mod = await import(pathToFileURL(entry).href);
 const handler = mod.default ?? mod;
-if (typeof handler?.fetch !== "function") {
-  console.error(
-    "[start] server/index.mjs does not export a fetch handler — this dist/ is not a usable build.\\n" +
-      "[start] Rebuild with 'npm run build:selfhost' and copy the WHOLE folder across:\\n" +
-      "[start]   rsync -a --delete dist/ <server>:<path>/frontend/dist/",
-  );
-  process.exit(1);
+
+// Two valid build shapes:
+//   a) the bundle EXPORTS a fetch handler  -> this launcher is the HTTP server
+//   b) the bundle IS a standalone server   -> it already opened its own socket
+const fetchHandler = typeof handler?.fetch === "function" ? handler : null;
+
+if (!fetchHandler) {
+  console.log("[start] no fetch export — treating server/index.mjs as a standalone Node server");
+  let up = false;
+  for (let i = 0; i < 30 && !up; i += 1) {
+    up = await portIsOpen();
+    if (!up) await new Promise((r) => setTimeout(r, 500));
+  }
+  if (!up) {
+    console.error(
+      "[start] server/index.mjs neither exports a fetch handler nor opened a listener on " +
+        host + ":" + port + " — this dist/ is not a usable build.\\n" +
+        "[start] Rebuild with 'npm run build:selfhost' and copy the WHOLE folder across:\\n" +
+        "[start]   rsync -a --delete dist/ <server>:<path>/frontend/dist/",
+    );
+    process.exit(1);
+  }
+  console.log("[start] listening on http://" + host + ":" + port + " (standalone bundle)");
 }
+
 
 // ---------------------------------------------------------------- static files
 const MIME = {
