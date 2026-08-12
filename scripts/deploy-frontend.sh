@@ -203,13 +203,19 @@ if [ "$up" = "1" ]; then
   # The login page must be served by this server (it renders the HTML), and
   # every chunk it asks for must exist on disk.
   lcode="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/login" 2>/dev/null)"
+  lfb="$(curl -sI "http://127.0.0.1:$PORT/login" 2>/dev/null | grep -i '^x-ssr-fallback:' || true)"
   html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null || true)"
+  if [ -n "$lfb" ]; then
+    warn "/login was served by the CLIENT-BOOT FALLBACK — the page works, but SSR threw"
+    echo "   Read the reason (it is logged on one line):"
+    echo "     pm2 logs $PM2_NAME --lines 200 --nostream | grep '\[ssr\]'"
+  fi
   if [ -z "$html" ]; then
     fail "/login did not render (HTTP $lcode)"
     if [ "$lcode" = "500" ]; then
       echo "   The app server is running but throws while rendering /login."
       echo "   This is a RUNTIME error, not a missing file. Read the reason with:"
-      echo "     pm2 logs $PM2_NAME --lines 80 --nostream"
+      echo "     pm2 logs $PM2_NAME --lines 200 --nostream | grep '\[ssr\]'"
       echo "   Most common cause: a value missing from .env.runtime (see step 3)."
       echo "   --- first lines the server returned ---"
       curl -s "http://127.0.0.1:$PORT/login" 2>/dev/null | head -n 15 | sed 's/^/   /'
@@ -222,6 +228,7 @@ if [ "$up" = "1" ]; then
     if [ "$lmiss" = "0" ]; then ok "/login renders (HTTP $lcode) and all its assets exist"
     else fail "/login references assets that are not in this folder — redeploy the whole folder as one unit"; fi
   fi
+
 
   # Whatever the browser actually hits (nginx on 8081) must be the app server's
   # HTML. A static file answer there is served from disk and will be stale.
