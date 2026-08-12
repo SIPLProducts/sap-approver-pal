@@ -14,17 +14,40 @@ The doubling did not come from the build script — it writes one `KEY=value` li
 
 Secondary, non-fatal: the browser bundle points at `http://10.150.150.130:8000` while the app server uses `http://127.0.0.1:8000`. Same backend if it runs on that host, so this is not the failure — but the two should be spelled the same way to keep the token issuer consistent. Your two `curl` checks returning `000` only means `$SUPABASE_URL` was not set in that shell, not that the backend is down.
 
-## Fix on the server now
+## Fix on the server now — build the .env with commands, never by hand
 
-1. You are currently in `/data/webapplication/resl_approval/Quality/frontend`. Edit `.env` and set the value on a single line, exactly once. Copy the complete `ANON_KEY` from `../backend/.env`; do not copy the shortened value ending in `>` from the message:
-   ```text
-   SUPABASE_URL=http://10.150.150.130:8000
-   SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from backend .env, once>
-   SUPABASE_ANON_KEY=<same value>
-   SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from backend .env, once>
-   VITE_SUPABASE_URL=http://10.150.150.130:8000
-   VITE_SUPABASE_PUBLISHABLE_KEY=<same anon key>
+Hand-editing caused both faults: first the doubled key, and now three keys reported missing after your edit (`SUPABASE_SERVICE_ROLE_KEY`, `MIDDLEWARE_URL`, `MIDDLEWARE_SHARED_SECRET`). Long tokens wrap in the editor, so a value ends up split across lines or duplicated. The commands below copy the keys straight out of the backend file, so nothing is typed or pasted.
+
+1. Rewrite `frontend/.env` from the backend file:
+   ```bash
+   cd /data/webapplication/resl_approval/Quality/frontend
+   cp .env .env.bak.$(date +%s)
+   BE=/data/webapplication/resl_approval/Quality/backend/.env   # adjust if your path differs
+
+   ANON="$(grep -m1 '^ANON_KEY=' "$BE" | cut -d= -f2- | tr -d '\r\n "')"
+   SRV="$(grep -m1 '^SERVICE_ROLE_KEY=' "$BE" | cut -d= -f2- | tr -d '\r\n "')"
+
+   awk -F. '{print NF}' <<<"$ANON"   # must print 3
+   awk -F. '{print NF}' <<<"$SRV"    # must print 3
+
+   grep -vE '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=' .env > .env.new
+   {
+     echo "SUPABASE_URL=http://10.150.150.130:8000"
+     echo "SUPABASE_ANON_KEY=$ANON"
+     echo "SUPABASE_PUBLISHABLE_KEY=$ANON"
+     echo "SUPABASE_SERVICE_ROLE_KEY=$SRV"
+     echo "VITE_SUPABASE_URL=http://10.150.150.130:8000"
+     echo "VITE_SUPABASE_PUBLISHABLE_KEY=$ANON"
+     echo "MIDDLEWARE_URL=http://127.0.0.1:3002"
+     echo "MIDDLEWARE_SHARED_SECRET=123456"
+   } >> .env.new
+   mv .env.new .env && chmod 600 .env
+
+   # must print 8 — one clean line per key
+   grep -cE '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=.+' .env
    ```
+   If either `awk` prints something other than `3`, the backend `.env` itself holds a wrapped value — fix it there first and re-run. `MIDDLEWARE_SHARED_SECRET` must equal the value in `middleware/.env`, and `MIDDLEWARE_URL` must be the middleware address as the app server sees it.
+
 2. From the `frontend` folder, regenerate `dist/.env.runtime` and restart using the existing helper (it copies `.env` correctly):
    ```bash
    cd /data/webapplication/resl_approval/Quality/frontend/dist
