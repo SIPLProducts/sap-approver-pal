@@ -302,16 +302,19 @@ function PrReleasePage() {
     }) => releaseFn({ data: input }),
     onSuccess: (res) => {
       const releasedKeys = new Set<string>();
-      for (const r of res.results) {
-        const label = `PR ${r.preq_no}/${r.preq_item}`;
-        const msg = r.msgtxt || r.error || (r.ok ? "Released" : "Failed");
-        if (r.ok) {
-          toast.success(`${label}: ${msg}`);
-          releasedKeys.add(`${r.preq_no}-${r.preq_item}`);
-        } else {
-          toast.error(`${label}: ${msg}`);
-        }
-      }
+      for (const r of res.results) if (r.ok) releasedKeys.add(`${r.preq_no}-${r.preq_item}`);
+
+      setResponseDialog({
+        open: true,
+        title: "PR Release — SAP Response",
+        results: res.results.map((r: any) => ({
+          preq: `${r.preq_no}/${r.preq_item}`,
+          message: r.msgtxt || r.MSGTXT || r.error || (r.ok ? "Released" : "Failed"),
+          ok: !!r.ok,
+          response: r.response,
+        })),
+      });
+
       if (releasedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
@@ -323,11 +326,16 @@ function PrReleasePage() {
       }
       // Refresh the pending list so released rows disappear.
       if (releaseGroup.trim() && releaseCode.trim()) {
+        silentRefreshRef.current = true;
         mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
       }
     },
     onError: (e: any) => {
-      toast.error(e?.message ?? "Release failed.");
+      setResponseDialog({
+        open: true,
+        title: "PR Release — SAP Response",
+        results: [{ preq: "", message: e?.message ?? "Release failed.", ok: false }],
+      });
     },
   });
 
