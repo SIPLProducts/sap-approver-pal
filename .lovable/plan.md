@@ -1,61 +1,74 @@
-# Fix login "Invalid or missing x-shared-secret"
+# Fix login: "Invalid or missing x-shared-secret" (HTTP 500)
 
-## Diagnosis
+## What is actually happening
 
-The app server (8080) and Nginx proxy (8081) are now healthy. The login failure is caused by the SAP middleware rejecting the shared-secret header the app sends.
+The failing check is **the app rejecting the middleware**, not the middleware rejecting the app.
 
-The app reads the shared secret from `sap_global_secrets.proxy_secret` in the database and sends it as `x-shared-secret` to the middleware login endpoint.
-The middleware compares it against the `MIDDLEWARE_SHARED_SECRET` value in its own `.env`.
+```text
+Browser -> App :8080  sapLogin
+        -> Middleware :3002  POST /login/Login_API      <- this call SUCCEEDS
+              Middleware then calls back to the app:
+        -> App :8081  POST /api/public/middleware/config <- this call returns 401
+              "Invalid or missing x-shared-secret"
+           Middleware turns that into a 500 and returns it to the app
+Browser sees: status 500, error "Invalid or missing x-shared-secret"
+```
 
-The error message `Invalid or missing x-shared-secret` means these two values are not identical.
+Evidence: the login response shows `status: 500`. If the middleware had rejected the app's header, the app returns the message *"Middleware rejected the shared secret"* with 401 instead. The literal string `Invalid or missing x-shared-secret` with a 500 can only come from `src/routes/api/public/middleware/config.ts`, which compares the incoming header against the app server's own `MIDDLEWARE_SHARED_SECRET` environment variable.
 
-## Fix plan
+So the mismatch is:
 
-1. Read the shared secret configured in the middleware.
-   - On the quality server, open the middleware `.env` file (e.g. `/data/webapplication/resl_approval/Quality/backend/middleware/.env` or wherever the middleware compose is run).
-   - Copy the exact value of `MIDDLEWARE_SHARED_SECRET`.
+- middleware `.env`: `MIDDLEWARE_SHARED_SECRET=123456` (sends this header)
+- app server `.env.runtime` / `frontend/.env`: `MIDDLEWARE_SHARED_SECRET` = something **other than** `123456` (or blank)
 
-2. Update the app database so the app sends the same secret.
-   - Use `psql` or any SQL client connected to the quality Supabase database.
-   - Run:
+The database `proxy_secret` is already correct — that is why the first hop (app -> middleware) worked.
 
-     ```sql
-     update public.sap_global_secrets
-     set proxy_secret = '<exact secret from middleware .env>'
-     where id = 'default';
-     ```
+## The fix (no code changes needed)
 
-   - Then verify:
+1. On the quality server, set the app server's env value to match the middleware:
 
-     ```sql
-     select proxy_secret from public.sap_global_secrets where id = 'default';
-     ```
+   ```bash
+   cd /data/webapplication/resl_approval/Quality/frontend
+   grep -n 'MIDDLEWARE_SHARED_SECRET' .env
+   ```
 
-3. Verify the middleware URL is also stored in the app database.
-   - The middleware is healthy on port 3002, so the app should point to it:
+   Make the line read exactly:
 
-     ```sql
-     select middleware_url from public.sap_global_settings where id = 'default';
-     ```
+   ```text
+   MIDDLEWARE_SHARED_SECRET=123456
+   ```
 
-   - It should return something like `http://127.0.0.1:3002` or `http://10.150.150.130:3002`. If it is NULL or points to a different host/port, update it:
+2. Redeploy so `.env.runtime` is refreshed from `.env` and pm2 restarts with the new value:
 
-     ```sql
-     update public.sap_global_settings
-     set middleware_url = 'http://127.0.0.1:3002'
-     where id = 'default';
-     ```
+   ```bash
+   cd /data/webapplication/resl_approval/Quality/frontend/dist
+   bash deploy-frontend.sh
+   ```
 
-4. Restart the middleware and app server so they pick up the new values.
-   - Restart the middleware container / process.
-   - Re-run `bash deploy-frontend.sh` in the app `dist` folder to restart the app server.
+3. Prove the handshake directly before touching the browser:
 
-5. Test login again at `http://10.150.150.130:8081/login`.
+   ```bash
+   curl -sS -i -X POST http://10.150.150.130:8081/api/public/middleware/config \
+     -H 'Content-Type: application/json' \
+     -H 'x-shared-secret: 123456' \
+     -d '{"name":"Login_API"}'
+   ```
+
+   Expected: `HTTP/1.1 200` with `"ok":true` and a non-null `endpoint_url`.
+   If it still returns 401, the app process is not seeing the value — check
+   `grep MIDDLEWARE_SHARED_SECRET .env.runtime` inside `dist/`.
+
+4. Then test login again at `http://10.150.150.130:8081/login`.
+
+## Also worth aligning while we are here
+
+- `SAP_BP_USERNAME` / `SAP_BP_PASSWORD` in the middleware `.env` are only fallbacks. The real SAP Basic-auth credentials come from the database rows `sap_global_settings.sap_username` and `sap_global_secrets.sap_password`. If SAP later returns an HTML login page, that pair is what to fix.
+- Keep `middleware_url` in `sap_global_settings` pointing at `http://127.0.0.1:3002`, matching `PORT=3002`.
+
+## Security note
+
+`123456` is not a safe shared secret for a real environment. Once login works, replace it with a long random string in three places at once — middleware `.env`, the app's `.env`, and `sap_global_secrets.proxy_secret` — then redeploy both.
 
 ## Outcome
 
-Login calls should reach the SAP middleware successfully instead of being rejected. Any further error will then be from the SAP Login_API itself, not from the shared-secret handshake.
-
-## What to check first
-
-If you cannot run SQL directly, first confirm which middleware `.env` is active and whether the value there was changed recently. The most common cause is the middleware `.env` containing a different secret than the one saved in the Lovable app / SAP API Settings → Middleware Configuration.
+The middleware will be able to load the `Login_API` config from the app, the login call will complete against SAP, and any remaining error will be a genuine SAP message rather than a secret-handshake failure.
