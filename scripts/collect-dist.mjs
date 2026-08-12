@@ -308,9 +308,11 @@ const launcher = `#!/usr/bin/env node
  */
 import { createReadStream, existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createServer } from "node:http";
+import { connect } from "node:net";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
 
 
 
