@@ -30,19 +30,55 @@ Net effect: even with the unknown SSR fault still present, the login page appear
 - `src/server.ts` and the request error middleware log `error.name: error.message` on its own first line, then the stack, and prefix it with `[ssr]` so `pm2 logs Qty_App | grep '\[ssr\]'` finds it instantly.
 - `start.mjs` prints the Node version and the env keys it loaded on boot (values never printed), so a missing runtime value shows up before the first request.
 
-## Step 4 — nginx must proxy, not serve files
+## Step 4 — nginx: the one block that is wrong
 
-In the 8081 server block, replace the static `root …/dist; try_files … /index.html;` for `location /` with:
+Your config ends with:
 
 ```nginx
-location / {
-  proxy_pass http://127.0.0.1:8080;
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-Proto $scheme;
-}
+location / { try_files $uri $uri/ /index.html; }
 ```
 
-Then `nginx -t && nginx -s reload`. `deploy-frontend.sh` already fails when it detects `ETag`/`Last-Modified` on `/login`, so a re-run confirms it.
+That serves a static `index.html` from disk, which is why the browser 404s hashed
+assets and never reaches the app server. In self-host mode there is no static
+shell — the app server renders every page. Replace that block (and drop `root`'s
+`index index.html;` role for `/`) with a proxy to `app_server`:
+
+```nginx
+    # ---- app routes -> SSR app server (no static shell in self-host mode)
+    location / {
+        proxy_pass http://app_server;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+    }
+```
+
+Everything else in your file stays as it is: `/_serverFn/`, `/api/`, `/supabase/`,
+`/studio/`, `/mw/`, `/assets/` and `/sw.js` are all correct. `root` stays so
+`/assets/` and `/sw.js` keep being served from disk — and they must come from the
+*same* freshly deployed `dist/`. Also add `manifest.webmanifest` next to `/sw.js`
+with `no-store`.
+
+The complete corrected file will be written to
+`deploy/quality/nginx/resl-approval-quality-8081.conf` so you can copy it as one
+piece, and pasted in chat.
+
+Apply with:
+
+```bash
+nginx -t && nginx -s reload
+```
+
+Note: fixing nginx alone will not fix `curl http://127.0.0.1:8080/login` — that is
+the SSR fault in Steps 1–3. Both are needed.
+
 
 ## Deploy sequence after the change
 
