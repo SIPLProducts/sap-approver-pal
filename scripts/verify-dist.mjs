@@ -110,6 +110,118 @@ if (existsSync(join(distDir, "node_modules"))) {
   bad("node_modules/ inside dist/ — remove it, runtime deps are already bundled");
 }
 
+// ------------------------------------------------- 4. React runtime sanity
+// `jsxDevRuntimeExports.jsxDEV is not a function` at render time comes from a
+// development JSX runtime inside a production React bundle. Catch it statically.
+const serverEntry = join(distDir, "server", "index.mjs");
+if (existsSync(serverEntry)) {
+  const serverDir = join(distDir, "server");
+  const jsFiles = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (/\.(mjs|js|cjs)$/.test(name)) jsFiles.push(full);
+    }
+  };
+  walk(serverDir);
+  const offenders = jsFiles.filter((file) => {
+    const text = readFileSync(file, "utf8");
+    return text.includes("jsx-dev-runtime") || text.includes("jsxDEV");
+  });
+  if (offenders.length) {
+    bad(
+      `${offenders.length} server file(s) reference React's development JSX runtime — ` +
+        "SSR will throw 'jsxDEV is not a function'. Rebuild with NODE_ENV=production.",
+    );
+    for (const file of offenders.slice(0, 5)) {
+      console.log(`        DEV-JSX ${file.slice(distDir.length + 1)}`);
+    }
+  } else {
+    ok("no development JSX runtime in the server bundle");
+  }
+}
+
+// ---------------------------------------------- 5. runtime gate (self-host)
+// The decisive check: actually boot dist/start.mjs and request /login. A folder
+// that cannot serve its own login page must never reach a server.
+if (problems.length === 0 && info?.mode === "selfhost-node") {
+  const port = 8000 + Math.floor(Math.random() * 1500);
+  console.log(`[verify-dist] boot test on 127.0.0.1:${port} …`);
+  const child = spawn(process.execPath, ["start.mjs"], {
+    cwd: distDir,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      HOST: "127.0.0.1",
+      NODE_ENV: "production",
+      SUPABASE_URL: process.env.SUPABASE_URL || "http://127.0.0.1:8000",
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "verify-dist-placeholder",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let log = "";
+  child.stdout.on("data", (chunk) => (log += chunk));
+  child.stderr.on("data", (chunk) => (log += chunk));
+
+  let exited = false;
+  child.on("exit", () => (exited = true));
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let response = null;
+  for (let i = 0; i < 60 && !exited && !response; i += 1) {
+    await sleep(500);
+    try {
+      response = await fetch(`http://127.0.0.1:${port}/login`);
+    } catch {
+      response = null;
+    }
+  }
+
+  if (!response) {
+    bad(
+      exited
+        ? "start.mjs exited instead of serving — the launcher and server/index.mjs do not match"
+        : "start.mjs never answered on its port within 30s",
+    );
+  } else {
+    const body = await response.text();
+    if (response.status >= 500) {
+      bad(`/login returned HTTP ${response.status} from the built server`);
+    } else if (!/<html/i.test(body)) {
+      bad("/login did not return an HTML document");
+    } else {
+      ok(`/login served HTTP ${response.status} by the built server`);
+      if (response.headers.get("x-ssr-fallback")) {
+        notes.push("/login came from the client-boot fallback, not real SSR");
+        console.log("   NOTE /login used the client-boot fallback (SSR threw) — see the log below");
+      }
+    }
+
+    const firstAsset = existsSync(assetsDir)
+      ? readdirSync(assetsDir).find((f) => f.endsWith(".js"))
+      : undefined;
+    if (firstAsset) {
+      try {
+        const assetRes = await fetch(`http://127.0.0.1:${port}/assets/${firstAsset}`);
+        if (assetRes.ok) ok(`served /assets/${firstAsset}`);
+        else bad(`/assets/${firstAsset} returned HTTP ${assetRes.status}`);
+      } catch {
+        bad(`could not fetch /assets/${firstAsset} from the running server`);
+      }
+    }
+  }
+
+  if (!exited) child.kill("SIGTERM");
+  await sleep(300);
+  if (!exited) child.kill("SIGKILL");
+  if (problems.length) {
+    console.log("--- start.mjs output ---");
+    console.log(log.split("\n").slice(-40).join("\n"));
+  }
+}
+
 // ------------------------------------------------------------------- verdict
 console.log("");
 if (problems.length === 0) {
@@ -128,3 +240,4 @@ console.error(
   ].join("\n"),
 );
 process.exit(1);
+
