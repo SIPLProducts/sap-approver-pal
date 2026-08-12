@@ -378,6 +378,8 @@ const found = EXPECTED.filter((key) => !!process.env[key]);
 const absent = EXPECTED.filter((key) => !process.env[key]);
 console.log("[start] env present: " + (found.join(", ") || "(none)"));
 if (absent.length) console.log("[start] env absent : " + absent.join(", "));
+console.log("[start] node " + process.version + " on " + process.platform + " (" + here + ")");
+
 
 // Warn when the service-role slot actually holds an anon key: login can then
 // read config but cannot create the backend session.
