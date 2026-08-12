@@ -64,11 +64,25 @@ Do not move on until you see `3`, `3`, `200`, `200`. Then sign out, sign in agai
 
 Important: the SAP Connection and Middleware Configuration tabs use the URL as the **app server** sees it, so keep `SUPABASE_URL` and `VITE_SUPABASE_URL` spelled identically (`10.150.150.130:8000`, not `127.0.0.1`), otherwise the token issuer and the validating host disagree.
 
+### About the `.env.runtime` you just opened in nano
+
+Three things about that file:
+
+- `nano` truncates each long line on screen with a `>` at the right edge, so seeing `...EhhlW>` tells you nothing about whether the key is doubled. The only reliable check is `awk -F. '{print NF}'` — it must print `3`.
+- `MIDDLEWARE_URL` appears **twice**; the second one wins. Harmless here since both are identical, but it is a sign the file was hand-edited.
+- `SUPABASE_URL=http://127.0.0.1:8000` while the browser bundle was built with `10.150.150.130:8000`. Make both `10.150.150.130:8000`.
+
+Most importantly: **editing `dist/.env.runtime` by hand is temporary** — `deploy-frontend.sh` regenerates it from `frontend/.env` on the next deploy and your edit disappears. Fix `frontend/.env` with the commands above; that is the file that survives.
+
+
+
 ## Code changes I will make so this cannot silently happen again
 
 1. **Boot guard in the generated `dist/start.mjs`** (from `scripts/collect-dist.mjs`): validate each Supabase key is a 3-part JWT carrying the expected role (`anon` / `service_role`), and refuse to start with a message naming the offending variable. Names only, never values.
 2. **Same validation at build time** in `scripts/collect-dist.mjs` when writing `.env.runtime`, plus a warning when `SUPABASE_URL` and `VITE_SUPABASE_URL` disagree on host.
 3. **Precise auth errors** in `src/integrations/supabase/auth-middleware.ts`: replace the single `Unauthorized: Invalid token` with distinct causes — backend unreachable, apikey rejected, token expired, token valid but no subject — so the next occurrence names itself.
 4. **Admin diagnostics panel** on the SAP API Settings page (admin-only, no secret values): backend host as the server sees it, auth health reachable yes/no, apikey accepted yes/no, presented bearer validates yes/no. Replaces the manual curl sequence above.
+5. **Unblock the build.** The last build stopped at the packaging check in `scripts/verify-dist.mjs` with `dangling asset reference(s) — server/ and assets/ come from different builds`: `dist/index.html` still points at hashed files from a previous build. I will make the build clear `dist/`, `.output/` and `.wrangler/` before it writes anything, so `index.html` and `assets/` always come from the same run.
 
 Nothing here touches the database, the seeded 47 endpoints, the middleware on 3002, or the login flow.
+
