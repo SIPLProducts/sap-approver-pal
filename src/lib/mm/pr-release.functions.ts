@@ -106,6 +106,14 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
       const message = `${res.status} ${res.statusText}`;
       const latency_ms = Date.now() - t0;
 
+      let parsed: any = null;
+      try {
+        parsed = text ? JSON.parse(text) : null;
+      } catch {
+        parsed = null;
+      }
+      const sapMessage = extractSapMessage(parsed);
+
       if (!res.ok) {
         await supabaseAdmin.from("sap_api_sync_log").insert({
           config_id: cfg.id,
@@ -113,17 +121,15 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
           latency_ms,
           message: `pr-release-multi: ${message} ${text.slice(0, 500)}`,
         });
-        firstError = firstError ?? `SAP returned ${message}: ${text.slice(0, 200)}`;
+        firstError = firstError ?? (sapMessage || `SAP returned ${message}: ${text.slice(0, 200)}`);
         continue;
       }
 
-      let json: any = {};
-      try {
-        json = text ? JSON.parse(text) : {};
-      } catch {
+      if (parsed === null) {
         firstError = firstError ?? `Invalid JSON from SAP: ${text.slice(0, 200)}`;
         continue;
       }
+      const json: any = parsed;
       const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
       const dataArr: any[] = Array.isArray(sapJson)
@@ -138,6 +144,10 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
         r && typeof r === "object" ? { ...r } : {},
       );
       allRows.push(...rows);
+
+      if (rows.length === 0 && sapMessage) {
+        firstError = firstError ?? sapMessage;
+      }
 
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
