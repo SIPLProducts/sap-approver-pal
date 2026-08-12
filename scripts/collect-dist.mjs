@@ -511,58 +511,61 @@ async function sendWebResponse(res, response) {
   Readable.fromWeb(response.body).pipe(res);
 }
 
-const server = createServer((req, res) => {
-  void (async () => {
-    try {
-      const { pathname } = new URL(req.url ?? "/", "http://" + (req.headers.host ?? "127.0.0.1"));
-      if (req.method === "GET" || req.method === "HEAD") {
-        const found = resolveStatic(pathname);
-        if (found) {
-          res.writeHead(200, {
-            "content-type": MIME[extname(found.file).toLowerCase()] ?? "application/octet-stream",
-            "content-length": String(found.size),
-            "cache-control": pathname.startsWith("/assets/")
-              ? "public, max-age=31536000, immutable"
-              : "public, max-age=0, must-revalidate",
-          });
-          if (req.method === "HEAD") { res.end(); return; }
-          createReadStream(found.file).pipe(res);
-          return;
+if (fetchHandler) {
+  const server = createServer((req, res) => {
+    void (async () => {
+      try {
+        const { pathname } = new URL(req.url ?? "/", "http://" + (req.headers.host ?? "127.0.0.1"));
+        if (req.method === "GET" || req.method === "HEAD") {
+          const found = resolveStatic(pathname);
+          if (found) {
+            res.writeHead(200, {
+              "content-type": MIME[extname(found.file).toLowerCase()] ?? "application/octet-stream",
+              "content-length": String(found.size),
+              "cache-control": pathname.startsWith("/assets/")
+                ? "public, max-age=31536000, immutable"
+                : "public, max-age=0, must-revalidate",
+            });
+            if (req.method === "HEAD") { res.end(); return; }
+            createReadStream(found.file).pipe(res);
+            return;
+          }
         }
+        // SSR + /_serverFn/* + /api/*
+        const upstream = await fetchHandler.fetch(toWebRequest(req), process.env, undefined);
+        // A 5xx produced *inside* the app (SSR render error) never reaches the catch
+        // below, so log it here — otherwise pm2 logs stay silent while the browser
+        // shows a blank page.
+        if (upstream && upstream.status >= 500) {
+          console.error("[server] " + req.method + " " + req.url + " -> HTTP " + upstream.status +
+            " (rendered by the app; check the stack trace above/below)");
+        }
+        await sendWebResponse(res, upstream);
+      } catch (error) {
+        console.error("[server] request failed:", req.method, req.url, error);
+        if (!res.headersSent) res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+        res.end("Internal Server Error");
       }
-      // SSR + /_serverFn/* + /api/*
-      const upstream = await handler.fetch(toWebRequest(req), process.env, undefined);
-      // A 5xx produced *inside* the app (SSR render error) never reaches the catch
-      // below, so log it here — otherwise pm2 logs stay silent while the browser
-      // shows a blank page.
-      if (upstream && upstream.status >= 500) {
-        console.error("[server] " + req.method + " " + req.url + " -> HTTP " + upstream.status +
-          " (rendered by the app; check the stack trace above/below)");
-      }
-      await sendWebResponse(res, upstream);
-    } catch (error) {
-      console.error("[server] request failed:", req.method, req.url, error);
-      if (!res.headersSent) res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
-      res.end("Internal Server Error");
-    }
-  })();
-});
+    })();
+  });
 
-server.on("error", (error) => {
-  console.error("[start] cannot bind " + host + ":" + port + " —", error.message ?? error);
-  process.exit(1);
-});
+  server.on("error", (error) => {
+    console.error("[start] cannot bind " + host + ":" + port + " —", error.message ?? error);
+    process.exit(1);
+  });
 
-// "listening" is printed only from the listen callback, so a log line can never
-// claim the app is up while the port is actually closed.
-server.listen(port, host, () => {
-  console.log("[start] listening on http://" + host + ":" + port);
-  console.log("[start] static root: " + staticRoot);
-});
+  // "listening" is printed only from the listen callback, so a log line can never
+  // claim the app is up while the port is actually closed.
+  server.listen(port, host, () => {
+    console.log("[start] listening on http://" + host + ":" + port);
+    console.log("[start] static root: " + staticRoot);
+  });
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.on(signal, () => server.close(() => process.exit(0)));
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.on(signal, () => server.close(() => process.exit(0)));
+  }
 }
+
 `;
 
 writeFileSync(join(distDir, "start.mjs"), launcher);
