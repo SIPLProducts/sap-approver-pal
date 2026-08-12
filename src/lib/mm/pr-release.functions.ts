@@ -6,6 +6,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { extractSapMessage, findFirstDeep } from "@/lib/mm/sap-message";
 import { z } from "zod";
 
 const CONFIG_NAME = "PR_Release_Multiple_Fetch_API";
@@ -105,6 +106,14 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
       const message = `${res.status} ${res.statusText}`;
       const latency_ms = Date.now() - t0;
 
+      let parsed: any = null;
+      try {
+        parsed = text ? JSON.parse(text) : null;
+      } catch {
+        parsed = null;
+      }
+      const sapMessage = extractSapMessage(parsed);
+
       if (!res.ok) {
         await supabaseAdmin.from("sap_api_sync_log").insert({
           config_id: cfg.id,
@@ -112,17 +121,15 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
           latency_ms,
           message: `pr-release-multi: ${message} ${text.slice(0, 500)}`,
         });
-        firstError = firstError ?? `SAP returned ${message}: ${text.slice(0, 200)}`;
+        firstError = firstError ?? (sapMessage || `SAP returned ${message}: ${text.slice(0, 200)}`);
         continue;
       }
 
-      let json: any = {};
-      try {
-        json = text ? JSON.parse(text) : {};
-      } catch {
+      if (parsed === null) {
         firstError = firstError ?? `Invalid JSON from SAP: ${text.slice(0, 200)}`;
         continue;
       }
+      const json: any = parsed;
       const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
       const dataArr: any[] = Array.isArray(sapJson)
@@ -137,6 +144,10 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
         r && typeof r === "object" ? { ...r } : {},
       );
       allRows.push(...rows);
+
+      if (rows.length === 0 && sapMessage) {
+        firstError = firstError ?? sapMessage;
+      }
 
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
@@ -162,6 +173,8 @@ export type PrReleaseResult = {
   preq_item: string;
   ok: boolean;
   msgtxt: string;
+  MSGTXT?: string;
+  response?: any;
   error?: string;
 };
 
@@ -244,6 +257,7 @@ async function processPrAction(
     let msgtxt = "";
     let ok = false;
     let errMsg: string | undefined;
+    let rawResponse: any = undefined;
 
     try {
       const res = await fetch(target, { method, headers: baseHeaders, body: bodyOut });
@@ -252,16 +266,33 @@ async function processPrAction(
 
       if (!res.ok) {
         errMsg = `SAP ${res.status} ${res.statusText}: ${text.slice(0, 200)}`;
+        try {
+          rawResponse = text ? JSON.parse(text) : text;
+        } catch {
+          rawResponse = text;
+        }
+        const failMsg = extractSapMessage(rawResponse);
+        if (failMsg) {
+          msgtxt = failMsg;
+          errMsg = failMsg;
+        }
       } else {
         let json: any = {};
         try {
           json = text ? JSON.parse(text) : {};
         } catch {
           errMsg = `Invalid JSON from SAP: ${text.slice(0, 200)}`;
+          rawResponse = text;
         }
         if (!errMsg) {
+          rawResponse = proxied ? (json?.data ?? json) : json;
           if (proxied && json?.ok !== true) {
             errMsg = String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
+            const failMsg = extractSapMessage(json);
+            if (failMsg) {
+              msgtxt = failMsg;
+              errMsg = failMsg;
+            }
           } else {
             const sapJson: any = proxied ? json?.data : json;
             const primary: any = Array.isArray(sapJson)
@@ -272,18 +303,7 @@ async function processPrAction(
                   ? sapJson.data[0]
                   : sapJson;
 
-            const findFirst = (obj: any, keys: string[]): any => {
-              if (!obj || typeof obj !== "object") return undefined;
-              const wanted = new Set(keys.map((key) => key.toUpperCase()));
-              for (const [key, value] of Object.entries(obj)) {
-                if (wanted.has(key.toUpperCase())) return value;
-              }
-              for (const value of Object.values(obj)) {
-                const found = findFirst(value, keys);
-                if (found !== undefined) return found;
-              }
-              return undefined;
-            };
+            const findFirst = findFirstDeep;
             msgtxt = String(findFirst(primary, ["MSGTXT", "MESSAGE"]) ?? "");
             const status = String(
               findFirst(primary, ["STATUS", "MSGTY", "TYPE"]) ?? "",
@@ -335,6 +355,8 @@ async function processPrAction(
       preq_item: item.PREQ_ITEM,
       ok: ok && !errMsg,
       msgtxt,
+      MSGTXT: msgtxt || undefined,
+      response: rawResponse,
       error: errMsg,
     });
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
@@ -18,6 +18,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
@@ -26,6 +33,7 @@ import { PageHeader } from "@/components/exec/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/pr-release")({
   component: PrReleasePage,
@@ -142,6 +150,20 @@ function PrReleasePage() {
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const { confirm, confirmDialog } = useConfirm();
+  const silentRefreshRef = useRef(false);
+  const [responseDialog, setResponseDialog] = useState<
+    | {
+        open: boolean;
+        title: string;
+        results: Array<{
+          preq: string;
+          message: string;
+          ok: boolean;
+          response?: any;
+        }>;
+      }
+    | null
+  >(null);
 
   useEffect(() => {
     setPlants((prev) => {
@@ -158,20 +180,52 @@ function PrReleasePage() {
     mutationFn: (input: { relgroup: string; relcode: string; plants: string[] }) =>
       fetchFn({ data: input }),
     onSuccess: (res) => {
-      if (res.error) {
-        toast.error(res.error);
+      const silent = silentRefreshRef.current;
+      silentRefreshRef.current = false;
+      const fetched = Array.isArray(res.data) ? res.data : [];
+
+      if (res.error || fetched.length === 0) {
         setRows([]);
         setSelected(new Set());
         setRemarks({});
+        if (!silent) {
+          setResponseDialog({
+            open: true,
+            title: "PR Release",
+            results: [
+              {
+                preq: "",
+                message: res.error || "No data available.",
+                ok: false,
+              },
+            ],
+          });
+        }
         return;
       }
-      setRows(res.data);
+      setRows(fetched);
       setSelected(new Set());
       setRemarks({});
-      toast.success(`Loaded ${res.data.length} row(s).`);
+      if (!silent) toast.success(`Loaded ${fetched.length} row(s).`);
     },
     onError: (e: any) => {
-      toast.error(e?.message ?? "Failed to fetch PR Release data.");
+      const silent = silentRefreshRef.current;
+      silentRefreshRef.current = false;
+      setRows([]);
+      setSelected(new Set());
+      setRemarks({});
+      if (silent) return;
+      setResponseDialog({
+        open: true,
+        title: "PR Release",
+        results: [
+          {
+            preq: "",
+            message: e?.message ?? "Failed to fetch PR Release data.",
+            ok: false,
+          },
+        ],
+      });
     },
   });
 
@@ -248,16 +302,19 @@ function PrReleasePage() {
     }) => releaseFn({ data: input }),
     onSuccess: (res) => {
       const releasedKeys = new Set<string>();
-      for (const r of res.results) {
-        const label = `PR ${r.preq_no}/${r.preq_item}`;
-        const msg = r.msgtxt || r.error || (r.ok ? "Released" : "Failed");
-        if (r.ok) {
-          toast.success(`${label}: ${msg}`);
-          releasedKeys.add(`${r.preq_no}-${r.preq_item}`);
-        } else {
-          toast.error(`${label}: ${msg}`);
-        }
-      }
+      for (const r of res.results) if (r.ok) releasedKeys.add(`${r.preq_no}-${r.preq_item}`);
+
+      setResponseDialog({
+        open: true,
+        title: "PR Release — SAP Response",
+        results: res.results.map((r: any) => ({
+          preq: `${r.preq_no}/${r.preq_item}`,
+          message: r.msgtxt || r.MSGTXT || r.error || (r.ok ? "Released" : "Failed"),
+          ok: !!r.ok,
+          response: r.response,
+        })),
+      });
+
       if (releasedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
@@ -269,11 +326,16 @@ function PrReleasePage() {
       }
       // Refresh the pending list so released rows disappear.
       if (releaseGroup.trim() && releaseCode.trim()) {
+        silentRefreshRef.current = true;
         mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
       }
     },
     onError: (e: any) => {
-      toast.error(e?.message ?? "Release failed.");
+      setResponseDialog({
+        open: true,
+        title: "PR Release — SAP Response",
+        results: [{ preq: "", message: e?.message ?? "Release failed.", ok: false }],
+      });
     },
   });
 
@@ -319,16 +381,19 @@ function PrReleasePage() {
     }) => rejectFn({ data: input }),
     onSuccess: (res) => {
       const rejectedKeys = new Set<string>();
-      for (const r of res.results) {
-        const label = `PR ${r.preq_no}/${r.preq_item}`;
-        const msg = r.msgtxt || r.error || (r.ok ? "Rejected" : "Failed");
-        if (r.ok) {
-          toast.success(`${label}: ${msg}`);
-          rejectedKeys.add(`${r.preq_no}-${r.preq_item}`);
-        } else {
-          toast.error(`${label}: ${msg}`);
-        }
-      }
+      for (const r of res.results) if (r.ok) rejectedKeys.add(`${r.preq_no}-${r.preq_item}`);
+
+      setResponseDialog({
+        open: true,
+        title: "PR Reject — SAP Response",
+        results: res.results.map((r: any) => ({
+          preq: `${r.preq_no}/${r.preq_item}`,
+          message: r.msgtxt || r.MSGTXT || r.error || (r.ok ? "Rejected" : "Failed"),
+          ok: !!r.ok,
+          response: r.response,
+        })),
+      });
+
       if (rejectedKeys.size > 0) {
         setRows((prev) =>
           prev.filter(
@@ -339,11 +404,16 @@ function PrReleasePage() {
         setRemarks({});
       }
       if (releaseGroup.trim() && releaseCode.trim()) {
+        silentRefreshRef.current = true;
         mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
       }
     },
     onError: (e: any) => {
-      toast.error(e?.message ?? "Reject failed.");
+      setResponseDialog({
+        open: true,
+        title: "PR Reject — SAP Response",
+        results: [{ preq: "", message: e?.message ?? "Reject failed.", ok: false }],
+      });
     },
   });
 
@@ -538,6 +608,64 @@ function PrReleasePage() {
           )}
         </Card>
       )}
+      <Dialog
+        open={!!responseDialog?.open}
+        onOpenChange={(open) =>
+          setResponseDialog((prev) => (prev ? { ...prev, open } : prev))
+        }
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{responseDialog?.title ?? "PR Response"}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto space-y-3">
+            <div className="overflow-x-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">PR / Item</TableHead>
+                    <TableHead className="text-xs">Message</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {responseDialog?.results.map((r, i) => (
+                    <TableRow key={`${r.preq}-${i}`}>
+                      <TableCell className="text-xs font-medium whitespace-nowrap align-top">
+                        {r.preq || "—"}
+                      </TableCell>
+                      <TableCell
+                        className={cn("text-xs", r.ok ? "text-success" : "text-destructive")}
+                      >
+                        {r.message || "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {responseDialog?.results.map((r, i) => (
+              <details key={`raw-${r.preq}-${i}`} className="border rounded-md">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted-foreground">
+                  Raw response{r.preq ? ` — PR ${r.preq}` : ""}
+                </summary>
+                <pre className="text-xs font-mono bg-muted/50 p-3 overflow-x-auto whitespace-pre">
+{JSON.stringify(r.response ?? { message: r.message }, null, 2)}
+                </pre>
+              </details>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              size="sm"
+              onClick={() =>
+                setResponseDialog((prev) => (prev ? { ...prev, open: false } : prev))
+              }
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {confirmDialog}
     </div>
   );
