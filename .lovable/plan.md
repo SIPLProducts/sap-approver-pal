@@ -1,74 +1,86 @@
-# Fix login: "Invalid or missing x-shared-secret" (HTTP 500)
+# Why screens are empty on Quality — checks and queries
 
-## What is actually happening
+## What we know from the code
 
-The failing check is **the app rejecting the middleware**, not the middleware rejecting the app.
+- Login works because the SAP login call is an **unauthenticated** server function: it goes app → middleware → SAP, no backend token needed.
+- Every admin screen (SAP API Settings list, Users & Roles, Custom Roles, Role Permissions) calls **authenticated** server functions that validate the browser's backend session token on the server. The screenshot shows `Unauthorized: Invalid token`, which is exactly that validation failing.
+- So there are two possible causes, and they need to be separated before changing anything:
+  1. The backend session token is not accepted by the app server (wrong/unreachable backend URL or key on the Quality app server) — this would make **all** admin screens empty at once, even when the tables are full.
+  2. The Quality database genuinely has no rows in `sap_api_configs` — then SAP API Settings would be legitimately empty, and Users would fail because it needs the `Create_User_Display_Table` endpoint config.
 
-```text
-Browser -> App :8080  sapLogin
-        -> Middleware :3002  POST /login/Login_API      <- this call SUCCEEDS
-              Middleware then calls back to the app:
-        -> App :8081  POST /api/public/middleware/config <- this call returns 401
-              "Invalid or missing x-shared-secret"
-           Middleware turns that into a 500 and returns it to the app
-Browser sees: status 500, error "Invalid or missing x-shared-secret"
+Login succeeding tells us at least one row (`Login_API`) exists, which points at cause 1 as the main problem — but confirm with the queries below rather than assuming.
+
+## Step 1 — Queries to run on the Quality database
+
+On the Quality server:
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres
 ```
 
-Evidence: the login response shows `status: 500`. If the middleware had rejected the app's header, the app returns the message *"Middleware rejected the shared secret"* with 401 instead. The literal string `Invalid or missing x-shared-secret` with a 500 can only come from `src/routes/api/public/middleware/config.ts`, which compares the incoming header against the app server's own `MIDDLEWARE_SHARED_SECRET` environment variable.
+```sql
+-- 1. How many SAP endpoints exist, and are they active?
+select count(*) as total, count(*) filter (where is_active) as active
+from public.sap_api_configs;
 
-So the mismatch is:
+-- 2. List them (this is exactly what SAP API Settings should show)
+select name, module, http_method, api_type, is_active, endpoint_url
+from public.sap_api_configs
+order by name;
 
-- middleware `.env`: `MIDDLEWARE_SHARED_SECRET=123456` (sends this header)
-- app server `.env.runtime` / `frontend/.env`: `MIDDLEWARE_SHARED_SECRET` = something **other than** `123456` (or blank)
+-- 3. Are the endpoints the admin screens need present?
+select expected, exists (
+         select 1 from public.sap_api_configs c
+         where lower(replace(replace(c.name,' ',''),'_','')) =
+               lower(replace(replace(expected,' ',''),'_','')) and c.is_active
+       ) as configured
+from (values ('Login_API'),('Create_User_Display_Table'),('USER_CREATE'),
+             ('Edit_User'),('ROLE_LIST'),('ROLE_CREATE'),('Edit_Role')) t(expected);
 
-The database `proxy_secret` is already correct — that is why the first hop (app -> middleware) worked.
+-- 4. Global SAP / middleware settings the calls depend on
+select id, connection_mode, deployment_mode, middleware_url, sap_base_url, sap_username
+from public.sap_global_settings;
+select id, (proxy_secret is not null and proxy_secret <> '') as has_proxy_secret,
+       (sap_password is not null and sap_password <> '') as has_sap_password
+from public.sap_global_secrets;
 
-## The fix (no code changes needed)
+-- 5. Did login actually create a backend user + profile with SAP permissions?
+select u.email, u.created_at, u.last_sign_in_at
+from auth.users u order by u.created_at desc limit 10;
 
-1. On the quality server, set the app server's env value to match the middleware:
+select p.email,
+       (p.sap_profile is not null) as has_sap_profile,
+       jsonb_array_length(coalesce(p.sap_profile->'plants','[]'::jsonb)) as plants
+from public.profiles p order by p.updated_at desc limit 10;
 
-   ```bash
-   cd /data/webapplication/resl_approval/Quality/frontend
-   grep -n 'MIDDLEWARE_SHARED_SECRET' .env
-   ```
+-- 6. Built-in admin role rows
+select ur.role, p.email from public.user_roles ur
+left join public.profiles p on p.id = ur.user_id;
+```
 
-   Make the line read exactly:
+Interpretation:
+- Query 2 returns rows but the screen is empty → the problem is the token, not the data.
+- Query 2 returns 0 rows → the endpoint definitions were never loaded into the Quality database, and they must be seeded/imported.
+- Query 5 shows no user or `has_sap_profile = false` → login is not persisting the session/profile, which also breaks every admin screen.
 
-   ```text
-   MIDDLEWARE_SHARED_SECRET=123456
-   ```
+## Step 2 — Token check (run on the app server)
 
-2. Redeploy so `.env.runtime` is refreshed from `.env` and pm2 restarts with the new value:
+```bash
+# what the app server thinks the backend URL is
+grep -E 'SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|VITE_SUPABASE' \
+  /data/webapplication/resl_approval/Quality/frontend/dist/.env.runtime | cut -c1-60
 
-   ```bash
-   cd /data/webapplication/resl_approval/Quality/frontend/dist
-   bash deploy-frontend.sh
-   ```
+# is that backend URL reachable from the app server?
+curl -s -o /dev/null -w '%{http_code}\n' "$SUPABASE_URL/auth/v1/health"
+```
 
-3. Prove the handshake directly before touching the browser:
+An earlier screenshot showed port 8000 refusing connections, so this check matters: if the gateway is down or the URL/key on the app server does not match the running backend, the server cannot validate the login token and every admin screen shows `Unauthorized: Invalid token` even with a full database.
 
-   ```bash
-   curl -sS -i -X POST http://10.150.150.130:8081/api/public/middleware/config \
-     -H 'Content-Type: application/json' \
-     -H 'x-shared-secret: 123456' \
-     -d '{"name":"Login_API"}'
-   ```
+## Step 3 — After the results
 
-   Expected: `HTTP/1.1 200` with `"ok":true` and a non-null `endpoint_url`.
-   If it still returns 401, the app process is not seeing the value — check
-   `grep MIDDLEWARE_SHARED_SECRET .env.runtime` inside `dist/`.
+Depending on the output, the follow-up work is one of:
+- **Token/env mismatch**: correct the backend URL/keys in the app server env, restart it, and re-verify one admin screen.
+- **Empty `sap_api_configs`**: prepare a re-runnable seed script (like `scripts/quality-sap-config.sql`) containing the endpoint definitions the app looks up by name, so SAP API Settings and Users & Roles have their endpoints.
+- **Missing profile/permissions**: fix the login persistence path so `profiles.sap_profile` is written for the signed-in user.
 
-4. Then test login again at `http://10.150.150.130:8081/login`.
-
-## Also worth aligning while we are here
-
-- `SAP_BP_USERNAME` / `SAP_BP_PASSWORD` in the middleware `.env` are only fallbacks. The real SAP Basic-auth credentials come from the database rows `sap_global_settings.sap_username` and `sap_global_secrets.sap_password`. If SAP later returns an HTML login page, that pair is what to fix.
-- Keep `middleware_url` in `sap_global_settings` pointing at `http://127.0.0.1:3002`, matching `PORT=3002`.
-
-## Security note
-
-`123456` is not a safe shared secret for a real environment. Once login works, replace it with a long random string in three places at once — middleware `.env`, the app's `.env`, and `sap_global_secrets.proxy_secret` — then redeploy both.
-
-## Outcome
-
-The middleware will be able to load the `Login_API` config from the app, the login call will complete against SAP, and any remaining error will be a genuine SAP message rather than a secret-handshake failure.
+No application code is changed in this step — first we confirm which of the two causes is real.
