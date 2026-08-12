@@ -1,59 +1,50 @@
-# Fix "Unauthorized: Invalid token" on the Quality server
+# Root cause found: the publishable key in dist/.env.runtime is pasted twice
 
-## What is actually happening
+## The evidence
 
-Login works because the login call is a public server function — it does not need a session. Every other screen (SAP API Settings list, Users & Roles, Release Strategies, Integrations) goes through an authenticated server function. Those calls do this:
+`dist/.env.runtime` contains:
 
 ```text
-Browser  --Bearer <access_token from your local backend>-->  App server :8080
-App server  --validates the token against SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY-->  backend
-                                             <-- rejected  =>  "Unauthorized: Invalid token"
+SUPABASE_PUBLISHABLE_KEY=eyJ...D9DkeyJ...D9Dk
 ```
 
-So the row data (your 47 APIs, SAP Connection, Middleware Configuration) may well be sitting in the database already — the app never gets to read it, because token validation fails first. This is one root cause behind both symptoms, not two problems.
+That is the anon key concatenated with itself — the same token twice, back to back, with no separator. A JWT has exactly three dot-separated parts; this value has six. So every server-side call the app server makes with it is rejected by the backend, and the authenticated server functions collapse that into the message you see: **"Unauthorized: Invalid token"**. This is why SAP API Settings shows no rows and Users & Roles shows "Failed to load users" while login still works (login is a public call that uses the service-role key, not this one).
 
-The token is minted by the backend the **browser bundle** points at (the `VITE_SUPABASE_*` values baked in at build time). It is verified by the backend the **app server process** points at (`SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` in `dist/.env.runtime`). If those two are not the same instance, or the anon/publishable key does not belong to that instance's JWT secret, verification fails exactly like this.
+The doubling did not come from the build script — it writes one `KEY=value` line per key. It came from `frontend/.env`, where the `ANON_KEY` value was pasted twice into one line (an easy wrap/copy accident with a long token).
 
-## Checks to run on the Quality server (in order, stop at the first mismatch)
+Secondary, non-fatal: the browser bundle points at `http://10.150.150.130:8000` while the app server uses `http://127.0.0.1:8000`. Same backend if it runs on that host, so this is not the failure — but the two should be spelled the same way to keep the token issuer consistent. Your two `curl` checks returning `000` only means `$SUPABASE_URL` was not set in that shell, not that the backend is down.
 
-1. What the app server uses:
-   ```bash
-   grep -E 'SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|SUPABASE_ANON_KEY' dist/.env.runtime
+## Fix on the server (2 minutes, no rebuild strictly needed)
+
+1. In `frontend/.env`, set the value on a single line, exactly once:
+   ```text
+   SUPABASE_URL=http://10.150.150.130:8000
+   SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from backend .env, once>
+   SUPABASE_ANON_KEY=<same value>
+   SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from backend .env, once>
+   VITE_SUPABASE_URL=http://10.150.150.130:8000
+   VITE_SUPABASE_PUBLISHABLE_KEY=<same anon key>
    ```
-2. What the browser bundle uses — the built JS contains the URL literally:
+2. Apply the same corrected values to `dist/.env.runtime` (or rebuild so it regenerates), then:
    ```bash
-   grep -ro 'https\?://[^"]*supabase[^"]*' dist/assets/*.js | sort -u
-   grep -ro 'http://10\.150\.[^"]*' dist/assets/*.js | sort -u
+   pm2 restart Qty_App --update-env
    ```
-   The host here must be the same backend as step 1.
-3. Is that backend reachable from the app server, and does the key it holds work?
+3. Verify before touching the browser — each token must show 3 parts and the REST call must not be 401:
    ```bash
-   curl -s -o /dev/null -w '%{http_code}\n' "$SUPABASE_URL/auth/v1/health"
-   curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/rest/v1/"
+   set -a; . dist/.env.runtime; set +a
+   awk -F. '{print NF}' <<<"$SUPABASE_PUBLISHABLE_KEY"     # must print 3
+   curl -s -o /dev/null -w '%{http_code}\n' "$SUPABASE_URL/auth/v1/health"                    # 200
+   curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/rest/v1/"   # 200
    ```
-   401 on the second line = the publishable/anon key does not belong to this backend (regenerated JWT secret, or a key copied from a different project).
-4. Prove it with your own live token. In the browser on the failing screen, open DevTools > Application > Local Storage, copy the `access_token` from the `sb-*-auth-token` entry, then on the server:
-   ```bash
-   curl -s -o /dev/null -w '%{http_code}\n' \
-     -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
-     -H "Authorization: Bearer <access_token>" \
-     "$SUPABASE_URL/auth/v1/user"
-   ```
-   200 = tokens are fine and the problem is elsewhere. 401 = confirmed key/instance mismatch; that is the whole bug.
+4. Sign out and sign in again in the browser, then open SAP API Settings and Users & Roles. Rows should appear. Only after that is it worth re-checking the seed counts.
 
-## Most likely fixes
+Note: the `VITE_*` values are compiled into the browser bundle, so changing the URL there requires a rebuild and redeploy of `dist`. The server-side values in `.env.runtime` take effect on restart alone.
 
-- **Key mismatch (most common):** take the `ANON_KEY` and `SERVICE_ROLE_KEY` that were generated from the running stack's current `JWT_SECRET` and put them into `dist/.env.runtime` (`SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), then `pm2 restart Qty_App --update-env`. If the backend's `JWT_SECRET` was changed after the keys were issued, all previously issued keys and sessions are invalid — re-issue keys and sign in again.
-- **Two different backends:** rebuild the frontend with `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` pointing at the same local backend as the server-side values, then redeploy `dist`.
-- **URL not reachable from the app server:** `SUPABASE_URL` must be an address the server process itself can reach (container name or host IP + port), not a browser-only address.
+## Code changes I will make so this cannot silently happen again
 
-## What I would change in the code (small, optional but worth it)
+1. **Startup guard in `dist/start.mjs`** (generated by `scripts/collect-dist.mjs`): validate each Supabase key before booting — must be a 3-part JWT whose payload carries the expected `role` (`anon`/`service_role`). On a malformed or doubled value, refuse to start with a clear message naming the variable. Key names only, never values.
+2. **Build-time check in `scripts/collect-dist.mjs`**: same validation when writing `.env.runtime`, plus a warning when `SUPABASE_URL` and `VITE_SUPABASE_URL` disagree on host — caught on the build machine instead of after deployment.
+3. **Precise auth errors in `src/integrations/supabase/auth-middleware.ts`**: replace the single `Unauthorized: Invalid token` with distinct causes — backend unreachable, apikey rejected, token expired, token valid but no subject — so the next occurrence names itself instead of costing a day.
+4. **Admin diagnostics panel** (admin-only, no secret values): backend host as the server sees it, auth health reachable yes/no, apikey accepted yes/no, presented bearer validates yes/no. Replaces the manual curl sequence above.
 
-1. Make the failure name itself instead of the generic string: the auth middleware currently collapses every case to `Unauthorized: Invalid token`. It will log/report which case it was — unreachable backend, rejected apikey, expired token, valid-but-no-subject — so this never costs another day of guessing.
-2. Add a server-side diagnostics route (admin-only, no secrets in the output) returning: backend URL host as seen by the server, whether `/auth/v1/health` answers, whether the publishable key is accepted, and whether the presented bearer validates. One page instead of the four manual curl steps above.
-
-## Technical notes
-
-- Validation happens in `src/integrations/supabase/auth-middleware.ts` via `supabase.auth.getClaims(token)`; with a symmetric (HS256) local JWT secret this becomes a live call to the backend's auth service, so both reachability and apikey validity matter.
-- `src/start.ts` already registers `attachSupabaseAuth`, so the browser is sending the bearer; the token is being rejected on the server side, not missing.
-- No database migration is involved. Nothing about this needs the seed files re-run — verify the counts once auth works.
+Nothing here touches the database, the middleware on 3002, or the seed data.
