@@ -82,5 +82,7 @@ Most importantly: **editing `dist/.env.runtime` by hand is temporary** — `depl
 2. **Same validation at build time** in `scripts/collect-dist.mjs` when writing `.env.runtime`, plus a warning when `SUPABASE_URL` and `VITE_SUPABASE_URL` disagree on host.
 3. **Precise auth errors** in `src/integrations/supabase/auth-middleware.ts`: replace the single `Unauthorized: Invalid token` with distinct causes — backend unreachable, apikey rejected, token expired, token valid but no subject — so the next occurrence names itself.
 4. **Admin diagnostics panel** on the SAP API Settings page (admin-only, no secret values): backend host as the server sees it, auth health reachable yes/no, apikey accepted yes/no, presented bearer validates yes/no. Replaces the manual curl sequence above.
+5. **Unblock the build.** The last build stopped at the packaging check in `scripts/verify-dist.mjs` with `dangling asset reference(s) — server/ and assets/ come from different builds`: `dist/index.html` still points at hashed files from a previous build. I will make the build clear `dist/`, `.output/` and `.wrangler/` before it writes anything, so `index.html` and `assets/` always come from the same run.
 
 Nothing here touches the database, the seeded 47 endpoints, the middleware on 3002, or the login flow.
+
