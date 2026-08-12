@@ -173,6 +173,8 @@ export type PrReleaseResult = {
   preq_item: string;
   ok: boolean;
   msgtxt: string;
+  MSGTXT?: string;
+  response?: any;
   error?: string;
 };
 
