@@ -150,6 +150,20 @@ function PrReleasePage() {
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const { confirm, confirmDialog } = useConfirm();
+  const silentRefreshRef = useRef(false);
+  const [responseDialog, setResponseDialog] = useState<
+    | {
+        open: boolean;
+        title: string;
+        results: Array<{
+          preq: string;
+          message: string;
+          ok: boolean;
+          response?: any;
+        }>;
+      }
+    | null
+  >(null);
 
   useEffect(() => {
     setPlants((prev) => {
@@ -166,20 +180,52 @@ function PrReleasePage() {
     mutationFn: (input: { relgroup: string; relcode: string; plants: string[] }) =>
       fetchFn({ data: input }),
     onSuccess: (res) => {
-      if (res.error) {
-        toast.error(res.error);
+      const silent = silentRefreshRef.current;
+      silentRefreshRef.current = false;
+      const fetched = Array.isArray(res.data) ? res.data : [];
+
+      if (res.error || fetched.length === 0) {
         setRows([]);
         setSelected(new Set());
         setRemarks({});
+        if (!silent) {
+          setResponseDialog({
+            open: true,
+            title: "PR Release",
+            results: [
+              {
+                preq: "",
+                message: res.error || "No data available.",
+                ok: false,
+              },
+            ],
+          });
+        }
         return;
       }
-      setRows(res.data);
+      setRows(fetched);
       setSelected(new Set());
       setRemarks({});
-      toast.success(`Loaded ${res.data.length} row(s).`);
+      if (!silent) toast.success(`Loaded ${fetched.length} row(s).`);
     },
     onError: (e: any) => {
-      toast.error(e?.message ?? "Failed to fetch PR Release data.");
+      const silent = silentRefreshRef.current;
+      silentRefreshRef.current = false;
+      setRows([]);
+      setSelected(new Set());
+      setRemarks({});
+      if (silent) return;
+      setResponseDialog({
+        open: true,
+        title: "PR Release",
+        results: [
+          {
+            preq: "",
+            message: e?.message ?? "Failed to fetch PR Release data.",
+            ok: false,
+          },
+        ],
+      });
     },
   });
 
