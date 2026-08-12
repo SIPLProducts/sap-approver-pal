@@ -257,6 +257,7 @@ async function processPrAction(
     let msgtxt = "";
     let ok = false;
     let errMsg: string | undefined;
+    let rawResponse: any = undefined;
 
     try {
       const res = await fetch(target, { method, headers: baseHeaders, body: bodyOut });
@@ -265,16 +266,33 @@ async function processPrAction(
 
       if (!res.ok) {
         errMsg = `SAP ${res.status} ${res.statusText}: ${text.slice(0, 200)}`;
+        try {
+          rawResponse = text ? JSON.parse(text) : text;
+        } catch {
+          rawResponse = text;
+        }
+        const failMsg = extractSapMessage(rawResponse);
+        if (failMsg) {
+          msgtxt = failMsg;
+          errMsg = failMsg;
+        }
       } else {
         let json: any = {};
         try {
           json = text ? JSON.parse(text) : {};
         } catch {
           errMsg = `Invalid JSON from SAP: ${text.slice(0, 200)}`;
+          rawResponse = text;
         }
         if (!errMsg) {
+          rawResponse = proxied ? (json?.data ?? json) : json;
           if (proxied && json?.ok !== true) {
             errMsg = String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
+            const failMsg = extractSapMessage(json);
+            if (failMsg) {
+              msgtxt = failMsg;
+              errMsg = failMsg;
+            }
           } else {
             const sapJson: any = proxied ? json?.data : json;
             const primary: any = Array.isArray(sapJson)
@@ -285,18 +303,7 @@ async function processPrAction(
                   ? sapJson.data[0]
                   : sapJson;
 
-            const findFirst = (obj: any, keys: string[]): any => {
-              if (!obj || typeof obj !== "object") return undefined;
-              const wanted = new Set(keys.map((key) => key.toUpperCase()));
-              for (const [key, value] of Object.entries(obj)) {
-                if (wanted.has(key.toUpperCase())) return value;
-              }
-              for (const value of Object.values(obj)) {
-                const found = findFirst(value, keys);
-                if (found !== undefined) return found;
-              }
-              return undefined;
-            };
+            const findFirst = findFirstDeep;
             msgtxt = String(findFirst(primary, ["MSGTXT", "MESSAGE"]) ?? "");
             const status = String(
               findFirst(primary, ["STATUS", "MSGTY", "TYPE"]) ?? "",
