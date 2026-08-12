@@ -355,6 +355,8 @@ async function processPrAction(
       preq_item: item.PREQ_ITEM,
       ok: ok && !errMsg,
       msgtxt,
+      MSGTXT: msgtxt || undefined,
+      response: rawResponse,
       error: errMsg,
     });
   }
