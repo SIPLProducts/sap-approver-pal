@@ -1,76 +1,74 @@
-# Root cause found: the publishable key in dist/.env.runtime is pasted twice
+# Why the data is in the database but the screens are empty
 
-## The evidence
+Your 4th screenshot is the proof that the data is fine: `public.sap_api_configs` shows **47 records**. So nothing is wrong with the seed, the tables, or the SQL you ran.
 
-`dist/.env.runtime` contains:
+The screens are empty for a different reason. Every admin screen (APIs list, SAP Connection, Middleware Configuration, Users & Roles) is served by a server function that first validates your session token on the app server. That validation is failing, so the function never gets to the query and returns **"Unauthorized: Invalid token"** — which the UI shows as an empty list or a save error.
+
+Screenshot 2 confirms the browser IS sending a proper `Authorization: Bearer …` header, and screenshot 3 confirms the server's answer is `Unauthorized: Invalid token`. So the token is sent and the *server side* rejects it.
+
+Why the server rejects a valid token: to validate it, the app server calls your self-hosted backend using `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` from `dist/.env.runtime`. Your own checks on the server printed:
 
 ```text
-SUPABASE_PUBLISHABLE_KEY=eyJ...D9DkeyJ...D9Dk
+awk -F. '{print NF}' <<<"$SUPABASE_PUBLISHABLE_KEY"   ->  5
+curl .../auth/v1/health                               ->  401
+curl -H "apikey: $KEY" .../rest/v1/                   ->  401
 ```
 
-That is the anon key concatenated with itself — the same token twice, back to back, with no separator. One JWT has three dot-separated fields; two JWTs joined without a separator produce five fields, which is exactly what your latest command printed. So every server-side call the app server makes with it is rejected by the backend, and the authenticated server functions collapse that into the message you see: **"Unauthorized: Invalid token"**. This is why SAP API Settings shows no rows and Users & Roles shows "Failed to load users" while login still works (login is a public call that uses the service-role key, not this one).
+A valid key has **3** dot-separated parts. Yours has **5** — the anon key is pasted twice into one line. So every validation call the app server makes is rejected, and that surfaces as "Invalid token". Login still works because login is a public call that does not go through this validation.
 
-The doubling did not come from the build script — it writes one `KEY=value` line per key. It came from `frontend/.env`, where the `ANON_KEY` value was pasted twice into one line (an easy wrap/copy accident with a long token).
+So: database good, browser good, **one malformed line in the environment file** is the whole failure.
 
-Secondary, non-fatal: the browser bundle points at `http://10.150.150.130:8000` while the app server uses `http://127.0.0.1:8000`. Same backend if it runs on that host, so this is not the failure — but the two should be spelled the same way to keep the token issuer consistent. Your two `curl` checks returning `000` only means `$SUPABASE_URL` was not set in that shell, not that the backend is down.
+## Fix on the server (do this first — no code change needed)
 
-## Fix on the server now — build the .env with commands, never by hand
+Rebuild `frontend/.env` with commands instead of pasting, so long tokens cannot wrap or double:
 
-Hand-editing caused both faults: first the doubled key, and now three keys reported missing after your edit (`SUPABASE_SERVICE_ROLE_KEY`, `MIDDLEWARE_URL`, `MIDDLEWARE_SHARED_SECRET`). Long tokens wrap in the editor, so a value ends up split across lines or duplicated. The commands below copy the keys straight out of the backend file, so nothing is typed or pasted.
+```bash
+cd /data/webapplication/resl_approval/Quality/frontend
+cp .env .env.bak.$(date +%s)
+SB=/data/webapplication/resl_approval/Quality/supabase/.env   # adjust if your path differs
 
-1. Rewrite `frontend/.env` from the backend file:
-   ```bash
-   cd /data/webapplication/resl_approval/Quality/frontend
-   cp .env .env.bak.$(date +%s)
-   BE=/data/webapplication/resl_approval/Quality/backend/.env   # adjust if your path differs
+ANON="$(grep -m1 '^ANON_KEY=' "$SB" | cut -d= -f2- | tr -d '\r\n "')"
+SRV="$(grep -m1 '^SERVICE_ROLE_KEY=' "$SB" | cut -d= -f2- | tr -d '\r\n "')"
+awk -F. '{print NF}' <<<"$ANON"   # must print 3
+awk -F. '{print NF}' <<<"$SRV"    # must print 3
 
-   ANON="$(grep -m1 '^ANON_KEY=' "$BE" | cut -d= -f2- | tr -d '\r\n "')"
-   SRV="$(grep -m1 '^SERVICE_ROLE_KEY=' "$BE" | cut -d= -f2- | tr -d '\r\n "')"
+grep -vE '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=' .env > .env.new
+{
+  echo "SUPABASE_URL=http://10.150.150.130:8000"
+  echo "SUPABASE_ANON_KEY=$ANON"
+  echo "SUPABASE_PUBLISHABLE_KEY=$ANON"
+  echo "SUPABASE_SERVICE_ROLE_KEY=$SRV"
+  echo "VITE_SUPABASE_URL=http://10.150.150.130:8000"
+  echo "VITE_SUPABASE_PUBLISHABLE_KEY=$ANON"
+  echo "MIDDLEWARE_URL=http://127.0.0.1:3002"
+  echo "MIDDLEWARE_SHARED_SECRET=123456"
+} >> .env.new
+mv .env.new .env && chmod 600 .env
 
-   awk -F. '{print NF}' <<<"$ANON"   # must print 3
-   awk -F. '{print NF}' <<<"$SRV"    # must print 3
+# must print 8
+grep -cE '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=.+' .env
+```
 
-   grep -vE '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=' .env > .env.new
-   {
-     echo "SUPABASE_URL=http://10.150.150.130:8000"
-     echo "SUPABASE_ANON_KEY=$ANON"
-     echo "SUPABASE_PUBLISHABLE_KEY=$ANON"
-     echo "SUPABASE_SERVICE_ROLE_KEY=$SRV"
-     echo "VITE_SUPABASE_URL=http://10.150.150.130:8000"
-     echo "VITE_SUPABASE_PUBLISHABLE_KEY=$ANON"
-     echo "MIDDLEWARE_URL=http://127.0.0.1:3002"
-     echo "MIDDLEWARE_SHARED_SECRET=123456"
-   } >> .env.new
-   mv .env.new .env && chmod 600 .env
+Then redeploy and verify:
 
-   # must print 8 — one clean line per key
-   grep -cE '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY|MIDDLEWARE_URL|MIDDLEWARE_SHARED_SECRET)=.+' .env
-   ```
-   If either `awk` prints something other than `3`, the backend `.env` itself holds a wrapped value — fix it there first and re-run. `MIDDLEWARE_SHARED_SECRET` must equal the value in `middleware/.env`, and `MIDDLEWARE_URL` must be the middleware address as the app server sees it.
+```bash
+cd dist && bash deploy-frontend.sh
+set -a; . ./.env.runtime; set +a
+awk -F. '{print NF}' <<<"$SUPABASE_PUBLISHABLE_KEY"    # 3
+awk -F. '{print NF}' <<<"$SUPABASE_SERVICE_ROLE_KEY"   # 3
+curl -s -o /dev/null -w '%{http_code}\n' "$SUPABASE_URL/auth/v1/health"                                   # 200
+curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/rest/v1/"  # 200
+```
 
-2. From the `frontend` folder, regenerate `dist/.env.runtime` and restart using the existing helper (it copies `.env` correctly):
-   ```bash
-   cd /data/webapplication/resl_approval/Quality/frontend/dist
-   bash deploy-frontend.sh
-   ```
-3. Verify from inside the `dist` folder. Type `set`, not `et`, and use `.env.runtime` without the extra `dist/` prefix:
-   ```bash
-   set -a; . ./.env.runtime; set +a
-   awk -F. '{print NF}' <<<"$SUPABASE_PUBLISHABLE_KEY"     # must print 3
-   awk -F. '{print NF}' <<<"$SUPABASE_SERVICE_ROLE_KEY"    # must print 3
-   curl -s -o /dev/null -w '%{http_code}\n' "$SUPABASE_URL/auth/v1/health"                    # 200
-   curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/rest/v1/"   # 200
-   ```
-   Your previous `401 / 401` results are expected with the malformed five-field key. Do not continue until the first command prints `3` and both curl calls return `200`.
-4. Sign out and sign in again in the browser, then open SAP API Settings and Users & Roles. Rows should appear. Only after that is it worth re-checking the seed counts.
+Do not move on until you see `3`, `3`, `200`, `200`. Then sign out, sign in again, and open SAP API Settings — the 47 endpoints should appear, and saving SAP Connection / Middleware Configuration should succeed.
 
-Note: the `VITE_*` values are compiled into the browser bundle, so changing the URL there requires a rebuild and redeploy of `dist`. The server-side values in `.env.runtime` take effect on restart alone.
+Important: the SAP Connection and Middleware Configuration tabs use the URL as the **app server** sees it, so keep `SUPABASE_URL` and `VITE_SUPABASE_URL` spelled identically (`10.150.150.130:8000`, not `127.0.0.1`), otherwise the token issuer and the validating host disagree.
 
 ## Code changes I will make so this cannot silently happen again
 
-1. **Startup guard in `dist/start.mjs`** (generated by `scripts/collect-dist.mjs`): validate each Supabase key before booting — must be a 3-part JWT whose payload carries the expected `role` (`anon`/`service_role`). On a malformed or doubled value, refuse to start with a clear message naming the variable. Key names only, never values.
-2. **Build-time check in `scripts/collect-dist.mjs`**: same validation when writing `.env.runtime`, plus a warning when `SUPABASE_URL` and `VITE_SUPABASE_URL` disagree on host — caught on the build machine instead of after deployment.
-3. **Precise auth errors in `src/integrations/supabase/auth-middleware.ts`**: replace the single `Unauthorized: Invalid token` with distinct causes — backend unreachable, apikey rejected, token expired, token valid but no subject — so the next occurrence names itself instead of costing a day.
-4. **Admin diagnostics panel** (admin-only, no secret values): backend host as the server sees it, auth health reachable yes/no, apikey accepted yes/no, presented bearer validates yes/no. Replaces the manual curl sequence above.
+1. **Boot guard in the generated `dist/start.mjs`** (from `scripts/collect-dist.mjs`): validate each Supabase key is a 3-part JWT carrying the expected role (`anon` / `service_role`), and refuse to start with a message naming the offending variable. Names only, never values.
+2. **Same validation at build time** in `scripts/collect-dist.mjs` when writing `.env.runtime`, plus a warning when `SUPABASE_URL` and `VITE_SUPABASE_URL` disagree on host.
+3. **Precise auth errors** in `src/integrations/supabase/auth-middleware.ts`: replace the single `Unauthorized: Invalid token` with distinct causes — backend unreachable, apikey rejected, token expired, token valid but no subject — so the next occurrence names itself.
+4. **Admin diagnostics panel** on the SAP API Settings page (admin-only, no secret values): backend host as the server sees it, auth health reachable yes/no, apikey accepted yes/no, presented bearer validates yes/no. Replaces the manual curl sequence above.
 
-Nothing here touches the database, the middleware on 3002, or the seed data.
+Nothing here touches the database, the seeded 47 endpoints, the middleware on 3002, or the login flow.
