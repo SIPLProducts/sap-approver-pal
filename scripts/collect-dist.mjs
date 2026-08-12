@@ -308,9 +308,11 @@ const launcher = `#!/usr/bin/env node
  */
 import { createReadStream, existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createServer } from "node:http";
+import { connect } from "node:net";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
 
 
 
@@ -404,20 +406,51 @@ const host = process.env.HOST ?? "0.0.0.0";
 process.env.PORT = String(port);
 process.env.HOST = host;
 process.env.NITRO_PORT ??= String(port);
-process.env.NITRO_HOST ??= String(port);
+// NITRO_HOST is a host, not a port. Passing the port here made a standalone
+// server bundle try to bind an address like "8080".
+process.env.NITRO_HOST ??= host;
+// React picks its dev/prod runtime from NODE_ENV at import time, so this must
+// be set BEFORE the bundle is imported below.
 if (process.env.NODE_ENV === undefined) process.env.NODE_ENV = "production";
+
+async function portIsOpen() {
+  return await new Promise((done) => {
+    const probe = connect({ port, host: host === "0.0.0.0" ? "127.0.0.1" : host });
+    const finish = (value) => { probe.destroy(); done(value); };
+    probe.once("connect", () => finish(true));
+    probe.once("error", () => finish(false));
+    probe.setTimeout(1000, () => finish(false));
+  });
+}
 
 console.log("[start] loading " + entry);
 const mod = await import(pathToFileURL(entry).href);
 const handler = mod.default ?? mod;
-if (typeof handler?.fetch !== "function") {
-  console.error(
-    "[start] server/index.mjs does not export a fetch handler — this dist/ is not a usable build.\\n" +
-      "[start] Rebuild with 'npm run build:selfhost' and copy the WHOLE folder across:\\n" +
-      "[start]   rsync -a --delete dist/ <server>:<path>/frontend/dist/",
-  );
-  process.exit(1);
+
+// Two valid build shapes:
+//   a) the bundle EXPORTS a fetch handler  -> this launcher is the HTTP server
+//   b) the bundle IS a standalone server   -> it already opened its own socket
+const fetchHandler = typeof handler?.fetch === "function" ? handler : null;
+
+if (!fetchHandler) {
+  console.log("[start] no fetch export — treating server/index.mjs as a standalone Node server");
+  let up = false;
+  for (let i = 0; i < 30 && !up; i += 1) {
+    up = await portIsOpen();
+    if (!up) await new Promise((r) => setTimeout(r, 500));
+  }
+  if (!up) {
+    console.error(
+      "[start] server/index.mjs neither exports a fetch handler nor opened a listener on " +
+        host + ":" + port + " — this dist/ is not a usable build.\\n" +
+        "[start] Rebuild with 'npm run build:selfhost' and copy the WHOLE folder across:\\n" +
+        "[start]   rsync -a --delete dist/ <server>:<path>/frontend/dist/",
+    );
+    process.exit(1);
+  }
+  console.log("[start] listening on http://" + host + ":" + port + " (standalone bundle)");
 }
+
 
 // ---------------------------------------------------------------- static files
 const MIME = {
@@ -478,58 +511,61 @@ async function sendWebResponse(res, response) {
   Readable.fromWeb(response.body).pipe(res);
 }
 
-const server = createServer((req, res) => {
-  void (async () => {
-    try {
-      const { pathname } = new URL(req.url ?? "/", "http://" + (req.headers.host ?? "127.0.0.1"));
-      if (req.method === "GET" || req.method === "HEAD") {
-        const found = resolveStatic(pathname);
-        if (found) {
-          res.writeHead(200, {
-            "content-type": MIME[extname(found.file).toLowerCase()] ?? "application/octet-stream",
-            "content-length": String(found.size),
-            "cache-control": pathname.startsWith("/assets/")
-              ? "public, max-age=31536000, immutable"
-              : "public, max-age=0, must-revalidate",
-          });
-          if (req.method === "HEAD") { res.end(); return; }
-          createReadStream(found.file).pipe(res);
-          return;
+if (fetchHandler) {
+  const server = createServer((req, res) => {
+    void (async () => {
+      try {
+        const { pathname } = new URL(req.url ?? "/", "http://" + (req.headers.host ?? "127.0.0.1"));
+        if (req.method === "GET" || req.method === "HEAD") {
+          const found = resolveStatic(pathname);
+          if (found) {
+            res.writeHead(200, {
+              "content-type": MIME[extname(found.file).toLowerCase()] ?? "application/octet-stream",
+              "content-length": String(found.size),
+              "cache-control": pathname.startsWith("/assets/")
+                ? "public, max-age=31536000, immutable"
+                : "public, max-age=0, must-revalidate",
+            });
+            if (req.method === "HEAD") { res.end(); return; }
+            createReadStream(found.file).pipe(res);
+            return;
+          }
         }
+        // SSR + /_serverFn/* + /api/*
+        const upstream = await fetchHandler.fetch(toWebRequest(req), process.env, undefined);
+        // A 5xx produced *inside* the app (SSR render error) never reaches the catch
+        // below, so log it here — otherwise pm2 logs stay silent while the browser
+        // shows a blank page.
+        if (upstream && upstream.status >= 500) {
+          console.error("[server] " + req.method + " " + req.url + " -> HTTP " + upstream.status +
+            " (rendered by the app; check the stack trace above/below)");
+        }
+        await sendWebResponse(res, upstream);
+      } catch (error) {
+        console.error("[server] request failed:", req.method, req.url, error);
+        if (!res.headersSent) res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+        res.end("Internal Server Error");
       }
-      // SSR + /_serverFn/* + /api/*
-      const upstream = await handler.fetch(toWebRequest(req), process.env, undefined);
-      // A 5xx produced *inside* the app (SSR render error) never reaches the catch
-      // below, so log it here — otherwise pm2 logs stay silent while the browser
-      // shows a blank page.
-      if (upstream && upstream.status >= 500) {
-        console.error("[server] " + req.method + " " + req.url + " -> HTTP " + upstream.status +
-          " (rendered by the app; check the stack trace above/below)");
-      }
-      await sendWebResponse(res, upstream);
-    } catch (error) {
-      console.error("[server] request failed:", req.method, req.url, error);
-      if (!res.headersSent) res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
-      res.end("Internal Server Error");
-    }
-  })();
-});
+    })();
+  });
 
-server.on("error", (error) => {
-  console.error("[start] cannot bind " + host + ":" + port + " —", error.message ?? error);
-  process.exit(1);
-});
+  server.on("error", (error) => {
+    console.error("[start] cannot bind " + host + ":" + port + " —", error.message ?? error);
+    process.exit(1);
+  });
 
-// "listening" is printed only from the listen callback, so a log line can never
-// claim the app is up while the port is actually closed.
-server.listen(port, host, () => {
-  console.log("[start] listening on http://" + host + ":" + port);
-  console.log("[start] static root: " + staticRoot);
-});
+  // "listening" is printed only from the listen callback, so a log line can never
+  // claim the app is up while the port is actually closed.
+  server.listen(port, host, () => {
+    console.log("[start] listening on http://" + host + ":" + port);
+    console.log("[start] static root: " + staticRoot);
+  });
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.on(signal, () => server.close(() => process.exit(0)));
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.on(signal, () => server.close(() => process.exit(0)));
+  }
 }
+
 `;
 
 writeFileSync(join(distDir, "start.mjs"), launcher);

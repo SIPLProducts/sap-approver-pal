@@ -39,18 +39,26 @@ if (selfHost) {
   console.log("[build] self-host mode: the app pass targets a plain Node server.");
 }
 
+// React chooses its dev or production JSX runtime from NODE_ENV. A shell with
+// NODE_ENV=development leaks the dev runtime into the server bundle, which then
+// crashes at render time with "jsxDevRuntimeExports.jsxDEV is not a function".
+// Unless this is an explicit development build, pin production for both passes.
+const devModeBuild = passthroughArgs.includes("development");
+const baseEnv = devModeBuild ? {} : { NODE_ENV: "production" };
+
 function runVite(label, env) {
   console.log(`\n[build] ${label} pass…`);
   const result = spawnSync(
     process.execPath,
     [join(root, "node_modules", "vite", "bin", "vite.js"), "build", ...passthroughArgs],
-    { stdio: "inherit", env: { ...process.env, ...env } },
+    { stdio: "inherit", env: { ...process.env, ...baseEnv, ...env } },
   );
   if (result.status !== 0) {
     console.error(`[build] ${label} pass failed.`);
     process.exit(result.status ?? 1);
   }
 }
+
 
 function clean() {
   for (const dir of ["dist", ".output", ".wrangler"]) {
