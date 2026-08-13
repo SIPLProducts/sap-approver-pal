@@ -689,11 +689,17 @@ if (existsSync(helper)) {
 }
 
 
-console.log(
-  selfHost
-    ? "[collect-dist] HTML is rendered by the app server — point nginx `location /` at port 8080"
-    : "[collect-dist] static shell: dist/index.html (nginx root)",
-);
+if (selfHost) {
+  console.log(
+    [
+      "[collect-dist] static files live in dist/client (served by the app server).",
+      "[collect-dist] nginx: `location / { proxy_pass http://127.0.0.1:8080; }`",
+      "[collect-dist] nginx (optional direct assets): `root .../frontend/dist/client;`",
+    ].join("\n"),
+  );
+} else {
+  console.log("[collect-dist] static shell: dist/index.html (nginx root)");
+}
 
 console.log("[collect-dist] app server bundle: dist/server (start with `node start.mjs`).");
 
