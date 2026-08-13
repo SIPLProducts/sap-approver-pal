@@ -193,6 +193,11 @@ if (problems.length === 0 && info?.mode === "selfhost-node") {
       bad(`/login returned HTTP ${response.status} from the built server`);
     } else if (!/<html/i.test(body)) {
       bad("/login did not return an HTML document");
+    } else if (/Missing Supabase environment variable/i.test(body)) {
+      bad(
+        "/login rendered 'Missing Supabase environment variable' — the browser bundle was built " +
+          "without VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY. Set them in .env and rebuild.",
+      );
     } else {
       ok(`/login served HTTP ${response.status} by the built server`);
       if (response.headers.get("x-ssr-fallback")) {
@@ -200,6 +205,7 @@ if (problems.length === 0 && info?.mode === "selfhost-node") {
         console.log("   NOTE /login used the client-boot fallback (SSR threw) — see the log below");
       }
     }
+
 
     // Probe several statics: one lucky asset must not mask a path mismatch.
     const jsAssets = existsSync(assetsDir)
