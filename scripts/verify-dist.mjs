@@ -205,17 +205,32 @@ if (problems.length === 0 && info?.mode === "selfhost-node") {
     const jsAssets = existsSync(assetsDir)
       ? readdirSync(assetsDir).filter((f) => f.endsWith(".js"))
       : [];
+    const cssAssets = existsSync(assetsDir)
+      ? readdirSync(assetsDir).filter((f) => f.endsWith(".css"))
+      : [];
     const probes = [
       ...[jsAssets[0], jsAssets[Math.floor(jsAssets.length / 2)], jsAssets.at(-1)]
         .filter(Boolean)
         .map((f) => `/assets/${f}`),
+      ...cssAssets.map((f) => `/assets/${f}`),
       ...(existsSync(join(distDir, "manifest.webmanifest")) ? ["/manifest.webmanifest"] : []),
+      ...(existsSync(join(distDir, "re-sustainability-logo.jpg"))
+        ? ["/re-sustainability-logo.jpg"]
+        : []),
     ];
     for (const path of [...new Set(probes)]) {
       try {
         const assetRes = await fetch(`http://127.0.0.1:${port}${path}`);
-        if (assetRes.ok) ok(`served ${path}`);
-        else bad(`${path} returned HTTP ${assetRes.status}`);
+        const contentType = assetRes.headers.get("content-type") ?? "";
+        const expectedType = path.endsWith(".css")
+          ? "text/css"
+          : path.endsWith(".js")
+            ? "javascript"
+            : null;
+        if (!assetRes.ok) bad(`${path} returned HTTP ${assetRes.status}`);
+        else if (expectedType && !contentType.includes(expectedType)) {
+          bad(`${path} returned wrong content-type ${contentType || "(missing)"}`);
+        } else ok(`served ${path} (${contentType || "content-type missing"})`);
       } catch {
         bad(`could not fetch ${path} from the running server`);
       }

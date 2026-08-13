@@ -222,11 +222,44 @@ if [ "$up" = "1" ]; then
     fi
   else
     lmiss=0
-    for ref in $(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u); do
+    refs="$(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u)"
+    for ref in $refs; do
       if [ ! -f "$ref" ]; then printf '   MISS /%s\n' "$ref"; lmiss=1; fi
     done
     if [ "$lmiss" = "0" ]; then ok "/login renders (HTTP $lcode) and all its assets exist"
     else fail "/login references assets that are not in this folder — redeploy the whole folder as one unit"; fi
+
+    # Files merely existing is insufficient: the running launcher and nginx must
+    # both serve the exact CSS/JS requested by the rendered login page.
+    for ref in $refs; do
+      case "$ref" in
+        *.css) expected='text/css' ;;
+        *.js)  expected='javascript' ;;
+        *)     expected='' ;;
+      esac
+      for origin in "http://127.0.0.1:$PORT" "http://127.0.0.1:8081"; do
+        headers="$(curl -sS -D - -o /dev/null "$origin/$ref" 2>/dev/null || true)"
+        status="$(printf '%s' "$headers" | awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }')"
+        ctype="$(printf '%s' "$headers" | awk 'BEGIN{IGNORECASE=1} /^content-type:/ { sub(/^[^:]*:[[:space:]]*/, ""); gsub(/\r/, ""); value=$0 } END { print value }')"
+        if [ "$status" != "200" ]; then
+          fail "$origin/$ref returned HTTP ${status:-000}"
+        elif [ -n "$expected" ] && ! printf '%s' "$ctype" | grep -qi "$expected"; then
+          fail "$origin/$ref returned wrong Content-Type: ${ctype:-(missing)}"
+        else
+          ok "$origin/$ref (HTTP 200, $ctype)"
+        fi
+      done
+    done
+
+    for ref in manifest.webmanifest re-sustainability-logo.jpg; do
+      if [ -f "$ref" ]; then
+        for origin in "http://127.0.0.1:$PORT" "http://127.0.0.1:8081"; do
+          rcode="$(curl -sS -o /dev/null -w '%{http_code}' "$origin/$ref" 2>/dev/null || true)"
+          if [ "$rcode" = "200" ]; then ok "$origin/$ref (HTTP 200)"
+          else fail "$origin/$ref returned HTTP ${rcode:-000}"; fi
+        done
+      fi
+    done
   fi
 
 

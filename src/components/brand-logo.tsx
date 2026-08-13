@@ -1,5 +1,6 @@
-import logo from "@/assets/re-sustainability-logo.jpg.asset.json";
 import { cn } from "@/lib/utils";
+
+const logoUrl = "/re-sustainability-logo.jpg";
 
 type Props = {
   className?: string;
@@ -11,12 +12,12 @@ type Props = {
 
 /**
  * Resustainability brand logo.
- * Uses the CDN-hosted official mark + wordmark.
+ * Uses a packaged public asset so the mark also works on private self-hosts.
  */
 export function BrandLogo({ className, compact = false, alt = "Resustainability" }: Props) {
   return (
     <img
-      src={logo.url}
+      src={logoUrl}
       alt={alt}
       draggable={false}
       className={cn(
