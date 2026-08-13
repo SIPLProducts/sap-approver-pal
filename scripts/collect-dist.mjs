@@ -636,7 +636,9 @@ for (const key of SERVER_ENV_KEYS) {
   }
 }
 writeFileSync(join(distDir, ".env.runtime"), runtimeLines.join("\n") + "\n");
-if (missing.length) {
+if (missing.length && selfHost) {
+  // Self-host builds run as their own app server, so an empty value here is a
+  // guaranteed runtime failure. Fail now instead of on the Quality box.
   console.error(
     [
       `[collect-dist] cannot finish: dist/.env.runtime would ship with empty ${missing.join(", ")}.`,
@@ -645,8 +647,15 @@ if (missing.length) {
     ].join("\n"),
   );
   process.exit(1);
+} else if (missing.length) {
+  // Lovable preview/publish (worker build) gets these from the platform, not .env.
+  console.warn(
+    `[collect-dist] note: dist/.env.runtime has empty ${missing.join(", ")} (only needed for self-hosting).`,
+  );
+} else {
+  console.log("[collect-dist] runtime env: dist/.env.runtime generated from .env");
 }
-console.log("[collect-dist] runtime env: dist/.env.runtime generated from .env");
+
 
 // 6b-bis. The publishable key is also COMPILED INTO the browser bundle. If no
 //     emitted JS chunk contains it, the app boots to
