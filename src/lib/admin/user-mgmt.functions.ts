@@ -752,11 +752,11 @@ export const editUserViaSap = createServerFn({ method: "POST" })
     password: z.string().max(200).optional().default(""),
     confirm_password: z.string().max(200).optional().default(""),
     status: z.enum(["Active", "Inactive"]).default("Active"),
-    plants: z.array(z.string().min(1).max(20)).min(1).max(50),
+    plants: z.array(z.string().min(1).max(20)).min(1).max(5000),
     roles: z.array(z.object({
       plant: z.string().trim().min(1).max(20),
       role: z.string().trim().min(1).max(60),
-    })).min(1).max(200),
+    })).min(1).max(50000),
   }).refine((v) => !v.password || v.password === v.confirm_password, {
     message: "Passwords do not match",
     path: ["confirm_password"],
