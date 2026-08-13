@@ -227,11 +227,12 @@ if [ "$up" = "1" ]; then
   # every chunk it asks for must exist on disk.
   lcode="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/login" 2>/dev/null)"
   lfb="$(curl -sI "http://127.0.0.1:$PORT/login" 2>/dev/null | grep -i '^x-ssr-fallback:' || true)"
-  html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null || true)"
+  html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null | tr -d '\000' || true)"
   if [ -n "$lfb" ]; then
-    warn "/login was served by the CLIENT-BOOT FALLBACK — the page works, but SSR threw"
-    echo "   Read the reason (it is logged on one line):"
-    echo "     pm2 logs $PM2_NAME --lines 200 --nostream | grep '\[ssr\]'"
+    fail "/login was served by the CLIENT-BOOT FALLBACK — SSR threw while rendering it"
+    echo "   Almost always an incomplete server/ folder (ERR_MODULE_NOT_FOUND) or a"
+    echo "   missing .env.runtime value. Read the exact reason:"
+    echo "     pm2 logs $PM2_NAME --lines 200 --nostream | grep -E '\[ssr\]|ERR_MODULE_NOT_FOUND'"
   fi
   if [ -z "$html" ]; then
     fail "/login did not render (HTTP $lcode)"
@@ -246,10 +247,11 @@ if [ "$up" = "1" ]; then
   else
     lmiss=0
     for ref in $(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u); do
-      if [ ! -f "$ref" ]; then printf '   MISS /%s\n' "$ref"; lmiss=1; fi
+      if [ ! -f "$STATIC_ROOT/$ref" ]; then printf '   MISS %s/%s\n' "$STATIC_ROOT" "$ref"; lmiss=1; fi
     done
-    if [ "$lmiss" = "0" ]; then ok "/login renders (HTTP $lcode) and all its assets exist"
-    else fail "/login references assets that are not in this folder — redeploy the whole folder as one unit"; fi
+    if [ "$lmiss" = "0" ]; then ok "/login renders (HTTP $lcode) and all its assets exist in $STATIC_ROOT/"
+    else fail "/login references browser assets that are not in $STATIC_ROOT/ — extract one freshly built archive into an EMPTY dist/ (do not merge folders)"; fi
+
   fi
 
 
