@@ -240,7 +240,7 @@ if [ "$up" = "1" ]; then
       for origin in "http://127.0.0.1:$PORT" "http://127.0.0.1:8081"; do
         headers="$(curl -sS -D - -o /dev/null "$origin/$ref" 2>/dev/null || true)"
         status="$(printf '%s' "$headers" | awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }')"
-        ctype="$(printf '%s' "$headers" | awk 'BEGIN{IGNORECASE=1} /^content-type:/ { sub(/^[^:]*:[[:space:]]*/, ""); gsub(/\r/, ""); value=$0 } END { print value }')"
+        ctype="$(printf '%s' "$headers" | tr -d '\r' | grep -i '^content-type:' | tail -n1 | cut -d: -f2- | sed 's/^[[:space:]]*//')"
         if [ "$status" != "200" ]; then
           fail "$origin/$ref returned HTTP ${status:-000}"
         elif [ -n "$expected" ] && ! printf '%s' "$ctype" | grep -qi "$expected"; then
