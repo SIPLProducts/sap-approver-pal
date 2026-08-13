@@ -152,6 +152,7 @@ writeFileSync(
     "package-lock.json",
     "start.mjs",
     "deploy-frontend.sh",
+    "check-server-imports.mjs",
     "ecosystem.config.cjs",
     ".env.runtime",
     "node_modules",
@@ -160,6 +161,7 @@ writeFileSync(
     "",
   ].join("\n"),
 );
+
 
 if (!selfHost) rmSync(clientDir, { recursive: true, force: true });
 
@@ -496,7 +498,7 @@ const MIME = {
   ".xml": "application/xml; charset=utf-8",
 };
 const staticRoot = resolve(process.env.STATIC_ROOT ?? join(here, ${JSON.stringify(selfHost ? "client" : ".")}));
-const BLOCKED = ["server", ".env", "start.mjs", "ecosystem.config.cjs", "deploy-frontend.sh"];
+const BLOCKED = ["server", ".env", "start.mjs", "ecosystem.config.cjs", "deploy-frontend.sh", "check-server-imports.mjs"];
 
 function resolveStatic(pathname) {
   let decoded;
@@ -700,6 +702,18 @@ if (existsSync(helper)) {
   writeFileSync(join(distDir, "deploy-frontend.sh"), helperText, { mode: 0o755 });
   console.log("[collect-dist] deploy helper: dist/deploy-frontend.sh (run `bash deploy-frontend.sh`)");
 }
+
+// 7b. The deploy helper proves the server bundle is complete before it restarts
+//     pm2, so the checker has to travel inside dist/ as well.
+const importChecker = join(root, "scripts", "check-server-imports.mjs");
+if (existsSync(importChecker)) {
+  writeFileSync(
+    join(distDir, "check-server-imports.mjs"),
+    readFileSync(importChecker, "utf8").replace(/\r\n/g, "\n"),
+  );
+  console.log("[collect-dist] bundle checker: dist/check-server-imports.mjs");
+}
+
 
 
 if (selfHost) {

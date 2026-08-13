@@ -18,6 +18,9 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { checkServerImports } from "./check-server-imports.mjs";
+
+
 
 const args = process.argv.slice(2);
 function argValue(name) {
@@ -157,7 +160,27 @@ if (existsSync(serverEntry)) {
   } else {
     ok("no development JSX runtime in the server bundle");
   }
+
+  // 4b. Completeness of the code-split server bundle. A chunk that is only
+  //     imported lazily can be missing without breaking startup — SSR then
+  //     throws ERR_MODULE_NOT_FOUND on the first page render instead.
+  const imports = checkServerImports(serverDir);
+  if (imports.missing.length) {
+    bad(
+      `${imports.missing.length} server chunk(s) imported by the bundle are missing — ` +
+        "SSR will throw ERR_MODULE_NOT_FOUND at render time",
+    );
+    for (const entry of imports.missing.slice(0, 10)) {
+      console.log(`        MISS ${entry.specifier}  (imported by server/${entry.from})`);
+    }
+    if (imports.missing.length > 10) {
+      console.log(`        … and ${imports.missing.length - 10} more`);
+    }
+  } else {
+    ok(`server bundle complete — ${imports.checked} file(s), every imported chunk present`);
+  }
 }
+
 
 // ---------------------------------------------- 5. runtime gate (self-host)
 // The decisive check: actually boot dist/start.mjs and request /login. A folder
@@ -208,13 +231,18 @@ if (problems.length === 0 && info?.mode === "selfhost-node") {
       bad(`/login returned HTTP ${response.status} from the built server`);
     } else if (!/<html/i.test(body)) {
       bad("/login did not return an HTML document");
+    } else if (response.headers.get("x-ssr-fallback")) {
+      // The client-boot shell hides a real SSR crash (typically a missing
+      // server chunk). A build that cannot server-render its own login page
+      // must never be packaged.
+      bad(
+        "/login was served by the client-boot fallback, not real SSR — the server bundle " +
+          "throws while rendering (see the log below)",
+      );
     } else {
-      ok(`/login served HTTP ${response.status} by the built server`);
-      if (response.headers.get("x-ssr-fallback")) {
-        notes.push("/login came from the client-boot fallback, not real SSR");
-        console.log("   NOTE /login used the client-boot fallback (SSR threw) — see the log below");
-      }
+      ok(`/login server-rendered HTTP ${response.status} by the built server`);
     }
+
 
     const firstAsset = existsSync(assetsDir)
       ? readdirSync(assetsDir).find((f) => f.endsWith(".js"))
