@@ -115,7 +115,7 @@ fi
 chmod 600 .env.runtime
 
 missing=""
-for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY MIDDLEWARE_URL MIDDLEWARE_SHARED_SECRET; do
+for key in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY MIDDLEWARE_URL MIDDLEWARE_SHARED_SECRET; do
   value="$(grep -m1 "^${key}=" .env.runtime | cut -d= -f2- | tr -d '\r' | tr -d '"' | tr -d "'" | sed 's/^ *//; s/ *$//')"
   if [ -z "$value" ]; then
     missing="$missing $key"
@@ -125,10 +125,23 @@ for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY MIDDLEWARE_URL MIDDLEWARE_SHAR
 done
 if [ -n "$missing" ]; then
   if [ -f "$SHARED_ENV" ]; then
-    die "these keys are missing or empty in $(cd .. && pwd)/.env:$missing (SUPABASE_* come from the self-hosted supabase/.env; MIDDLEWARE_SHARED_SECRET must match middleware/.env)"
+    die "these keys are missing or empty in $(cd .. && pwd)/.env:$missing (SUPABASE_PUBLISHABLE_KEY is the ANON_KEY from the self-hosted supabase/.env; MIDDLEWARE_SHARED_SECRET must match middleware/.env)"
   fi
   die "these values are empty in .env.runtime:$missing"
 fi
+
+# The browser half of the same key is COMPILED INTO the bundle. A folder built
+# without VITE_SUPABASE_PUBLISHABLE_KEY loads and then dies in the browser with
+# "Missing Supabase environment variable(s)" — no server-side edit can fix it.
+pub="$(grep -m1 '^SUPABASE_PUBLISHABLE_KEY=' .env.runtime | cut -d= -f2- | tr -d '\r' | tr -d '"' | tr -d "'" | sed 's/^ *//; s/ *$//')"
+if [ -n "$pub" ] && [ -d assets ]; then
+  if grep -qrF "$(printf '%s' "$pub" | cut -c1-40)" assets 2>/dev/null; then
+    ok "browser bundle carries the Supabase publishable key"
+  else
+    die "this dist/ was built WITHOUT VITE_SUPABASE_PUBLISHABLE_KEY — the login page will show 'Missing Supabase environment variable(s)'. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to $(cd .. && pwd)/.env, then rebuild with 'npm run build:selfhost' into an EMPTY dist/ and redeploy."
+  fi
+fi
+
 
 
 
