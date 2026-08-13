@@ -63,8 +63,8 @@ export const createUser = createServerFn({ method: "POST" })
     status: z.enum(["Active", "Inactive"]).default("Active"),
     mode: z.enum(["invite", "password"]),
     password: z.string().min(8).max(200).optional(),
-    plants: z.array(z.string().min(1).max(20)).max(50).default([]),
-    roles: z.array(z.enum(APP_ROLES)).max(50).default([]),
+    plants: z.array(z.string().min(1).max(20)).max(5000).default([]),
+    roles: z.array(z.enum(APP_ROLES)).max(5000).default([]),
   }).refine((v) => v.mode !== "password" || !!v.password, {
     message: "Password is required when setting a password",
     path: ["password"],
