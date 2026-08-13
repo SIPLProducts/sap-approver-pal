@@ -13,7 +13,7 @@ no wrangler, no `workerd` binary, no `.runtime` install, and `process.env` is
 visible to server code (which the SAP middleware callback needs).
 
 Output — a single, clean `dist/` folder. No `.output/`, no `.wrangler/`. `dist/` is
-`the only artefact you copy to the server.
+the only artefact you copy to the server.
 
 ```text
 dist/
