@@ -152,7 +152,7 @@ export const inviteUser = createServerFn({ method: "POST" })
     email: z.string().email().max(200),
     full_name: z.string().min(1).max(200),
     role: z.enum(APP_ROLES).optional(),
-    plants: z.array(z.string().min(1).max(20)).max(50).optional(),
+    plants: z.array(z.string().min(1).max(20)).max(5000).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
