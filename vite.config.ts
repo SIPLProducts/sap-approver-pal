@@ -100,7 +100,10 @@ export default defineConfig({
             output: {
               dir: "dist",
               serverDir: "dist/server",
-              publicDir: "dist/client",
+              // Statics live at dist/assets — the collector flattens nothing away,
+              // and the Node server resolves them relative to dist/ (see collect-dist).
+              publicDir: "dist",
+
             },
           },
         }
