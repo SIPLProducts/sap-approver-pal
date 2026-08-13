@@ -112,6 +112,36 @@ if (existsSync(join(distDir, "node_modules"))) {
   bad("node_modules/ inside dist/ — remove it, runtime deps are already bundled");
 }
 
+// ------------------------------- 3b. baked Supabase publishable key (browser)
+// The browser reads import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, which is
+// compiled in. When it is absent the app loads and immediately shows
+// "Missing Supabase environment variable(s): SUPABASE_PUBLISHABLE_KEY" —
+// unfixable on the server, so catch it before the folder leaves this machine.
+const runtimeEnvPath = join(distDir, ".env.runtime");
+if (existsSync(runtimeEnvPath) && existsSync(assetsDir)) {
+  const line = readFileSync(runtimeEnvPath, "utf8")
+    .split(/\r?\n/)
+    .find((l) => l.startsWith("SUPABASE_PUBLISHABLE_KEY="));
+  const key = line
+    ? line.slice("SUPABASE_PUBLISHABLE_KEY=".length).trim().replace(/^["']|["']$/g, "")
+    : "";
+  if (!key) {
+    bad("dist/.env.runtime has no SUPABASE_PUBLISHABLE_KEY — the app server cannot reach the backend");
+  } else {
+    const needle = key.slice(0, 40);
+    const baked = readdirSync(assetsDir)
+      .filter((name) => name.endsWith(".js"))
+      .some((name) => readFileSync(join(assetsDir, name), "utf8").includes(needle));
+    if (baked) ok("browser bundle carries the Supabase publishable key");
+    else
+      bad(
+        "no JS chunk contains the Supabase publishable key — this bundle was built without " +
+          "VITE_SUPABASE_PUBLISHABLE_KEY. Set it in .env, delete dist/, and rebuild.",
+      );
+  }
+}
+
+
 // ------------------------------------------------- 4. React runtime sanity
 // `jsxDevRuntimeExports.jsxDEV is not a function` at render time comes from a
 // development JSX runtime inside a production React bundle. Catch it statically.
