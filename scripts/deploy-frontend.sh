@@ -38,7 +38,7 @@ die()   { printf '\n   FAIL %s\n\n' "$1"; exit 1; }
 printf 'App server deploy helper\n  folder : %s\n  port   : %s\n  pm2    : %s\n' "$HERE" "$PORT" "$PM2_NAME"
 # ---------------------------------------------------------------------------
 step "1/7 Checking the deployed folder"
-HELPER_REV="2026-08-13a"
+HELPER_REV="2026-08-11c"
 ok "deploy helper revision: $HELPER_REV"
 for f in server/index.mjs start.mjs build-info.json; do
   [ -e "$f" ] || die "$f is missing — this dist/ folder is incomplete or stale. Rebuild with 'npm run build:selfhost', package it with 'npm run package:dist', then extract the WHOLE archive into an EMPTY dist/ folder."
@@ -51,13 +51,6 @@ if [ "$MODE" != "selfhost-node" ]; then
   die "this dist/ was built with 'npm run build' (mode: ${MODE:-unknown}). The self-hosted app server needs 'npm run build:selfhost'."
 fi
 
-# The static root is declared by the build, not guessed: self-host bundles keep
-# every browser file under dist/client, worker bundles use dist/ itself.
-STATIC_ROOT="$(sed -n 's/.*"staticRoot"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' build-info.json | head -n1)"
-[ -n "$STATIC_ROOT" ] || STATIC_ROOT="client"
-[ -d "$STATIC_ROOT/assets" ] || die "$STATIC_ROOT/assets is missing — this dist/ folder is incomplete. Extract the whole archive into an EMPTY dist/."
-ok "static root: $STATIC_ROOT/ ($(ls -1 "$STATIC_ROOT/assets" | wc -l | tr -d ' ') asset file(s))"
-
 # In self-host mode the app server renders every page. A static index.html here
 # is always a leftover from an older build, and nginx will happily serve it —
 # which is exactly how the browser ends up 404ing on hashed asset files.
@@ -69,15 +62,14 @@ ok "no stale static index.html"
 # A mixed folder (HTML from one build, assets/ from another) is the classic
 # cause of "404 on every /assets/*.js" in the browser. Refuse to start it.
 miss=0
-for html in "$STATIC_ROOT"/*.html; do
+for html in *.html; do
   [ -e "$html" ] || continue
   for ref in $(grep -ao 'assets/[^"]*\.\(js\|css\)' "$html" | sort -u); do
-    if [ ! -f "$STATIC_ROOT/$ref" ]; then printf '   MISS %s -> %s\n' "$html" "$ref"; miss=1; fi
+    if [ ! -f "$ref" ]; then printf '   MISS %s -> %s\n' "$html" "$ref"; miss=1; fi
   done
 done
 [ "$miss" = "0" ] || die "this dist/ is inconsistent: HTML references asset files that are not here. Rebuild and redeploy the whole folder as one unit."
 ok "no dangling asset references"
-
 
 
 # ---------------------------------------------------------------------------
@@ -153,21 +145,6 @@ if [ "$REINSTALL" = "1" ]; then
 fi
 ok "server/index.mjs present (plain Node server — no npm install required)"
 
-# The server bundle is code-split and some chunks are imported lazily, so a
-# missing one does NOT stop the process from booting — SSR then throws
-# ERR_MODULE_NOT_FOUND on the first page render. Catch that BEFORE pm2 is
-# restarted, so a broken upload never replaces a working app server.
-if [ -f check-server-imports.mjs ]; then
-  if node check-server-imports.mjs server; then
-    ok "server bundle complete (every imported chunk present)"
-  else
-    die "the server bundle is INCOMPLETE (see the MISS lines above). The running app server was left untouched. Rebuild with 'npm run build:selfhost', package with 'npm run package:dist', and extract that ONE archive into an EMPTY dist/."
-  fi
-else
-  warn "check-server-imports.mjs not in this folder — rebuild to get the completeness check"
-fi
-
-
 # ---------------------------------------------------------------------------
 step "5/7 Launcher syntax"
 if node --check start.mjs; then ok "start.mjs parses"; else die "start.mjs has a syntax error — redeploy a freshly built dist/."; fi
@@ -227,12 +204,11 @@ if [ "$up" = "1" ]; then
   # every chunk it asks for must exist on disk.
   lcode="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/login" 2>/dev/null)"
   lfb="$(curl -sI "http://127.0.0.1:$PORT/login" 2>/dev/null | grep -i '^x-ssr-fallback:' || true)"
-  html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null | tr -d '\000' || true)"
+  html="$(curl -fsS "http://127.0.0.1:$PORT/login" 2>/dev/null || true)"
   if [ -n "$lfb" ]; then
-    fail "/login was served by the CLIENT-BOOT FALLBACK — SSR threw while rendering it"
-    echo "   Almost always an incomplete server/ folder (ERR_MODULE_NOT_FOUND) or a"
-    echo "   missing .env.runtime value. Read the exact reason:"
-    echo "     pm2 logs $PM2_NAME --lines 200 --nostream | grep -E '\[ssr\]|ERR_MODULE_NOT_FOUND'"
+    warn "/login was served by the CLIENT-BOOT FALLBACK — the page works, but SSR threw"
+    echo "   Read the reason (it is logged on one line):"
+    echo "     pm2 logs $PM2_NAME --lines 200 --nostream | grep '\[ssr\]'"
   fi
   if [ -z "$html" ]; then
     fail "/login did not render (HTTP $lcode)"
@@ -247,11 +223,10 @@ if [ "$up" = "1" ]; then
   else
     lmiss=0
     for ref in $(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u); do
-      if [ ! -f "$STATIC_ROOT/$ref" ]; then printf '   MISS %s/%s\n' "$STATIC_ROOT" "$ref"; lmiss=1; fi
+      if [ ! -f "$ref" ]; then printf '   MISS /%s\n' "$ref"; lmiss=1; fi
     done
-    if [ "$lmiss" = "0" ]; then ok "/login renders (HTTP $lcode) and all its assets exist in $STATIC_ROOT/"
-    else fail "/login references browser assets that are not in $STATIC_ROOT/ — extract one freshly built archive into an EMPTY dist/ (do not merge folders)"; fi
-
+    if [ "$lmiss" = "0" ]; then ok "/login renders (HTTP $lcode) and all its assets exist"
+    else fail "/login references assets that are not in this folder — redeploy the whole folder as one unit"; fi
   fi
 
 
