@@ -125,9 +125,10 @@ if (existsSync(runtimeEnvPath) && existsSync(assetsDir)) {
   const key = line
     ? line.slice("SUPABASE_PUBLISHABLE_KEY=".length).trim().replace(/^["']|["']$/g, "")
     : "";
-  if (!key) {
+  if (!key && info?.mode === "selfhost-node") {
     bad("dist/.env.runtime has no SUPABASE_PUBLISHABLE_KEY — the app server cannot reach the backend");
-  } else {
+  } else if (key) {
+
     const needle = key.slice(0, 40);
     const baked = readdirSync(assetsDir)
       .filter((name) => name.endsWith(".js"))
