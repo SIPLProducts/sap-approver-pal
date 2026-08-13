@@ -20,7 +20,7 @@
  * Pure Node, no extra dependencies, works the same on Windows and Linux.
  */
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = resolve(process.cwd());
