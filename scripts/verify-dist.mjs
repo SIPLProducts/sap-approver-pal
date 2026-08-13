@@ -18,6 +18,9 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { checkServerImports } from "./check-server-imports.mjs";
+
+
 
 const args = process.argv.slice(2);
 function argValue(name) {
