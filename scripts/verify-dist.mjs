@@ -160,7 +160,27 @@ if (existsSync(serverEntry)) {
   } else {
     ok("no development JSX runtime in the server bundle");
   }
+
+  // 4b. Completeness of the code-split server bundle. A chunk that is only
+  //     imported lazily can be missing without breaking startup — SSR then
+  //     throws ERR_MODULE_NOT_FOUND on the first page render instead.
+  const imports = checkServerImports(serverDir);
+  if (imports.missing.length) {
+    bad(
+      `${imports.missing.length} server chunk(s) imported by the bundle are missing — ` +
+        "SSR will throw ERR_MODULE_NOT_FOUND at render time",
+    );
+    for (const entry of imports.missing.slice(0, 10)) {
+      console.log(`        MISS ${entry.specifier}  (imported by server/${entry.from})`);
+    }
+    if (imports.missing.length > 10) {
+      console.log(`        … and ${imports.missing.length - 10} more`);
+    }
+  } else {
+    ok(`server bundle complete — ${imports.checked} file(s), every imported chunk present`);
+  }
 }
+
 
 // ---------------------------------------------- 5. runtime gate (self-host)
 // The decisive check: actually boot dist/start.mjs and request /login. A folder
