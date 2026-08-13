@@ -85,8 +85,23 @@ if (hasOutputLayout) {
 const clientDir = join(distDir, "client");
 const copied = [];
 
-// 1. Flatten the static client files into dist/ root.
-if (existsSync(clientDir)) {
+// Self-host (Node app server) keeps dist/client as the static root, because the
+// server bundle was built with that public directory. Flattening it away and
+// deleting dist/client is what made every /assets/*.js request 500.
+const selfHost = process.env.SELF_HOST === "1";
+const staticDir = selfHost ? clientDir : distDir;
+
+// 1. Flatten the static client files into dist/ root (worker builds only).
+if (selfHost) {
+  if (!existsSync(clientDir)) {
+    console.error("[collect-dist] dist/client is missing — the client pass did not run.");
+    process.exit(1);
+  }
+  for (const name of readdirSync(clientDir)) {
+    copied.push(statSync(join(clientDir, name)).isDirectory() ? `${name}/` : name);
+  }
+  console.log("[collect-dist] self-host build: static root kept at dist/client");
+} else if (existsSync(clientDir)) {
   for (const name of readdirSync(clientDir)) {
     if (RESERVED.has(name)) continue;
     const from = join(clientDir, name);
@@ -101,8 +116,8 @@ if (existsSync(clientDir)) {
 const publicDir = join(root, "public");
 if (existsSync(publicDir)) {
   for (const name of readdirSync(publicDir)) {
-    if (RESERVED.has(name)) continue;
-    const to = join(distDir, name);
+    if (!selfHost && RESERVED.has(name)) continue;
+    const to = join(staticDir, name);
     if (existsSync(to)) continue; // build output wins
     cpSync(join(publicDir, name), to, { recursive: true });
     copied.push(name);
@@ -110,9 +125,9 @@ if (existsSync(publicDir)) {
 }
 
 
-// 3. Point the server bundle at the flattened statics, then drop dist/client.
+// 3. Point the server bundle at the statics it should serve.
 const serverWrangler = join(distDir, "server", "wrangler.json");
-if (existsSync(serverWrangler)) {
+if (existsSync(serverWrangler) && !selfHost) {
   try {
     const cfg = JSON.parse(readFileSync(serverWrangler, "utf8"));
     if (cfg.assets) cfg.assets.directory = "..";
@@ -141,7 +156,7 @@ writeFileSync(
   ].join("\n"),
 );
 
-rmSync(clientDir, { recursive: true, force: true });
+if (!selfHost) rmSync(clientDir, { recursive: true, force: true });
 
 // 4. Remove build-machinery leftovers and local caches.
 for (const name of DROP_AT_ROOT) {
@@ -158,10 +173,10 @@ rmSync(outputDir, { recursive: true, force: true });
 //    than dist/assets/, so its hashed <script> names do not exist in the final
 //    asset folder — the browser then 404s on every chunk. The Node server
 //    (dist/server) renders the HTML itself, so no static shell is needed.
-const selfHost = process.env.SELF_HOST === "1";
 const shellHtml = process.env.TSS_SHELL_HTML;
 if (selfHost) {
   rmSync(join(distDir, "index.html"), { force: true });
+  rmSync(join(staticDir, "index.html"), { force: true });
   console.log("[collect-dist] self-host build: no static index.html (the Node server renders HTML)");
 } else if (shellHtml && existsSync(shellHtml) && !existsSync(join(distDir, "index.html"))) {
   cpSync(shellHtml, join(distDir, "index.html"));
@@ -179,23 +194,56 @@ if (!selfHost && !existsSync(join(distDir, "index.html"))) {
   process.exit(1);
 }
 
-// 5b. Consistency gate: every hashed asset referenced by shipped HTML must
-//     exist in this dist/. This is what catches a mixed build (server bundle
-//     from one pass, assets/ from another) before it can be deployed.
-const assetsDir = join(distDir, "assets");
-const missingAssets = new Set();
-for (const name of readdirSync(distDir)) {
-  if (!name.endsWith(".html")) continue;
-  const html = readFileSync(join(distDir, name), "utf8");
-  for (const match of html.matchAll(/(?:src|href)="\/(assets\/[^"?#]+)"/g)) {
-    if (!existsSync(join(distDir, match[1]))) missingAssets.add(`${name} -> /${match[1]}`);
+const assetsDir = join(staticDir, "assets");
+
+// Hashed filenames differ between the shell pass and the final client pass, so
+// remap references by their logical (unhashed) name before judging the build.
+const HASHED = /^(.*)-[A-Za-z0-9_-]{6,}(\.[A-Za-z0-9]+)$/;
+function assetIndex() {
+  const byLogicalName = new Map();
+  for (const file of existsSync(assetsDir) ? readdirSync(assetsDir) : []) {
+    const m = file.match(HASHED);
+    if (m) byLogicalName.set(m[1] + m[2], file);
   }
+  return byLogicalName;
 }
-if (missingAssets.size) {
-  console.error("[collect-dist] this build is inconsistent — HTML references files that do not exist:");
-  for (const entry of [...missingAssets].sort()) console.error(`  MISS ${entry}`);
-  console.error("Do not deploy it. Delete dist/, .output/ and .wrangler/, then rebuild.");
-  process.exit(1);
+function remapAssetRefs(html) {
+  const byLogicalName = assetIndex();
+  const unresolved = new Set();
+  let out = html.replace(/\/assets\/([^"'?#>\s]+)/g, (full, file) => {
+    if (existsSync(join(assetsDir, file))) return full;
+    const m = file.match(HASHED);
+    const replacement = m ? byLogicalName.get(m[1] + m[2]) : undefined;
+    if (replacement) return `/assets/${replacement}`;
+    unresolved.add(file);
+    return full;
+  });
+  if (unresolved.size) {
+    out = out.replace(/<link\b[^>]*>/g, (tag) =>
+      [...unresolved].some((file) => tag.includes(file)) ? "" : tag,
+    );
+  }
+  // Only refs that survived the link cleanup (i.e. scripts) are fatal.
+  const fatal = new Set([...unresolved].filter((file) => out.includes(`/assets/${file}`)));
+  return { html: out, unresolved: fatal };
+}
+
+// 5b. Consistency gate: every hashed asset referenced by shipped HTML must
+//     exist in this build. This is what catches a mixed build (server bundle
+//     from one pass, assets/ from another) before it can be deployed.
+if (!selfHost) {
+  for (const name of readdirSync(distDir)) {
+    if (!name.endsWith(".html")) continue;
+    const file = join(distDir, name);
+    const { html, unresolved } = remapAssetRefs(readFileSync(file, "utf8"));
+    writeFileSync(file, html);
+    if (unresolved.size) {
+      console.error(`[collect-dist] ${name} references assets that do not exist in this build:`);
+      for (const entry of [...unresolved].sort()) console.error(`  MISS /assets/${entry}`);
+      console.error("Do not deploy it. Delete dist/, .output/ and .wrangler/, then rebuild.");
+      process.exit(1);
+    }
+  }
 }
 console.log(
   `[collect-dist] asset check OK — ${existsSync(assetsDir) ? readdirSync(assetsDir).length : 0} file(s) in assets/`,
@@ -206,38 +254,8 @@ console.log(
 //     src/server.ts replies with it when SSR throws, so the app still loads in
 //     the browser instead of showing a dead error page.
 if (selfHost && shellHtml && existsSync(shellHtml)) {
-  const assetFiles = existsSync(assetsDir) ? readdirSync(assetsDir) : [];
-  const HASHED = /^(.*)-[A-Za-z0-9_-]{6,}(\.[A-Za-z0-9]+)$/;
-  const byLogicalName = new Map();
-  for (const file of assetFiles) {
-    const m = file.match(HASHED);
-    if (m) byLogicalName.set(m[1] + m[2], file);
-  }
-
-  const unresolved = new Set();
-  let html = readFileSync(shellHtml, "utf8").replace(
-    /\/assets\/([^"'?#>\s]+)/g,
-    (full, file) => {
-      if (existsSync(join(assetsDir, file))) return full;
-      const m = file.match(HASHED);
-      const replacement = m ? byLogicalName.get(m[1] + m[2]) : undefined;
-      if (replacement) return `/assets/${replacement}`;
-      unresolved.add(file);
-      return full;
-    },
-  );
-
-  // Drop preload/prefetch/stylesheet tags we could not map — they would only 404.
+  const { html, unresolved } = remapAssetRefs(readFileSync(shellHtml, "utf8"));
   if (unresolved.size) {
-    html = html.replace(/<link\b[^>]*>/g, (tag) =>
-      [...unresolved].some((file) => tag.includes(file)) ? "" : tag,
-    );
-  }
-  const brokenScript = [...unresolved].some((file) =>
-    new RegExp(`<script[^>]*${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(html),
-  );
-
-  if (brokenScript) {
     console.warn(
       "[collect-dist] skipped server/ssr-fallback.html — the shell pass entry script has no match in assets/.",
     );
@@ -270,6 +288,7 @@ writeFileSync(
       fingerprint: fingerprint.toString(16),
       assetCount: existsSync(assetsDir) ? readdirSync(assetsDir).length : 0,
       rendersHtml: selfHost ? "server" : "static-shell",
+      staticRoot: selfHost ? "client" : ".",
     },
     null,
     2,
@@ -463,7 +482,7 @@ const MIME = {
   ".webp": "image/webp", ".woff": "font/woff", ".woff2": "font/woff2",
   ".xml": "application/xml; charset=utf-8",
 };
-const staticRoot = resolve(process.env.STATIC_ROOT ?? here);
+const staticRoot = resolve(process.env.STATIC_ROOT ?? join(here, ${JSON.stringify(selfHost ? "client" : ".")}));
 const BLOCKED = ["server", ".env", "start.mjs", "ecosystem.config.cjs", "deploy-frontend.sh"];
 
 function resolveStatic(pathname) {
@@ -670,11 +689,17 @@ if (existsSync(helper)) {
 }
 
 
-console.log(
-  selfHost
-    ? "[collect-dist] HTML is rendered by the app server — point nginx `location /` at port 8080"
-    : "[collect-dist] static shell: dist/index.html (nginx root)",
-);
+if (selfHost) {
+  console.log(
+    [
+      "[collect-dist] static files live in dist/client (served by the app server).",
+      "[collect-dist] nginx: `location / { proxy_pass http://127.0.0.1:8080; }`",
+      "[collect-dist] nginx (optional direct assets): `root .../frontend/dist/client;`",
+    ].join("\n"),
+  );
+} else {
+  console.log("[collect-dist] static shell: dist/index.html (nginx root)");
+}
 
 console.log("[collect-dist] app server bundle: dist/server (start with `node start.mjs`).");
 
