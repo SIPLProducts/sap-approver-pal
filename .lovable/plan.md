@@ -1,5 +1,11 @@
 # Fix the local self-host build failing its own deploy check
 
+## About the earlier fix
+
+The only app change made for the "Array must contain at most 50/200 elements" issue
+was raising the plant/role limits in `src/lib/admin/user-mgmt.functions.ts`. No build,
+packaging or deployment file was touched, so it is not the cause of this build failure.
+
 ## What is happening
 
 `npm run build:selfhost` builds fine, but the final gate fails:
