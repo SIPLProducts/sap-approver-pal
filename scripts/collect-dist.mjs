@@ -152,6 +152,7 @@ writeFileSync(
     "package-lock.json",
     "start.mjs",
     "deploy-frontend.sh",
+    "check-server-imports.mjs",
     "ecosystem.config.cjs",
     ".env.runtime",
     "node_modules",
@@ -160,6 +161,7 @@ writeFileSync(
     "",
   ].join("\n"),
 );
+
 
 if (!selfHost) rmSync(clientDir, { recursive: true, force: true });
 
