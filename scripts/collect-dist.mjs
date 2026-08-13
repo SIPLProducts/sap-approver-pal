@@ -156,7 +156,7 @@ writeFileSync(
   ].join("\n"),
 );
 
-rmSync(clientDir, { recursive: true, force: true });
+if (!selfHost) rmSync(clientDir, { recursive: true, force: true });
 
 // 4. Remove build-machinery leftovers and local caches.
 for (const name of DROP_AT_ROOT) {
