@@ -254,38 +254,8 @@ console.log(
 //     src/server.ts replies with it when SSR throws, so the app still loads in
 //     the browser instead of showing a dead error page.
 if (selfHost && shellHtml && existsSync(shellHtml)) {
-  const assetFiles = existsSync(assetsDir) ? readdirSync(assetsDir) : [];
-  const HASHED = /^(.*)-[A-Za-z0-9_-]{6,}(\.[A-Za-z0-9]+)$/;
-  const byLogicalName = new Map();
-  for (const file of assetFiles) {
-    const m = file.match(HASHED);
-    if (m) byLogicalName.set(m[1] + m[2], file);
-  }
-
-  const unresolved = new Set();
-  let html = readFileSync(shellHtml, "utf8").replace(
-    /\/assets\/([^"'?#>\s]+)/g,
-    (full, file) => {
-      if (existsSync(join(assetsDir, file))) return full;
-      const m = file.match(HASHED);
-      const replacement = m ? byLogicalName.get(m[1] + m[2]) : undefined;
-      if (replacement) return `/assets/${replacement}`;
-      unresolved.add(file);
-      return full;
-    },
-  );
-
-  // Drop preload/prefetch/stylesheet tags we could not map — they would only 404.
+  const { html, unresolved } = remapAssetRefs(readFileSync(shellHtml, "utf8"));
   if (unresolved.size) {
-    html = html.replace(/<link\b[^>]*>/g, (tag) =>
-      [...unresolved].some((file) => tag.includes(file)) ? "" : tag,
-    );
-  }
-  const brokenScript = [...unresolved].some((file) =>
-    new RegExp(`<script[^>]*${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(html),
-  );
-
-  if (brokenScript) {
     console.warn(
       "[collect-dist] skipped server/ssr-fallback.html — the shell pass entry script has no match in assets/.",
     );
