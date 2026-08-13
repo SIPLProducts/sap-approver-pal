@@ -125,9 +125,9 @@ if (existsSync(publicDir)) {
 }
 
 
-// 3. Point the server bundle at the flattened statics, then drop dist/client.
+// 3. Point the server bundle at the statics it should serve.
 const serverWrangler = join(distDir, "server", "wrangler.json");
-if (existsSync(serverWrangler)) {
+if (existsSync(serverWrangler) && !selfHost) {
   try {
     const cfg = JSON.parse(readFileSync(serverWrangler, "utf8"));
     if (cfg.assets) cfg.assets.directory = "..";
