@@ -360,7 +360,7 @@ if (!existsSync(entry)) {
   process.exit(1);
 }
 
-const REQUIRED = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+const REQUIRED = ["SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"];
 const missingRequired = REQUIRED.filter((key) => !process.env[key]);
 if (missingRequired.length) {
   console.error(
