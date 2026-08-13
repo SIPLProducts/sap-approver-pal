@@ -12,31 +12,28 @@ HTTP server** (`dist/server/index.mjs`) instead of a Cloudflare worker bundle �
 no wrangler, no `workerd` binary, no `.runtime` install, and `process.env` is
 visible to server code (which the SAP middleware callback needs).
 
-Output — a single, clean `dist/` folder. No `.output/`, no `.wrangler/`, no duplicate
-`dist/client/`; the build removes them itself. `dist/` is the only artefact you copy
-to the server.
+Output — a single, clean `dist/` folder. No `.output/`, no `.wrangler/`. `dist/` is
+`the only artefact you copy to the server.
 
 ```text
 dist/
-  assets/                 <- hashed JS/CSS
-  favicon.png
-  manifest.webmanifest
-  sw.js
-  _headers
-  build-info.json         <- build mode + fingerprint (the deploy helper checks it)
+  client/                 <- browser files: hashed JS/CSS in client/assets/,
+  │                          favicon.png, manifest.webmanifest, sw.js
   server/                 <- app server bundle (SSR + all server functions)
-  start.mjs               <- Node HTTP server: loads .env.runtime, serves dist/, calls server/
+  start.mjs               <- Node HTTP server: loads .env.runtime, serves client/, calls server/
+  build-info.json         <- build mode + staticRoot (the deploy helper checks it)
   .env.runtime            <- generated from frontend/.env (server-side keys)
   ecosystem.config.cjs    <- pm2 config (name Qty_App, port 8080)
   deploy-frontend.sh      <- one-command bring-up + checks
+  check-server-imports.mjs <- server bundle completeness check
 ```
 
 > There is **no static `index.html`** in a self-host build, and that is deliberate.
 > A static shell is produced by a different Vite pass than `assets/`, so its hashed
-> `<script>` names do not exist in the final `assets/` folder — that combination is
+> `<script>` names do not exist in the final `client/assets/` folder — that combination is
 > exactly what causes "404 on every `/assets/*.js`" in the browser. The app server
-> renders the HTML, so nginx must proxy `location /` to 8080 (see §5) instead of
-> using `try_files ... /index.html`.
+> renders the HTML and serves the assets, so nginx must proxy **all** of `/_serverFn/`,
+> `/api/`, `/assets/`, `/sw.js`, `/manifest.webmanifest` and `/` to 8080 (see §5).
 >
 > `dist/server` must run: SAP login, PR/PO/ZNFA release, MIGO, user management,
 > e-mail and push are server functions at `/_serverFn/*` (plus `/api/*`).
