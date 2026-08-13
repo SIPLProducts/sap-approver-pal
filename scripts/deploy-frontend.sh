@@ -38,7 +38,7 @@ die()   { printf '\n   FAIL %s\n\n' "$1"; exit 1; }
 printf 'App server deploy helper\n  folder : %s\n  port   : %s\n  pm2    : %s\n' "$HERE" "$PORT" "$PM2_NAME"
 # ---------------------------------------------------------------------------
 step "1/7 Checking the deployed folder"
-HELPER_REV="2026-08-11c"
+HELPER_REV="2026-08-13a"
 ok "deploy helper revision: $HELPER_REV"
 for f in server/index.mjs start.mjs build-info.json; do
   [ -e "$f" ] || die "$f is missing — this dist/ folder is incomplete or stale. Rebuild with 'npm run build:selfhost', package it with 'npm run package:dist', then extract the WHOLE archive into an EMPTY dist/ folder."
@@ -51,6 +51,13 @@ if [ "$MODE" != "selfhost-node" ]; then
   die "this dist/ was built with 'npm run build' (mode: ${MODE:-unknown}). The self-hosted app server needs 'npm run build:selfhost'."
 fi
 
+# The static root is declared by the build, not guessed: self-host bundles keep
+# every browser file under dist/client, worker bundles use dist/ itself.
+STATIC_ROOT="$(sed -n 's/.*"staticRoot"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' build-info.json | head -n1)"
+[ -n "$STATIC_ROOT" ] || STATIC_ROOT="client"
+[ -d "$STATIC_ROOT/assets" ] || die "$STATIC_ROOT/assets is missing — this dist/ folder is incomplete. Extract the whole archive into an EMPTY dist/."
+ok "static root: $STATIC_ROOT/ ($(ls -1 "$STATIC_ROOT/assets" | wc -l | tr -d ' ') asset file(s))"
+
 # In self-host mode the app server renders every page. A static index.html here
 # is always a leftover from an older build, and nginx will happily serve it —
 # which is exactly how the browser ends up 404ing on hashed asset files.
@@ -62,14 +69,15 @@ ok "no stale static index.html"
 # A mixed folder (HTML from one build, assets/ from another) is the classic
 # cause of "404 on every /assets/*.js" in the browser. Refuse to start it.
 miss=0
-for html in *.html; do
+for html in "$STATIC_ROOT"/*.html; do
   [ -e "$html" ] || continue
   for ref in $(grep -ao 'assets/[^"]*\.\(js\|css\)' "$html" | sort -u); do
-    if [ ! -f "$ref" ]; then printf '   MISS %s -> %s\n' "$html" "$ref"; miss=1; fi
+    if [ ! -f "$STATIC_ROOT/$ref" ]; then printf '   MISS %s -> %s\n' "$html" "$ref"; miss=1; fi
   done
 done
 [ "$miss" = "0" ] || die "this dist/ is inconsistent: HTML references asset files that are not here. Rebuild and redeploy the whole folder as one unit."
 ok "no dangling asset references"
+
 
 
 # ---------------------------------------------------------------------------
