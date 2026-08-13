@@ -136,79 +136,191 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-## 3. Nginx (listens on 8081)
+## 3. Nginx (listens on 8081, proxies to the app server on 8080)
+
+Copy the maintained config file to the server and reload Nginx:
+
+```bash
+cp deploy/quality/nginx/resl-approval-quality-8081.conf \
+   /etc/nginx/conf.d/resl-approval-quality-8081.conf
+nginx -t && systemctl reload nginx
+```
+
+The config below is the same file. It intentionally has **no `root` directive** and
+proxies every browser path — pages, `/_serverFn/`, `/api/`, `/assets/`, `/sw.js`, and
+`/manifest.webmanifest` — to the app server on 8080. Nginx serving `/assets/` from
+disk is the root cause of the unstyled login page and the `Failed to fetch dynamically
+imported module` error.
 
 ```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+upstream supabase_api    { server 127.0.0.1:8000; keepalive 16; }
+upstream supabase_studio { server 127.0.0.1:3000; }
+upstream middleware_api  { server 127.0.0.1:3002; keepalive 16; }
+upstream app_server      { server 127.0.0.1:8080; keepalive 16; }
+
 server {
     listen 8081;
     server_name 10.150.150.130;
 
-    client_max_body_size 50m;
-    proxy_read_timeout 300s;
-    proxy_send_timeout 300s;
+    # No `root` directive. The app server renders every page and serves every
+    # browser asset. Serving assets from disk would use a dist/assets/ path that
+    # no longer exists in this self-host build.
+    server_tokens off;
+    client_max_body_size 50M;
 
-    # No `root`/`index` here: the app server renders the HTML and serves
-    # /assets/ itself with immutable caching. Serving a stale static index.html
-    # from disk is what produced the "404 on every /assets/*.js" failure.
+    access_log /data/webapplication/resl_approval/Quality/logs/access.log;
+    error_log  /data/webapplication/resl_approval/Quality/logs/error.log;
 
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
 
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 5;
+    gzip_types text/plain text/css application/json application/javascript image/svg+xml;
 
     # server functions + API routes -> app server (SAP, login, e-mail, push)
     location /_serverFn/ {
-        proxy_pass http://127.0.0.1:8080;
+        proxy_pass http://app_server;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
         proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_request_buffering off;
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://app_server;
         proxy_http_version 1.1;
-        proxy_read_timeout 300s;
-    }
-
-    # middleware (SAP proxy)
-    location /mw/ {
-        proxy_pass http://127.0.0.1:3002/;
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
         proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_request_buffering off;
     }
 
     # Supabase API gateway (Kong)
     location /supabase/ {
-        proxy_pass http://127.0.0.1:8000/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_pass http://supabase_api/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-
-    # Supabase Studio
-    location /studio/ {
-        proxy_pass http://127.0.0.1:3000/;
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    # everything else (pages + /assets/) -> app server on 8080
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+    }
+
+    # Supabase Studio (basic auth required)
+    location /studio/ {
+        auth_basic "RESL Quality Studio";
+        auth_basic_user_file /etc/nginx/.htpasswd-studio;
+        proxy_pass http://supabase_studio/;
         proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
         proxy_read_timeout 300s;
     }
 
+    # SAP middleware
+    location /mw/ {
+        proxy_pass http://middleware_api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection keep-alive;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header Cache-Control "no-store" always;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        send_timeout 300s;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
 
+    # hashed build assets -> app server (never disk)
+    location /assets/ {
+        proxy_pass http://app_server;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+
+    # service worker / manifest -> app server, never cache
+    location = /sw.js {
+        proxy_pass http://app_server;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        add_header Cache-Control "no-store" always;
+    }
+    location = /manifest.webmanifest {
+        proxy_pass http://app_server;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        add_header Cache-Control "no-store" always;
+    }
+
+    # everything else (pages) -> app server on 8080
+    location / {
+        proxy_pass http://app_server;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+    }
 }
 ```
 
