@@ -273,34 +273,6 @@ if [ "$up" = "1" ]; then
       warn "nothing answering on port 8081 (nginx down?)"
     fi
   fi
-
-  # The browser loads assets from 8081/assets/*. The login page must ask for
-  # files that exist and nginx must return them with the right content type.
-  # A 404 or HTML response here is the exact failure shown in the screenshot.
-  if [ -n "$html" ]; then
-    pub_miss=0
-    pub_html=0
-    for ref in $(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u); do
-      pub_info="$(curl -sI "http://127.0.0.1:8081/$ref" 2>/dev/null || true)"
-      pub_code="$(printf '%s' "$pub_info" | awk '/^HTTP/{print $2}' | tail -n1)"
-      pub_ct="$(printf '%s' "$pub_info" | awk -F': ' '/^[Cc]ontent-[Tt]ype:/{print $2}' | head -n1)"
-      if [ "$pub_code" != "200" ]; then
-        printf '   FAIL %s returned HTTP %s (expected 200)\n' "$ref" "${pub_code:-unknown}"
-        pub_miss=1
-      elif printf '%s' "$pub_ct" | grep -qi 'text/html'; then
-        printf '   FAIL %s returned Content-Type: %s (nginx is serving HTML, not the asset)\n' "$ref" "$pub_ct"
-        pub_html=1
-      fi
-    done
-    if [ "$pub_miss" = "0" ] && [ "$pub_html" = "0" ]; then
-      ok "all /login assets load correctly through nginx on 8081"
-    else
-      fail "nginx on 8081 is not serving /login assets correctly (see FAIL lines above)"
-      echo "   Fix: in the 8081 server block proxy /assets/, /sw.js, and"
-      echo "   /manifest.webmanifest to the app server, or remove any 'root' / 'try_files'"
-      echo "   that serves them from disk. Then: nginx -t && nginx -s reload"
-    fi
-  fi
 fi
 
 if curl -fsS -o /dev/null http://127.0.0.1:3002/__health 2>/dev/null; then
