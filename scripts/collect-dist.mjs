@@ -498,7 +498,7 @@ const MIME = {
   ".xml": "application/xml; charset=utf-8",
 };
 const staticRoot = resolve(process.env.STATIC_ROOT ?? join(here, ${JSON.stringify(selfHost ? "client" : ".")}));
-const BLOCKED = ["server", ".env", "start.mjs", "ecosystem.config.cjs", "deploy-frontend.sh"];
+const BLOCKED = ["server", ".env", "start.mjs", "ecosystem.config.cjs", "deploy-frontend.sh", "check-server-imports.mjs"];
 
 function resolveStatic(pathname) {
   let decoded;
