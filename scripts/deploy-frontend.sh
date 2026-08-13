@@ -234,7 +234,13 @@ if [ "$up" = "1" ]; then
       curl -s "http://127.0.0.1:$PORT/login" 2>/dev/null | head -n 15 | sed 's/^/   /'
     fi
   else
+    if printf '%s' "$html" | grep -qi 'Missing Supabase environment variable'; then
+      fail "/login rendered 'Missing Supabase environment variable' — this dist/ was built without VITE_SUPABASE_PUBLISHABLE_KEY"
+      echo "   Rebuild it: add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to"
+      echo "   $(cd .. && pwd)/.env, then 'rm -rf dist && npm run build:selfhost' and redeploy."
+    fi
     lmiss=0
+
     refs="$(printf '%s' "$html" | grep -ao 'assets/[^"]*\.\(js\|css\)' | sort -u)"
     for ref in $refs; do
       if [ ! -f "$ref" ]; then printf '   MISS /%s\n' "$ref"; lmiss=1; fi
