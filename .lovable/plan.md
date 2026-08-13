@@ -1,80 +1,70 @@
-# Quality login: "Missing SUPABASE_PUBLISHABLE_KEY" — confirm the cause, then fence it off
+# Confirmed: the deployed `dist/` was built without `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-Your `frontend/.env` does contain both `SUPABASE_PUBLISHABLE_KEY` and
-`VITE_SUPABASE_PUBLISHABLE_KEY`, so the file itself is not the problem. That
-means the key is not reaching the running app server — and there are three
-places it can get lost. The cause is not yet confirmed, so step 1 is a
-30-second check on the server, not a code change.
+Your three checks settle it:
 
-## How the key is supposed to travel
+- `dist/.env.runtime` has `SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJI…`
+- the launcher reports `[start] env present: … SUPABASE_PUBLISHABLE_KEY …`
 
-```text
-frontend/.env
-   |  (deploy-frontend.sh step 3 copies it)
-   v
-dist/.env.runtime
-   |  (dist/start.mjs loads it into process.env)
-   v
-app server on 8080  ->  SSR reads process.env.SUPABASE_PUBLISHABLE_KEY
-   |  (build time only)
-   v
-browser bundle      <-  VITE_SUPABASE_PUBLISHABLE_KEY baked by `npm run build:selfhost`
-```
+So the **server** side has the key. The value that is missing is the one baked
+into the **browser bundle** at build time. The Supabase client reads
+`import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY` first and only falls back to
+`process.env` — and `process.env` does not exist in a browser, so once the
+baked value is empty the client throws exactly the message on your screen, and
+the app renders its error boundary (unstyled, because it fails during boot).
 
-## Step 1 — three commands on the Quality box
+In short: the `dist/` currently on the server was produced by a build run whose
+`.env` did not contain `VITE_SUPABASE_PUBLISHABLE_KEY` (only the non-`VITE_`
+names). Editing `.env` or `.env.runtime` afterwards cannot fix it — that value
+is compiled in, not read at runtime.
+
+## Step 1 — get Quality working now
+
+On the machine where you build (the Quality box is fine, its `.env` already has
+the `VITE_` lines):
 
 ```bash
 cd /data/webapplication/resl_approval/Quality/frontend
-grep -c '^SUPABASE_PUBLISHABLE_KEY=' dist/.env.runtime      # expect 1
-grep -o '^SUPABASE_PUBLISHABLE_KEY=.\{0,12\}' dist/.env.runtime
-pm2 logs Qty_App --lines 40 --nostream | grep '\[start\] env'
+grep '^VITE_SUPABASE' .env          # both VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY must be non-empty
+rm -rf dist .output .wrangler
+npm run build:selfhost
+cd dist && bash deploy-frontend.sh
 ```
 
-The launcher prints `[start] env present: …` and `[start] env absent: …` on
-every boot. Which list contains `SUPABASE_PUBLISHABLE_KEY` tells us the answer:
+The rebuild is the fix; the fresh empty `dist/` prevents any mixing with the
+current broken bundle.
 
-- **absent in `dist/.env.runtime`** — the running `dist/` predates the `.env`
-  edit; re-run `cd dist && bash deploy-frontend.sh` to regenerate it.
-- **present in `.env.runtime` but listed as absent by `[start]`** — the pm2
-  process is an old one holding stale env: `pm2 restart Qty_App --update-env`.
-- **listed as present, yet `/login` still errors** — then the failing read is
-  the browser bundle, i.e. the deployed `dist/` was built on a machine where
-  `VITE_SUPABASE_PUBLISHABLE_KEY` was not set. Fix: rebuild on the Quality box
-  (or any machine whose `.env` has the `VITE_` line) with
-  `npm run build:selfhost` and replace the whole `dist/`.
+## Step 2 — make this impossible to ship again
 
-Send me the output of those three commands and I will confirm which branch it
-is before any code is touched.
-
-## Step 2 — code changes so this cannot silently ship again
-
-Regardless of which branch it turns out to be, the pipeline currently lets a
-build with no publishable key pass every gate and fail only in the browser:
-
-1. `scripts/collect-dist.mjs`
+1. `scripts/build.mjs`
+   - before either Vite pass, read `.env` / `.env.production` and abort with a
+     clear message when `VITE_SUPABASE_URL` or `VITE_SUPABASE_PUBLISHABLE_KEY`
+     is missing or empty, naming the file to edit and that the value equals the
+     self-hosted `ANON_KEY`. This is the only gate that can catch a build-time
+     value, so it must fail the build, not warn.
+2. `scripts/collect-dist.mjs`
    - treat `SUPABASE_PUBLISHABLE_KEY` (accepting the existing
      `VITE_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_ANON_KEY` aliases) as a
-     must-have when baking `dist/.env.runtime`, and **fail the build** instead
-     of warning when a must-have is empty
-   - also fail when `VITE_SUPABASE_PUBLISHABLE_KEY` was not available at build
-     time, since that value can only be baked in, never fixed on the server
-2. the launcher generated into `dist/start.mjs` (same script)
-   - add `SUPABASE_PUBLISHABLE_KEY` to its `REQUIRED` list, so the app server
-     refuses to start rather than serving "Something went wrong"
-3. `scripts/deploy-frontend.sh`
-   - add `SUPABASE_PUBLISHABLE_KEY` to the validated keys in step 3
-   - in step 7, fail the run when the fetched `/login` HTML contains
-     `Missing Supabase environment variable`, and print the launcher's
-     `[start] env absent` line so the cause is on screen
-4. `scripts/verify-dist.mjs`
-   - after the boot test, fail when `/login` HTML contains
-     `Missing Supabase environment variable` or `Something went wrong`
+     must-have when baking `dist/.env.runtime`, and fail instead of warning
+   - add `SUPABASE_PUBLISHABLE_KEY` to the generated launcher's `REQUIRED`
+     list so the app server never boots half-configured
+   - scan the emitted `assets/*.js` for the baked publishable key and fail the
+     build when no chunk contains it — this catches a bundle built with an
+     empty `VITE_` value even if `.env` looked right
+3. `scripts/verify-dist.mjs`
+   - after the existing boot test, fail when the fetched `/login` HTML contains
+     `Missing Supabase environment variable`
+   - fail when no JS chunk contains the publishable key, using the same scan
+4. `scripts/deploy-frontend.sh`
+   - validate `SUPABASE_PUBLISHABLE_KEY` in step 3 alongside the other keys
+   - in step 7, fail the run when `/login` contains
+     `Missing Supabase environment variable`, and print the guidance that this
+     specific failure means "rebuild — the browser bundle lacks the key"
 5. `.env.quality.example` / `.env.prod.example`
-   - document both names, noting the value is the self-hosted `ANON_KEY` and
-     that the `VITE_` one is required **at build time**
+   - list both names with a note that the `VITE_` pair is required **at build
+     time** and the plain pair at runtime
 
 ## Notes
 
 - No UI or business-logic changes; build, launcher, and deploy validation only.
-- `SUPABASE_SERVICE_ROLE_KEY` stays server-side; the publishable/anon key is
-  meant to be in the browser bundle.
+- The publishable/anon key is designed to be visible in the browser bundle;
+  the service-role key stays server-only and is never baked in.
