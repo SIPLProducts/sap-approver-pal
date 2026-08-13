@@ -482,7 +482,7 @@ const MIME = {
   ".webp": "image/webp", ".woff": "font/woff", ".woff2": "font/woff2",
   ".xml": "application/xml; charset=utf-8",
 };
-const staticRoot = resolve(process.env.STATIC_ROOT ?? here);
+const staticRoot = resolve(process.env.STATIC_ROOT ?? join(here, ${JSON.stringify(selfHost ? "client" : ".")}));
 const BLOCKED = ["server", ".env", "start.mjs", "ecosystem.config.cjs", "deploy-frontend.sh"];
 
 function resolveStatic(pathname) {
