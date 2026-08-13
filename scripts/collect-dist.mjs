@@ -93,9 +93,12 @@ if (existsSync(clientDir)) {
     copyInto(from, join(distDir, name));
     copied.push(statSync(from).isDirectory() ? `${name}/` : name);
   }
-} else {
+} else if (!existsSync(join(distDir, "assets"))) {
   console.warn("[collect-dist] warning: no static client folder found in dist/.");
+} else {
+  console.log("[collect-dist] statics already at dist/ root (no dist/client to flatten).");
 }
+
 
 // 2. Add anything from public/ that the build did not emit (robots.txt, sitemap.xml, ...).
 const publicDir = join(root, "public");
