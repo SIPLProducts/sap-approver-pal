@@ -153,6 +153,21 @@ if [ "$REINSTALL" = "1" ]; then
 fi
 ok "server/index.mjs present (plain Node server — no npm install required)"
 
+# The server bundle is code-split and some chunks are imported lazily, so a
+# missing one does NOT stop the process from booting — SSR then throws
+# ERR_MODULE_NOT_FOUND on the first page render. Catch that BEFORE pm2 is
+# restarted, so a broken upload never replaces a working app server.
+if [ -f check-server-imports.mjs ]; then
+  if node check-server-imports.mjs server; then
+    ok "server bundle complete (every imported chunk present)"
+  else
+    die "the server bundle is INCOMPLETE (see the MISS lines above). The running app server was left untouched. Rebuild with 'npm run build:selfhost', package with 'npm run package:dist', and extract that ONE archive into an EMPTY dist/."
+  fi
+else
+  warn "check-server-imports.mjs not in this folder — rebuild to get the completeness check"
+fi
+
+
 # ---------------------------------------------------------------------------
 step "5/7 Launcher syntax"
 if node --check start.mjs; then ok "start.mjs parses"; else die "start.mjs has a syntax error — redeploy a freshly built dist/."; fi
