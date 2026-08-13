@@ -288,6 +288,7 @@ writeFileSync(
       fingerprint: fingerprint.toString(16),
       assetCount: existsSync(assetsDir) ? readdirSync(assetsDir).length : 0,
       rendersHtml: selfHost ? "server" : "static-shell",
+      staticRoot: selfHost ? "client" : ".",
     },
     null,
     2,
