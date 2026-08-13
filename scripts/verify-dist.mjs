@@ -231,13 +231,18 @@ if (problems.length === 0 && info?.mode === "selfhost-node") {
       bad(`/login returned HTTP ${response.status} from the built server`);
     } else if (!/<html/i.test(body)) {
       bad("/login did not return an HTML document");
+    } else if (response.headers.get("x-ssr-fallback")) {
+      // The client-boot shell hides a real SSR crash (typically a missing
+      // server chunk). A build that cannot server-render its own login page
+      // must never be packaged.
+      bad(
+        "/login was served by the client-boot fallback, not real SSR — the server bundle " +
+          "throws while rendering (see the log below)",
+      );
     } else {
-      ok(`/login served HTTP ${response.status} by the built server`);
-      if (response.headers.get("x-ssr-fallback")) {
-        notes.push("/login came from the client-boot fallback, not real SSR");
-        console.log("   NOTE /login used the client-boot fallback (SSR threw) — see the log below");
-      }
+      ok(`/login server-rendered HTTP ${response.status} by the built server`);
     }
+
 
     const firstAsset = existsSync(assetsDir)
       ? readdirSync(assetsDir).find((f) => f.endsWith(".js"))
