@@ -20,7 +20,7 @@
  * Pure Node, no extra dependencies, works the same on Windows and Linux.
  */
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = resolve(process.cwd());
@@ -66,7 +66,59 @@ function clean() {
   }
 }
 
+// -------------------------------------------------- build-time env gate
+// VITE_* values are COMPILED INTO the browser bundle. A build without them
+// produces a dist/ that boots to "Missing Supabase environment variable(s)"
+// in the browser, and no amount of .env / .env.runtime editing on the server
+// can repair it. This is the only place that can catch it, so it must fail.
+function readEnvFile(file) {
+  const out = {};
+  if (!existsSync(file)) return out;
+  for (const rawLine of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq < 1) continue;
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    out[line.slice(0, eq).trim()] = value;
+  }
+  return out;
+}
+
+const buildEnv = {
+  ...readEnvFile(join(root, ".env")),
+  ...readEnvFile(join(root, ".env.production")),
+};
+const missingViteEnv = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"].filter(
+  (key) => !(process.env[key] || buildEnv[key]),
+);
+if (missingViteEnv.length) {
+  console.error(
+    [
+      `[build] cannot build: ${missingViteEnv.join(", ")} is missing or empty.`,
+      "",
+      `These values are compiled into the browser bundle, so they must exist NOW —`,
+      "adding them after the build does not help.",
+      "",
+      `Add them to ${join(root, ".env")}:`,
+      "  VITE_SUPABASE_URL=http://<your-supabase-host>:8000",
+      "  VITE_SUPABASE_PUBLISHABLE_KEY=<the ANON_KEY from your self-hosted supabase/.env>",
+      "",
+      "Then delete dist/ and build again.",
+    ].join("\n"),
+  );
+  process.exit(1);
+}
+console.log("[build] build-time env OK (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY present)");
+
 // ---------------------------------------------------------------- shell pass
+
 clean();
 runVite("shell", { TSS_SHELL_PASS: "1" });
 

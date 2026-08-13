@@ -112,6 +112,37 @@ if (existsSync(join(distDir, "node_modules"))) {
   bad("node_modules/ inside dist/ — remove it, runtime deps are already bundled");
 }
 
+// ------------------------------- 3b. baked Supabase publishable key (browser)
+// The browser reads import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, which is
+// compiled in. When it is absent the app loads and immediately shows
+// "Missing Supabase environment variable(s): SUPABASE_PUBLISHABLE_KEY" —
+// unfixable on the server, so catch it before the folder leaves this machine.
+const runtimeEnvPath = join(distDir, ".env.runtime");
+if (existsSync(runtimeEnvPath) && existsSync(assetsDir)) {
+  const line = readFileSync(runtimeEnvPath, "utf8")
+    .split(/\r?\n/)
+    .find((l) => l.startsWith("SUPABASE_PUBLISHABLE_KEY="));
+  const key = line
+    ? line.slice("SUPABASE_PUBLISHABLE_KEY=".length).trim().replace(/^["']|["']$/g, "")
+    : "";
+  if (!key && info?.mode === "selfhost-node") {
+    bad("dist/.env.runtime has no SUPABASE_PUBLISHABLE_KEY — the app server cannot reach the backend");
+  } else if (key) {
+
+    const needle = key.slice(0, 40);
+    const baked = readdirSync(assetsDir)
+      .filter((name) => name.endsWith(".js"))
+      .some((name) => readFileSync(join(assetsDir, name), "utf8").includes(needle));
+    if (baked) ok("browser bundle carries the Supabase publishable key");
+    else
+      bad(
+        "no JS chunk contains the Supabase publishable key — this bundle was built without " +
+          "VITE_SUPABASE_PUBLISHABLE_KEY. Set it in .env, delete dist/, and rebuild.",
+      );
+  }
+}
+
+
 // ------------------------------------------------- 4. React runtime sanity
 // `jsxDevRuntimeExports.jsxDEV is not a function` at render time comes from a
 // development JSX runtime inside a production React bundle. Catch it statically.
@@ -193,6 +224,11 @@ if (problems.length === 0 && info?.mode === "selfhost-node") {
       bad(`/login returned HTTP ${response.status} from the built server`);
     } else if (!/<html/i.test(body)) {
       bad("/login did not return an HTML document");
+    } else if (/Missing Supabase environment variable/i.test(body)) {
+      bad(
+        "/login rendered 'Missing Supabase environment variable' — the browser bundle was built " +
+          "without VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY. Set them in .env and rebuild.",
+      );
     } else {
       ok(`/login served HTTP ${response.status} by the built server`);
       if (response.headers.get("x-ssr-fallback")) {
@@ -200,6 +236,7 @@ if (problems.length === 0 && info?.mode === "selfhost-node") {
         console.log("   NOTE /login used the client-boot fallback (SSR threw) — see the log below");
       }
     }
+
 
     // Probe several statics: one lucky asset must not mask a path mismatch.
     const jsAssets = existsSync(assetsDir)
