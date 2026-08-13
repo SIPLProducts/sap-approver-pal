@@ -223,7 +223,9 @@ function remapAssetRefs(html) {
       [...unresolved].some((file) => tag.includes(file)) ? "" : tag,
     );
   }
-  return { html: out, unresolved };
+  // Only refs that survived the link cleanup (i.e. scripts) are fatal.
+  const fatal = new Set([...unresolved].filter((file) => out.includes(`/assets/${file}`)));
+  return { html: out, unresolved: fatal };
 }
 
 // 5b. Consistency gate: every hashed asset referenced by shipped HTML must
