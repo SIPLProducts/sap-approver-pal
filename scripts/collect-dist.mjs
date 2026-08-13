@@ -8,11 +8,8 @@
  *   .output/public + .output/server  (fallback seen on some machines/Windows)
  *
  * Result:
- *   dist/
- *     assets/ templates/ favicon.ico sitemap.xml sw.js ...  (flattened statics)
- *     server/    <- app server bundle (npm start)
- *     .assetsignore
- *   ...and no .output/, no .wrangler/, no dist/client duplicate.
+ *   worker:    dist/assets + dist/server (flattened statics)
+ *   self-host: dist/client/assets + dist/server (Node static root preserved)
  *
  * Pure Node, no dependencies, safe on Windows and Linux.
  */
@@ -112,6 +109,14 @@ if (selfHost) {
   console.warn("[collect-dist] warning: no static client folder found in dist/.");
 }
 
+// A root-level assets folder in a self-host package is always stale or from a
+// mixed collector version. The generated Nitro server is compiled to read its
+// public files from dist/client, so never let both layouts coexist.
+if (selfHost && existsSync(join(distDir, "assets"))) {
+  rmSync(join(distDir, "assets"), { recursive: true, force: true });
+  console.log("[collect-dist] removed stale dist/assets (self-host uses dist/client/assets)");
+}
+
 // 2. Add anything from public/ that the build did not emit (robots.txt, sitemap.xml, ...).
 const publicDir = join(root, "public");
 if (existsSync(publicDir)) {
@@ -195,6 +200,12 @@ if (!selfHost && !existsSync(join(distDir, "index.html"))) {
 }
 
 const assetsDir = join(staticDir, "assets");
+if (selfHost && (!existsSync(assetsDir) || readdirSync(assetsDir).length === 0)) {
+  console.error(
+    "[collect-dist] dist/client/assets is missing or empty — refusing to create a mixed self-host build.",
+  );
+  process.exit(1);
+}
 
 // Hashed filenames differ between the shell pass and the final client pass, so
 // remap references by their logical (unhashed) name before judging the build.
@@ -296,7 +307,9 @@ writeFileSync(
 );
 console.log("[collect-dist] build fingerprint: dist/build-info.json");
 
-console.log(`[collect-dist] dist/ ready — ${copied.length} static item(s) at the root:`);
+console.log(
+  `[collect-dist] dist/ ready — ${copied.length} static item(s) in ${selfHost ? "client/" : "the root"}:`,
+);
 console.log("  " + copied.sort().join("  "));
 console.log("[collect-dist] final dist/ listing:");
 for (const name of readdirSync(distDir).sort()) {
