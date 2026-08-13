@@ -360,22 +360,25 @@ curl -I http://127.0.0.1:8081/login    # what the browser gets (nginx)
 After any fix, test in a private/incognito window — the old service worker (`sw.js`)
 and HTTP cache will otherwise keep replaying the broken page.
 
-### The browser 404s on `/assets/*.js`
+### The browser 404s on `/assets/*.js` or shows "Failed to fetch dynamically imported module"
 
-The deployed folder is a mix of two builds, or nginx is still serving an old
-static `index.html`. Rebuild and replace the folder as one unit:
+The deployed folder is a mix of two builds, or nginx is still serving `/assets/`
+from disk instead of proxying it to the app server. Rebuild and replace the folder
+as one unit:
 
 ```bash
 # build machine
 rm -rf dist .output .wrangler && npm run build:selfhost && npm run package:dist
 ```
 
-Then ship the archive as in §2 and confirm nginx has
-`location / { proxy_pass http://127.0.0.1:8080; }` (§3) and no
-`try_files ... /index.html`. `bash deploy-frontend.sh` now fails up front on a
-stale root `index.html`, a missing `build-info.json`, dangling asset references,
-a `/login` that returns 500, and an nginx that serves `/login` statically —
-instead of letting any of them reach the browser.
+Then ship the archive as in §2 and confirm nginx has no `root` directive, no
+`location /assets/` with `try_files`, and all of `/`, `/_serverFn/`, `/api/`,
+`/assets/`, `/sw.js`, and `/manifest.webmanifest` are proxied to `127.0.0.1:8080`.
+
+`bash deploy-frontend.sh` now fails up front on a stale root `index.html`, a
+missing `build-info.json`, dangling asset references, a `/login` that returns 500,
+and an nginx that serves `/login` or `/assets/*` statically — instead of letting
+any of them reach the browser.
 
 
 ### Nothing answers on port 8080
