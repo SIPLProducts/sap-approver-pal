@@ -63,8 +63,8 @@ export const createUser = createServerFn({ method: "POST" })
     status: z.enum(["Active", "Inactive"]).default("Active"),
     mode: z.enum(["invite", "password"]),
     password: z.string().min(8).max(200).optional(),
-    plants: z.array(z.string().min(1).max(20)).max(50).default([]),
-    roles: z.array(z.enum(APP_ROLES)).max(50).default([]),
+    plants: z.array(z.string().min(1).max(20)).max(5000).default([]),
+    roles: z.array(z.enum(APP_ROLES)).max(5000).default([]),
   }).refine((v) => v.mode !== "password" || !!v.password, {
     message: "Password is required when setting a password",
     path: ["password"],
@@ -152,7 +152,7 @@ export const inviteUser = createServerFn({ method: "POST" })
     email: z.string().email().max(200),
     full_name: z.string().min(1).max(200),
     role: z.enum(APP_ROLES).optional(),
-    plants: z.array(z.string().min(1).max(20)).max(50).optional(),
+    plants: z.array(z.string().min(1).max(20)).max(5000).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -227,11 +227,11 @@ export const createUserViaSap = createServerFn({ method: "POST" })
     password: z.string().min(8).max(200),
     confirm_password: z.string().min(8).max(200),
     status: z.enum(["Active", "Inactive"]).default("Active"),
-    plants: z.array(z.string().min(1).max(20)).min(1).max(50),
+    plants: z.array(z.string().min(1).max(20)).min(1).max(5000),
     roles: z.array(z.object({
       plant: z.string().trim().min(1).max(20),
       role: z.string().trim().min(1).max(60),
-    })).min(1).max(200),
+    })).min(1).max(50000),
   }).refine((v) => v.password === v.confirm_password, {
     message: "Passwords do not match",
     path: ["confirm_password"],
@@ -305,7 +305,7 @@ export const createUserViaSap = createServerFn({ method: "POST" })
 export const listRolesForPlants = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
-    plants: z.array(z.string().min(1).max(20)).min(1).max(50),
+    plants: z.array(z.string().min(1).max(20)).min(1).max(5000),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -752,11 +752,11 @@ export const editUserViaSap = createServerFn({ method: "POST" })
     password: z.string().max(200).optional().default(""),
     confirm_password: z.string().max(200).optional().default(""),
     status: z.enum(["Active", "Inactive"]).default("Active"),
-    plants: z.array(z.string().min(1).max(20)).min(1).max(50),
+    plants: z.array(z.string().min(1).max(20)).min(1).max(5000),
     roles: z.array(z.object({
       plant: z.string().trim().min(1).max(20),
       role: z.string().trim().min(1).max(60),
-    })).min(1).max(200),
+    })).min(1).max(50000),
   }).refine((v) => !v.password || v.password === v.confirm_password, {
     message: "Passwords do not match",
     path: ["confirm_password"],
