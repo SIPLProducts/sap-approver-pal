@@ -201,18 +201,26 @@ if (problems.length === 0 && info?.mode === "selfhost-node") {
       }
     }
 
-    const firstAsset = existsSync(assetsDir)
-      ? readdirSync(assetsDir).find((f) => f.endsWith(".js"))
-      : undefined;
-    if (firstAsset) {
+    // Probe several statics: one lucky asset must not mask a path mismatch.
+    const jsAssets = existsSync(assetsDir)
+      ? readdirSync(assetsDir).filter((f) => f.endsWith(".js"))
+      : [];
+    const probes = [
+      ...[jsAssets[0], jsAssets[Math.floor(jsAssets.length / 2)], jsAssets.at(-1)]
+        .filter(Boolean)
+        .map((f) => `/assets/${f}`),
+      ...(existsSync(join(distDir, "manifest.webmanifest")) ? ["/manifest.webmanifest"] : []),
+    ];
+    for (const path of [...new Set(probes)]) {
       try {
-        const assetRes = await fetch(`http://127.0.0.1:${port}/assets/${firstAsset}`);
-        if (assetRes.ok) ok(`served /assets/${firstAsset}`);
-        else bad(`/assets/${firstAsset} returned HTTP ${assetRes.status}`);
+        const assetRes = await fetch(`http://127.0.0.1:${port}${path}`);
+        if (assetRes.ok) ok(`served ${path}`);
+        else bad(`${path} returned HTTP ${assetRes.status}`);
       } catch {
-        bad(`could not fetch /assets/${firstAsset} from the running server`);
+        bad(`could not fetch ${path} from the running server`);
       }
     }
+
   }
 
   if (!exited) child.kill("SIGTERM");
