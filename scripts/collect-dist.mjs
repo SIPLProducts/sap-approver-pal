@@ -85,8 +85,23 @@ if (hasOutputLayout) {
 const clientDir = join(distDir, "client");
 const copied = [];
 
-// 1. Flatten the static client files into dist/ root.
-if (existsSync(clientDir)) {
+// Self-host (Node app server) keeps dist/client as the static root, because the
+// server bundle was built with that public directory. Flattening it away and
+// deleting dist/client is what made every /assets/*.js request 500.
+const selfHost = process.env.SELF_HOST === "1";
+const staticDir = selfHost ? clientDir : distDir;
+
+// 1. Flatten the static client files into dist/ root (worker builds only).
+if (selfHost) {
+  if (!existsSync(clientDir)) {
+    console.error("[collect-dist] dist/client is missing — the client pass did not run.");
+    process.exit(1);
+  }
+  for (const name of readdirSync(clientDir)) {
+    copied.push(statSync(join(clientDir, name)).isDirectory() ? `${name}/` : name);
+  }
+  console.log("[collect-dist] self-host build: static root kept at dist/client");
+} else if (existsSync(clientDir)) {
   for (const name of readdirSync(clientDir)) {
     if (RESERVED.has(name)) continue;
     const from = join(clientDir, name);
@@ -101,8 +116,8 @@ if (existsSync(clientDir)) {
 const publicDir = join(root, "public");
 if (existsSync(publicDir)) {
   for (const name of readdirSync(publicDir)) {
-    if (RESERVED.has(name)) continue;
-    const to = join(distDir, name);
+    if (!selfHost && RESERVED.has(name)) continue;
+    const to = join(staticDir, name);
     if (existsSync(to)) continue; // build output wins
     cpSync(join(publicDir, name), to, { recursive: true });
     copied.push(name);
