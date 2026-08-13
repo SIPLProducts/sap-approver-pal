@@ -86,17 +86,32 @@ if (info?.mode === "worker" && !existsSync(join(distDir, "index.html"))) {
 }
 
 // --------------------------------------------------------- 3. asset integrity
-const assetsDir = join(distDir, "assets");
+// build-info.json is the layout contract shared by collector, launcher and
+// verifier. Self-host bundles use dist/client; worker bundles use dist itself.
+const declaredStaticRoot = info?.staticRoot;
+const expectedStaticRoot = info?.mode === "selfhost-node" ? "client" : ".";
+if (info && declaredStaticRoot !== expectedStaticRoot) {
+  bad(
+    `build-info.json declares staticRoot "${declaredStaticRoot ?? "(missing)"}" but mode ` +
+      `"${info.mode}" requires "${expectedStaticRoot}"`,
+  );
+}
+const staticDir = join(distDir, declaredStaticRoot || expectedStaticRoot);
+const assetsDir = join(staticDir, "assets");
 const assetCount = existsSync(assetsDir) ? readdirSync(assetsDir).length : 0;
-if (assetCount === 0) bad("assets/ is empty or missing");
-else ok(`assets/: ${assetCount} file(s)`);
+if (assetCount === 0) bad(`${expectedStaticRoot === "." ? "" : `${expectedStaticRoot}/`}assets/ is empty or missing`);
+else ok(`${expectedStaticRoot === "." ? "" : `${expectedStaticRoot}/`}assets/: ${assetCount} file(s)`);
+
+if (info?.mode === "selfhost-node" && existsSync(join(distDir, "assets"))) {
+  bad("root assets/ exists in a self-host build — expected all static files under client/");
+}
 
 const missing = new Set();
-for (const name of readdirSync(distDir)) {
+for (const name of existsSync(staticDir) ? readdirSync(staticDir) : []) {
   if (!name.endsWith(".html")) continue;
-  const html = readFileSync(join(distDir, name), "utf8");
+  const html = readFileSync(join(staticDir, name), "utf8");
   for (const match of html.matchAll(/(?:src|href)="\/?(assets\/[^"?#]+)"/g)) {
-    if (!existsSync(join(distDir, match[1]))) missing.add(`${name} -> /${match[1]}`);
+    if (!existsSync(join(staticDir, match[1]))) missing.add(`${name} -> /${match[1]}`);
   }
 }
 if (missing.size) {
