@@ -305,7 +305,7 @@ export const createUserViaSap = createServerFn({ method: "POST" })
 export const listRolesForPlants = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
-    plants: z.array(z.string().min(1).max(20)).min(1).max(50),
+    plants: z.array(z.string().min(1).max(20)).min(1).max(5000),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
