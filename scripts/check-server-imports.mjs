@@ -85,7 +85,9 @@ export function checkServerImports(serverDir) {
 }
 
 // ------------------------------------------------------------------- CLI mode
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/").split("/").pop());
+const invokedDirectly =
+  !!process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
 if (invokedDirectly) {
   const target = process.argv[2] ?? "server";
   const result = checkServerImports(target);
