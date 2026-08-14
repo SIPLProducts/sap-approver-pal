@@ -169,11 +169,16 @@ function GatePassPage() {
             return_receipt: returnReceipt,
           });
         }
-      } else {
-        toast.error(res.error ?? msg);
       }
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to save"),
+    onError: (e: Error) => {
+      const message = e.message ?? "Failed to save";
+      setResponseDialog({
+        open: true,
+        title: "Gate Pass Response",
+        results: [{ label: "Gate Pass", message, ok: false }],
+      });
+    },
   });
 
   function execute() {
