@@ -108,6 +108,9 @@ function PoReleasePage() {
       }
     | null
   >(null);
+  const [messageDialog, setMessageDialog] = useState<{ open: boolean; message: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     setPlants((prev) => {
@@ -125,7 +128,7 @@ function PoReleasePage() {
       fetchFn({ data: input }),
     onSuccess: (res) => {
       if (res.error) {
-        toast.error(res.error);
+        setMessageDialog({ open: true, message: res.error });
         setRows([]);
         setSelected(new Set());
         setRemarks({});
