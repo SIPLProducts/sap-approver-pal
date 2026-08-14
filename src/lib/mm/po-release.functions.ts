@@ -519,6 +519,25 @@ export const fetchPoGet = createServerFn({ method: "POST" })
           continue;
         }
         const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+
+        // SAP returns STATUS: "FALSE" with an exact MSGTXT (e.g. "No POs Found").
+        const statusVal = String(
+          (sapJson && !Array.isArray(sapJson) ? sapJson.STATUS ?? sapJson.status : undefined) ?? "",
+        ).trim();
+        if (statusVal.toUpperCase() === "FALSE") {
+          const msgtxt = String(
+            (sapJson?.MSGTXT ?? sapJson?.msgtxt ?? sapJson?.MESSAGE ?? sapJson?.message ?? "") || "",
+          ).trim();
+          if (!firstError) firstError = msgtxt || "No data returned by SAP.";
+          await supabaseAdmin.from("sap_api_sync_log").insert({
+            config_id: cfg.id,
+            status: "error",
+            latency_ms,
+            message: `po-get ${plant}: STATUS FALSE ${msgtxt}`.slice(0, 500),
+          });
+          continue;
+        }
+
         const arr: any[] = Array.isArray(sapJson)
           ? sapJson
           : Array.isArray(sapJson?.DATA)
