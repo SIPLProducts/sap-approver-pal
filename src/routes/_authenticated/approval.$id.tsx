@@ -94,7 +94,6 @@ function ApprovalDetail() {
       toast.error("Please add a comment");
       return;
     }
-    const label = action === "approve" ? "Approve" : action === "reject" ? "Reject" : "Send back";
     setBusy(action);
     try {
       await decide({ data: { documentId: id, action, comments: comments.trim() || undefined } });
