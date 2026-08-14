@@ -437,6 +437,63 @@ function GatePassPage() {
           />
         </>
       )}
+
+      <Dialog
+        open={!!responseDialog?.open}
+        onOpenChange={(open) =>
+          setResponseDialog((prev) => (prev ? { ...prev, open } : prev))
+        }
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{responseDialog?.title ?? "Gate Pass Response"}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto space-y-3">
+            <div className="overflow-x-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Gate Pass</TableHead>
+                    <TableHead className="text-xs">Message</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {responseDialog?.results.map((r, i) => (
+                    <TableRow key={`${r.label}-${i}`}>
+                      <TableCell className="text-xs font-medium whitespace-nowrap">
+                        {r.label}
+                      </TableCell>
+                      <TableCell className="text-xs whitespace-pre-wrap">
+                        {r.message || "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {responseDialog?.results.map((r, i) => (
+              <details key={`raw-${r.label}-${i}`} className="border rounded-md">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted-foreground">
+                  Raw response
+                </summary>
+                <pre className="text-xs font-mono bg-muted/50 p-3 overflow-x-auto whitespace-pre">
+{JSON.stringify(r.response ?? { message: r.message }, null, 2)}
+                </pre>
+              </details>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              size="sm"
+              onClick={() =>
+                setResponseDialog((prev) => (prev ? { ...prev, open: false } : prev))
+              }
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
