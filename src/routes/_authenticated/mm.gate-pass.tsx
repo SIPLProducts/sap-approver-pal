@@ -143,8 +143,19 @@ function GatePassPage() {
       const msg = res.document_number
         ? `${res.message} (Doc: ${res.document_number})`
         : res.message;
+      setResponseDialog({
+        open: true,
+        title: "Gate Pass Response",
+        results: [
+          {
+            label: res.document_number ? `Doc ${res.document_number}` : "Gate Pass",
+            message: res.ok ? msg : (res.error ?? msg),
+            ok: !!res.ok,
+            response: res,
+          },
+        ],
+      });
       if (res.ok) {
-        toast.success(msg);
         setSelected(new Set());
         // Refresh the results
         if (userId.trim()) {
