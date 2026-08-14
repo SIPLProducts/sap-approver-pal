@@ -165,6 +165,12 @@
   --sidebar-accent-foreground: #E7EBF5;
   --sidebar-border: #1A2440;
   --sidebar-ring: #8CA0E6;
+
+  /* Data table header styling — dark mode */
+  --table-header-bg: #1C2438;
+  --table-header-text: #E7EBF5;
+  --table-header-border: #232C42;
+  --table-row-hover: #131C34;
 }
 
 @layer base {
