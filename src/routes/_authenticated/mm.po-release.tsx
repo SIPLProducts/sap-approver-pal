@@ -108,6 +108,9 @@ function PoReleasePage() {
       }
     | null
   >(null);
+  const [messageDialog, setMessageDialog] = useState<{ open: boolean; message: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     setPlants((prev) => {
@@ -125,7 +128,7 @@ function PoReleasePage() {
       fetchFn({ data: input }),
     onSuccess: (res) => {
       if (res.error) {
-        toast.error(res.error);
+        setMessageDialog({ open: true, message: res.error });
         setRows([]);
         setSelected(new Set());
         setRemarks({});
@@ -571,6 +574,26 @@ function PoReleasePage() {
               onClick={() =>
                 setResponseDialog((prev) => (prev ? { ...prev, open: false } : prev))
               }
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!messageDialog?.open}
+        onOpenChange={(open) => setMessageDialog((prev) => (prev ? { ...prev, open } : prev))}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>PO Release</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">{messageDialog?.message}</p>
+          <DialogFooter>
+            <Button
+              size="sm"
+              onClick={() => setMessageDialog((prev) => (prev ? { ...prev, open: false } : prev))}
             >
               Close
             </Button>
