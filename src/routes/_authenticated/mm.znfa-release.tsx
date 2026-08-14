@@ -2121,7 +2121,7 @@ function ZnfaReleasePage() {
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl min-h-[60vh]">
           <DialogHeader>
             <DialogTitle>Clarification {openedNfaNo ? `— ${openedNfaNo}` : ""}</DialogTitle>
             <DialogDescription>
