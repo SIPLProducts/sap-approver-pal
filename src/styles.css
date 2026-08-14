@@ -122,9 +122,9 @@
   --shadow-rim: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
 
   /* Data table header styling */
-  --table-header-bg: #0F1830;
-  --table-header-text: #FFFFFF;
-  --table-header-border: #0F1830;
+  --table-header-bg: #F0F2F7;
+  --table-header-text: #111827;
+  --table-header-border: #E1E5EC;
   --table-row-hover: #F0F2F7;
 }
 
@@ -226,20 +226,20 @@
   }
   /* Consistent page rhythm */
   .page-shell {
-    padding: 1.25rem;
+    padding: 0.75rem;
   }
-  @media (min-width: 640px) { .page-shell { padding: 1.5rem; } }
-  @media (min-width: 1024px) { .page-shell { padding: 2rem; } }
-  .page-stack > * + * { margin-top: 1.25rem; }
-  @media (min-width: 640px) { .page-stack > * + * { margin-top: 1.5rem; } }
+  @media (min-width: 640px) { .page-shell { padding: 1rem; } }
+  @media (min-width: 1024px) { .page-shell { padding: 1.25rem; } }
+  .page-stack > * + * { margin-top: 1rem; }
+  @media (min-width: 640px) { .page-stack > * + * { margin-top: 1.25rem; } }
   .card-surface {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
   }
-  .card-pad { padding: 1.25rem; }
-  @media (min-width: 640px) { .card-pad { padding: 1.5rem; } }
+  .card-pad { padding: 0.75rem; }
+  @media (min-width: 640px) { .card-pad { padding: 1rem; } }
   /* Wide content: allow horizontal scroll gracefully on small screens */
   .table-scroll {
     width: 100%;
