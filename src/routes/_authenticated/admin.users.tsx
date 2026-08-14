@@ -1192,7 +1192,7 @@ function CreateUserDialog({
             />
           </Field>
 
-          <Field label="Last Name" required>
+          <Field label="Last Name">
             <Input
               value={form.last_name}
               onChange={(e) => setForm({ ...form, last_name: e.target.value })}
