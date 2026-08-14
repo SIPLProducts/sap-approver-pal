@@ -26,3 +26,32 @@ export function extractSapMessage(payload: any): string | null {
   if (typeof raw === "object") return extractSapMessage(raw);
   return String(raw).trim() || null;
 }
+
+/**
+ * Find an SAP failure envelope at any depth and return its exact MSGTXT.
+ * Middleware responses commonly wrap the SAP object in data/GET or an array.
+ */
+export function extractFalseStatusMessage(payload: any): string | null {
+  if (!payload || typeof payload !== "object") return null;
+
+  if (!Array.isArray(payload)) {
+    const entries = Object.entries(payload);
+    const statusEntry = entries.find(([key]) => key.toUpperCase() === "STATUS");
+    if (statusEntry && String(statusEntry[1] ?? "").trim().toUpperCase() === "FALSE") {
+      const messageEntry = entries.find(([key]) => key.toUpperCase() === "MSGTXT");
+      if (messageEntry) {
+        const message = String(messageEntry[1] ?? "").trim();
+        if (message) return message;
+      }
+
+      const nestedMessage = extractSapMessage(payload);
+      return nestedMessage || "No data returned by SAP.";
+    }
+  }
+
+  for (const value of Object.values(payload)) {
+    const message = extractFalseStatusMessage(value);
+    if (message) return message;
+  }
+  return null;
+}

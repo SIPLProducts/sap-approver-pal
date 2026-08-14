@@ -7,6 +7,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { extractFalseStatusMessage } from "@/lib/mm/sap-message";
 
 const CONFIG_NAME = "PO_Release_Multiple_Fetch_API";
 
@@ -520,20 +521,15 @@ export const fetchPoGet = createServerFn({ method: "POST" })
         }
         const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
-        // SAP returns STATUS: "FALSE" with an exact MSGTXT (e.g. "No POs Found").
-        const statusVal = String(
-          (sapJson && !Array.isArray(sapJson) ? sapJson.STATUS ?? sapJson.status : undefined) ?? "",
-        ).trim();
-        if (statusVal.toUpperCase() === "FALSE") {
-          const msgtxt = String(
-            (sapJson?.MSGTXT ?? sapJson?.msgtxt ?? sapJson?.MESSAGE ?? sapJson?.message ?? "") || "",
-          ).trim();
-          if (!firstError) firstError = msgtxt || "No data returned by SAP.";
+        // SAP/middleware may wrap STATUS and MSGTXT in data, GET, or an array.
+        const falseStatusMessage = extractFalseStatusMessage(sapJson);
+        if (falseStatusMessage) {
+          if (!firstError) firstError = falseStatusMessage;
           await supabaseAdmin.from("sap_api_sync_log").insert({
             config_id: cfg.id,
             status: "error",
             latency_ms,
-            message: `po-get ${plant}: STATUS FALSE ${msgtxt}`.slice(0, 500),
+            message: `po-get ${plant}: STATUS FALSE ${falseStatusMessage}`.slice(0, 500),
           });
           continue;
         }
