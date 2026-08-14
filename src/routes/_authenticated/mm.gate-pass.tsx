@@ -108,6 +108,15 @@ function GatePassPage() {
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
   });
 
+  const [responseDialog, setResponseDialog] = useState<
+    | {
+        open: boolean;
+        title: string;
+        results: Array<{ label: string; message: string; ok: boolean; response?: any }>;
+      }
+    | null
+  >(null);
+
   const saveFn = useServerFn(saveGatePass);
   const saveMutation = useMutation({
     mutationFn: async (selectedRows: DataRow[]) => {
