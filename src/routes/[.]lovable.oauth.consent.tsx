@@ -13,7 +13,7 @@ type OAuthDetails = {
   scope?: string;
 };
 type OAuthResp = { data: OAuthDetails | null; error: { message: string } | null };
-const oauth = () =>
+export const oauth = () =>
   (supabase.auth as unknown as {
     oauth: {
       getAuthorizationDetails: (id: string) => Promise<OAuthResp>;
