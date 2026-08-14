@@ -166,10 +166,10 @@
   --sidebar-border: #1A2440;
   --sidebar-ring: #8CA0E6;
 
-  /* Data table header styling — dark mode */
-  --table-header-bg: #1C2438;
-  --table-header-text: #E7EBF5;
-  --table-header-border: #232C42;
+  /* Data table header styling — same light tokens in dark mode */
+  --table-header-bg: #F0F2F7;
+  --table-header-text: #111827;
+  --table-header-border: #E1E5EC;
   --table-row-hover: #131C34;
 }
 
@@ -444,8 +444,9 @@ td.tabular-nums {
   letter-spacing: 0.04em;
   text-align: left;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--muted);
+  border-bottom: 1px solid var(--table-header-border);
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
 }
 .data-table tbody td {
   font-size: 13px;
