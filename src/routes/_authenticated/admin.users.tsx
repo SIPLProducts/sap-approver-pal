@@ -1115,7 +1115,7 @@ function CreateUserDialog({
   async function submit() {
     if (plants.length === 0) return toast.error("Please select at least one plant");
     if (!form.sap_user_id.trim()) return toast.error("User ID is required");
-    if (!form.first_name.trim() || !form.last_name.trim()) return toast.error("First and Last name are required");
+    if (!form.first_name.trim()) return toast.error("First name is required");
     if (!form.email.trim()) return toast.error("Email is required");
     if (!/^\d{10}$/.test(form.contact_number.trim())) return toast.error("Contact number must be 10 digits");
     if (roles.length === 0) return toast.error("Please select at least one role");
@@ -1192,7 +1192,7 @@ function CreateUserDialog({
             />
           </Field>
 
-          <Field label="Last Name" required>
+          <Field label="Last Name">
             <Input
               value={form.last_name}
               onChange={(e) => setForm({ ...form, last_name: e.target.value })}

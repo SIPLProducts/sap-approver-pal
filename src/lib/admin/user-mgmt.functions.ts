@@ -57,7 +57,7 @@ export const createUser = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
     sap_user_id: z.string().trim().min(1).max(60),
     first_name: z.string().trim().min(1).max(100),
-    last_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().max(100).optional().default(""),
     email: z.string().trim().email().max(200),
     contact_number: z.string().trim().max(20).optional().or(z.literal("")),
     status: z.enum(["Active", "Inactive"]).default("Active"),
@@ -221,7 +221,7 @@ export const createUserViaSap = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
     sap_user_id: z.string().trim().min(1).max(60),
     first_name: z.string().trim().min(1).max(100),
-    last_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().max(100).optional().default(""),
     email: z.string().trim().email().max(200),
     contact_number: z.string().trim().regex(/^\d{10}$/),
     password: z.string().min(8).max(200),
@@ -746,7 +746,7 @@ export const editUserViaSap = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
     sap_user_id: z.string().trim().min(1).max(60),
     first_name: z.string().trim().min(1).max(100),
-    last_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().max(100).optional().default(""),
     email: z.string().trim().email().max(200),
     contact_number: z.string().trim().regex(/^\d{10}$/),
     password: z.string().max(200).optional().default(""),
