@@ -132,6 +132,20 @@ export const fetchPrReleaseMultiple = createServerFn({ method: "POST" })
       const json: any = parsed;
       const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
+      // SAP error response (TYPE: "E") — show only the exact MESSAGE, no table rows.
+      const sapType = findFirstDeep(sapJson, ["TYPE"]);
+      if (typeof sapType === "string" && sapType.trim().toUpperCase() === "E") {
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          latency_ms,
+          message: `pr-release-multi: SAP TYPE=E ${String(sapMessage ?? "").slice(0, 300)}`,
+        });
+        firstError = firstError ?? (sapMessage || "SAP returned an error.");
+        continue;
+      }
+
+
       const dataArr: any[] = Array.isArray(sapJson)
         ? sapJson
         : Array.isArray(sapJson?.DATA)

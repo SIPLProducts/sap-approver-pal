@@ -14,7 +14,6 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGatePass, saveGatePass } from "@/lib/mm/gate-pass.functions";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/gate-pass")({
   component: GatePassPage,
@@ -59,7 +58,6 @@ function GatePassPage() {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const hasResults = header !== null || rows.length > 0;
-  const { confirm, confirmDialog } = useConfirm();
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
@@ -179,15 +177,6 @@ function GatePassPage() {
       return;
     }
     void (async () => {
-      if (
-        !(await confirm({
-          title: `Save ${selectedRows.length} selected item(s)?`,
-          description: "This posts the update to SAP and cannot be undone.",
-          confirmLabel: "Save",
-          destructive: false,
-        }))
-      )
-        return;
       saveMutation.mutate(selectedRows);
     })();
   }
@@ -408,7 +397,6 @@ function GatePassPage() {
           />
         </>
       )}
-      {confirmDialog}
     </div>
   );
 }

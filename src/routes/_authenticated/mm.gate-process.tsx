@@ -23,7 +23,6 @@ import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGateProcess, createZnfa, saveZnfa, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const RATING_OPTIONS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "NQ"];
 
@@ -75,7 +74,6 @@ function GateProcessPage() {
   const [ratings, setRatings] = useState<Record<number, RatingFields>>({});
   const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
-  const { confirm, confirmDialog } = useConfirm();
 
   const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
 
@@ -239,15 +237,6 @@ function GateProcessPage() {
         RATE: f?.RATE ?? toStr(rt.RATE),
       };
     }) : [];
-    if (
-      !(await confirm({
-        title: "Save changes?",
-        description: "This posts the update to SAP and cannot be undone.",
-        confirmLabel: "Save",
-        destructive: false,
-      }))
-    )
-      return;
     saveMutation.mutate({
       action: lastAction,
       user_id: userId.trim(),
@@ -586,7 +575,6 @@ function GateProcessPage() {
           )}
         </>
       )}
-      {confirmDialog}
     </div>
   );
 }

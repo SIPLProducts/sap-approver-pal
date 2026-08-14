@@ -30,7 +30,6 @@ import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems } from "@/lib/mm/pr-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
@@ -149,7 +148,6 @@ function PrReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
-  const { confirm, confirmDialog } = useConfirm();
   const silentRefreshRef = useRef(false);
   const [responseDialog, setResponseDialog] = useState<
     | {
@@ -356,15 +354,6 @@ function PrReleasePage() {
       .filter((it) => it.PREQ_NO && it.PREQ_ITEM);
     if (items.length === 0) return;
     void (async () => {
-      if (
-        !(await confirm({
-          title: `Release ${items.length} selected item(s)?`,
-          description: "This posts the release to SAP and cannot be undone.",
-          confirmLabel: "Release",
-          destructive: false,
-        }))
-      )
-        return;
       releaseMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
@@ -434,14 +423,6 @@ function PrReleasePage() {
       .filter((it) => it.PREQ_NO);
     if (items.length === 0) return;
     void (async () => {
-      if (
-        !(await confirm({
-          title: `Reject ${items.length} selected item(s)?`,
-          description: "This posts the rejection to SAP and cannot be undone.",
-          confirmLabel: "Reject",
-        }))
-      )
-        return;
       rejectMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
@@ -666,7 +647,6 @@ function PrReleasePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {confirmDialog}
     </div>
   );
 }

@@ -14,7 +14,6 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/material-reservation.functions";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
   component: MaterialReservationPage,
@@ -73,7 +72,6 @@ function MaterialReservationPage() {
   const [rowStates, setRowStates] = useState<Map<string, RowState>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const hasResults = header !== null || rows.length > 0;
-  const { confirm, confirmDialog } = useConfirm();
 
   useEffect(() => {
     if (userIdData?.sap_user_id && !userId) setUserId(userIdData.sap_user_id);
@@ -187,15 +185,6 @@ function MaterialReservationPage() {
       data: items,
     };
 
-    if (
-      !(await confirm({
-        title: `Save ${items.length} selected item(s)?`,
-        description: "This posts the update to SAP and cannot be undone.",
-        confirmLabel: "Save",
-        destructive: false,
-      }))
-    )
-      return;
     saveMutation.mutate(payload);
   }
 
@@ -409,7 +398,6 @@ function MaterialReservationPage() {
           />
         </>
       )}
-      {confirmDialog}
     </div>
 
   );

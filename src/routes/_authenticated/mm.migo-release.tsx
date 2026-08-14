@@ -14,7 +14,6 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const STCK_TYPE_OPTIONS = [
@@ -70,7 +69,6 @@ function MigoReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customFields, setCustomFields] = useState<Record<string, any> | null>(null);
   const hasResults = header !== null || rows.length > 0;
-  const { confirm, confirmDialog } = useConfirm();
   const [resultDialog, setResultDialog] = useState<{ open: boolean; ok: boolean; title: string; lines: string[] } | null>(null);
 
   const mutation = useMutation({
@@ -143,15 +141,6 @@ function MigoReleasePage() {
       .map(({ r, k }) => ({ ...r, ...(edits.get(k) ?? {}) }));
 
     void (async () => {
-      if (
-        !(await confirm({
-          title: `Post ${items.length} selected item(s)?`,
-          description: "This posts the goods movement to SAP and cannot be undone.",
-          confirmLabel: "Post",
-          destructive: false,
-        }))
-      )
-        return;
       postMutation.mutate({
         header: { ...(header ?? {}) },
         data: items,
@@ -466,7 +455,6 @@ function MigoReleasePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {confirmDialog}
     </div>
   );
 }

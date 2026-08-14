@@ -34,7 +34,6 @@ import {
   rejectPoItems,
 } from "@/lib/mm/po-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
@@ -96,7 +95,6 @@ function PoReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
-  const { confirm, confirmDialog } = useConfirm();
   const [responseDialog, setResponseDialog] = useState<
     | {
         open: boolean;
@@ -274,15 +272,6 @@ function PoReleasePage() {
       .filter((it) => it.EBELN);
     if (items.length === 0) return;
     void (async () => {
-      if (
-        !(await confirm({
-          title: `Release ${items.length} selected item(s)?`,
-          description: "This posts the release to SAP and cannot be undone.",
-          confirmLabel: "Release",
-          destructive: false,
-        }))
-      )
-        return;
       releaseMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
@@ -354,14 +343,6 @@ function PoReleasePage() {
       .filter((it) => it.EBELN);
     if (items.length === 0) return;
     void (async () => {
-      if (
-        !(await confirm({
-          title: `Reject ${items.length} selected item(s)?`,
-          description: "This posts the rejection to SAP and cannot be undone.",
-          confirmLabel: "Reject",
-        }))
-      )
-        return;
       rejectMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
@@ -596,7 +577,6 @@ function PoReleasePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {confirmDialog}
     </div>
   );
 }

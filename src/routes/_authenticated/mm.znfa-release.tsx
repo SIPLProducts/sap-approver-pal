@@ -64,7 +64,6 @@ import {
 } from "@/components/ui/dialog";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { NfaNumberSelect } from "@/components/mm/nfa-number-select";
 
 import { cn } from "@/lib/utils";
@@ -675,7 +674,6 @@ function ZnfaReleasePage() {
   const [clickedNfaNo, setClickedNfaNo] = useState<string | null>(null);
   const [docLoaded, setDocLoaded] = useState(false);
   const [selectedAttachKeys, setSelectedAttachKeys] = useState<string[]>([]);
-  const { confirm, confirmDialog } = useConfirm();
 
   // Print preview state
   const [printOpen, setPrintOpen] = useState(false);
@@ -1295,13 +1293,6 @@ function ZnfaReleasePage() {
   const openedNfaNo = clickedNfaNo?.trim() || mainNfaNumber.trim();
 
   async function onDocApprove() {
-    const ok = await confirm({
-      title: `Approve NFA ${openedNfaNo || ""}`.trim() + "?",
-      description: "This will release the NFA document in SAP.",
-      destructive: false,
-      confirmLabel: "Approve",
-    });
-    if (!ok) return;
     if (!openedNfaNo) {
       toast.error("No NFA number is open.");
       return;
@@ -2066,7 +2057,6 @@ function ZnfaReleasePage() {
         </>
       )}
 
-      {confirmDialog}
 
       <Dialog
         open={rejectOpen}
