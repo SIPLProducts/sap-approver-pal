@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -127,7 +126,6 @@ const COLS: Array<{ key: string; label: string; align?: "right"; date?: boolean;
 ];
 
 function ScSoPage() {
-  const { confirm, confirmDialog } = useConfirm();
   const { status: urlStatus } = Route.useSearch();
   const navigate = useNavigate();
   const fetchFn = useServerFn(fetchScSoApprovals);
@@ -352,19 +350,6 @@ function ScSoPage() {
       toast.error("Reason is required for all selected rows");
       return;
     }
-    const ok = await confirm({
-
-      title: `${action === "accepted" ? "Approve" : "Reject"} ${selectedRows.length} selected item(s)?`,
-
-      description: "This submits the decision to SAP and cannot be undone.",
-
-      confirmLabel: action === "accepted" ? "Approve" : "Reject",
-
-      destructive: action !== "accepted",
-
-    });
-
-    if (!ok) return;
 
     decisionMutation.mutate({
       action,
@@ -495,7 +480,6 @@ function ScSoPage() {
 
 
 
-      {confirmDialog}
 
       <ResultDialog
         open={resultOpen}

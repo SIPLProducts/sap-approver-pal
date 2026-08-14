@@ -15,7 +15,6 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -58,7 +57,6 @@ function fmtDate(v: string | null) {
 }
 
 function PricePage() {
-  const { confirm, confirmDialog } = useConfirm();
   const fetchFn = useServerFn(fetchPriceApprovals);
   const userIdFn = useServerFn(getMySapUserId);
   const decisionFn = useServerFn(submitPriceDecision);
@@ -173,19 +171,6 @@ function PricePage() {
   async function decide(action: "accepted" | "rejected") {
     if (selected.size === 0 || decisionMutation.isPending) return;
     const selectedRows = indexed.filter(({ k }) => selected.has(k)).map(({ r }) => r);
-    const ok = await confirm({
-
-      title: `${action === "accepted" ? "Approve" : "Reject"} ${selectedRows.length} selected item(s)?`,
-
-      description: "This submits the decision to SAP and cannot be undone.",
-
-      confirmLabel: action === "accepted" ? "Approve" : "Reject",
-
-      destructive: action !== "accepted",
-
-    });
-
-    if (!ok) return;
 
     decisionMutation.mutate({ action, rows: selectedRows, user_id: userId.trim() });
   }
@@ -256,7 +241,6 @@ function PricePage() {
 
 
 
-      {confirmDialog}
 
       <ResultDialog
         open={resultOpen}

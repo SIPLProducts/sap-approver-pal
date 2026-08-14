@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/ui/status-badge";
 
 import { Input } from "@/components/ui/input";
@@ -86,7 +85,6 @@ function mapSeverity(raw: string | undefined): Severity {
 
 
 function ContractPage() {
-  const { confirm, confirmDialog } = useConfirm();
   const navigate = useNavigate();
   const fetchFn = useServerFn(fetchContractApprovals);
   const decisionFn = useServerFn(submitContractDecision);
@@ -301,19 +299,6 @@ function ContractPage() {
       toast.error("Reason is required for all selected rows");
       return;
     }
-    const ok = await confirm({
-
-      title: `${action === "accepted" ? "Approve" : "Reject"} ${selectedRows.length} selected item(s)?`,
-
-      description: "This submits the decision to SAP and cannot be undone.",
-
-      confirmLabel: action === "accepted" ? "Approve" : "Reject",
-
-      destructive: action !== "accepted",
-
-    });
-
-    if (!ok) return;
 
     decisionMutation.mutate({ action, user_id: userId.trim(), rows: selectedRows });
   }
@@ -421,7 +406,6 @@ function ContractPage() {
 
 
 
-      {confirmDialog}
 
       <ResultDialog
         open={resultOpen}

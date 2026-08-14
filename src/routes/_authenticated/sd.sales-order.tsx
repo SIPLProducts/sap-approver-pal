@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/exec/page-header";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,7 +96,6 @@ function totalOf(r: SalesOrderRow): number {
 }
 
 function SalesOrderPage() {
-  const { confirm, confirmDialog } = useConfirm();
   const { status: urlStatus } = Route.useSearch();
   const navigate = useNavigate();
   // status is local UI state only; we don't write back to the URL to avoid
@@ -323,19 +321,6 @@ function SalesOrderPage() {
       toast.error("Reason is required for all selected rows");
       return;
     }
-    const ok = await confirm({
-
-      title: `${action === "accepted" ? "Approve" : "Reject"} ${selectedRows.length} selected item(s)?`,
-
-      description: "This submits the decision to SAP and cannot be undone.",
-
-      confirmLabel: action === "accepted" ? "Approve" : "Reject",
-
-      destructive: action !== "accepted",
-
-    });
-
-    if (!ok) return;
 
     decisionMutation.mutate({ action, user_id: userId.trim(), rows: selectedRows });
   }
@@ -444,7 +429,6 @@ function SalesOrderPage() {
 
 
 
-      {confirmDialog}
 
       <ResultDialog
         open={resultOpen}

@@ -12,7 +12,6 @@ import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/exec/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { formatCurrency, formatDate, formatDateTime, formatQuantity } from "@/lib/format";
 
 import { ROLE_LABELS, DOC_TYPE_LABELS } from "@/lib/approvals/constants";
@@ -29,7 +28,6 @@ function ApprovalDetail() {
   const qc = useQueryClient();
   const nav = useNavigate();
   const decide = useServerFn(decideStep);
-  const { confirm, confirmDialog } = useConfirm();
 
   const [comments, setComments] = useState("");
   const [busy, setBusy] = useState<null | "approve" | "reject" | "send_back">(null);
@@ -97,18 +95,6 @@ function ApprovalDetail() {
       return;
     }
     const label = action === "approve" ? "Approve" : action === "reject" ? "Reject" : "Send back";
-    if (action !== "approve") {
-      const ok = await confirm({
-        title: `${label} this document?`,
-        description:
-          action === "reject"
-            ? "Rejecting closes this approval and notifies the requester. This cannot be undone."
-            : "The document goes back to the previous step for rework.",
-        confirmLabel: label,
-        destructive: action === "reject",
-      });
-      if (!ok) return;
-    }
     setBusy(action);
     try {
       await decide({ data: { documentId: id, action, comments: comments.trim() || undefined } });
@@ -124,7 +110,6 @@ function ApprovalDetail() {
 
   return (
     <div className="page-shell page-stack max-w-5xl mx-auto">
-      {confirmDialog}
       <Link to="/inbox" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4 mr-1" /> Back to inbox</Link>
 
       <PageHeader
