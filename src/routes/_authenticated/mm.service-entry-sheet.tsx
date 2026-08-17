@@ -9,7 +9,9 @@ import {
   fetchServiceEntrySheetPending,
   releaseServiceEntrySheets,
   rejectServiceEntrySheets,
+  deleteServiceEntrySheets,
 } from "@/lib/mm/ses.functions";
+
 
 
 
@@ -238,13 +240,17 @@ function ServiceEntrySheetPage() {
   const [loading, setLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [hasRun, setHasRun] = useState(false);
+
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
   const runRelease = useServerFn(releaseServiceEntrySheets);
   const runReject = useServerFn(rejectServiceEntrySheets);
+  const runDelete = useServerFn(deleteServiceEntrySheets);
+
 
 
   const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
@@ -469,6 +475,49 @@ function ServiceEntrySheetPage() {
     }
   }
 
+  async function doDelete() {
+    const items = rows
+      .map((r, i) => ({ r, key: rowKey(r, i) }))
+      .filter(({ key }) => selectedKeys.has(key))
+      .map(({ r }) => ({
+        entrySheet: String(r?.entrySh ?? "").trim(),
+      }))
+      .filter((it) => it.entrySheet);
+
+    if (items.length === 0) {
+      setMessageDialog({
+        open: true,
+        title: "Delete",
+        message: "Selected rows have no Entry Sheet to delete.",
+      });
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await runDelete({ data: { items } });
+      if (res.error) {
+        setMessageDialog({ open: true, title: "Delete", message: res.error });
+        return;
+      }
+      setMessageDialog({
+        open: true,
+        title: "Delete",
+        message: "",
+        lines: res.results ?? [],
+      });
+    } catch (e) {
+      setMessageDialog({
+        open: true,
+        title: "Delete",
+        message: (e as Error).message || "Could not delete the selected entry sheets.",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+
 
 
   return (
@@ -666,9 +715,16 @@ function ServiceEntrySheetPage() {
                 Reject
               </Button>
 
-              <Button variant="outline" size="sm" disabled={selectedKeys.size === 0}>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={selectedKeys.size === 0 || deleting}
+                onClick={doDelete}
+              >
+                {deleting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Delete
               </Button>
+
             </div>
           </div>
           {rows.length === 0 ? (
