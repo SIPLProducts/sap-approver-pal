@@ -157,7 +157,7 @@ function LoginPage() {
 
           {/* Headline + illustration */}
           <div className="grid grid-cols-1 items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto] xl:gap-8">
-            <div className="min-w-0 max-w-lg">
+            <div className="min-w-0">
               <h1 className="font-display text-[clamp(1.9rem,3.4vw+0.4rem,3rem)] font-bold leading-[1.05] tracking-tight text-white">
                 Approvals
                 <br />
