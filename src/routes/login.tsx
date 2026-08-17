@@ -157,7 +157,7 @@ function LoginPage() {
           </div>
 
           {/* Headline + illustration */}
-          <div className="grid grid-cols-[minmax(0,1fr)_clamp(8rem,14vw,11rem)] items-center gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:gap-8">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 xl:gap-8">
             <div className="min-w-0 max-w-lg">
               <h1 className="font-display text-[clamp(1.9rem,3.4vw+0.4rem,3rem)] font-bold leading-[1.05] tracking-tight">
                 Approvals
@@ -187,14 +187,16 @@ function LoginPage() {
               </ul>
             </div>
 
-            <img
-              src={heroArt}
-              alt="Approval request document with security shield and dashboard"
-              width={1024}
-              height={1024}
-              className="block w-full max-h-[30vh] object-contain max-w-full select-none drop-shadow-2xl xl:w-[clamp(10rem,16vw,20rem)] xl:max-h-[38vh]"
-              draggable={false}
-            />
+            <div className="flex items-center justify-center">
+              <img
+                src={heroArt}
+                alt="Approval request document with security shield and dashboard"
+                width={1024}
+                height={1024}
+                className="block h-[280px] w-[280px] max-h-full max-w-full object-contain select-none drop-shadow-2xl"
+                draggable={false}
+              />
+            </div>
           </div>
 
         </div>
