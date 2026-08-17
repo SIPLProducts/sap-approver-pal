@@ -316,12 +316,20 @@ function ServiceEntrySheetPage() {
 
       if (res.error) {
         setRows([]);
+        setSelectedKeys(new Set());
         setHasRun(false);
         setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
         return;
       }
       setRows(res.data ?? []);
+      setSelectedKeys(new Set());
       setHasRun(true);
+      if (res.message) {
+        setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.message });
+      }
+      requestAnimationFrame(() => {
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch (e) {
       setRows([]);
       setHasRun(false);
