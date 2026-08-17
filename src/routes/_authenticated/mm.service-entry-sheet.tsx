@@ -240,7 +240,9 @@ function ServiceEntrySheetPage() {
   const [loading, setLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [hasRun, setHasRun] = useState(false);
+
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement | null>(null);
