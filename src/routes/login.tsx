@@ -130,26 +130,25 @@ function LoginPage() {
   return (
     <div className="min-h-dvh grid lg:grid-cols-[1.22fr_1fr] bg-background">
       {/* Executive hero panel */}
-      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col min-h-[42vh] lg:min-h-dvh">
-
+      <div className="relative isolate flex flex-col overflow-hidden bg-gradient-exec text-white min-h-[42vh] lg:min-h-dvh">
         <div className="dot-grid absolute inset-0 text-white/30 opacity-30 pointer-events-none" />
         <div
-          className="absolute -bottom-40 -left-40 h-[30rem] w-[30rem] rounded-full blur-3xl opacity-40 pointer-events-none"
+          className="absolute -bottom-40 -left-40 h-[30rem] w-[30rem] rounded-full blur-3xl opacity-25 pointer-events-none"
           style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 62%)" }}
         />
         <div
-          className="absolute -top-32 -right-24 h-[24rem] w-[24rem] rounded-full blur-3xl opacity-25 pointer-events-none"
+          className="absolute -top-32 -right-24 h-[24rem] w-[24rem] rounded-full blur-3xl opacity-20 pointer-events-none"
           style={{ background: "radial-gradient(circle, var(--gold) 0%, transparent 65%)" }}
         />
 
-        <div className="relative flex flex-col justify-start gap-[clamp(1rem,2.4vh,2.5rem)] px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1.25rem,3vh,3rem)]">
+        <div className="relative flex flex-1 flex-col justify-start gap-[clamp(1rem,2.4vh,2.5rem)] px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1.25rem,3vh,3rem)]">
           {/* Brand */}
           <div className="flex items-center gap-4">
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-card">
               <BrandLogo className="h-8 w-10" />
             </div>
             <div>
-              <div className="font-display text-lg font-bold tracking-tight">Re Sustainability</div>
+              <div className="font-display text-lg font-bold tracking-tight text-white">Re Sustainability</div>
               <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-gold">
                 Executive Approvals
               </div>
@@ -157,14 +156,14 @@ function LoginPage() {
           </div>
 
           {/* Headline + illustration */}
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 xl:gap-8">
+          <div className="grid grid-cols-1 items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto] xl:gap-8">
             <div className="min-w-0 max-w-lg">
-              <h1 className="font-display text-[clamp(1.9rem,3.4vw+0.4rem,3rem)] font-bold leading-[1.05] tracking-tight">
+              <h1 className="font-display text-[clamp(1.9rem,3.4vw+0.4rem,3rem)] font-bold leading-[1.05] tracking-tight text-white">
                 Approvals
                 <br />
                 <span className="text-gold">that drive progress.</span>
               </h1>
-              <div className="mt-[clamp(0.75rem,1.5vh,1.25rem)] h-[3px] w-16 rounded-full bg-gold" />
+              <div className="mt-[clamp(0.75rem,1.5vh,1.25rem)] h-[3px] w-[60px] rounded-full bg-gold" />
               <p className="mt-[clamp(0.75rem,1.5vh,1.25rem)] max-w-md text-[15px] leading-relaxed text-white/70">
                 A secure, single sign-on gateway to review, approve and manage your SAP transactions – with
                 control, transparency and trust.
@@ -187,7 +186,7 @@ function LoginPage() {
               </ul>
             </div>
 
-            <div className="flex items-center justify-center">
+            <div className="hidden items-center justify-center lg:flex">
               <img
                 src={heroArt}
                 alt="Approval request document with security shield and dashboard"
