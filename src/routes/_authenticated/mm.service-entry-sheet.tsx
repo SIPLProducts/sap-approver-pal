@@ -715,9 +715,16 @@ function ServiceEntrySheetPage() {
                 Reject
               </Button>
 
-              <Button variant="outline" size="sm" disabled={selectedKeys.size === 0}>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={selectedKeys.size === 0 || deleting}
+                onClick={doDelete}
+              >
+                {deleting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Delete
               </Button>
+
             </div>
           </div>
           {rows.length === 0 ? (
