@@ -96,13 +96,26 @@ function GatePassPage() {
         data,
         count: data.length,
         error: v?.error ?? null,
+        messages: Array.isArray(v?.messages)
+          ? (v.messages as Array<{ type: string; message: string }>)
+          : [],
       };
     },
     onSuccess: (res) => {
       setHeader(res.header);
       setRows(res.data);
       setSelected(new Set());
-      if (res.error) {
+      if (res.messages.length > 0) {
+        setResponseDialog({
+          open: true,
+          title: "Gate Pass Response",
+          results: res.messages.map((m) => ({
+            label: m.type ? `Type ${m.type}` : "Gate Pass",
+            message: m.message,
+            ok: !["E", "A"].includes(String(m.type ?? "").trim().toUpperCase()),
+          })),
+        });
+      } else if (res.error) {
         setResponseDialog({
           open: true,
           title: "Gate Pass Response",
@@ -144,23 +157,42 @@ function GatePassPage() {
           data: selectedRows,
         },
       });
-      return res as { ok: boolean; message: string; document_number: string | null; error: string | null };
+      return res as {
+        ok: boolean;
+        message: string;
+        document_number: string | null;
+        error: string | null;
+        messages?: Array<{ type: string; message: string }>;
+      };
     },
     onSuccess: (res) => {
       const msg = res.document_number
         ? `${res.message} (Doc: ${res.document_number})`
         : res.message;
+      const sapMessages = Array.isArray(res.messages) ? res.messages : [];
       setResponseDialog({
         open: true,
         title: "Gate Pass Response",
-        results: [
-          {
-            label: res.document_number ? `Doc ${res.document_number}` : "Gate Pass",
-            message: res.ok ? msg : (res.error ?? msg),
-            ok: !!res.ok,
-            response: res,
-          },
-        ],
+        results:
+          sapMessages.length > 0
+            ? sapMessages.map((m) => ({
+                label: res.document_number
+                  ? `Doc ${res.document_number}`
+                  : m.type
+                    ? `Type ${m.type}`
+                    : "Gate Pass",
+                message: m.message,
+                ok: !["E", "A"].includes(String(m.type ?? "").trim().toUpperCase()),
+                response: res,
+              }))
+            : [
+                {
+                  label: res.document_number ? `Doc ${res.document_number}` : "Gate Pass",
+                  message: res.ok ? msg : (res.error ?? msg),
+                  ok: !!res.ok,
+                  response: res,
+                },
+              ],
       });
       if (res.ok) {
         setSelected(new Set());

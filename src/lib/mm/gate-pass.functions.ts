@@ -7,6 +7,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
+  collectSapMessages,
   extractFalseStatusMessage,
   extractMessagesArrayError,
   extractSapMessage,
@@ -115,6 +116,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: `Could not reach SAP at ${cfg.endpoint_url.split("?")[0]}. ${errMsg}.`,
+        messages: [] as Array<{ type: string; message: string }>,
       };
     }
 
@@ -135,6 +137,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: `SAP returned ${message}: ${text.slice(0, 200)}`,
+        messages: [] as Array<{ type: string; message: string }>,
       };
     }
 
@@ -148,11 +151,13 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
+        messages: [] as Array<{ type: string; message: string }>,
       };
     }
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
     // SAP failure responses — show only the exact SAP text, no table rows.
+    const collected = collectSapMessages(sapJson);
     const sapType = findFirstDeep(sapJson, ["TYPE"]);
     const typeError =
       typeof sapType === "string" && sapType.trim().toUpperCase() === "E"
@@ -176,6 +181,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: failure,
+        messages: collected,
       };
     }
 
@@ -211,6 +217,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
 
     // Success envelope but nothing to show — surface the exact SAP text if present.
     if (rows.length === 0 && !header) {
+      const collected = collectSapMessages(sapJson);
       const sapMessage = extractSapMessage(sapJson);
       return {
         header: null as Record<string, any> | null,
@@ -218,6 +225,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: sapMessage || "No records found",
+        messages: collected,
       };
     }
 
@@ -227,6 +235,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
       fetched_at: new Date().toISOString(),
       user_id: userId,
       error: null as string | null,
+      messages: [] as Array<{ type: string; message: string }>,
     };
   });
 
@@ -386,7 +395,7 @@ export const saveGatePass = createServerFn({ method: "POST" })
         latency_ms,
         message: `gate-pass-save network: ${errMsg}`,
       });
-      return { ok: false, message: `Could not reach SAP: ${errMsg}`, document_number: null as string | null, error: errMsg };
+      return { ok: false, message: `Could not reach SAP: ${errMsg}`, document_number: null as string | null, error: errMsg, messages: [] as Array<{ type: string; message: string }> };
     }
 
     const text = await res.text().catch(() => "");
@@ -400,13 +409,14 @@ export const saveGatePass = createServerFn({ method: "POST" })
         latency_ms,
         message: `gate-pass-save: invalid JSON ${text.slice(0, 300)}`,
       });
-      return { ok: false, message: `Invalid JSON from SAP: ${text.slice(0, 200)}`, document_number: null, error: "invalid_json" };
+      return { ok: false, message: `Invalid JSON from SAP: ${text.slice(0, 200)}`, document_number: null, error: "invalid_json", messages: [] as Array<{ type: string; message: string }> };
     }
 
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
     // Preferred shape: { MESSAGES: [{ TYPE, MESSAGE }] }
     if (Array.isArray(sapJson?.MESSAGES) && sapJson.MESSAGES.length > 0) {
+      const collected = collectSapMessages(sapJson);
       const msg = sapJson.MESSAGES
         .map((m: any) => String(m?.MESSAGE ?? "").trim())
         .filter(Boolean)
@@ -430,6 +440,7 @@ export const saveGatePass = createServerFn({ method: "POST" })
         message: msg,
         document_number: (sapJson?.DOCUMENT_NUMBER ?? docMatch?.[1]) ?? null,
         error: ok ? null : msg,
+        messages: collected,
       };
     }
 
@@ -450,5 +461,6 @@ export const saveGatePass = createServerFn({ method: "POST" })
       message: message || (ok ? "Saved successfully" : `SAP returned ${res.status}`),
       document_number: sapJson?.DOCUMENT_NUMBER ?? null,
       error: ok ? null : (message || `SAP returned ${res.status}`),
+      messages: message ? [{ type, message }] : [],
     };
   });

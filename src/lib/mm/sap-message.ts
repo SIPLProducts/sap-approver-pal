@@ -85,3 +85,50 @@ export function extractMessagesArrayError(payload: any): string | null {
   }
   return null;
 }
+
+/**
+ * Collect every SAP message in a payload, in the order received, without
+ * combining or rewording the text. Finds MESSAGES: [{ TYPE, MESSAGE }] arrays
+ * at any depth, else falls back to a single TYPE/MESSAGE|MSGTXT envelope.
+ */
+export function collectSapMessages(
+  payload: any,
+): Array<{ type: string; message: string }> {
+  const out: Array<{ type: string; message: string }> = [];
+
+  const walk = (node: any) => {
+    if (!node || typeof node !== "object") return;
+    if (!Array.isArray(node)) {
+      for (const [key, value] of Object.entries(node)) {
+        if (key.toUpperCase() === "MESSAGES" && Array.isArray(value)) {
+          for (const entry of value) {
+            if (typeof entry === "string") {
+              if (entry.trim()) out.push({ type: "", message: entry });
+              continue;
+            }
+            const type = String((entry as any)?.TYPE ?? (entry as any)?.type ?? "");
+            const text = String(
+              (entry as any)?.MESSAGE ??
+                (entry as any)?.message ??
+                (entry as any)?.MSGTXT ??
+                (entry as any)?.msgtxt ??
+                "",
+            );
+            if (text.trim()) out.push({ type, message: text });
+          }
+        }
+      }
+    }
+    for (const value of Object.values(node)) walk(value);
+  };
+
+  walk(payload);
+  if (out.length > 0) return out;
+
+  const single = extractSapMessage(payload);
+  if (single) {
+    const type = findFirstDeep(payload, ["TYPE"]);
+    return [{ type: typeof type === "string" ? type : "", message: single }];
+  }
+  return [];
+}
