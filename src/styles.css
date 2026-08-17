@@ -166,10 +166,10 @@
   --sidebar-border: #1A2440;
   --sidebar-ring: #8CA0E6;
 
-  /* Data table header styling — same light tokens in dark mode */
-  --table-header-bg: #F0F2F7;
-  --table-header-text: #111827;
-  --table-header-border: #E1E5EC;
+  /* Data table header styling — same tokens in dark mode */
+  --table-header-bg: #2A3F87;
+  --table-header-text: #FFFFFF;
+  --table-header-border: #1F2F66;
   --table-row-hover: #131C34;
 }
 
