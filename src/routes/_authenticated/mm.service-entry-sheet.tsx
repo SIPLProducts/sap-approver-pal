@@ -206,7 +206,10 @@ function ServiceEntrySheetPage() {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
 
-  const columns = useMemo(() => buildDynamicColumns(rows), [rows]);
+  const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
+    () => buildDynamicColumns<Record<string, any>>(rows),
+    [rows],
+  );
   const rowKey = (r: Record<string, any>, i: number) =>
     `${r?.entrySh ?? ""}-${r?.purOrder ?? ""}-${r?.poItem ?? ""}-${i}`;
   const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
