@@ -267,6 +267,7 @@ function ServiceEntrySheetPage() {
 
     setScopeOfList("ENTRY_REL");
     setRows([]);
+    setSelectedKeys(new Set());
     setHasRun(false);
   }
 
