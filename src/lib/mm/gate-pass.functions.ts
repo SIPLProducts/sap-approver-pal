@@ -211,6 +211,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
 
     // Success envelope but nothing to show — surface the exact SAP text if present.
     if (rows.length === 0 && !header) {
+      const collected = collectSapMessages(sapJson);
       const sapMessage = extractSapMessage(sapJson);
       return {
         header: null as Record<string, any> | null,
@@ -218,6 +219,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: sapMessage || "No records found",
+        messages: collected,
       };
     }
 
@@ -227,6 +229,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
       fetched_at: new Date().toISOString(),
       user_id: userId,
       error: null as string | null,
+      messages: [] as Array<{ type: string; message: string }>,
     };
   });
 
