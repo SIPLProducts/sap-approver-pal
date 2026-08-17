@@ -554,8 +554,12 @@ export const rejectServiceEntrySheets = createServerFn({ method: "POST" })
         message: `ses-reject ${item.entrySheet}: ${String(message).slice(0, 400)}`,
       });
 
+      results.push({ entrySheet, ok: !!okFlag, message: String(message || "") });
+    }
+
     return { results, error: null as string | null };
   });
+
 
 /** SES delete (SES_DELETE_API) — one call per selected entry sheet. */
 const DELETE_CONFIG_NAME = "SES_DELETE_API";
