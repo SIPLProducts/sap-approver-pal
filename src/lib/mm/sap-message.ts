@@ -55,3 +55,33 @@ export function extractFalseStatusMessage(payload: any): string | null {
   }
   return null;
 }
+
+/**
+ * Find a MESSAGES: [{ TYPE, MESSAGE }] array at any depth and return the exact
+ * text of the first error/abort entry (TYPE "E" or "A").
+ */
+export function extractMessagesArrayError(payload: any): string | null {
+  if (!payload || typeof payload !== "object") return null;
+
+  if (!Array.isArray(payload)) {
+    for (const [key, value] of Object.entries(payload)) {
+      if (key.toUpperCase() === "MESSAGES" && Array.isArray(value)) {
+        for (const entry of value) {
+          const type = String((entry as any)?.TYPE ?? (entry as any)?.type ?? "")
+            .trim()
+            .toUpperCase();
+          if (type === "E" || type === "A") {
+            const text = extractSapMessage(entry);
+            if (text) return text;
+          }
+        }
+      }
+    }
+  }
+
+  for (const value of Object.values(payload)) {
+    const message = extractMessagesArrayError(value);
+    if (message) return message;
+  }
+  return null;
+}
