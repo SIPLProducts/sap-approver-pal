@@ -395,7 +395,7 @@ export const saveGatePass = createServerFn({ method: "POST" })
         latency_ms,
         message: `gate-pass-save network: ${errMsg}`,
       });
-      return { ok: false, message: `Could not reach SAP: ${errMsg}`, document_number: null as string | null, error: errMsg };
+      return { ok: false, message: `Could not reach SAP: ${errMsg}`, document_number: null as string | null, error: errMsg, messages: [] as Array<{ type: string; message: string }> };
     }
 
     const text = await res.text().catch(() => "");
@@ -409,7 +409,7 @@ export const saveGatePass = createServerFn({ method: "POST" })
         latency_ms,
         message: `gate-pass-save: invalid JSON ${text.slice(0, 300)}`,
       });
-      return { ok: false, message: `Invalid JSON from SAP: ${text.slice(0, 200)}`, document_number: null, error: "invalid_json" };
+      return { ok: false, message: `Invalid JSON from SAP: ${text.slice(0, 200)}`, document_number: null, error: "invalid_json", messages: [] as Array<{ type: string; message: string }> };
     }
 
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
