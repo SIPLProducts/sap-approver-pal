@@ -27,6 +27,8 @@ import {
   BarChart3,
   Zap,
   User as UserIcon,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import heroArt from "@/assets/login-hero-approvals.png";
 import officeArt from "@/assets/login-office-lineart.png";
