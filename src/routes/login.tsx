@@ -125,9 +125,10 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh grid lg:grid-cols-[1.22fr_1fr] bg-background">
+    <div className="min-h-dvh lg:h-dvh lg:overflow-hidden grid lg:grid-cols-[1.22fr_1fr] bg-background">
       {/* Executive hero panel */}
-      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col min-h-[42vh] lg:min-h-dvh">
+      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col min-h-[42vh] lg:h-dvh">
+
         <div className="dot-grid absolute inset-0 text-white/30 opacity-30 pointer-events-none" />
         <div
           className="absolute -bottom-40 -left-40 h-[30rem] w-[30rem] rounded-full blur-3xl opacity-40 pointer-events-none"
