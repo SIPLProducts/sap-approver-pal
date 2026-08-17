@@ -216,7 +216,7 @@ function LoginPage() {
       </div>
 
       {/* Sign-in column */}
-      <div className="relative isolate flex items-center justify-center overflow-hidden bg-gradient-surface p-6 sm:p-10 lg:h-dvh lg:overflow-y-auto">
+      <div className="relative isolate flex items-center justify-center overflow-hidden bg-gradient-surface p-6 sm:p-10 lg:min-h-dvh">
         <img
           src={officeArt}
           alt=""
