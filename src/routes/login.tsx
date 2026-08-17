@@ -197,7 +197,7 @@ function LoginPage() {
         </div>
 
         {/* Trust strip */}
-        <div className="relative shrink-0 border-t border-white/10 px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1rem,2.2vh,1.5rem)]">
+        <div className="relative mt-auto shrink-0 border-t border-white/10 px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(0.85rem,2vh,1.5rem)]">
           <div className="grid gap-6 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
             {TRUST.map(({ icon: Icon, title, body }, i) => (
               <div key={title} className={`flex min-w-0 items-center gap-3 ${i > 0 ? "sm:pl-6" : ""}`}>
