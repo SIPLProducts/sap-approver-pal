@@ -47,7 +47,13 @@ export const Route = createFileRoute("/_authenticated/mm/service-entry-sheet")({
   component: ServiceEntrySheetPage,
 });
 
-type RangeField = { key: string; label: string; type?: "text" | "date"; wide?: boolean };
+type RangeField = {
+  key: string;
+  label: string;
+  type?: "text" | "date";
+  wide?: boolean;
+  component?: "plant";
+};
 
 const PO_FIELDS: RangeField[] = [
   { key: "EBELN", label: "Purchase Order", wide: true },
