@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractFalseStatusMessage, extractMessagesArrayError } from "./sap-message";
+import { collectSapMessages, extractFalseStatusMessage, extractMessagesArrayError } from "./sap-message";
 
 describe("extractFalseStatusMessage", () => {
   it("returns MSGTXT from a top-level STATUS FALSE response", () => {
@@ -42,5 +42,32 @@ describe("extractMessagesArrayError", () => {
 
   it("ignores success-only message arrays", () => {
     expect(extractMessagesArrayError({ MESSAGES: [{ TYPE: "S", MESSAGE: "ok" }] })).toBeNull();
+  });
+});
+describe("collectSapMessages", () => {
+  it("returns every message exactly as received, in order", () => {
+    expect(
+      collectSapMessages({
+        data: {
+          MESSAGES: [
+            { TYPE: "E", MESSAGE: "Document Already Approved" },
+            { TYPE: "E", MESSAGE: "YOU ARE NOT AUTHORIZED FOR HOD APPROVAL" },
+          ],
+        },
+      }),
+    ).toEqual([
+      { type: "E", message: "Document Already Approved" },
+      { type: "E", message: "YOU ARE NOT AUTHORIZED FOR HOD APPROVAL" },
+    ]);
+  });
+
+  it("falls back to a single envelope message", () => {
+    expect(collectSapMessages({ TYPE: "E", MSGTXT: "No POs Found" })).toEqual([
+      { type: "E", message: "No POs Found" },
+    ]);
+  });
+
+  it("returns an empty list when there is no message", () => {
+    expect(collectSapMessages({ DATA: [{ MATERIAL: "1" }] })).toEqual([]);
   });
 });
