@@ -332,6 +332,7 @@ function ServiceEntrySheetPage() {
       });
     } catch (e) {
       setRows([]);
+      setSelectedKeys(new Set());
       setHasRun(false);
       setMessageDialog({
         open: true,
