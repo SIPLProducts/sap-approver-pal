@@ -123,14 +123,25 @@ function RangeRows({
             />
           )}
           <span className="hidden text-xs text-muted-foreground sm:block">to</span>
-          <Input
-            type={f.type === "date" ? "date" : "text"}
-            value={state[f.key]?.to ?? ""}
-            onChange={(e) => onChange(f.key, "to", e.target.value)}
-            disabled={disabled}
-            className="h-9 text-sm"
-            aria-label={`${f.label} to`}
-          />
+          {f.component === "plant" ? (
+            <PlantSelect
+              value={state[f.key]?.to ?? ""}
+              onChange={(v) => onChange(f.key, "to", v)}
+              disabled={disabled}
+              source="user-plant"
+              className="text-sm"
+            />
+          ) : (
+            <Input
+              type={f.type === "date" ? "date" : "text"}
+              value={state[f.key]?.to ?? ""}
+              onChange={(e) => onChange(f.key, "to", e.target.value)}
+              disabled={disabled}
+              className="h-9 text-sm"
+              aria-label={`${f.label} to`}
+            />
+          )}
+
         </div>
       ))}
     </div>
@@ -166,14 +177,15 @@ function ServiceEntrySheetPage() {
 
   const [releaseCode, setReleaseCode] = useState("");
   const [releaseGroup, setReleaseGroup] = useState("");
-  const [setRelease, setSetRelease] = useState(true);
+  const [setRelease, setSetRelease] = useState(false);
   const [cancelRelease, setCancelRelease] = useState(false);
 
   const [poRanges, setPoRanges] = useState<RangeState>(() => emptyRanges(PO_FIELDS));
   const [entryRanges, setEntryRanges] = useState<RangeState>(() => emptyRanges(ENTRY_SHEET_FIELDS));
 
-  const [blocking, setBlocking] = useState("not_blocked");
-  const [acceptance, setAcceptance] = useState("not_accepted");
+  const [blocking, setBlocking] = useState("");
+  const [acceptance, setAcceptance] = useState("");
+
   const [scopeOfList, setScopeOfList] = useState("ENTRY_REL");
 
   const [messageDialog, setMessageDialog] = useState<{
@@ -210,12 +222,13 @@ function ServiceEntrySheetPage() {
   function reset() {
     setReleaseCode("");
     setReleaseGroup("");
-    setSetRelease(true);
+    setSetRelease(false);
     setCancelRelease(false);
     setPoRanges(emptyRanges(PO_FIELDS));
     setEntryRanges(emptyRanges(ENTRY_SHEET_FIELDS));
-    setBlocking("not_blocked");
-    setAcceptance("not_accepted");
+    setBlocking("");
+    setAcceptance("");
+
     setScopeOfList("ENTRY_REL");
   }
 
