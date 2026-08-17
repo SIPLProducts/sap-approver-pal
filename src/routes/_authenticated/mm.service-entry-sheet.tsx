@@ -426,6 +426,49 @@ function ServiceEntrySheetPage() {
       setReleasing(false);
     }
   }
+  async function doReject() {
+    const items = rows
+      .map((r, i) => ({ r, key: rowKey(r, i) }))
+      .filter(({ key }) => selectedKeys.has(key))
+      .map(({ r }) => ({
+        entrySheet: String(r?.entrySh ?? "").trim(),
+        releaseCode: String(r?.relCode ?? releaseCode ?? "").trim(),
+      }))
+      .filter((it) => it.entrySheet && it.releaseCode);
+
+    if (items.length === 0) {
+      setMessageDialog({
+        open: true,
+        title: "Reject",
+        message: "Selected rows have no Entry Sheet / Release Code to reject.",
+      });
+      return;
+    }
+
+    setRejecting(true);
+    try {
+      const res = await runReject({ data: { items } });
+      if (res.error) {
+        setMessageDialog({ open: true, title: "Reject", message: res.error });
+        return;
+      }
+      setMessageDialog({
+        open: true,
+        title: "Reject",
+        message: "",
+        lines: res.results ?? [],
+      });
+    } catch (e) {
+      setMessageDialog({
+        open: true,
+        title: "Reject",
+        message: (e as Error).message || "Could not reject the selected entry sheets.",
+      });
+    } finally {
+      setRejecting(false);
+    }
+  }
+
 
 
   return (
