@@ -241,7 +241,10 @@ function ServiceEntrySheetPage() {
     setAcceptance("");
 
     setScopeOfList("ENTRY_REL");
+    setRows([]);
+    setHasRun(false);
   }
+
 
   async function execute() {
     if (!releaseCode) {
