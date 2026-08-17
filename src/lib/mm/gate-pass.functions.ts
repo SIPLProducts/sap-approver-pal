@@ -153,6 +153,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
     // SAP failure responses — show only the exact SAP text, no table rows.
+    const collected = collectSapMessages(sapJson);
     const sapType = findFirstDeep(sapJson, ["TYPE"]);
     const typeError =
       typeof sapType === "string" && sapType.trim().toUpperCase() === "E"
@@ -176,6 +177,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: failure,
+        messages: collected,
       };
     }
 
