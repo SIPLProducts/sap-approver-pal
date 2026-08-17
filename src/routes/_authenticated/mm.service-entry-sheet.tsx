@@ -318,12 +318,18 @@ function ServiceEntrySheetPage() {
         subtitle="Select release, purchase order and entry sheet criteria to list service entry sheets."
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={reset}>
+            <Button variant="outline" size="sm" onClick={reset} disabled={loading}>
               <RotateCcw className="mr-2 h-3.5 w-3.5" /> Reset
             </Button>
-            <Button size="sm" onClick={execute}>
-              <Search className="mr-2 h-3.5 w-3.5" /> Execute
+            <Button size="sm" onClick={execute} disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Search className="mr-2 h-3.5 w-3.5" />
+              )}
+              {loading ? "Executing…" : "Execute"}
             </Button>
+
           </>
         }
       />
