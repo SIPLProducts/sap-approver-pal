@@ -232,7 +232,7 @@ function ServiceEntrySheetPage() {
     setScopeOfList("ENTRY_REL");
   }
 
-  function execute() {
+  async function execute() {
     if (!releaseCode) {
       setMessageDialog({
         open: true,
@@ -241,13 +241,60 @@ function ServiceEntrySheetPage() {
       });
       return;
     }
-    setMessageDialog({
-      open: true,
-      title: "Service Entry Sheet",
-      message:
-        "The Service Entry Sheet SAP API is not connected yet. Your selection has been captured; results will appear here once the endpoint is configured in SAP API Settings.",
-    });
+    setLoading(true);
+    try {
+      const res = await runFetch({
+        data: {
+          releaseCode,
+          releaseGroup,
+          releaseFilter: cancelRelease ? "CANCEL_RELEASE" : "SET_RELEASE",
+          poFrom: poRanges.EBELN?.from ?? "",
+          poTo: poRanges.EBELN?.to ?? "",
+          docDateFrom: poRanges.BEDAT?.from ?? "",
+          docDateTo: poRanges.BEDAT?.to ?? "",
+          purchOrgFrom: poRanges.EKORG?.from ?? "",
+          purchOrgTo: poRanges.EKORG?.to ?? "",
+          purchGroupFrom: poRanges.EKGRP?.from ?? "",
+          purchGroupTo: poRanges.EKGRP?.to ?? "",
+          plantFrom: poRanges.WERKS?.from ?? "",
+          plantTo: poRanges.WERKS?.to ?? "",
+          matGroupFrom: poRanges.MATKL?.from ?? "",
+          matGroupTo: poRanges.MATKL?.to ?? "",
+          entrySheetFrom: entryRanges.LBLNI?.from ?? "",
+          entrySheetTo: entryRanges.LBLNI?.to ?? "",
+          blockedFilter:
+            blocking === "blocked" ? "BLOCKED" : blocking === "not_blocked" ? "NOT_BLOCKED" : "ALL",
+          acceptedFilter:
+            acceptance === "accepted"
+              ? "ACCEPTED"
+              : acceptance === "not_accepted"
+                ? "NOT_ACCEPTED"
+                : "ALL",
+          scopeOfList,
+        },
+      });
+
+      if (res.error) {
+        setRows([]);
+        setHasRun(false);
+        setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
+        return;
+      }
+      setRows(res.data ?? []);
+      setHasRun(true);
+    } catch (e) {
+      setRows([]);
+      setHasRun(false);
+      setMessageDialog({
+        open: true,
+        title: "Service Entry Sheet",
+        message: (e as Error).message || "Could not fetch service entry sheets.",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
+
 
   return (
     <div className="space-y-4">
