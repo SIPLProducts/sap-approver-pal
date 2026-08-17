@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Filter, Info, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "lucide-react";
 
-import { formatAmount, formatDate } from "@/lib/format";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { fetchServiceEntrySheetPending } from "@/lib/mm/ses.functions";
 
 
