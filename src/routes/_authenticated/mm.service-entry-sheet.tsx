@@ -599,7 +599,13 @@ function ServiceEntrySheetPage() {
               <span className="text-xs text-muted-foreground">
                 {rows.length} record{rows.length === 1 ? "" : "s"} · {selectedKeys.size} selected
               </span>
-              <Button variant="success" size="sm" disabled={selectedKeys.size === 0}>
+              <Button
+                variant="success"
+                size="sm"
+                disabled={selectedKeys.size === 0 || releasing}
+                onClick={doRelease}
+              >
+                {releasing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Release
               </Button>
               <Button variant="destructive" size="sm" disabled={selectedKeys.size === 0}>
