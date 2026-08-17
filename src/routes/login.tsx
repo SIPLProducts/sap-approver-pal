@@ -139,7 +139,7 @@ function LoginPage() {
           style={{ background: "radial-gradient(circle, var(--gold) 0%, transparent 65%)" }}
         />
 
-        <div className="relative flex-1 flex flex-col gap-10 p-8 lg:p-14">
+        <div className="relative flex-1 min-h-0 lg:overflow-y-auto flex flex-col justify-center gap-[clamp(1.25rem,3vh,2.5rem)] p-8 px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1.5rem,4vh,3.5rem)]">
           {/* Brand */}
           <div className="flex items-center gap-4">
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-card">
