@@ -122,9 +122,9 @@
   --shadow-rim: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
 
   /* Data table header styling */
-  --table-header-bg: #F0F2F7;
-  --table-header-text: #111827;
-  --table-header-border: #E1E5EC;
+  --table-header-bg: #2A3F87;
+  --table-header-text: #FFFFFF;
+  --table-header-border: #1F2F66;
   --table-row-hover: #F0F2F7;
 }
 
