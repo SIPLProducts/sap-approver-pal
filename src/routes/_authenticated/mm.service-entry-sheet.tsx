@@ -202,7 +202,28 @@ function ServiceEntrySheetPage() {
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const resultsRef = useRef<HTMLDivElement | null>(null);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
+
+  const columns = useMemo(() => buildDynamicColumns(rows), [rows]);
+  const rowKey = (r: Record<string, any>, i: number) =>
+    `${r?.entrySh ?? ""}-${r?.purOrder ?? ""}-${r?.poItem ?? ""}-${i}`;
+  const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
+  const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.has(k));
+  const someSelected = !allSelected && allKeys.some((k) => selectedKeys.has(k));
+
+  function toggleAll(next: boolean) {
+    setSelectedKeys(next ? new Set(allKeys) : new Set());
+  }
+  function toggleRow(key: string, next: boolean) {
+    setSelectedKeys((prev) => {
+      const s = new Set(prev);
+      if (next) s.add(key);
+      else s.delete(key);
+      return s;
+    });
+  }
 
   const hasKeys = codes.length > 0;
 
