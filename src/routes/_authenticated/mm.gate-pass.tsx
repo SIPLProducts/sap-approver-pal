@@ -102,8 +102,15 @@ function GatePassPage() {
       setHeader(res.header);
       setRows(res.data);
       setSelected(new Set());
-      if (res.error) toast.error(res.error);
-      else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
+      if (res.error) {
+        setResponseDialog({
+          open: true,
+          title: "Gate Pass Response",
+          results: [{ label: "Gate Pass", message: res.error, ok: false }],
+        });
+      } else {
+        toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
+      }
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
   });
