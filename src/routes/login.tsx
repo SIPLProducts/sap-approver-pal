@@ -27,6 +27,8 @@ import {
   BarChart3,
   Zap,
   User as UserIcon,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import heroArt from "@/assets/login-hero-approvals.png";
 import officeArt from "@/assets/login-office-lineart.png";
@@ -70,6 +72,7 @@ function LoginPage() {
 
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
@@ -125,9 +128,9 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh lg:h-dvh lg:overflow-hidden grid lg:grid-cols-[1.22fr_1fr] bg-background">
+    <div className="min-h-dvh grid lg:grid-cols-[1.22fr_1fr] bg-background">
       {/* Executive hero panel */}
-      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col min-h-[42vh] lg:h-dvh">
+      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col min-h-[42vh] lg:min-h-dvh">
 
         <div className="dot-grid absolute inset-0 text-white/30 opacity-30 pointer-events-none" />
         <div
@@ -139,7 +142,7 @@ function LoginPage() {
           style={{ background: "radial-gradient(circle, var(--gold) 0%, transparent 65%)" }}
         />
 
-        <div className="relative flex-1 min-h-0 lg:overflow-y-auto flex flex-col justify-center gap-[clamp(1.25rem,3vh,2.5rem)] p-8 px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1.5rem,4vh,3.5rem)]">
+        <div className="relative flex flex-col justify-start gap-[clamp(1rem,2.4vh,2.5rem)] px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1.25rem,3vh,3rem)]">
           {/* Brand */}
           <div className="flex items-center gap-4">
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-card">
@@ -189,7 +192,7 @@ function LoginPage() {
               alt="Approval request document with security shield and dashboard"
               width={1024}
               height={1024}
-              className="hidden xl:block w-[clamp(12rem,20vw,24rem)] max-h-[46vh] object-contain max-w-full select-none drop-shadow-2xl"
+              className="hidden xl:block w-[clamp(10rem,16vw,20rem)] max-h-[38vh] object-contain max-w-full select-none drop-shadow-2xl"
               draggable={false}
             />
           </div>
@@ -197,7 +200,7 @@ function LoginPage() {
         </div>
 
         {/* Trust strip */}
-        <div className="relative shrink-0 border-t border-white/10 px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1rem,2.2vh,1.5rem)]">
+        <div className="relative mt-auto shrink-0 border-t border-white/10 px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(0.85rem,2vh,1.5rem)]">
           <div className="grid gap-6 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
             {TRUST.map(({ icon: Icon, title, body }, i) => (
               <div key={title} className={`flex min-w-0 items-center gap-3 ${i > 0 ? "sm:pl-6" : ""}`}>
@@ -216,7 +219,7 @@ function LoginPage() {
       </div>
 
       {/* Sign-in column */}
-      <div className="relative isolate flex items-center justify-center overflow-hidden bg-gradient-surface p-6 sm:p-10 lg:h-dvh lg:overflow-y-auto">
+      <div className="relative isolate flex items-center justify-center overflow-hidden bg-gradient-surface p-6 sm:p-10 lg:min-h-dvh">
         <img
           src={officeArt}
           alt=""
@@ -283,13 +286,21 @@ function LoginPage() {
                 <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
-                  className="h-12 rounded-lg border-border bg-secondary/70 pl-10 text-[15px] shadow-none"
+                  className="h-12 rounded-lg border-border bg-secondary/70 pl-10 pr-11 text-[15px] shadow-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
             <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
