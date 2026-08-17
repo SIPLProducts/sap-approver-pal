@@ -154,26 +154,26 @@ function LoginPage() {
           </div>
 
           {/* Headline + illustration */}
-          <div className="grid items-center gap-8 xl:grid-cols-[1fr_auto]">
-            <div className="max-w-lg">
-              <h1 className="font-display text-4xl sm:text-5xl font-bold leading-[1.05] tracking-tight">
+          <div className="grid items-center gap-8 xl:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="min-w-0 max-w-lg">
+              <h1 className="font-display text-[clamp(1.9rem,3.4vw+0.4rem,3rem)] font-bold leading-[1.05] tracking-tight">
                 Approvals
                 <br />
                 <span className="text-gold">that drive progress.</span>
               </h1>
-              <div className="mt-5 h-[3px] w-16 rounded-full bg-gold" />
-              <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/70">
+              <div className="mt-[clamp(0.75rem,1.5vh,1.25rem)] h-[3px] w-16 rounded-full bg-gold" />
+              <p className="mt-[clamp(0.75rem,1.5vh,1.25rem)] max-w-md text-[15px] leading-relaxed text-white/70">
                 A secure, single sign-on gateway to review, approve and manage your SAP transactions – with
                 control, transparency and trust.
               </p>
 
-              <ul className="mt-9 space-y-4">
+              <ul className="mt-[clamp(1.25rem,2.6vh,2.25rem)] space-y-[clamp(0.65rem,1.4vh,1rem)]">
                 {FEATURES.map(({ icon: Icon, title, body }) => (
                   <li key={title} className="flex items-start gap-4">
                     <span className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gold/40 bg-white/[0.04]">
                       <Icon className="h-5 w-5 text-gold" />
                     </span>
-                    <span>
+                    <span className="min-w-0">
                       <span className="block text-sm font-semibold text-white">{title}</span>
                       <span className="mt-0.5 block max-w-[19rem] text-[13px] leading-relaxed text-white/60">
                         {body}
@@ -189,10 +189,11 @@ function LoginPage() {
               alt="Approval request document with security shield and dashboard"
               width={1024}
               height={1024}
-              className="hidden xl:block w-[24rem] max-w-full select-none drop-shadow-2xl"
+              className="hidden xl:block w-[clamp(12rem,20vw,24rem)] max-h-[46vh] object-contain max-w-full select-none drop-shadow-2xl"
               draggable={false}
             />
           </div>
+
         </div>
 
         {/* Trust strip */}
