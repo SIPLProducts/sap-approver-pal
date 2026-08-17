@@ -432,7 +432,48 @@ function ServiceEntrySheetPage() {
       setReleasing(false);
     }
   }
-  async function doReject() {
+  async function doDelete() {
+    const items = rows
+      .map((r, i) => ({ r, key: rowKey(r, i) }))
+      .filter(({ key }) => selectedKeys.has(key))
+      .map(({ r }) => ({
+        entrySheet: String(r?.entrySh ?? "").trim(),
+      }))
+      .filter((it) => it.entrySheet);
+
+    if (items.length === 0) {
+      setMessageDialog({
+        open: true,
+        title: "Delete",
+        message: "Selected rows have no Entry Sheet to delete.",
+      });
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await runDelete({ data: { items } });
+      if (res.error) {
+        setMessageDialog({ open: true, title: "Delete", message: res.error });
+        return;
+      }
+      setMessageDialog({
+        open: true,
+        title: "Delete",
+        message: "",
+        lines: res.results ?? [],
+      });
+    } catch (e) {
+      setMessageDialog({
+        open: true,
+        title: "Delete",
+        message: (e as Error).message || "Could not delete the selected entry sheets.",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
     const items = rows
       .map((r, i) => ({ r, key: rowKey(r, i) }))
       .filter(({ key }) => selectedKeys.has(key))
