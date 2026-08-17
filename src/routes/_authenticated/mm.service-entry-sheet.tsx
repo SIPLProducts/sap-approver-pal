@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Filter, Info, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "lucide-react";
+import { Filter, Info, KeyRound, ListChecks, RotateCcw, Search } from "lucide-react";
 
 import { PageHeader } from "@/components/exec/page-header";
 import { Card } from "@/components/ui/card";
