@@ -249,6 +249,8 @@ function ServiceEntrySheetPage() {
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
   const runRelease = useServerFn(releaseServiceEntrySheets);
   const runReject = useServerFn(rejectServiceEntrySheets);
+  const runDelete = useServerFn(deleteServiceEntrySheets);
+
 
 
   const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
