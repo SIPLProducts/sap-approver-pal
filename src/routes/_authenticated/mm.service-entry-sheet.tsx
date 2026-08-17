@@ -656,9 +656,16 @@ function ServiceEntrySheetPage() {
                 {releasing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Release
               </Button>
-              <Button variant="destructive" size="sm" disabled={selectedKeys.size === 0}>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={selectedKeys.size === 0 || rejecting}
+                onClick={doReject}
+              >
+                {rejecting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Reject
               </Button>
+
               <Button variant="outline" size="sm" disabled={selectedKeys.size === 0}>
                 Delete
               </Button>
