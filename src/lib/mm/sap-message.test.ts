@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractFalseStatusMessage } from "./sap-message";
+import { extractFalseStatusMessage, extractMessagesArrayError } from "./sap-message";
 
 describe("extractFalseStatusMessage", () => {
   it("returns MSGTXT from a top-level STATUS FALSE response", () => {
