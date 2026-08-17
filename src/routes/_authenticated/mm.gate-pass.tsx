@@ -96,13 +96,26 @@ function GatePassPage() {
         data,
         count: data.length,
         error: v?.error ?? null,
+        messages: Array.isArray(v?.messages)
+          ? (v.messages as Array<{ type: string; message: string }>)
+          : [],
       };
     },
     onSuccess: (res) => {
       setHeader(res.header);
       setRows(res.data);
       setSelected(new Set());
-      if (res.error) {
+      if (res.messages.length > 0) {
+        setResponseDialog({
+          open: true,
+          title: "Gate Pass Response",
+          results: res.messages.map((m) => ({
+            label: m.type ? `Type ${m.type}` : "Gate Pass",
+            message: m.message,
+            ok: !["E", "A"].includes(String(m.type ?? "").trim().toUpperCase()),
+          })),
+        });
+      } else if (res.error) {
         setResponseDialog({
           open: true,
           title: "Gate Pass Response",
