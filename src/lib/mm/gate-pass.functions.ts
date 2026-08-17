@@ -209,6 +209,18 @@ export const fetchGatePass = createServerFn({ method: "POST" })
       message: `gate-pass: ${message}`,
     });
 
+    // Success envelope but nothing to show — surface the exact SAP text if present.
+    if (rows.length === 0 && !header) {
+      const sapMessage = extractSapMessage(sapJson);
+      return {
+        header: null as Record<string, any> | null,
+        data: [] as Record<string, any>[],
+        fetched_at: new Date().toISOString(),
+        user_id: userId,
+        error: sapMessage || "No records found",
+      };
+    }
+
     return {
       header,
       data: rows,
