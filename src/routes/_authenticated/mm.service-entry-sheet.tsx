@@ -5,7 +5,10 @@ import { Filter, Info, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "
 
 import type { CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
-import { fetchServiceEntrySheetPending } from "@/lib/mm/ses.functions";
+import {
+  fetchServiceEntrySheetPending,
+  releaseServiceEntrySheets,
+} from "@/lib/mm/ses.functions";
 
 
 import { PageHeader } from "@/components/exec/page-header";
