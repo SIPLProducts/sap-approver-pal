@@ -87,6 +87,35 @@ type RangeState = Record<string, { from: string; to: string }>;
 
 const BLANK = "__blank__";
 
+const SES_HEADER_LABELS: Record<string, string> = {
+  relCode: "Release Code",
+  relGrp: "Release Group",
+  purOrder: "Purchase Order Number",
+  porg: "Purchasing Organization",
+  pgrp: "Purchasing Group",
+  supplier: "Supplier / Vendor Code",
+  name: "Supplier / Vendor Name",
+  currency: "Currency",
+  poDate: "PO Date",
+  poItem: "PO Item",
+  plant: "Plant",
+  finEntPo: "Final Entry Indicator (PO)",
+  matGrp: "Material Group",
+  shTextPo: "PO Short Text",
+  netValuePo: "PO Net Value",
+  delDate: "Delivery Date",
+  entrySh: "Entry Sheet Number",
+  accIn: "Acceptance Indicator",
+  finEnt: "Final Entry Indicator",
+  blkgInd: "Blocking Indicator",
+  shText: "Entry Sheet Short Text",
+  netValue: "Entry Sheet Net Value",
+  crDate: "Created On",
+  relStr: "Release Strategy",
+  relIn: "Release / Acceptance Status",
+  releaseOption: "Release Option",
+};
+
 function emptyRanges(fields: RangeField[]): RangeState {
   return Object.fromEntries(fields.map((f) => [f.key, { from: "", to: "" }]));
 }
@@ -208,7 +237,7 @@ function ServiceEntrySheetPage() {
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
 
   const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
-    () => buildDynamicColumns<Record<string, any>>(rows),
+    () => buildDynamicColumns<Record<string, any>>(rows, { headerLabels: SES_HEADER_LABELS }),
     [rows],
   );
   const rowKey = (r: Record<string, any>, i: number) =>
