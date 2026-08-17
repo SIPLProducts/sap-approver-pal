@@ -147,22 +147,30 @@ export const fetchGatePass = createServerFn({ method: "POST" })
     }
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
-    // SAP error response (TYPE: "E") — show only the exact MESSAGE, no table rows.
+    // SAP failure responses — show only the exact SAP text, no table rows.
     const sapType = findFirstDeep(sapJson, ["TYPE"]);
-    if (typeof sapType === "string" && sapType.trim().toUpperCase() === "E") {
-      const sapMessage = extractSapMessage(sapJson);
+    const typeError =
+      typeof sapType === "string" && sapType.trim().toUpperCase() === "E"
+        ? extractSapMessage(sapJson) || "SAP returned an error."
+        : null;
+    const failure =
+      typeError ||
+      extractFalseStatusMessage(sapJson) ||
+      extractMessagesArrayError(sapJson);
+
+    if (failure) {
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: "error",
         latency_ms,
-        message: `gate-pass: SAP TYPE=E ${String(sapMessage ?? "").slice(0, 300)}`,
+        message: `gate-pass: SAP failure ${String(failure).slice(0, 300)}`,
       });
       return {
         header: null as Record<string, any> | null,
         data: [] as Record<string, any>[],
         fetched_at: new Date().toISOString(),
         user_id: userId,
-        error: sapMessage || "SAP returned an error.",
+        error: failure,
       };
     }
 
