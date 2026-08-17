@@ -116,6 +116,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: `Could not reach SAP at ${cfg.endpoint_url.split("?")[0]}. ${errMsg}.`,
+        messages: [] as Array<{ type: string; message: string }>,
       };
     }
 
@@ -136,6 +137,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: `SAP returned ${message}: ${text.slice(0, 200)}`,
+        messages: [] as Array<{ type: string; message: string }>,
       };
     }
 
@@ -149,6 +151,7 @@ export const fetchGatePass = createServerFn({ method: "POST" })
         fetched_at: new Date().toISOString(),
         user_id: userId,
         error: `Invalid JSON from SAP: ${text.slice(0, 200)}`,
+        messages: [] as Array<{ type: string; message: string }>,
       };
     }
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
