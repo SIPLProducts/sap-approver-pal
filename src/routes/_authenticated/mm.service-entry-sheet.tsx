@@ -5,7 +5,10 @@ import { Filter, Info, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "
 
 import type { CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
-import { fetchServiceEntrySheetPending } from "@/lib/mm/ses.functions";
+import {
+  fetchServiceEntrySheetPending,
+  releaseServiceEntrySheets,
+} from "@/lib/mm/ses.functions";
 
 
 import { PageHeader } from "@/components/exec/page-header";
@@ -227,14 +230,17 @@ function ServiceEntrySheetPage() {
     open: boolean;
     title: string;
     message: string;
+    lines?: { entrySheet: string; ok: boolean; message: string }[];
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
+  const runRelease = useServerFn(releaseServiceEntrySheets);
 
   const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
     () => buildDynamicColumns<Record<string, any>>(rows, { headerLabels: SES_HEADER_LABELS }),
@@ -370,6 +376,49 @@ function ServiceEntrySheetPage() {
       });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function doRelease() {
+    const items = rows
+      .map((r, i) => ({ r, key: rowKey(r, i) }))
+      .filter(({ key }) => selectedKeys.has(key))
+      .map(({ r }) => ({
+        entrySheet: String(r?.entrySh ?? "").trim(),
+        releaseCode: String(r?.relCode ?? releaseCode ?? "").trim(),
+      }))
+      .filter((it) => it.entrySheet && it.releaseCode);
+
+    if (items.length === 0) {
+      setMessageDialog({
+        open: true,
+        title: "Release",
+        message: "Selected rows have no Entry Sheet / Release Code to release.",
+      });
+      return;
+    }
+
+    setReleasing(true);
+    try {
+      const res = await runRelease({ data: { items } });
+      if (res.error) {
+        setMessageDialog({ open: true, title: "Release", message: res.error });
+        return;
+      }
+      setMessageDialog({
+        open: true,
+        title: "Release",
+        message: "",
+        lines: res.results ?? [],
+      });
+    } catch (e) {
+      setMessageDialog({
+        open: true,
+        title: "Release",
+        message: (e as Error).message || "Could not release the selected entry sheets.",
+      });
+    } finally {
+      setReleasing(false);
     }
   }
 
@@ -550,7 +599,13 @@ function ServiceEntrySheetPage() {
               <span className="text-xs text-muted-foreground">
                 {rows.length} record{rows.length === 1 ? "" : "s"} · {selectedKeys.size} selected
               </span>
-              <Button variant="success" size="sm" disabled={selectedKeys.size === 0}>
+              <Button
+                variant="success"
+                size="sm"
+                disabled={selectedKeys.size === 0 || releasing}
+                onClick={doRelease}
+              >
+                {releasing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Release
               </Button>
               <Button variant="destructive" size="sm" disabled={selectedKeys.size === 0}>
@@ -634,7 +689,26 @@ function ServiceEntrySheetPage() {
               <Info className="h-4 w-4" /> {messageDialog?.title}
             </DialogTitle>
             <DialogDescription className="pt-2 text-sm text-foreground">
-              {messageDialog?.message}
+              {messageDialog?.lines?.length ? (
+                <span className="block space-y-2">
+                  {messageDialog.lines.map((l, i) => (
+                    <span key={`${l.entrySheet}-${i}`} className="block rounded-md border px-3 py-2">
+                      <span className="block font-mono text-xs text-muted-foreground">
+                        {l.entrySheet}
+                      </span>
+                      <span
+                        className={`block whitespace-pre-wrap text-sm ${
+                          l.ok ? "text-foreground" : "text-destructive"
+                        }`}
+                      >
+                        {l.message}
+                      </span>
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                messageDialog?.message
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
