@@ -689,7 +689,26 @@ function ServiceEntrySheetPage() {
               <Info className="h-4 w-4" /> {messageDialog?.title}
             </DialogTitle>
             <DialogDescription className="pt-2 text-sm text-foreground">
-              {messageDialog?.message}
+              {messageDialog?.lines?.length ? (
+                <span className="block space-y-2">
+                  {messageDialog.lines.map((l, i) => (
+                    <span key={`${l.entrySheet}-${i}`} className="block rounded-md border px-3 py-2">
+                      <span className="block font-mono text-xs text-muted-foreground">
+                        {l.entrySheet}
+                      </span>
+                      <span
+                        className={`block whitespace-pre-wrap text-sm ${
+                          l.ok ? "text-foreground" : "text-destructive"
+                        }`}
+                      >
+                        {l.message}
+                      </span>
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                messageDialog?.message
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
