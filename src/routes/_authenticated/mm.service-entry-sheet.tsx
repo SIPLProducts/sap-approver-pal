@@ -237,12 +237,15 @@ function ServiceEntrySheetPage() {
 
   const [loading, setLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
   const runRelease = useServerFn(releaseServiceEntrySheets);
+  const runReject = useServerFn(rejectServiceEntrySheets);
+
 
   const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
     () => buildDynamicColumns<Record<string, any>>(rows, { headerLabels: SES_HEADER_LABELS }),
