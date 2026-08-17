@@ -34,6 +34,7 @@ import { Route as AuthenticatedMmMaterialReservationRouteImport } from './routes
 import { Route as AuthenticatedMmMigoReleaseRouteImport } from './routes/_authenticated/mm.migo-release'
 import { Route as AuthenticatedMmPoReleaseRouteImport } from './routes/_authenticated/mm.po-release'
 import { Route as AuthenticatedMmPrReleaseRouteImport } from './routes/_authenticated/mm.pr-release'
+import { Route as AuthenticatedMmServiceEntrySheetRouteImport } from './routes/_authenticated/mm.service-entry-sheet'
 import { Route as AuthenticatedMmZnfaReleaseRouteImport } from './routes/_authenticated/mm.znfa-release'
 import { Route as AuthenticatedSdBmwStatusRouteImport } from './routes/_authenticated/sd.bmw-status'
 import { Route as AuthenticatedSdContractRouteImport } from './routes/_authenticated/sd.contract'
@@ -189,6 +190,12 @@ const AuthenticatedMmPrReleaseRoute =
     path: '/mm/pr-release',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMmServiceEntrySheetRoute =
+  AuthenticatedMmServiceEntrySheetRouteImport.update({
+    id: '/mm/service-entry-sheet',
+    path: '/mm/service-entry-sheet',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMmZnfaReleaseRoute =
   AuthenticatedMmZnfaReleaseRouteImport.update({
     id: '/mm/znfa-release',
@@ -305,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/mm/migo-release': typeof AuthenticatedMmMigoReleaseRoute
   '/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
+  '/mm/service-entry-sheet': typeof AuthenticatedMmServiceEntrySheetRoute
   '/mm/znfa-release': typeof AuthenticatedMmZnfaReleaseRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
@@ -347,6 +355,7 @@ export interface FileRoutesByTo {
   '/mm/migo-release': typeof AuthenticatedMmMigoReleaseRoute
   '/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
+  '/mm/service-entry-sheet': typeof AuthenticatedMmServiceEntrySheetRoute
   '/mm/znfa-release': typeof AuthenticatedMmZnfaReleaseRoute
   '/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/sd/contract': typeof AuthenticatedSdContractRoute
@@ -391,6 +400,7 @@ export interface FileRoutesById {
   '/_authenticated/mm/migo-release': typeof AuthenticatedMmMigoReleaseRoute
   '/_authenticated/mm/po-release': typeof AuthenticatedMmPoReleaseRoute
   '/_authenticated/mm/pr-release': typeof AuthenticatedMmPrReleaseRoute
+  '/_authenticated/mm/service-entry-sheet': typeof AuthenticatedMmServiceEntrySheetRoute
   '/_authenticated/mm/znfa-release': typeof AuthenticatedMmZnfaReleaseRoute
   '/_authenticated/sd/bmw-status': typeof AuthenticatedSdBmwStatusRoute
   '/_authenticated/sd/contract': typeof AuthenticatedSdContractRoute
@@ -435,6 +445,7 @@ export interface FileRouteTypes {
     | '/mm/migo-release'
     | '/mm/po-release'
     | '/mm/pr-release'
+    | '/mm/service-entry-sheet'
     | '/mm/znfa-release'
     | '/sd/bmw-status'
     | '/sd/contract'
@@ -477,6 +488,7 @@ export interface FileRouteTypes {
     | '/mm/migo-release'
     | '/mm/po-release'
     | '/mm/pr-release'
+    | '/mm/service-entry-sheet'
     | '/mm/znfa-release'
     | '/sd/bmw-status'
     | '/sd/contract'
@@ -520,6 +532,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mm/migo-release'
     | '/_authenticated/mm/po-release'
     | '/_authenticated/mm/pr-release'
+    | '/_authenticated/mm/service-entry-sheet'
     | '/_authenticated/mm/znfa-release'
     | '/_authenticated/sd/bmw-status'
     | '/_authenticated/sd/contract'
@@ -730,6 +743,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMmPrReleaseRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mm/service-entry-sheet': {
+      id: '/_authenticated/mm/service-entry-sheet'
+      path: '/mm/service-entry-sheet'
+      fullPath: '/mm/service-entry-sheet'
+      preLoaderRoute: typeof AuthenticatedMmServiceEntrySheetRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/mm/znfa-release': {
       id: '/_authenticated/mm/znfa-release'
       path: '/mm/znfa-release'
@@ -862,6 +882,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMmMigoReleaseRoute: typeof AuthenticatedMmMigoReleaseRoute
   AuthenticatedMmPoReleaseRoute: typeof AuthenticatedMmPoReleaseRoute
   AuthenticatedMmPrReleaseRoute: typeof AuthenticatedMmPrReleaseRoute
+  AuthenticatedMmServiceEntrySheetRoute: typeof AuthenticatedMmServiceEntrySheetRoute
   AuthenticatedMmZnfaReleaseRoute: typeof AuthenticatedMmZnfaReleaseRoute
   AuthenticatedSdBmwStatusRoute: typeof AuthenticatedSdBmwStatusRoute
   AuthenticatedSdContractRoute: typeof AuthenticatedSdContractRoute
@@ -896,6 +917,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMmMigoReleaseRoute: AuthenticatedMmMigoReleaseRoute,
   AuthenticatedMmPoReleaseRoute: AuthenticatedMmPoReleaseRoute,
   AuthenticatedMmPrReleaseRoute: AuthenticatedMmPrReleaseRoute,
+  AuthenticatedMmServiceEntrySheetRoute: AuthenticatedMmServiceEntrySheetRoute,
   AuthenticatedMmZnfaReleaseRoute: AuthenticatedMmZnfaReleaseRoute,
   AuthenticatedSdBmwStatusRoute: AuthenticatedSdBmwStatusRoute,
   AuthenticatedSdContractRoute: AuthenticatedSdContractRoute,
