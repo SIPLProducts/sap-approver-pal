@@ -237,7 +237,7 @@ function ServiceEntrySheetPage() {
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
 
   const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
-    () => buildDynamicColumns<Record<string, any>>(rows),
+    () => buildDynamicColumns<Record<string, any>>(rows, { headerLabels: SES_HEADER_LABELS }),
     [rows],
   );
   const rowKey = (r: Record<string, any>, i: number) =>
