@@ -17,9 +17,50 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
-import { ShieldCheck, Lock, FileCheck2, ArrowRight } from "lucide-react";
+import {
+  ShieldCheck,
+  Lock,
+  FileCheck2,
+  ArrowRight,
+  ClipboardList,
+  Clock,
+  BarChart3,
+  Zap,
+  User as UserIcon,
+} from "lucide-react";
+import heroArt from "@/assets/login-hero-approvals.png";
+import officeArt from "@/assets/login-office-lineart.png";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
+
+const FEATURES = [
+  {
+    icon: ShieldCheck,
+    title: "Secure & Trusted",
+    body: "Enterprise-grade authentication with encrypted sessions.",
+  },
+  {
+    icon: ClipboardList,
+    title: "Role-Based Access",
+    body: "Access approvals aligned to your SAP authorizations.",
+  },
+  {
+    icon: Clock,
+    title: "Timely Decisions",
+    body: "Real-time approvals to keep business moving.",
+  },
+  {
+    icon: FileCheck2,
+    title: "Audit Ready",
+    body: "Every action is tracked, timestamped and audit-logged.",
+  },
+];
+
+const TRUST = [
+  { icon: ShieldCheck, title: "Secure", body: "SSO · MFA · SAP-certified" },
+  { icon: BarChart3, title: "Reliable", body: "99.9% Uptime" },
+  { icon: Zap, title: "Efficient", body: "Faster approvals, better outcomes" },
+];
 
 function LoginPage() {
   const nav = useNavigate();
@@ -84,102 +125,144 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh grid lg:grid-cols-[1.15fr_1fr] bg-background">
+    <div className="min-h-dvh grid lg:grid-cols-[1.22fr_1fr] bg-background">
       {/* Executive hero panel */}
-      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col justify-between p-8 lg:p-14 min-h-[38vh] lg:min-h-dvh">
-        <div className="dot-grid absolute inset-0 text-white/40 opacity-40 pointer-events-none" />
+      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col min-h-[42vh] lg:min-h-dvh">
+        <div className="dot-grid absolute inset-0 text-white/30 opacity-30 pointer-events-none" />
         <div
-          className="absolute -bottom-32 -left-32 h-[28rem] w-[28rem] rounded-full blur-3xl opacity-50 pointer-events-none"
-          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 60%)" }}
+          className="absolute -bottom-40 -left-40 h-[30rem] w-[30rem] rounded-full blur-3xl opacity-40 pointer-events-none"
+          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 62%)" }}
         />
         <div
-          className="absolute -top-32 -right-32 h-[22rem] w-[22rem] rounded-full blur-3xl opacity-30 pointer-events-none"
+          className="absolute -top-32 -right-24 h-[24rem] w-[24rem] rounded-full blur-3xl opacity-25 pointer-events-none"
           style={{ background: "radial-gradient(circle, var(--gold) 0%, transparent 65%)" }}
         />
 
-        <div className="relative flex items-center gap-3">
-          <div className="inline-flex items-center gap-3 rounded-xl bg-white/95 px-3 py-2 shadow-card">
-            <BrandLogo className="h-7" />
+        <div className="relative flex-1 flex flex-col gap-10 p-8 lg:p-14">
+          {/* Brand */}
+          <div className="flex items-center gap-4">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-card">
+              <BrandLogo className="h-8 w-10" />
+            </div>
+            <div>
+              <div className="font-display text-lg font-bold tracking-tight">Re Sustainability</div>
+              <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-gold">
+                Executive Approvals
+              </div>
+            </div>
           </div>
-          <div className="hidden sm:block">
-            <div className="font-display text-sm font-semibold tracking-tight">Re Sustainability</div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-white/55">Executive Approvals</div>
+
+          {/* Headline + illustration */}
+          <div className="grid items-center gap-8 xl:grid-cols-[1fr_auto]">
+            <div className="max-w-lg">
+              <h1 className="font-display text-4xl sm:text-5xl font-bold leading-[1.05] tracking-tight">
+                Approvals
+                <br />
+                <span className="text-gold">that drive progress.</span>
+              </h1>
+              <div className="mt-5 h-[3px] w-16 rounded-full bg-gold" />
+              <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/70">
+                A secure, single sign-on gateway to review, approve and manage your SAP transactions – with
+                control, transparency and trust.
+              </p>
+
+              <ul className="mt-9 space-y-4">
+                {FEATURES.map(({ icon: Icon, title, body }) => (
+                  <li key={title} className="flex items-start gap-4">
+                    <span className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gold/40 bg-white/[0.04]">
+                      <Icon className="h-5 w-5 text-gold" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-white">{title}</span>
+                      <span className="mt-0.5 block max-w-[19rem] text-[13px] leading-relaxed text-white/60">
+                        {body}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <img
+              src={heroArt}
+              alt="Approval request document with security shield and dashboard"
+              width={1024}
+              height={1024}
+              className="hidden xl:block w-[24rem] max-w-full select-none drop-shadow-2xl"
+              draggable={false}
+            />
           </div>
         </div>
 
-        <div className="relative max-w-xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/75">
-            <span className="h-1.5 w-1.5 rounded-full bg-gold" /> Secure SAP Approvals
+        {/* Trust strip */}
+        <div className="relative border-t border-white/10 px-8 lg:px-14 py-6">
+          <div className="grid gap-6 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
+            {TRUST.map(({ icon: Icon, title, body }, i) => (
+              <div key={title} className={`flex items-center gap-3 ${i > 0 ? "sm:pl-6" : ""}`}>
+                <Icon className="h-5 w-5 shrink-0 text-gold" />
+                <span>
+                  <span className="block text-sm font-semibold text-white">{title}</span>
+                  <span className="block text-[12px] text-white/55">{body}</span>
+                </span>
+              </div>
+            ))}
           </div>
-          <h1 className="mt-5 font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.02] tracking-tight">
-            Approve with
-            <br />
-            <span className="text-white/55">confidence.</span>
-          </h1>
-          <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/70">
-            A secure, single sign-on gateway to review and approve your SAP transactions — protected end-to-end and
-            fully audit-ready.
+          <p className="mt-5 text-center text-[11px] text-white/40">
+            © {new Date().getFullYear()} Re Sustainability Limited
           </p>
-
-          <ul className="mt-10 space-y-3 max-w-md text-sm text-white/75">
-            <li className="flex items-start gap-3">
-              <Lock className="mt-0.5 h-4 w-4 text-gold shrink-0" />
-              <span>Enterprise-grade authentication with encrypted sessions.</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-4 w-4 text-gold shrink-0" />
-              <span>Role-based access aligned to your SAP authorizations.</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <FileCheck2 className="mt-0.5 h-4 w-4 text-gold shrink-0" />
-              <span>Every approval signed, timestamped and audit-logged.</span>
-            </li>
-          </ul>
-        </div>
-
-        <div className="relative flex items-center justify-between gap-4 text-[11px] text-white/55">
-          <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5" /> SSO · MFA · SAP-certified
-          </span>
-          <p>© {new Date().getFullYear()} Re Sustainability Limited</p>
         </div>
       </div>
 
       {/* Sign-in column */}
-      <div className="flex items-center justify-center p-6 sm:p-10 bg-background">
-        <div className="w-full max-w-[420px]">
+      <div className="relative isolate flex items-center justify-center overflow-hidden bg-gradient-surface p-6 sm:p-10">
+        <img
+          src={officeArt}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          width={1024}
+          height={768}
+          className="pointer-events-none absolute bottom-0 right-0 w-[34rem] max-w-full select-none opacity-[0.22]"
+          draggable={false}
+        />
+
+        <div className="relative w-full max-w-[420px]">
           <div className="lg:hidden mb-8 flex justify-center">
             <BrandLogo className="h-9" />
           </div>
 
           <div className="mb-8">
-            <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">
               Welcome To Re Sustainability
             </p>
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
-              Sign in to your Account
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">Use your Re Sustainability corporate credentials.</p>
+            <div className="mt-3 h-[3px] w-14 rounded-full bg-gold" />
+            <h2 className="mt-5 font-display text-3xl font-bold tracking-tight">Sign in to your Account</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Use your Re Sustainability corporate credentials.
+            </p>
           </div>
 
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={submit} className="space-y-5">
             <div className="space-y-1.5">
-              <Label htmlFor="userId" className="text-xs font-medium">
+              <Label htmlFor="userId" className="text-[13px] font-medium">
                 User ID
               </Label>
-              <Input
-                id="userId"
-                type="text"
-                autoComplete="username"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                required
-                className="h-11"
-              />
+              <div className="relative">
+                <UserIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="userId"
+                  type="text"
+                  autoComplete="username"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  required
+                  className="h-12 rounded-lg border-border bg-secondary/70 pl-10 text-[15px] shadow-none"
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-xs font-medium">
+                <Label htmlFor="password" className="text-[13px] font-medium">
                   Password
                 </Label>
                 <button
@@ -188,20 +271,23 @@ function LoginPage() {
                       setForgotEmail(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId) ? userId : "");
                       setForgotOpen((v) => !v);
                     }}
-                    className="text-[11px] font-medium text-primary hover:text-primary/80"
+                    className="text-[12px] font-semibold text-primary hover:text-primary/80"
                   >
                   Forgot Password?
                 </button>
               </div>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className="h-11"
-              />
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="h-12 rounded-lg border-border bg-secondary/70 pl-10 text-[15px] shadow-none"
+                />
+              </div>
             </div>
             <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
               <DialogContent className="sm:max-w-md">
@@ -260,21 +346,21 @@ function LoginPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button type="submit" disabled={busy} className="w-full h-11 font-medium group">
+            <Button
+              type="submit"
+              disabled={busy}
+              className="mt-2 w-full h-12 rounded-lg text-[15px] font-semibold group"
+            >
               {busy ? (
                 "Please wait…"
               ) : (
                 <>
                   Sign in{" "}
-                  <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight className="h-4 w-4 ml-1.5 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
             </Button>
           </form>
-
-
-
-
         </div>
       </div>
     </div>
