@@ -379,6 +379,49 @@ function ServiceEntrySheetPage() {
     }
   }
 
+  async function doRelease() {
+    const items = rows
+      .map((r, i) => ({ r, key: rowKey(r, i) }))
+      .filter(({ key }) => selectedKeys.has(key))
+      .map(({ r }) => ({
+        entrySheet: String(r?.entrySh ?? "").trim(),
+        releaseCode: String(r?.relCode ?? releaseCode ?? "").trim(),
+      }))
+      .filter((it) => it.entrySheet && it.releaseCode);
+
+    if (items.length === 0) {
+      setMessageDialog({
+        open: true,
+        title: "Release",
+        message: "Selected rows have no Entry Sheet / Release Code to release.",
+      });
+      return;
+    }
+
+    setReleasing(true);
+    try {
+      const res = await runRelease({ data: { items } });
+      if (res.error) {
+        setMessageDialog({ open: true, title: "Release", message: res.error });
+        return;
+      }
+      setMessageDialog({
+        open: true,
+        title: "Release",
+        message: "",
+        lines: res.results ?? [],
+      });
+    } catch (e) {
+      setMessageDialog({
+        open: true,
+        title: "Release",
+        message: (e as Error).message || "Could not release the selected entry sheets.",
+      });
+    } finally {
+      setReleasing(false);
+    }
+  }
+
 
   return (
     <div className="space-y-4">
