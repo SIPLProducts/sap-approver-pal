@@ -125,9 +125,9 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh lg:h-dvh lg:overflow-hidden grid lg:grid-cols-[1.22fr_1fr] bg-background">
+    <div className="min-h-dvh grid lg:grid-cols-[1.22fr_1fr] bg-background">
       {/* Executive hero panel */}
-      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col min-h-[42vh] lg:h-dvh">
+      <div className="relative isolate overflow-hidden bg-gradient-exec text-white flex flex-col min-h-[42vh] lg:min-h-dvh">
 
         <div className="dot-grid absolute inset-0 text-white/30 opacity-30 pointer-events-none" />
         <div
@@ -139,7 +139,7 @@ function LoginPage() {
           style={{ background: "radial-gradient(circle, var(--gold) 0%, transparent 65%)" }}
         />
 
-        <div className="relative flex-1 min-h-0 lg:overflow-y-auto flex flex-col justify-center gap-[clamp(1.25rem,3vh,2.5rem)] p-8 px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1.5rem,4vh,3.5rem)]">
+        <div className="relative flex flex-col justify-start gap-[clamp(1rem,2.4vh,2.5rem)] px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1.25rem,3vh,3rem)]">
           {/* Brand */}
           <div className="flex items-center gap-4">
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-card">
