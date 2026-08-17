@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Filter, Info, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "lucide-react";
 
-import { formatAmount, formatDate } from "@/lib/format";
+import type { CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { fetchServiceEntrySheetPending } from "@/lib/mm/ses.functions";
 
 
@@ -202,7 +203,31 @@ function ServiceEntrySheetPage() {
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const resultsRef = useRef<HTMLDivElement | null>(null);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
+
+  const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
+    () => buildDynamicColumns<Record<string, any>>(rows),
+    [rows],
+  );
+  const rowKey = (r: Record<string, any>, i: number) =>
+    `${r?.entrySh ?? ""}-${r?.purOrder ?? ""}-${r?.poItem ?? ""}-${i}`;
+  const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
+  const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.has(k));
+  const someSelected = !allSelected && allKeys.some((k) => selectedKeys.has(k));
+
+  function toggleAll(next: boolean) {
+    setSelectedKeys(next ? new Set(allKeys) : new Set());
+  }
+  function toggleRow(key: string, next: boolean) {
+    setSelectedKeys((prev) => {
+      const s = new Set(prev);
+      if (next) s.add(key);
+      else s.delete(key);
+      return s;
+    });
+  }
 
   const hasKeys = codes.length > 0;
 
@@ -242,6 +267,7 @@ function ServiceEntrySheetPage() {
 
     setScopeOfList("ENTRY_REL");
     setRows([]);
+    setSelectedKeys(new Set());
     setHasRun(false);
   }
 
@@ -290,14 +316,23 @@ function ServiceEntrySheetPage() {
 
       if (res.error) {
         setRows([]);
+        setSelectedKeys(new Set());
         setHasRun(false);
         setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
         return;
       }
       setRows(res.data ?? []);
+      setSelectedKeys(new Set());
       setHasRun(true);
+      if (res.message) {
+        setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.message });
+      }
+      requestAnimationFrame(() => {
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch (e) {
       setRows([]);
+      setSelectedKeys(new Set());
       setHasRun(false);
       setMessageDialog({
         open: true,
@@ -477,14 +512,25 @@ function ServiceEntrySheetPage() {
 
       {/* Results */}
       {hasRun && (
-        <Card className="p-0">
-          <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+        <Card ref={resultsRef} className="p-0 scroll-mt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <ListChecks className="h-3.5 w-3.5" /> Entry Sheets
             </div>
-            <span className="text-xs text-muted-foreground">
-              {rows.length} record{rows.length === 1 ? "" : "s"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {rows.length} record{rows.length === 1 ? "" : "s"} · {selectedKeys.size} selected
+              </span>
+              <Button variant="success" size="sm" disabled={selectedKeys.size === 0}>
+                Release
+              </Button>
+              <Button variant="destructive" size="sm" disabled={selectedKeys.size === 0}>
+                Reject
+              </Button>
+              <Button variant="outline" size="sm" disabled={selectedKeys.size === 0}>
+                Delete
+              </Button>
+            </div>
           </div>
           {rows.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm text-muted-foreground">
@@ -492,75 +538,61 @@ function ServiceEntrySheetPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1500px] text-sm">
+              <table className="w-full text-sm">
                 <thead>
                   <tr>
-                    {[
-                      "Entry Sheet",
-                      "PO / Item",
-                      "Supplier",
-                      "Plant",
-                      "Material Group",
-                      "PO Value",
-                      "Entry Sheet Value",
-                      "Short Text",
-                      "Created On",
-                      "Release Code/Group",
-                      "Release Strategy",
-                      "Release Indicator",
-                      "Acceptance",
-                      "Blocked",
-                      "Final Entry",
-                      "Release Option",
-                    ].map((h) => (
+                    <th className="w-10 whitespace-nowrap px-3 py-2 text-left">
+                      <Checkbox
+                        checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                        onCheckedChange={(v) => toggleAll(v === true)}
+                        aria-label="Select all entry sheets"
+                      />
+                    </th>
+                    {columns.map((c) => (
                       <th
-                        key={h}
-                        className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold"
+                        key={c.id}
+                        style={c.minWidth ? { minWidth: c.minWidth } : undefined}
+                        className={`whitespace-nowrap px-3 py-2 text-xs font-semibold ${
+                          c.align === "right" ? "text-right" : "text-left"
+                        }`}
                       >
-                        {h}
+                        {c.header}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={`${r.entrySh ?? ""}-${r.purOrder ?? ""}-${i}`} className="border-t">
-                      <td className="whitespace-nowrap px-3 py-2 font-mono">{r.entrySh || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2 font-mono">
-                        {r.purOrder || "—"}
-                        {r.poItem != null && String(r.poItem) !== "" ? ` / ${r.poItem}` : ""}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="font-mono text-xs">{r.supplier || "—"}</div>
-                        {r.name ? <div className="text-xs text-muted-foreground">{r.name}</div> : null}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2">{r.plant || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{r.matGrp || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
-                        {formatAmount(r.netValuePo)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
-                        {formatAmount(r.netValue)}
-                      </td>
-                      <td className="max-w-[260px] px-3 py-2">{r.shText || r.shTextPo || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{formatDate(r.crDate)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        {[r.relCode, r.relGrp].filter(Boolean).join(" / ") || "—"}
-                      </td>
-                      <td className="px-3 py-2">{r.relStr || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{r.relIn || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{r.accIn || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{r.blkgInd || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{r.finEnt || "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{r.releaseOption || "—"}</td>
-                    </tr>
-                  ))}
+                  {rows.map((r, i) => {
+                    const key = rowKey(r, i);
+                    return (
+                      <tr key={key} className="border-t">
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <Checkbox
+                            checked={selectedKeys.has(key)}
+                            onCheckedChange={(v) => toggleRow(key, v === true)}
+                            aria-label={`Select ${key}`}
+                          />
+                        </td>
+                        {columns.map((c) => (
+                          <td
+                            key={c.id}
+                            className={`whitespace-nowrap px-3 py-2 ${
+                              c.align === "right" ? "text-right tabular-nums" : ""
+                            }`}
+                          >
+                            {c.cell(r)}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </Card>
       )}
+
 
 
       <Dialog
