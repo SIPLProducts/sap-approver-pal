@@ -197,26 +197,26 @@ function LoginPage() {
         </div>
 
         {/* Trust strip */}
-        <div className="relative border-t border-white/10 px-8 lg:px-14 py-6">
+        <div className="relative shrink-0 border-t border-white/10 px-[clamp(1.5rem,4vw,3.5rem)] py-[clamp(1rem,2.2vh,1.5rem)]">
           <div className="grid gap-6 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
             {TRUST.map(({ icon: Icon, title, body }, i) => (
-              <div key={title} className={`flex items-center gap-3 ${i > 0 ? "sm:pl-6" : ""}`}>
+              <div key={title} className={`flex min-w-0 items-center gap-3 ${i > 0 ? "sm:pl-6" : ""}`}>
                 <Icon className="h-5 w-5 shrink-0 text-gold" />
-                <span>
+                <span className="min-w-0">
                   <span className="block text-sm font-semibold text-white">{title}</span>
                   <span className="block text-[12px] text-white/55">{body}</span>
                 </span>
               </div>
             ))}
           </div>
-          <p className="mt-5 text-center text-[11px] text-white/40">
+          <p className="mt-[clamp(0.75rem,1.6vh,1.25rem)] text-center text-[11px] text-white/40">
             © {new Date().getFullYear()} Re Sustainability Limited
           </p>
         </div>
       </div>
 
       {/* Sign-in column */}
-      <div className="relative isolate flex items-center justify-center overflow-hidden bg-gradient-surface p-6 sm:p-10">
+      <div className="relative isolate flex items-center justify-center overflow-hidden bg-gradient-surface p-6 sm:p-10 lg:h-dvh lg:overflow-y-auto">
         <img
           src={officeArt}
           alt=""
@@ -224,9 +224,10 @@ function LoginPage() {
           loading="lazy"
           width={1024}
           height={768}
-          className="pointer-events-none absolute bottom-0 right-0 w-[34rem] max-w-full select-none opacity-[0.22]"
+          className="pointer-events-none absolute bottom-0 right-0 w-[min(34rem,100%)] max-h-[55%] object-contain object-right-bottom select-none opacity-[0.22]"
           draggable={false}
         />
+
 
         <div className="relative w-full max-w-[420px]">
           <div className="lg:hidden mb-8 flex justify-center">
