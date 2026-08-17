@@ -189,7 +189,7 @@ function LoginPage() {
               alt="Approval request document with security shield and dashboard"
               width={1024}
               height={1024}
-              className="hidden xl:block w-[clamp(12rem,20vw,24rem)] max-h-[46vh] object-contain max-w-full select-none drop-shadow-2xl"
+              className="hidden xl:block w-[clamp(10rem,16vw,20rem)] max-h-[38vh] object-contain max-w-full select-none drop-shadow-2xl"
               draggable={false}
             />
           </div>
