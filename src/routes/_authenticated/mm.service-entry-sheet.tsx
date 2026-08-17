@@ -8,7 +8,9 @@ import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import {
   fetchServiceEntrySheetPending,
   releaseServiceEntrySheets,
+  rejectServiceEntrySheets,
 } from "@/lib/mm/ses.functions";
+
 
 
 import { PageHeader } from "@/components/exec/page-header";
@@ -235,12 +237,15 @@ function ServiceEntrySheetPage() {
 
   const [loading, setLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
   const runRelease = useServerFn(releaseServiceEntrySheets);
+  const runReject = useServerFn(rejectServiceEntrySheets);
+
 
   const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
     () => buildDynamicColumns<Record<string, any>>(rows, { headerLabels: SES_HEADER_LABELS }),
@@ -421,6 +426,49 @@ function ServiceEntrySheetPage() {
       setReleasing(false);
     }
   }
+  async function doReject() {
+    const items = rows
+      .map((r, i) => ({ r, key: rowKey(r, i) }))
+      .filter(({ key }) => selectedKeys.has(key))
+      .map(({ r }) => ({
+        entrySheet: String(r?.entrySh ?? "").trim(),
+        releaseCode: String(r?.relCode ?? releaseCode ?? "").trim(),
+      }))
+      .filter((it) => it.entrySheet && it.releaseCode);
+
+    if (items.length === 0) {
+      setMessageDialog({
+        open: true,
+        title: "Reject",
+        message: "Selected rows have no Entry Sheet / Release Code to reject.",
+      });
+      return;
+    }
+
+    setRejecting(true);
+    try {
+      const res = await runReject({ data: { items } });
+      if (res.error) {
+        setMessageDialog({ open: true, title: "Reject", message: res.error });
+        return;
+      }
+      setMessageDialog({
+        open: true,
+        title: "Reject",
+        message: "",
+        lines: res.results ?? [],
+      });
+    } catch (e) {
+      setMessageDialog({
+        open: true,
+        title: "Reject",
+        message: (e as Error).message || "Could not reject the selected entry sheets.",
+      });
+    } finally {
+      setRejecting(false);
+    }
+  }
+
 
 
   return (
@@ -608,9 +656,16 @@ function ServiceEntrySheetPage() {
                 {releasing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Release
               </Button>
-              <Button variant="destructive" size="sm" disabled={selectedKeys.size === 0}>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={selectedKeys.size === 0 || rejecting}
+                onClick={doReject}
+              >
+                {rejecting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Reject
               </Button>
+
               <Button variant="outline" size="sm" disabled={selectedKeys.size === 0}>
                 Delete
               </Button>
