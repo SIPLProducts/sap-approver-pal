@@ -199,7 +199,13 @@ function ServiceEntrySheetPage() {
     message: string;
   } | null>(null);
 
+  const [loading, setLoading] = useState(false);
+  const [hasRun, setHasRun] = useState(false);
+  const [rows, setRows] = useState<Record<string, any>[]>([]);
+  const runFetch = useServerFn(fetchServiceEntrySheetPending);
+
   const hasKeys = codes.length > 0;
+
 
   function updatePo(key: string, part: "from" | "to", value: string) {
     setPoRanges((p) => ({ ...p, [key]: { ...p[key], [part]: value } }));
