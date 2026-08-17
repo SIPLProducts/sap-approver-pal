@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PlantSelect } from "@/components/sap/plant-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 
 export const Route = createFileRoute("/_authenticated/mm/service-entry-sheet")({
@@ -47,7 +48,13 @@ export const Route = createFileRoute("/_authenticated/mm/service-entry-sheet")({
   component: ServiceEntrySheetPage,
 });
 
-type RangeField = { key: string; label: string; type?: "text" | "date"; wide?: boolean };
+type RangeField = {
+  key: string;
+  label: string;
+  type?: "text" | "date";
+  wide?: boolean;
+  component?: "plant";
+};
 
 const PO_FIELDS: RangeField[] = [
   { key: "EBELN", label: "Purchase Order", wide: true },
@@ -56,7 +63,7 @@ const PO_FIELDS: RangeField[] = [
   { key: "LIFNR", label: "Supplier", wide: true },
   { key: "EKORG", label: "Purchasing Organization" },
   { key: "EKGRP", label: "Purchasing Group" },
-  { key: "WERKS", label: "Plant" },
+  { key: "WERKS", label: "Plant", component: "plant" },
   { key: "MATKL", label: "Material/Service Group" },
 ];
 
@@ -97,14 +104,24 @@ function RangeRows({
           className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)_auto_minmax(0,1fr)]"
         >
           <Label className="text-xs text-muted-foreground sm:text-sm">{f.label}</Label>
-          <Input
-            type={f.type === "date" ? "date" : "text"}
-            value={state[f.key]?.from ?? ""}
-            onChange={(e) => onChange(f.key, "from", e.target.value)}
-            disabled={disabled}
-            className="h-9 text-sm"
-            aria-label={`${f.label} from`}
-          />
+          {f.component === "plant" ? (
+            <PlantSelect
+              value={state[f.key]?.from ?? ""}
+              onChange={(v) => onChange(f.key, "from", v)}
+              disabled={disabled}
+              source="user-plant"
+              className="text-sm"
+            />
+          ) : (
+            <Input
+              type={f.type === "date" ? "date" : "text"}
+              value={state[f.key]?.from ?? ""}
+              onChange={(e) => onChange(f.key, "from", e.target.value)}
+              disabled={disabled}
+              className="h-9 text-sm"
+              aria-label={`${f.label} from`}
+            />
+          )}
           <span className="hidden text-xs text-muted-foreground sm:block">to</span>
           <Input
             type={f.type === "date" ? "date" : "text"}
