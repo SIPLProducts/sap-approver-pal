@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Filter, Info, KeyRound, ListChecks, RotateCcw, Search } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Filter, Info, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "lucide-react";
+
+import { formatAmount, formatDate } from "@/lib/format";
+import { fetchServiceEntrySheetPending } from "@/lib/mm/ses.functions";
+
 
 import { PageHeader } from "@/components/exec/page-header";
 import { Card } from "@/components/ui/card";
@@ -194,7 +199,13 @@ function ServiceEntrySheetPage() {
     message: string;
   } | null>(null);
 
+  const [loading, setLoading] = useState(false);
+  const [hasRun, setHasRun] = useState(false);
+  const [rows, setRows] = useState<Record<string, any>[]>([]);
+  const runFetch = useServerFn(fetchServiceEntrySheetPending);
+
   const hasKeys = codes.length > 0;
+
 
   function updatePo(key: string, part: "from" | "to", value: string) {
     setPoRanges((p) => ({ ...p, [key]: { ...p[key], [part]: value } }));
@@ -230,9 +241,12 @@ function ServiceEntrySheetPage() {
     setAcceptance("");
 
     setScopeOfList("ENTRY_REL");
+    setRows([]);
+    setHasRun(false);
   }
 
-  function execute() {
+
+  async function execute() {
     if (!releaseCode) {
       setMessageDialog({
         open: true,
@@ -241,13 +255,60 @@ function ServiceEntrySheetPage() {
       });
       return;
     }
-    setMessageDialog({
-      open: true,
-      title: "Service Entry Sheet",
-      message:
-        "The Service Entry Sheet SAP API is not connected yet. Your selection has been captured; results will appear here once the endpoint is configured in SAP API Settings.",
-    });
+    setLoading(true);
+    try {
+      const res = await runFetch({
+        data: {
+          releaseCode,
+          releaseGroup,
+          releaseFilter: cancelRelease ? "CANCEL_RELEASE" : "SET_RELEASE",
+          poFrom: poRanges.EBELN?.from ?? "",
+          poTo: poRanges.EBELN?.to ?? "",
+          docDateFrom: poRanges.BEDAT?.from ?? "",
+          docDateTo: poRanges.BEDAT?.to ?? "",
+          purchOrgFrom: poRanges.EKORG?.from ?? "",
+          purchOrgTo: poRanges.EKORG?.to ?? "",
+          purchGroupFrom: poRanges.EKGRP?.from ?? "",
+          purchGroupTo: poRanges.EKGRP?.to ?? "",
+          plantFrom: poRanges.WERKS?.from ?? "",
+          plantTo: poRanges.WERKS?.to ?? "",
+          matGroupFrom: poRanges.MATKL?.from ?? "",
+          matGroupTo: poRanges.MATKL?.to ?? "",
+          entrySheetFrom: entryRanges.LBLNI?.from ?? "",
+          entrySheetTo: entryRanges.LBLNI?.to ?? "",
+          blockedFilter:
+            blocking === "blocked" ? "BLOCKED" : blocking === "not_blocked" ? "NOT_BLOCKED" : "ALL",
+          acceptedFilter:
+            acceptance === "accepted"
+              ? "ACCEPTED"
+              : acceptance === "not_accepted"
+                ? "NOT_ACCEPTED"
+                : "ALL",
+          scopeOfList,
+        },
+      });
+
+      if (res.error) {
+        setRows([]);
+        setHasRun(false);
+        setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
+        return;
+      }
+      setRows(res.data ?? []);
+      setHasRun(true);
+    } catch (e) {
+      setRows([]);
+      setHasRun(false);
+      setMessageDialog({
+        open: true,
+        title: "Service Entry Sheet",
+        message: (e as Error).message || "Could not fetch service entry sheets.",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
+
 
   return (
     <div className="space-y-4">
@@ -257,12 +318,18 @@ function ServiceEntrySheetPage() {
         subtitle="Select release, purchase order and entry sheet criteria to list service entry sheets."
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={reset}>
+            <Button variant="outline" size="sm" onClick={reset} disabled={loading}>
               <RotateCcw className="mr-2 h-3.5 w-3.5" /> Reset
             </Button>
-            <Button size="sm" onClick={execute}>
-              <Search className="mr-2 h-3.5 w-3.5" /> Execute
+            <Button size="sm" onClick={execute} disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Search className="mr-2 h-3.5 w-3.5" />
+              )}
+              {loading ? "Executing…" : "Execute"}
             </Button>
+
           </>
         }
       />
@@ -407,6 +474,94 @@ function ServiceEntrySheetPage() {
           />
         </div>
       </Card>
+
+      {/* Results */}
+      {hasRun && (
+        <Card className="p-0">
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <ListChecks className="h-3.5 w-3.5" /> Entry Sheets
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {rows.length} record{rows.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          {rows.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+              No entry sheets found
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1500px] text-sm">
+                <thead>
+                  <tr>
+                    {[
+                      "Entry Sheet",
+                      "PO / Item",
+                      "Supplier",
+                      "Plant",
+                      "Material Group",
+                      "PO Value",
+                      "Entry Sheet Value",
+                      "Short Text",
+                      "Created On",
+                      "Release Code/Group",
+                      "Release Strategy",
+                      "Release Indicator",
+                      "Acceptance",
+                      "Blocked",
+                      "Final Entry",
+                      "Release Option",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={`${r.entrySh ?? ""}-${r.purOrder ?? ""}-${i}`} className="border-t">
+                      <td className="whitespace-nowrap px-3 py-2 font-mono">{r.entrySh || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 font-mono">
+                        {r.purOrder || "—"}
+                        {r.poItem != null && String(r.poItem) !== "" ? ` / ${r.poItem}` : ""}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="font-mono text-xs">{r.supplier || "—"}</div>
+                        {r.name ? <div className="text-xs text-muted-foreground">{r.name}</div> : null}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">{r.plant || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{r.matGrp || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                        {formatAmount(r.netValuePo)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                        {formatAmount(r.netValue)}
+                      </td>
+                      <td className="max-w-[260px] px-3 py-2">{r.shText || r.shTextPo || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{formatDate(r.crDate)}</td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {[r.relCode, r.relGrp].filter(Boolean).join(" / ") || "—"}
+                      </td>
+                      <td className="px-3 py-2">{r.relStr || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{r.relIn || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{r.accIn || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{r.blkgInd || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{r.finEnt || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{r.releaseOption || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
 
       <Dialog
         open={!!messageDialog?.open}
