@@ -416,6 +416,7 @@ export const saveGatePass = createServerFn({ method: "POST" })
 
     // Preferred shape: { MESSAGES: [{ TYPE, MESSAGE }] }
     if (Array.isArray(sapJson?.MESSAGES) && sapJson.MESSAGES.length > 0) {
+      const collected = collectSapMessages(sapJson);
       const msg = sapJson.MESSAGES
         .map((m: any) => String(m?.MESSAGE ?? "").trim())
         .filter(Boolean)
@@ -439,6 +440,7 @@ export const saveGatePass = createServerFn({ method: "POST" })
         message: msg,
         document_number: (sapJson?.DOCUMENT_NUMBER ?? docMatch?.[1]) ?? null,
         error: ok ? null : msg,
+        messages: collected,
       };
     }
 
@@ -459,5 +461,6 @@ export const saveGatePass = createServerFn({ method: "POST" })
       message: message || (ok ? "Saved successfully" : `SAP returned ${res.status}`),
       document_number: sapJson?.DOCUMENT_NUMBER ?? null,
       error: ok ? null : (message || `SAP returned ${res.status}`),
+      messages: message ? [{ type, message }] : [],
     };
   });
