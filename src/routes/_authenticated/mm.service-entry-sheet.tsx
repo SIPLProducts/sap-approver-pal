@@ -143,16 +143,16 @@ function RangeRows({
       {fields.map((f) => (
         <div
           key={f.key}
-          className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(0,220px)_minmax(0,140px)_auto_minmax(0,140px)]"
+          className="grid grid-cols-1 items-center gap-1 sm:w-fit sm:grid-cols-[minmax(0,220px)_minmax(0,140px)_auto_minmax(0,140px)]"
         >
-          <Label className="text-xs text-muted-foreground sm:text-sm">{f.label}</Label>
+          <Label className="min-w-0 truncate text-xs text-muted-foreground sm:text-sm">{f.label}</Label>
           {f.component === "plant" ? (
             <PlantSelect
               value={state[f.key]?.from ?? ""}
               onChange={(v) => onChange(f.key, "from", v)}
               disabled={disabled}
               source="user-plant"
-              className="text-sm"
+              className="min-w-0 text-sm"
             />
           ) : (
             <Input
@@ -160,7 +160,7 @@ function RangeRows({
               value={state[f.key]?.from ?? ""}
               onChange={(e) => onChange(f.key, "from", e.target.value)}
               disabled={disabled}
-              className="h-9 text-sm"
+              className="h-9 min-w-0 text-sm"
               aria-label={`${f.label} from`}
             />
           )}
@@ -171,7 +171,7 @@ function RangeRows({
               onChange={(v) => onChange(f.key, "to", v)}
               disabled={disabled}
               source="user-plant"
-              className="text-sm"
+              className="min-w-0 text-sm"
             />
           ) : (
             <Input
@@ -179,11 +179,10 @@ function RangeRows({
               value={state[f.key]?.to ?? ""}
               onChange={(e) => onChange(f.key, "to", e.target.value)}
               disabled={disabled}
-              className="h-9 text-sm"
+              className="h-9 min-w-0 text-sm"
               aria-label={`${f.label} to`}
             />
           )}
-
         </div>
       ))}
     </div>
@@ -654,19 +653,21 @@ function ServiceEntrySheetPage() {
         </div>
       </Card>
 
-      {/* PO Data */}
-      <Card className="p-4">
-        <SectionTitle icon={Filter}>PO Data</SectionTitle>
-        <RangeRows fields={PO_FIELDS} state={poRanges} onChange={updatePo} />
-      </Card>
-
-      {/* Entry Sheet Data */}
-      <Card className="p-4">
-        <SectionTitle icon={ListChecks}>Entry Sheet Data</SectionTitle>
-        <RangeRows fields={ENTRY_SHEET_FIELDS} state={entryRanges} onChange={updateEntry} />
-      </Card>
-
       <div className="grid gap-4 lg:grid-cols-2">
+        {/* PO Data */}
+        <Card className="p-4">
+          <SectionTitle icon={Filter}>PO Data</SectionTitle>
+          <RangeRows fields={PO_FIELDS} state={poRanges} onChange={updatePo} />
+        </Card>
+
+        {/* Entry Sheet Data */}
+        <Card className="p-4">
+          <SectionTitle icon={ListChecks}>Entry Sheet Data</SectionTitle>
+          <RangeRows fields={ENTRY_SHEET_FIELDS} state={entryRanges} onChange={updateEntry} />
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-4">
           <SectionTitle icon={Filter}>Blocking Indicator</SectionTitle>
           <RadioGroup value={blocking} onValueChange={setBlocking} className="space-y-2">
@@ -698,21 +699,21 @@ function ServiceEntrySheetPage() {
             ))}
           </RadioGroup>
         </Card>
-      </div>
 
-      {/* Scope of List */}
-      <Card className="p-4">
-        <SectionTitle icon={ListChecks}>Scope of List</SectionTitle>
-        <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,220px)_minmax(0,320px)]">
-          <Label className="text-xs text-muted-foreground sm:text-sm">Scope of List</Label>
-          <Input
-            value={scopeOfList}
-            onChange={(e) => setScopeOfList(e.target.value)}
-            className="h-9 font-mono text-sm"
-            aria-label="Scope of List"
-          />
-        </div>
-      </Card>
+        {/* Scope of List */}
+        <Card className="p-4">
+          <SectionTitle icon={ListChecks}>Scope of List</SectionTitle>
+          <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,auto)_minmax(0,1fr)]">
+            <Label className="min-w-0 truncate text-xs text-muted-foreground sm:text-sm">Scope of List</Label>
+            <Input
+              value={scopeOfList}
+              onChange={(e) => setScopeOfList(e.target.value)}
+              className="h-9 min-w-0 font-mono text-sm"
+              aria-label="Scope of List"
+            />
+          </div>
+        </Card>
+      </div>
 
       {/* Results */}
       {hasRun && (
