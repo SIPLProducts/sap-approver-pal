@@ -253,10 +253,19 @@ function ServiceEntrySheetPage() {
 
 
 
-  const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
-    () => buildDynamicColumns<Record<string, any>>(rows, { headerLabels: SES_HEADER_LABELS }),
-    [rows],
-  );
+  const [search, setSearch] = useState("");
+
+  const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(() => {
+    const cols = buildDynamicColumns<Record<string, any>>(rows, {
+      headerLabels: SES_HEADER_LABELS,
+    });
+    const idx = cols.findIndex((c) => c.id === "entrySh");
+    if (idx > 0) {
+      const [entry] = cols.splice(idx, 1);
+      cols.unshift(entry);
+    }
+    return cols;
+  }, [rows]);
   const rowKey = (r: Record<string, any>, i: number) =>
     `${r?.entrySh ?? ""}-${r?.purOrder ?? ""}-${r?.poItem ?? ""}-${i}`;
   const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
