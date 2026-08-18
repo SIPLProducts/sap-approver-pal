@@ -272,6 +272,17 @@ function ServiceEntrySheetPage() {
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.has(k));
   const someSelected = !allSelected && allKeys.some((k) => selectedKeys.has(k));
 
+  const filteredRows = useMemo(() => {
+    const indexed = rows.map((r, i) => ({ r, i }));
+    const q = search.trim().toLowerCase();
+    if (!q) return indexed;
+    return indexed.filter(({ r }) =>
+      Object.values(r ?? {}).some((v) =>
+        v == null ? false : String(v).toLowerCase().includes(q),
+      ),
+    );
+  }, [rows, search]);
+
   function toggleAll(next: boolean) {
     setSelectedKeys(next ? new Set(allKeys) : new Set());
   }
