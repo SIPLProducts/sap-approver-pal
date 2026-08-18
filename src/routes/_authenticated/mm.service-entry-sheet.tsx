@@ -143,7 +143,7 @@ function RangeRows({
       {fields.map((f) => (
         <div
           key={f.key}
-          className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,220px)_minmax(0,180px)_auto_minmax(0,180px)]"
+          className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(0,220px)_minmax(0,140px)_auto_minmax(0,140px)]"
         >
           <Label className="text-xs text-muted-foreground sm:text-sm">{f.label}</Label>
           {f.component === "plant" ? (
