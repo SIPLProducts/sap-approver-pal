@@ -667,7 +667,7 @@ function ServiceEntrySheetPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-4">
           <SectionTitle icon={Filter}>Blocking Indicator</SectionTitle>
           <RadioGroup value={blocking} onValueChange={setBlocking} className="space-y-2">
@@ -699,21 +699,21 @@ function ServiceEntrySheetPage() {
             ))}
           </RadioGroup>
         </Card>
-      </div>
 
-      {/* Scope of List */}
-      <Card className="p-4">
-        <SectionTitle icon={ListChecks}>Scope of List</SectionTitle>
-        <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,220px)_minmax(0,320px)]">
-          <Label className="text-xs text-muted-foreground sm:text-sm">Scope of List</Label>
-          <Input
-            value={scopeOfList}
-            onChange={(e) => setScopeOfList(e.target.value)}
-            className="h-9 font-mono text-sm"
-            aria-label="Scope of List"
-          />
-        </div>
-      </Card>
+        {/* Scope of List */}
+        <Card className="p-4">
+          <SectionTitle icon={ListChecks}>Scope of List</SectionTitle>
+          <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,auto)_minmax(0,1fr)]">
+            <Label className="min-w-0 truncate text-xs text-muted-foreground sm:text-sm">Scope of List</Label>
+            <Input
+              value={scopeOfList}
+              onChange={(e) => setScopeOfList(e.target.value)}
+              className="h-9 min-w-0 font-mono text-sm"
+              aria-label="Scope of List"
+            />
+          </div>
+        </Card>
+      </div>
 
       {/* Results */}
       {hasRun && (
