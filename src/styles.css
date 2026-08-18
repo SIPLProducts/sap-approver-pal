@@ -298,6 +298,27 @@ table thead th {
   z-index: 10;
   box-sizing: border-box;
 }
+
+/* App-wide: header-row checkboxes must stay visible on the dark header
+   background and sit centered with the header label. */
+table thead th button[role="checkbox"] {
+  border-color: #ffffff !important;
+  background-color: color-mix(in oklab, #ffffff 22%, transparent) !important;
+  color: var(--table-header-bg) !important;
+  vertical-align: middle;
+}
+table thead th button[role="checkbox"][data-state="checked"],
+table thead th button[role="checkbox"][data-state="indeterminate"] {
+  background-color: #ffffff !important;
+  color: var(--table-header-bg) !important;
+}
+table thead th button[role="checkbox"]:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+table thead th:has(button[role="checkbox"]) {
+  vertical-align: middle;
+}
 /* Mirror header horizontal padding on body cells so columns line up. */
 table tbody td {
   padding-left: 16px;
