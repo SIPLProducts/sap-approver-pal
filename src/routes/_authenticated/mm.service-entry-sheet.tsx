@@ -531,7 +531,7 @@ function ServiceEntrySheetPage() {
             <Button variant="outline" size="sm" onClick={reset} disabled={loading}>
               <RotateCcw className="mr-2 h-3.5 w-3.5" /> Reset
             </Button>
-            <Button size="sm" onClick={execute} disabled={loading}>
+            <Button size="sm" onClick={() => execute()} disabled={loading}>
               {loading ? (
                 <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
               ) : (
