@@ -20,7 +20,6 @@ import { BrandLogo } from "@/components/brand-logo";
 import {
   ShieldCheck,
   Lock,
-  FileCheck2,
   ArrowRight,
   ClipboardList,
   Clock,
@@ -50,11 +49,6 @@ const FEATURES = [
     icon: Clock,
     title: "Timely Decisions",
     body: "Real-time approvals to keep business moving.",
-  },
-  {
-    icon: FileCheck2,
-    title: "Audit Ready",
-    body: "Every action is tracked, timestamped and audit-logged.",
   },
 ];
 
@@ -186,7 +180,7 @@ function LoginPage() {
               </ul>
             </div>
 
-            <div className="hidden items-center justify-center lg:flex">
+            <div className="hidden items-center justify-center lg:flex pointer-events-none">
               <img
                 src={heroArt}
                 alt="Approval request document with security shield and dashboard"
