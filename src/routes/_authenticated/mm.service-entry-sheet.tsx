@@ -653,17 +653,19 @@ function ServiceEntrySheetPage() {
         </div>
       </Card>
 
-      {/* PO Data */}
-      <Card className="p-4">
-        <SectionTitle icon={Filter}>PO Data</SectionTitle>
-        <RangeRows fields={PO_FIELDS} state={poRanges} onChange={updatePo} />
-      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* PO Data */}
+        <Card className="p-4">
+          <SectionTitle icon={Filter}>PO Data</SectionTitle>
+          <RangeRows fields={PO_FIELDS} state={poRanges} onChange={updatePo} />
+        </Card>
 
-      {/* Entry Sheet Data */}
-      <Card className="p-4">
-        <SectionTitle icon={ListChecks}>Entry Sheet Data</SectionTitle>
-        <RangeRows fields={ENTRY_SHEET_FIELDS} state={entryRanges} onChange={updateEntry} />
-      </Card>
+        {/* Entry Sheet Data */}
+        <Card className="p-4">
+          <SectionTitle icon={ListChecks}>Entry Sheet Data</SectionTitle>
+          <RangeRows fields={ENTRY_SHEET_FIELDS} state={entryRanges} onChange={updateEntry} />
+        </Card>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-4">
