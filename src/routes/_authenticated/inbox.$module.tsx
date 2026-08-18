@@ -1,4 +1,6 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
+import { usePermissions } from "@/hooks/use-permissions";
+import { resolveLandingTarget } from "@/lib/landing-target";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,6 +26,17 @@ function InboxPage() {
   const { module } = Route.useParams();
   const mod = module.toUpperCase() as "MM" | "SD";
   const { user } = useAuth();
+  const perms = usePermissions();
+  const nav = useNavigate();
+
+  const allowedHere = mod === "MM" ? perms.can("approvals.inbox.mm") : perms.can("approvals.inbox.sd");
+  useEffect(() => {
+    if (perms.loading || allowedHere) return;
+    const target = resolveLandingTarget(perms.can);
+    if (target.to === "/inbox/$module" && target.params?.module?.toUpperCase() === mod) return;
+    nav({ to: target.to, params: target.params as never, replace: true });
+  }, [perms.loading, allowedHere, perms.can, mod, nav]);
+
   const { activePlant } = useActiveContext();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
