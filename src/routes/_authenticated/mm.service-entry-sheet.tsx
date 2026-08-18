@@ -364,27 +364,33 @@ function ServiceEntrySheetPage() {
         setRows([]);
         setSelectedKeys(new Set());
         setHasRun(false);
-        setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
+        if (!opts?.silent) {
+          setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
+        }
         return;
       }
       setRows(res.data ?? []);
       setSelectedKeys(new Set());
       setHasRun(true);
-      if (res.message) {
+      if (res.message && !opts?.silent) {
         setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.message });
       }
-      requestAnimationFrame(() => {
-        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      if (!opts?.silent) {
+        requestAnimationFrame(() => {
+          resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
     } catch (e) {
       setRows([]);
       setSelectedKeys(new Set());
       setHasRun(false);
-      setMessageDialog({
-        open: true,
-        title: "Service Entry Sheet",
-        message: (e as Error).message || "Could not fetch service entry sheets.",
-      });
+      if (!opts?.silent) {
+        setMessageDialog({
+          open: true,
+          title: "Service Entry Sheet",
+          message: (e as Error).message || "Could not fetch service entry sheets.",
+        });
+      }
     } finally {
       setLoading(false);
     }
