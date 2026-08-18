@@ -318,7 +318,7 @@ function ServiceEntrySheetPage() {
   }
 
 
-  async function execute() {
+  async function execute(opts?: { silent?: boolean }) {
     if (!releaseCode) {
       setMessageDialog({
         open: true,
