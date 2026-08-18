@@ -23,7 +23,10 @@ export const fetchServiceEntrySheetPending = createServerFn({ method: "POST" })
       .object({
         releaseCode: z.string().trim().max(10).optional().default(""),
         releaseGroup: str,
-        releaseFilter: z.enum(["SET_RELEASE", "CANCEL_RELEASE"]).optional().default("SET_RELEASE"),
+        releaseFilter: z
+          .union([z.enum(["SET_RELEASE", "CANCEL_RELEASE"]), z.literal("")])
+          .optional()
+          .default(""),
         poFrom: str,
         poTo: str,
         docDateFrom: str,
@@ -38,8 +41,14 @@ export const fetchServiceEntrySheetPending = createServerFn({ method: "POST" })
         matGroupTo: str,
         entrySheetFrom: str,
         entrySheetTo: str,
-        blockedFilter: z.enum(["BLOCKED", "NOT_BLOCKED", "ALL"]).optional().default("ALL"),
-        acceptedFilter: z.enum(["ACCEPTED", "NOT_ACCEPTED", "ALL"]).optional().default("ALL"),
+        blockedFilter: z
+          .union([z.enum(["BLOCKED", "NOT_BLOCKED", "ALL"]), z.literal("")])
+          .optional()
+          .default(""),
+        acceptedFilter: z
+          .union([z.enum(["ACCEPTED", "NOT_ACCEPTED", "ALL"]), z.literal("")])
+          .optional()
+          .default(""),
         scopeOfList: str,
       })
       .parse(d),
