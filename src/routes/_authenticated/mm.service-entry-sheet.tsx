@@ -797,30 +797,41 @@ function ServiceEntrySheetPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => {
-                    const key = rowKey(r, i);
-                    return (
-                      <tr key={key} className="border-t">
-                        <td className="whitespace-nowrap px-3 py-2">
-                          <Checkbox
-                            checked={selectedKeys.has(key)}
-                            onCheckedChange={(v) => toggleRow(key, v === true)}
-                            aria-label={`Select ${key}`}
-                          />
-                        </td>
-                        {columns.map((c) => (
-                          <td
-                            key={c.id}
-                            className={`whitespace-nowrap px-3 py-2 ${
-                              c.align === "right" ? "text-right tabular-nums" : ""
-                            }`}
-                          >
-                            {c.cell(r)}
+                  {filteredRows.length === 0 ? (
+                    <tr className="border-t">
+                      <td
+                        colSpan={columns.length + 1}
+                        className="px-3 py-6 text-center text-sm text-muted-foreground"
+                      >
+                        No results match your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows.map(({ r, i }) => {
+                      const key = rowKey(r, i);
+                      return (
+                        <tr key={key} className="border-t">
+                          <td className="whitespace-nowrap px-3 py-2">
+                            <Checkbox
+                              checked={selectedKeys.has(key)}
+                              onCheckedChange={(v) => toggleRow(key, v === true)}
+                              aria-label={`Select ${key}`}
+                            />
                           </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
+                          {columns.map((c) => (
+                            <td
+                              key={c.id}
+                              className={`whitespace-nowrap px-3 py-2 ${
+                                c.align === "right" ? "text-right tabular-nums" : ""
+                              }`}
+                            >
+                              {c.cell(r)}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
