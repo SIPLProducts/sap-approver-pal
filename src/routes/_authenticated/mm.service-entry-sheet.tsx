@@ -491,6 +491,7 @@ function ServiceEntrySheetPage() {
         message: "",
         lines: res.results ?? [],
       });
+      void execute({ silent: true });
     } catch (e) {
       setMessageDialog({
         open: true,
