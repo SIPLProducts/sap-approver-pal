@@ -21,7 +21,7 @@ export const fetchServiceEntrySheetPending = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        releaseCode: z.string().trim().min(1, "Release Code is required").max(10),
+        releaseCode: z.string().trim().max(10).optional().default(""),
         releaseGroup: str,
         releaseFilter: z.enum(["SET_RELEASE", "CANCEL_RELEASE"]).optional().default("SET_RELEASE"),
         poFrom: str,

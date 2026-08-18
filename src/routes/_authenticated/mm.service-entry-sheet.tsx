@@ -338,14 +338,6 @@ function ServiceEntrySheetPage() {
 
 
   async function execute(opts?: { silent?: boolean }) {
-    if (!releaseCode) {
-      setMessageDialog({
-        open: true,
-        title: "Service Entry Sheet",
-        message: "Please select a Release Code before running the selection.",
-      });
-      return;
-    }
     setLoading(true);
     try {
       const res = await runFetch({
