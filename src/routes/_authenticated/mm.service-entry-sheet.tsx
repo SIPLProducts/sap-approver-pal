@@ -755,7 +755,7 @@ function ServiceEntrySheetPage() {
                 onClick={doReject}
               >
                 {rejecting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                Reject
+                UnRelease
               </Button>
 
               <Button
