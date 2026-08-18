@@ -715,12 +715,26 @@ function ServiceEntrySheetPage() {
       {hasRun && (
         <Card ref={resultsRef} className="p-0 scroll-mt-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <ListChecks className="h-3.5 w-3.5" /> Entry Sheets
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <ListChecks className="h-3.5 w-3.5" /> Entry Sheets
+              </div>
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search results..."
+                  className="h-9 pl-8 text-sm"
+                  aria-label="Search results"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">
-                {rows.length} record{rows.length === 1 ? "" : "s"} · {selectedKeys.size} selected
+                {filteredRows.length}
+                {search.trim() ? ` / ${rows.length}` : ""} record
+                {filteredRows.length === 1 ? "" : "s"} · {selectedKeys.size} selected
               </span>
               <Button
                 variant="success"
