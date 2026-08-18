@@ -344,7 +344,7 @@ function ServiceEntrySheetPage() {
         data: {
           releaseCode,
           releaseGroup,
-          releaseFilter: cancelRelease ? "CANCEL_RELEASE" : "SET_RELEASE",
+          releaseFilter: setRelease ? "SET_RELEASE" : cancelRelease ? "CANCEL_RELEASE" : "",
           poFrom: poRanges.EBELN?.from ?? "",
           poTo: poRanges.EBELN?.to ?? "",
           docDateFrom: poRanges.BEDAT?.from ?? "",
@@ -360,13 +360,21 @@ function ServiceEntrySheetPage() {
           entrySheetFrom: entryRanges.LBLNI?.from ?? "",
           entrySheetTo: entryRanges.LBLNI?.to ?? "",
           blockedFilter:
-            blocking === "blocked" ? "BLOCKED" : blocking === "not_blocked" ? "NOT_BLOCKED" : "ALL",
+            blocking === "blocked"
+              ? "BLOCKED"
+              : blocking === "not_blocked"
+                ? "NOT_BLOCKED"
+                : blocking === "all"
+                  ? "ALL"
+                  : "",
           acceptedFilter:
             acceptance === "accepted"
               ? "ACCEPTED"
               : acceptance === "not_accepted"
                 ? "NOT_ACCEPTED"
-                : "ALL",
+                : acceptance === "all"
+                  ? "ALL"
+                  : "",
           scopeOfList,
         },
       });
