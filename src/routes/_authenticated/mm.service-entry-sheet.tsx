@@ -253,15 +253,35 @@ function ServiceEntrySheetPage() {
 
 
 
-  const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(
-    () => buildDynamicColumns<Record<string, any>>(rows, { headerLabels: SES_HEADER_LABELS }),
-    [rows],
-  );
+  const [search, setSearch] = useState("");
+
+  const columns: CloudscapeColumn<Record<string, any>>[] = useMemo(() => {
+    const cols = buildDynamicColumns<Record<string, any>>(rows, {
+      headerLabels: SES_HEADER_LABELS,
+    });
+    const idx = cols.findIndex((c) => c.id === "entrySh");
+    if (idx > 0) {
+      const [entry] = cols.splice(idx, 1);
+      cols.unshift(entry);
+    }
+    return cols;
+  }, [rows]);
   const rowKey = (r: Record<string, any>, i: number) =>
     `${r?.entrySh ?? ""}-${r?.purOrder ?? ""}-${r?.poItem ?? ""}-${i}`;
   const allKeys = useMemo(() => rows.map((r, i) => rowKey(r, i)), [rows]);
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.has(k));
   const someSelected = !allSelected && allKeys.some((k) => selectedKeys.has(k));
+
+  const filteredRows = useMemo(() => {
+    const indexed = rows.map((r, i) => ({ r, i }));
+    const q = search.trim().toLowerCase();
+    if (!q) return indexed;
+    return indexed.filter(({ r }) =>
+      Object.values(r ?? {}).some((v) =>
+        v == null ? false : String(v).toLowerCase().includes(q),
+      ),
+    );
+  }, [rows, search]);
 
   function toggleAll(next: boolean) {
     setSelectedKeys(next ? new Set(allKeys) : new Set());
@@ -318,7 +338,7 @@ function ServiceEntrySheetPage() {
   }
 
 
-  async function execute() {
+  async function execute(opts?: { silent?: boolean }) {
     if (!releaseCode) {
       setMessageDialog({
         open: true,
@@ -364,27 +384,33 @@ function ServiceEntrySheetPage() {
         setRows([]);
         setSelectedKeys(new Set());
         setHasRun(false);
-        setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
+        if (!opts?.silent) {
+          setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
+        }
         return;
       }
       setRows(res.data ?? []);
       setSelectedKeys(new Set());
       setHasRun(true);
-      if (res.message) {
+      if (res.message && !opts?.silent) {
         setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.message });
       }
-      requestAnimationFrame(() => {
-        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      if (!opts?.silent) {
+        requestAnimationFrame(() => {
+          resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
     } catch (e) {
       setRows([]);
       setSelectedKeys(new Set());
       setHasRun(false);
-      setMessageDialog({
-        open: true,
-        title: "Service Entry Sheet",
-        message: (e as Error).message || "Could not fetch service entry sheets.",
-      });
+      if (!opts?.silent) {
+        setMessageDialog({
+          open: true,
+          title: "Service Entry Sheet",
+          message: (e as Error).message || "Could not fetch service entry sheets.",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -422,6 +448,7 @@ function ServiceEntrySheetPage() {
         message: "",
         lines: res.results ?? [],
       });
+      void execute({ silent: true });
     } catch (e) {
       setMessageDialog({
         open: true,
@@ -464,6 +491,7 @@ function ServiceEntrySheetPage() {
         message: "",
         lines: res.results ?? [],
       });
+      void execute({ silent: true });
     } catch (e) {
       setMessageDialog({
         open: true,
@@ -506,6 +534,7 @@ function ServiceEntrySheetPage() {
         message: "",
         lines: res.results ?? [],
       });
+      void execute({ silent: true });
     } catch (e) {
       setMessageDialog({
         open: true,
@@ -531,7 +560,7 @@ function ServiceEntrySheetPage() {
             <Button variant="outline" size="sm" onClick={reset} disabled={loading}>
               <RotateCcw className="mr-2 h-3.5 w-3.5" /> Reset
             </Button>
-            <Button size="sm" onClick={execute} disabled={loading}>
+            <Button size="sm" onClick={() => execute()} disabled={loading}>
               {loading ? (
                 <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -689,12 +718,26 @@ function ServiceEntrySheetPage() {
       {hasRun && (
         <Card ref={resultsRef} className="p-0 scroll-mt-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <ListChecks className="h-3.5 w-3.5" /> Entry Sheets
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <ListChecks className="h-3.5 w-3.5" /> Entry Sheets
+              </div>
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search results..."
+                  className="h-9 pl-8 text-sm"
+                  aria-label="Search results"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">
-                {rows.length} record{rows.length === 1 ? "" : "s"} · {selectedKeys.size} selected
+                {filteredRows.length}
+                {search.trim() ? ` / ${rows.length}` : ""} record
+                {filteredRows.length === 1 ? "" : "s"} · {selectedKeys.size} selected
               </span>
               <Button
                 variant="success"
@@ -757,30 +800,41 @@ function ServiceEntrySheetPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => {
-                    const key = rowKey(r, i);
-                    return (
-                      <tr key={key} className="border-t">
-                        <td className="whitespace-nowrap px-3 py-2">
-                          <Checkbox
-                            checked={selectedKeys.has(key)}
-                            onCheckedChange={(v) => toggleRow(key, v === true)}
-                            aria-label={`Select ${key}`}
-                          />
-                        </td>
-                        {columns.map((c) => (
-                          <td
-                            key={c.id}
-                            className={`whitespace-nowrap px-3 py-2 ${
-                              c.align === "right" ? "text-right tabular-nums" : ""
-                            }`}
-                          >
-                            {c.cell(r)}
+                  {filteredRows.length === 0 ? (
+                    <tr className="border-t">
+                      <td
+                        colSpan={columns.length + 1}
+                        className="px-3 py-6 text-center text-sm text-muted-foreground"
+                      >
+                        No results match your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows.map(({ r, i }) => {
+                      const key = rowKey(r, i);
+                      return (
+                        <tr key={key} className="border-t">
+                          <td className="whitespace-nowrap px-3 py-2">
+                            <Checkbox
+                              checked={selectedKeys.has(key)}
+                              onCheckedChange={(v) => toggleRow(key, v === true)}
+                              aria-label={`Select ${key}`}
+                            />
                           </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
+                          {columns.map((c) => (
+                            <td
+                              key={c.id}
+                              className={`whitespace-nowrap px-3 py-2 ${
+                                c.align === "right" ? "text-right tabular-nums" : ""
+                              }`}
+                            >
+                              {c.cell(r)}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
