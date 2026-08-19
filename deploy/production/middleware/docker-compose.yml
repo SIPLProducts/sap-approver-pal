@@ -1,0 +1,33 @@
+# ---------------------------------------------------------------------------
+# PRODUCTION SAP middleware only. Never shares containers, networks or the
+# compose project name with Quality.
+#
+# Usage (from the folder that holds this file and the middleware/ sources):
+#   docker compose -p resl_production up -d --build
+#   docker compose -p resl_production logs -f
+# ---------------------------------------------------------------------------
+services:
+  sap-middleware-prod:
+    build:
+      # Path to the repo's middleware/ folder relative to this file.
+      context: ../../../middleware
+      dockerfile: Dockerfile
+    container_name: sap-middleware-prod
+    env_file:
+      - ./.env
+    environment:
+      PORT: "3010"
+    ports:
+      - "3010:3010"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sap-middleware-prod
+
+networks:
+  sap-middleware-prod:
+    driver: bridge
