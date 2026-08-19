@@ -1,111 +1,103 @@
-# Production deployment — start the stack beside Quality
+# Fix: `node:22-alpine` pull timeout in Production/backend
 
-Your `Production/backend/` now holds the correct Supabase self-hosted stack (`docker-compose.yml`, `volumes/`, `migrations/`, helper scripts). The compose file you pasted earlier was the **middleware** file — that one belongs in `Production/middleware/`, not `backend/`.
+Two separate things are going on.
 
-## Folder layout
+## 1. Wrong compose file in that folder
 
-```text
-Production/
-  backend/        # Supabase stack (docker-compose.yml + .env + volumes/)  <- correct now
-  middleware/     # SAP middleware sources + docker-compose.yml + .env
-  frontend/       # .env + dist/
-  logs/           # nginx logs
-  scripts/        # seed SQL
-```
+The command ran a **build** of `sap-middleware-prod`, which means the `docker-compose.yml` currently in
+`Production/backend/` is still the **middleware** file, not the Supabase stack. The Supabase stack has no
+`build:` sections — it only pulls images.
 
-## 1. Backend `.env`
+- `Production/backend/docker-compose.yml` must be the Supabase self-hosted stack (copied from the repo `supabase/` folder).
+- The middleware compose file belongs in `Production/middleware/`.
 
-`Production/backend/` has no `.env` yet — the stack will not start without it.
+Check which one you have:
 
 ```bash
 cd /data/webapplication/resl_approval/Production/backend
-cp /path/to/repo/deploy/production/backend/.env.example .env
-chmod 600 .env
+grep -c 'build:' docker-compose.yml       # Supabase stack -> 0
+grep -m1 -A2 '^services:' docker-compose.yml
 ```
 
-Generate the secrets:
+If it prints `sap-middleware-prod`, move it out:
 
 ```bash
-openssl rand -hex 24   # POSTGRES_PASSWORD, DASHBOARD_PASSWORD
-openssl rand -hex 32   # JWT_SECRET, SECRET_KEY_BASE, LOGFLARE_* tokens
-openssl rand -hex 16   # VAULT_ENC_KEY
+mkdir -p ../middleware
+mv docker-compose.yml ../middleware/docker-compose.yml
+cp /path/to/repo/supabase/docker-compose.yml .
 ```
 
-Then mint `ANON_KEY` / `SERVICE_ROLE_KEY` from that Production `JWT_SECRET` (the mint script from earlier).
-
-Ports already set in that example: Kong `8010`/`8453`, Studio `3100`, Postgres `5442`, pooler `6553`.
-
-## 2. Start the backend
+Also: Supabase stack must be started **without** `--build`:
 
 ```bash
-cd /data/webapplication/resl_approval/Production/backend
 docker compose -p resl_production --env-file .env up -d
-docker compose -p resl_production ps
-docker compose ls          # should now list resl_quality AND resl_production
 ```
 
-Verify:
+## 2. Docker Hub is unreachable from this box
+
+`dial tcp 98.87.63.243:443: i/o timeout` on `registry-1.docker.io` = the server cannot reach Docker Hub
+(firewall/proxy on your network). Nothing in the app can fix that. Options, in order of preference:
+
+### a) Confirm the block
 
 ```bash
-curl -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8010/auth/v1/health
-curl -sI http://127.0.0.1:3100 | head -n1
+curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 https://registry-1.docker.io/v2/
+curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 https://auth.docker.io/token
 ```
 
-`-p resl_production` is mandatory on **every** command in this folder — without it Docker reuses the folder-derived project name and can collide with Quality containers.
+Timeout on both = egress blocked.
 
-## 3. Middleware — separate folder
+### b) Configure Docker to use your corporate proxy
 
 ```bash
-mkdir -p /data/webapplication/resl_approval/Production/middleware
+mkdir -p /etc/systemd/system/docker.service.d
+cat >/etc/systemd/system/docker.service.d/proxy.conf <<'EOF'
+[Service]
+Environment="HTTP_PROXY=http://<proxy-host>:<port>"
+Environment="HTTPS_PROXY=http://<proxy-host>:<port>"
+Environment="NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,10.150.150.0/24"
+EOF
+systemctl daemon-reload && systemctl restart docker
+```
+
+### c) Reuse the images Quality already pulled (no internet needed)
+
+Quality runs the same stack on this box, so the images are already local:
+
+```bash
+docker images | grep -E 'supabase|postgres|kong|node'
+```
+
+The Supabase stack images are all pinned in the compose/`.env`, so if Quality has them, Production
+starts with `up -d` and never touches the registry.
+
+For the middleware image specifically, build it once from Quality's already-present `node:22-alpine`,
+or if that tag is missing, retag/save-load it:
+
+```bash
+docker images node                       # is 22-alpine present?
+# on a machine with internet:
+docker pull node:22-alpine && docker save node:22-alpine -o node22alpine.tar
+# on ReAprMatrix:
+docker load -i node22alpine.tar
+```
+
+### d) Skip the container for the middleware
+
+Production middleware can run bare-metal under pm2 — no image pull at all:
+
+```bash
 cd /data/webapplication/resl_approval/Production/middleware
-cp -r /path/to/repo/middleware/* .
-cp /path/to/repo/deploy/production/middleware/docker-compose.yml .
-cp /path/to/repo/deploy/production/middleware/.env.example .env
-chmod 600 .env
-# edit .env: MIDDLEWARE_SHARED_SECRET = long random, different from Quality
-```
-
-Because the sources are now in the same folder as the compose file, change the build context in that copied `docker-compose.yml` from `../../../middleware` to `.`, then:
-
-```bash
-docker compose -p resl_production up -d --build
+npm install --omit=dev
+PORT=3010 pm2 start server.js --name Prod_MW --time && pm2 save
 curl -i http://127.0.0.1:3010/__health
 ```
 
-## 4. Schema + seed
+## Recommended order
 
-```bash
-psql "postgresql://postgres:<POSTGRES_PASSWORD>@127.0.0.1:5442/postgres" -f <schema.sql>
-psql "postgresql://postgres:<POSTGRES_PASSWORD>@127.0.0.1:5442/postgres" -f scripts/quality-seed-data-sql-editor.sql
-```
+1. Move the middleware compose file out of `backend/`, put the Supabase stack there.
+2. Start the backend with `up -d` (no `--build`) — it should use Quality's local images.
+3. Bring up the middleware via option (d) pm2, or (c) once `node:22-alpine` is loaded locally.
+4. Fix Docker's proxy config (b) later so future image pulls work normally.
 
-Then point the middleware row at Production:
-
-```sql
-update public.sap_global_settings
-   set connection_mode = 'via_proxy',
-       middleware_port = 3010,
-       middleware_url  = 'http://127.0.0.1:3010',
-       proxy_secret    = '<Production MIDDLEWARE_SHARED_SECRET>'
- where name = 'default';
-```
-
-## 5. Frontend + nginx
-
-```bash
-cd /data/webapplication/resl_approval/Production/frontend
-cp /path/to/repo/deploy/production/frontend/.env.example .env   # PORT=8090, Kong 8010
-chmod 600 .env
-cd dist && bash deploy-frontend.sh --port 8090 --nginx-port 9091
-
-cp /path/to/repo/deploy/production/nginx/resl-approval-production-9091.conf /etc/nginx/conf.d/
-htpasswd -c /etc/nginx/.htpasswd-studio-prod studioadmin
-mkdir -p /data/webapplication/resl_approval/Production/logs
-nginx -t && nginx -s reload
-```
-
-## Checks before you run
-
-- `Production/backend/volumes/db/data` must be empty/absent, otherwise you inherit Quality data.
-- `JWT_SECRET`, `POSTGRES_PASSWORD`, `MIDDLEWARE_SHARED_SECRET` all different from Quality.
-- Every `docker compose` command in Production uses `-p resl_production`.
+No application code changes are needed for any of this.
