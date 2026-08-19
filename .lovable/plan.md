@@ -1,90 +1,75 @@
-# Fix: `node:22-alpine` pull timeout in Production/backend
+# Fix: `Production/backend/docker-compose.yml` was overwritten with the middleware file
 
-Two separate things are going on.
+## What the output proves
 
-## 1. Wrong compose file in that folder
+```
+grep -c 'build:' docker-compose.yml      -> 1
+grep -A2 '^services:'                    -> sap-middleware-prod / build:
+ls                                       -> "docker-compose."   <- stray file
+```
 
-The command ran a **build** of `sap-middleware-prod`, which means the `docker-compose.yml` currently in
-`Production/backend/` is still the **middleware** file, not the Supabase stack. The Supabase stack has no
-`build:` sections — it only pulls images.
+The repo's real Supabase stack (`supabase/docker-compose.yml`) has **0** `build:` lines and its first
+service is `studio` / `container_name: supabase-studio`. So the file now sitting in
+`Production/backend/docker-compose.yml` is the middleware compose file — it replaced the Supabase stack
+when it was pasted in with `nano`. The stray `docker-compose.` (no extension) is very likely the original
+Supabase stack saved under a mistyped name.
 
-- `Production/backend/docker-compose.yml` must be the Supabase self-hosted stack (copied from the repo `supabase/` folder).
-- The middleware compose file belongs in `Production/middleware/`.
+Quality is **not** the same: Quality's `backend/docker-compose.yml` is the Supabase stack, and its
+middleware lives in `Quality/middleware/`. Verify that yourself:
 
-Check which one you have:
+```bash
+grep -c 'build:' /data/webapplication/resl_approval/Quality/backend/docker-compose.yml   # expect 0
+```
+
+## Step 1 — check the stray file
 
 ```bash
 cd /data/webapplication/resl_approval/Production/backend
-grep -c 'build:' docker-compose.yml       # Supabase stack -> 0
-grep -m1 -A2 '^services:' docker-compose.yml
+ls -l docker-compose.
+grep -c 'build:' docker-compose.            # 0 = it IS the Supabase stack
+grep -m1 -A2 '^services:' docker-compose.   # expect studio / supabase-studio
 ```
 
-If it prints `sap-middleware-prod`, move it out:
+## Step 2 — restore the correct layout
+
+If Step 1 confirms the stray file is the Supabase stack:
 
 ```bash
-mkdir -p ../middleware
-mv docker-compose.yml ../middleware/docker-compose.yml
-cp /path/to/repo/supabase/docker-compose.yml .
+mv docker-compose.yml ../middleware/docker-compose.yml   # middleware file to where it belongs
+mv docker-compose. docker-compose.yml                    # restore the Supabase stack
 ```
 
-Also: Supabase stack must be started **without** `--build`:
+If the stray file is not the stack, copy it fresh from Quality (identical file, only `.env` differs):
+
+```bash
+cp /data/webapplication/resl_approval/Quality/backend/docker-compose.yml .
+```
+
+Then confirm:
+
+```bash
+grep -c 'build:' docker-compose.yml        # must be 0
+docker compose -p resl_production --env-file .env config >/dev/null && echo OK
+```
+
+## Step 3 — start the backend (no `--build`)
+
+The Supabase stack only pulls images; `--build` is what dragged Docker Hub into it.
 
 ```bash
 docker compose -p resl_production --env-file .env up -d
+docker compose -p resl_production ps
+docker compose ls          # should list resl_quality AND resl_production
+curl -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8010/auth/v1/health
 ```
 
-## 2. Docker Hub is unreachable from this box
+All the Supabase images are already local because Quality runs them, so no registry access is needed.
 
-`dial tcp 98.87.63.243:443: i/o timeout` on `registry-1.docker.io` = the server cannot reach Docker Hub
-(firewall/proxy on your network). Nothing in the app can fix that. Options, in order of preference:
+## Step 4 — the middleware, without Docker Hub
 
-### a) Confirm the block
-
-```bash
-curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 https://registry-1.docker.io/v2/
-curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 https://auth.docker.io/token
-```
-
-Timeout on both = egress blocked.
-
-### b) Configure Docker to use your corporate proxy
-
-```bash
-mkdir -p /etc/systemd/system/docker.service.d
-cat >/etc/systemd/system/docker.service.d/proxy.conf <<'EOF'
-[Service]
-Environment="HTTP_PROXY=http://<proxy-host>:<port>"
-Environment="HTTPS_PROXY=http://<proxy-host>:<port>"
-Environment="NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,10.150.150.0/24"
-EOF
-systemctl daemon-reload && systemctl restart docker
-```
-
-### c) Reuse the images Quality already pulled (no internet needed)
-
-Quality runs the same stack on this box, so the images are already local:
-
-```bash
-docker images | grep -E 'supabase|postgres|kong|node'
-```
-
-The Supabase stack images are all pinned in the compose/`.env`, so if Quality has them, Production
-starts with `up -d` and never touches the registry.
-
-For the middleware image specifically, build it once from Quality's already-present `node:22-alpine`,
-or if that tag is missing, retag/save-load it:
-
-```bash
-docker images node                       # is 22-alpine present?
-# on a machine with internet:
-docker pull node:22-alpine && docker save node:22-alpine -o node22alpine.tar
-# on ReAprMatrix:
-docker load -i node22alpine.tar
-```
-
-### d) Skip the container for the middleware
-
-Production middleware can run bare-metal under pm2 — no image pull at all:
+`Production/middleware/` already has the sources **and `node_modules/`**. Docker Hub is unreachable from
+this box (`dial tcp 98.87.63.243:443: i/o timeout` on `registry-1.docker.io`), so building the image is
+blocked. Run it under pm2 instead — same behaviour, no image pull:
 
 ```bash
 cd /data/webapplication/resl_approval/Production/middleware
@@ -93,11 +78,22 @@ PORT=3010 pm2 start server.js --name Prod_MW --time && pm2 save
 curl -i http://127.0.0.1:3010/__health
 ```
 
-## Recommended order
+Its `.env` in that folder needs `PORT=3010`, `SUPABASE_URL=http://10.150.150.130:8010`, the Production
+service-role key, and a `MIDDLEWARE_SHARED_SECRET` that matches the `proxy_secret` row in
+`public.sap_global_settings`.
 
-1. Move the middleware compose file out of `backend/`, put the Supabase stack there.
-2. Start the backend with `up -d` (no `--build`) — it should use Quality's local images.
-3. Bring up the middleware via option (d) pm2, or (c) once `node:22-alpine` is loaded locally.
-4. Fix Docker's proxy config (b) later so future image pulls work normally.
+If you'd rather keep it in Docker later, either fix Docker's proxy config or load the base image offline:
 
-No application code changes are needed for any of this.
+```bash
+docker images node                 # 22-alpine already present?
+# on a machine with internet:
+docker pull node:22-alpine && docker save node:22-alpine -o node22alpine.tar
+# on ReAprMatrix:
+docker load -i node22alpine.tar && docker compose -p resl_production up -d --build
+```
+
+## Notes
+
+- No application code changes are involved in any of this.
+- Before Step 3, confirm `volumes/db/data` in `Production/backend` is empty, otherwise Production would
+  come up on Quality's data.
