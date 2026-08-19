@@ -1,91 +1,107 @@
-# Why Production/backend is different from Quality/backend
+# Why `10.150.150.130:8010` refuses to connect
 
-Your two screenshots actually prove the opposite of "same as Quality":
+Two separate problems, both visible in your `docker compose ps` output.
 
-| | Quality/backend | Production/backend |
-| --- | --- | --- |
-| `docker-compose.yml` size | **22 KB** | small middleware file |
-| `grep -c 'build:'` | 0 | **1** |
-| first service | `studio` / `supabase-studio` | `sap-middleware-prod` |
+## Problem 1 — the port mappings point at the wrong container ports
 
-The repo's Supabase stack (`supabase/docker-compose.yml`) is ~22 KB with **0** `build:` lines — that
-matches Quality exactly. Production's file has a `build:` for `sap-middleware-prod`, which is why the
-command tried to build a Docker image and hit Docker Hub. The Supabase stack never builds anything.
+```
+supabase-prod-kong     8000-8004/tcp, 127.0.0.1:8010->8010/tcp, 8443-8447/tcp, 127.0.0.1:8453->8453/tcp
+supabase-prod-studio   3000/tcp, 127.0.0.1:3100->3100/tcp
+supabase-prod-pooler   127.0.0.1:5432->5432/tcp, 127.0.0.1:6553->6543/tcp
+```
 
-So it is not "move it to middleware because I say so" — Production's `backend/docker-compose.yml` simply
-got **overwritten** with the middleware compose file (pasted in with `nano`). Quality's backend file was
-never touched, which is why Quality works.
+Kong listens on **8000** inside the container and Studio on **3000**. The mappings forward host 8010 to
+container **8010** and host 3100 to container **3100** — nothing is listening there, so the connection is
+dead even from the host. Compare with the repo file, which is correct:
 
-Also note: Quality's `middleware/` folder has **no** `docker-compose.yml` at all — so Quality's middleware
-is not run by compose in that folder. Whatever Quality does (pm2, or the repo-root compose), Production
-should do the same. No compose file is needed in `Production/middleware/`.
+```yaml
+kong:
+  ports:
+    - 127.0.0.1:${KONG_HTTP_PORT}:8000/tcp     # right side stays 8000
+    - 127.0.0.1:${KONG_HTTPS_PORT}:8443/tcp    # right side stays 8443
+studio:
+  ports:
+    - 127.0.0.1:${STUDIO_PORT}:3000/tcp        # right side stays 3000
+```
 
-## Step 1 — restore the Supabase stack in Production/backend
+Only the **left** (host) side is env-driven. Somebody edited the right side too. Pooler shows the same
+symptom pattern in reverse: its transaction mapping `6553->6543` is right, but session `5432->5432` is the
+default — that collides with Quality's Postgres unless Quality uses a different host port.
 
-Copy from Quality (identical file; only `.env` differs):
+Fix: restore the stack file so the container-side ports are the originals and only host ports come from
+`.env`.
 
 ```bash
 cd /data/webapplication/resl_approval/Production/backend
-mv docker-compose.yml docker-compose.middleware.yml.bak     # keep the pasted middleware file aside
+cp docker-compose.yml docker-compose.yml.bak
 cp /data/webapplication/resl_approval/Quality/backend/docker-compose.yml .
-grep -c 'build:' docker-compose.yml        # must print 0
-grep -m1 -A2 '^services:' docker-compose.yml   # must print studio / supabase-studio
+grep -n 'POSTGRES_PORT\|KONG_HTTP_PORT\|STUDIO_PORT\|POOLER_PROXY' docker-compose.yml
 ```
 
-## Step 2 — sanity-check the env, then start (no `--build`)
+Then set the host ports in `.env` only:
+
+```
+KONG_HTTP_PORT=8010
+KONG_HTTPS_PORT=8453
+STUDIO_PORT=3100
+POSTGRES_PORT=5442
+POOLER_PROXY_PORT_TRANSACTION=6553
+```
+
+Note `POSTGRES_PORT` is used **both** as the pooler's host port and as Postgres' internal `PGPORT` in this
+stack, so it must match what Quality does — check Quality's `.env` value and pick a free one (5442) for
+Production.
+
+Recreate and confirm the right side is back to the container defaults:
 
 ```bash
-ls -l .env && grep -E '^(KONG_HTTP_PORT|KONG_HTTPS_PORT|STUDIO_PORT|POSTGRES_PORT|POOLER_PROXY_PORT_TRANSACTION)=' .env
-ls -A volumes/db/data 2>/dev/null | head        # must be empty, else you inherit data
-docker compose -p resl_production --env-file .env config >/dev/null && echo CONFIG_OK
 docker compose -p resl_production --env-file .env up -d
 docker compose -p resl_production ps
-docker compose ls        # should list resl_quality AND resl_production
+# expect: 127.0.0.1:8010->8000/tcp   and   127.0.0.1:3100->3000/tcp
 curl -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8010/auth/v1/health
+curl -sI http://127.0.0.1:3100 | head -n1
 ```
 
-Expected ports from your map: Kong 8010/8453, Studio 3100, Postgres 5442, pooler 6553.
+## Problem 2 — ports are bound to 127.0.0.1 on purpose
 
-All Supabase images are already on this box because Quality runs them, so no registry access is needed —
-that is why dropping `--build` also fixes the `node:22-alpine` timeout.
+Even once fixed, `http://10.150.150.130:8010` will still refuse. Every published port in this stack is
+bound to `127.0.0.1` deliberately, so Kong and Studio are not exposed on the LAN. Quality behaves the
+same way — you reach it through nginx, not directly.
 
-## Step 3 — how to run the Production middleware (match Quality)
+So Production is reached through the nginx vhost on **9091**:
 
-First find out how Quality runs it:
+- app: `http://10.150.150.130:9091/`
+- backend API: `http://10.150.150.130:9091/supabase/`
+- Studio: `http://10.150.150.130:9091/studio/` (basic auth)
+
+The frontend `.env` you pasted has `VITE_SUPABASE_URL=http://10.150.150.130:8010`, which the **browser**
+cannot reach for the same reason. It must point at the nginx path that proxies Kong, matching how Quality
+is configured — check Quality's frontend `.env` value and mirror the pattern with the 9091 host.
+
+## Problem 3 — realtime is unhealthy
+
+```
+realtime-prod.supabase-realtime  Up 20 minutes (unhealthy)
+```
+
+Almost always a key/secret mismatch. Check:
 
 ```bash
-pm2 ls
-docker ps --format '{{.Names}}\t{{.Ports}}' | grep -i middle
+docker compose -p resl_production logs --tail=80 realtime
 ```
 
-- If Quality's middleware is a **pm2** process, do the same for Production (no Docker, no image pull):
+- `invalid JWT` / `JWSError` → `ANON_KEY` / `SERVICE_ROLE_KEY` were not minted from this `JWT_SECRET`.
+- `REALTIME_DB_ENC_KEY` errors → must be exactly 16 characters.
+- `SECRET_KEY_BASE` errors → regenerate with `openssl rand -hex 32`.
 
-```bash
-cd /data/webapplication/resl_approval/Production/middleware
-npm install --omit=dev
-PORT=3010 pm2 start server.js --name Prod_MW --time && pm2 save
-curl -i http://127.0.0.1:3010/__health
-```
+The app itself does not depend on realtime, so this can be fixed after the rest is up.
 
-- If Quality's middleware is a **container**, then Production needs the same image. Docker Hub is
-  unreachable from this box (`registry-1.docker.io` i/o timeout), so build only works if `node:22-alpine`
-  is already local:
+## Order to run
 
-```bash
-docker images node        # 22-alpine present?
-# if missing, on a machine with internet:
-docker pull node:22-alpine && docker save node:22-alpine -o node22alpine.tar
-# then on ReAprMatrix:
-docker load -i node22alpine.tar
-cd /data/webapplication/resl_approval/Production/middleware
-docker compose -f docker-compose.middleware.yml -p resl_production_mw up -d --build
-```
+1. Restore `docker-compose.yml` from Quality; put the host ports only in `.env`.
+2. `up -d`, confirm `8010->8000` and `3100->3000`, curl both on 127.0.0.1.
+3. Install the nginx 9091 vhost and browse via 9091 — not 8010.
+4. Point the frontend `.env` backend URL at the 9091 proxy path (mirror Quality).
+5. Then chase the realtime logs.
 
-Either way the middleware `.env` in that folder needs `PORT=3010`,
-`SUPABASE_URL=http://10.150.150.130:8010`, the Production service-role key, and a
-`MIDDLEWARE_SHARED_SECRET` that matches the `proxy_secret` row in `public.sap_global_settings`.
-
-## Notes
-
-- Keep `-p resl_production` on every compose command in this folder so it never collides with Quality.
-- No application code changes are involved.
+No application code changes are involved.
