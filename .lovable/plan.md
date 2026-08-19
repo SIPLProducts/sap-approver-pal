@@ -1,143 +1,119 @@
-# Load the full schema and configuration into the Production database
+# Load all SAP API configuration (including Login_API) into the Production database
 
-Production Supabase now opens, so the next step is to give it the same tables and configuration rows
-that Quality has. Everything needed already exists in the repository — nothing new has to be written.
+## Which file to use, and why
 
-## What will be loaded
+`scripts/quality-seed-data.sql` is the correct one. Confirmed contents:
 
-Schema (17 migration files in `supabase/migrations/`, applied in filename order). Together they create:
-
-- enum types `app_role`, `sap_module`, `document_type`, `doc_status`, `step_status`
-- `profiles`, `user_roles`, `user_custom_roles`, `custom_roles`, `role_permissions`
-- `tenants`, `user_tenants`, `approval_matrix`, `approval_strategies`
-- `approval_documents`, `approval_steps`, `approval_line_items`, `approval_attachments`
-- `sap_api_configs`, `sap_api_credentials`, `sap_api_request_fields`, `sap_api_response_fields`,
-  `sap_api_sync_log`
-- `sap_global_settings`, `sap_global_secrets`, `email_no_reply_config`, `email_no_reply_secrets`
-- `notifications`, `push_subscriptions`, `audit_log`, `admin_audit_log`
-- the RLS policies, grants, triggers and the `has_role` / `is_admin` / `handle_new_user` functions
-
-Configuration data, from `scripts/quality-seed-data.sql` (every statement is an upsert, safe to re-run):
-
-- 47 `sap_api_configs` endpoint rows — **includes `Login_API`**
+- 47 `sap_api_configs` rows, **including `Login_API`**
+  (id `f91324c1-7ba1-48fd-a10e-f7c951d2670a`, `COMMON`, `POST`, `basic`,
+  `/sd_approval_mng/login/login?sap-client=300`, active) plus its 17 field-mapping rows
 - 406 `sap_api_request_fields`
 - 755 `sap_api_response_fields`
 - 8 `custom_roles`, 397 `role_permissions`, 17 `approval_strategies`
+- ends with a row-count summary query
 
-Use `quality-seed-data.sql`, not the `-sql-editor` or `part1/2/3` variants: those deliberately skip the
-`Login_API` endpoint row because it already existed on the Quality server. Production is empty, so it
-needs the full file or login will have no endpoint definition.
+Do **not** use `quality-seed-data-sql-editor.sql` or `quality-seed-part1/2/3-*.sql`. Those variants
+deliberately omit the `Login_API` endpoint row because it already existed on the Quality server — on
+Production that is exactly the row you are missing.
 
-No user accounts and no secrets are included — those are created separately in step 4.
+The file contains no secrets and no user accounts, and every statement is an upsert, so it is safe to
+re-run. SAP connection details and the middleware secret come from `scripts/quality-sap-config.sql`
+in step 4.
 
-## 1. Copy the SQL to the Production server
-
-From the repo checkout on the server (or `scp` from the build machine):
+## 1. Copy the file to the Production server
 
 ```bash
 mkdir -p /data/webapplication/resl_approval/Production/scripts
-cp /path/to/repo/supabase/migrations/*.sql \
-   /path/to/repo/scripts/quality-seed-data.sql \
+cp /path/to/repo/scripts/quality-seed-data.sql \
    /path/to/repo/scripts/quality-sap-config.sql \
    /data/webapplication/resl_approval/Production/scripts/
 ```
 
-## 2. Apply the schema
+## 2. Confirm the schema exists first
 
-Run inside the Production database container so no host port is involved:
+The seed only inserts rows; the tables must already be there.
+
+```bash
+docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
+  "select count(*) as sap_tables from information_schema.tables
+    where table_schema='public' and table_name like 'sap_api%';"
+```
+
+Expect 5. If it returns 0, apply the migrations first:
 
 ```bash
 cd /data/webapplication/resl_approval/Production/scripts
-
 for f in $(ls 2026*.sql | sort); do
   echo "=== $f"
   docker exec -i supabase-prod-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$f" || break
 done
 ```
 
-Use `supabase-prod-db` — never `supabase-db`, which is Quality.
+## 3. Load all the SAP API configuration — the command you asked for
 
-Confirm the tables landed:
+```bash
+cd /data/webapplication/resl_approval/Production/scripts
+
+docker exec -i supabase-prod-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  < quality-seed-data.sql
+```
+
+Always `supabase-prod-db`. Never `supabase-db` — that is Quality.
+
+Verify:
 
 ```bash
 docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
-  "select table_name from information_schema.tables where table_schema='public' order by 1;"
+  "select
+     (select count(*) from public.sap_api_configs)         as endpoints,
+     (select count(*) from public.sap_api_request_fields)  as req_fields,
+     (select count(*) from public.sap_api_response_fields) as resp_fields,
+     (select count(*) from public.custom_roles)            as roles,
+     (select count(*) from public.role_permissions)        as perms,
+     (select count(*) from public.approval_strategies)     as strategies;"
+
+docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
+  "select name, module, http_method, endpoint_url, auth_type, is_active
+     from public.sap_api_configs where name = 'Login_API';"
+
+docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
+  "select count(*) as login_request_fields
+     from public.sap_api_request_fields
+    where config_id = 'f91324c1-7ba1-48fd-a10e-f7c951d2670a';"
 ```
 
-Expect roughly 28 tables, matching the list above.
+Targets: 47 / 406 / 755 / 8 / 397 / 17, one `Login_API` row, and its field mappings present.
 
-## 3. Load the configuration rows
+## 4. Production SAP connection and middleware secret
+
+These are environment-specific and are **not** in the seed file. Edit the two placeholders in
+`quality-sap-config.sql` (`REPLACE_MIDDLEWARE_SECRET`, `REPLACE_SAP_PASSWORD`) to Production values,
+then:
 
 ```bash
 docker exec -i supabase-prod-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
-  < quality-seed-data.sql
+  < quality-sap-config.sql
 
 docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
-  "select
-     (select count(*) from public.sap_api_configs)          as endpoints,
-     (select count(*) from public.sap_api_request_fields)   as req_fields,
-     (select count(*) from public.sap_api_response_fields)  as resp_fields,
-     (select count(*) from public.custom_roles)             as roles,
-     (select count(*) from public.role_permissions)         as perms,
-     (select count(*) from public.approval_strategies)      as strategies;"
+  "update public.sap_global_settings
+      set connection_mode = 'via_proxy',
+          middleware_port = 3010,
+          middleware_url  = 'http://127.0.0.1:3010'
+    where id = 'default';"
 ```
 
-Target counts: 47 / 406 / 755 / 8 / 397 / 17.
+Alternatively set these through the app UI after login: **Admin → SAP API Settings → SAP Connection**
+(base URL, username, password) and **Middleware Configuration** (URL `http://127.0.0.1:3010`, proxy
+secret matching Production's middleware `.env`).
 
-Also confirm login has its endpoint:
+## 5. Confirm through the app
 
 ```bash
-docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
-  "select name, endpoint_url, is_active from public.sap_api_configs where name = 'Login_API';"
+curl -i -H "apikey: <PRODUCTION_ANON_KEY>" \
+  "http://127.0.0.1:8010/rest/v1/sap_api_configs?select=name&limit=5"
 ```
 
-## 4. Production-specific rows (must differ from Quality)
-
-`quality-sap-config.sql` seeds `sap_global_settings` / `sap_global_secrets`. Edit its two placeholders
-to Production values **before** running it, then point the middleware row at Production's port 3010:
-
-```sql
-update public.sap_global_settings
-   set connection_mode = 'via_proxy',
-       middleware_port = 3010,
-       middleware_url  = 'http://127.0.0.1:3010'
- where id = 'default';
-
-update public.sap_global_secrets
-   set proxy_secret = '<Production MIDDLEWARE_SHARED_SECRET>'
- where id = 'default';
-```
-
-The proxy secret must match Production's middleware `.env` and stay different from Quality's.
-
-## 5. First admin user
-
-Create the user in Production Studio (`http://127.0.0.1:3100` → Authentication → Add user), then:
-
-```sql
-insert into public.user_roles (user_id, role)
-select id, 'Admin' from auth.users where email = '<admin email>'
-on conflict do nothing;
-```
-
-`handle_new_user` already creates the matching `profiles` row and grants Admin to the very first user,
-so this insert is only a safety net.
-
-## 6. Final check
-
-```bash
-docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
-  "select count(*) from public.profiles;"
-curl -i -H "apikey: <PRODUCTION_ANON_KEY>" http://127.0.0.1:8010/rest/v1/sap_api_configs?select=name
-```
-
-Then sign in at `http://10.150.150.130:9091/login` and open **Admin → SAP API Settings** — the 47
-endpoints should be listed, and User Management should show the roles and screens.
-
-## Safety notes
-
-- Every command targets `supabase-prod-db`; Quality's `supabase-db` is never touched.
-- The seed file is upsert-only, so re-running it does not duplicate rows.
-- Production keeps its own password, JWT secret, API keys, and middleware secret.
+Then open **Admin → SAP API Settings**; all 47 endpoints including `Login_API` should be listed, and
+SAP login should work once the middleware and SAP credentials from step 4 are in place.
 
 No application code changes are required.
