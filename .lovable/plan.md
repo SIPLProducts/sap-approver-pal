@@ -1,72 +1,78 @@
-# Fix the Production stack collisions with Quality
+# Production Supabase: fix Kong port mapping, container names, and separate URLs
 
-Two separate problems are visible in that output.
+Your analysis is correct: `HOST:CONTAINER`. Kong listens on **8000** inside the container, Studio on
+**3000**. Mapping `8010:8010` / `3100:3100` forwards to a port nothing listens on, which is the
+`Connection reset by peer`. Three things must be fixed together, otherwise `up -d` keeps failing.
 
-## Problem 1 — container names collide with Quality
+## 1. Port mappings (host side unique, container side fixed)
+
+In `/data/webapplication/resl_approval/Production/backend/docker-compose.yml`:
+
+```yaml
+  kong:
+    ports:
+      - 0.0.0.0:${KONG_HTTP_PORT}:8000/tcp
+      - 0.0.0.0:${KONG_HTTPS_PORT}:8443/tcp
+
+  studio:
+    ports:
+      - 127.0.0.1:${STUDIO_PORT}:3000/tcp
+```
+
+Pooler / db (host side must not be Quality's 5432):
+
+```yaml
+  supavisor:
+    ports:
+      - 127.0.0.1:${POSTGRES_PORT_EXT}:5432/tcp
+      - 127.0.0.1:${POOLER_PROXY_PORT_TRANSACTION}:6543/tcp
+```
+
+`.env` for Production:
+
+```
+KONG_HTTP_PORT=8010
+KONG_HTTPS_PORT=8453
+STUDIO_PORT=3100
+POSTGRES_PORT=5432          # container-internal, keep 5432
+POSTGRES_PORT_EXT=5442      # host-side
+POOLER_PROXY_PORT_TRANSACTION=6553
+```
+
+## 2. Container names still collide with Quality
+
+The earlier failure was:
 
 ```
 Conflict. The container name "/supabase-imgproxy" is already in use
 ```
 
-The `-p resl_production` project name isolates networks and volumes, but **not** services that hardcode
-`container_name:`. Quality already owns `supabase-imgproxy`, so Production cannot create its own.
-The services that did come up (`supabase-prod-db`, `supabase-prod-kong`, …) already carry a `-prod`
-name, so only the leftover un-prefixed ones are conflicting.
-
-Find them all:
+`-p resl_production` isolates networks/volumes but **not** hardcoded `container_name:`. Rename every
+one that isn't already `-prod`:
 
 ```bash
 cd /data/webapplication/resl_approval/Production/backend
-grep -n 'container_name:' docker-compose.yml
-```
-
-Every line that is not already `-prod` (imgproxy, and likely analytics/vector/functions/supavisor) must be
-renamed, e.g. `container_name: supabase-prod-imgproxy`. Do it in one pass:
-
-```bash
 cp docker-compose.yml docker-compose.yml.bak
 sed -i -E 's/container_name: supabase-(prod-)?/container_name: supabase-prod-/' docker-compose.yml
 sed -i -E 's/container_name: realtime-dev\.[A-Za-z0-9_-]+/container_name: realtime-prod.supabase-realtime/' docker-compose.yml
-grep -n 'container_name:' docker-compose.yml   # confirm every name has -prod
+grep -n 'container_name:' docker-compose.yml    # every name must carry -prod
 ```
 
-## Problem 2 — stale containers still hold the wrong ports
+## 3. Recreate cleanly
 
-`kong` shows `127.0.0.1:8010->8010` and `studio` shows `127.0.0.1:3100->3100`. Those are containers created
-16 and 26 minutes ago, from the *old* broken compose file — the restored file was never applied to them.
-`pooler` is also on `127.0.0.1:5432->5432`, which is Quality's Postgres port.
-
-So the whole project needs to be torn down and recreated, and `POSTGRES_PORT` must move off 5432:
+Stale containers created from the old file keep the wrong mappings; `--force-recreate kong` alone is
+not enough once names changed.
 
 ```bash
-grep -E '^(KONG_HTTP_PORT|STUDIO_PORT|POSTGRES_PORT|POOLER_PROXY_PORT_TRANSACTION)=' .env
-```
-
-Production values:
-
-```
-KONG_HTTP_PORT=8010
-STUDIO_PORT=3100
-POSTGRES_PORT=5442
-POOLER_PROXY_PORT_TRANSACTION=6553
-```
-
-Then:
-
-```bash
-docker compose -p resl_production --env-file .env down
 docker compose -p resl_production --env-file .env config >/dev/null && echo CONFIG_OK
+docker compose -p resl_production --env-file .env down
 docker compose -p resl_production --env-file .env up -d
 docker compose -p resl_production ps
 ```
 
-`down` only removes Production's own containers — Quality is untouched because it runs under its own
-project name. Confirm that first with `docker compose -p resl_quality ps` (or whatever name Quality uses)
-before and after.
+Quality is untouched — it runs under its own project name. Confirm with its own `ps` before and after.
 
-## Expected result
-
-The right-hand side of each mapping is what proves the restored file took effect:
+Expected right-hand sides:
 
 ```
 supabase-prod-kong     0.0.0.0:8010->8000/tcp
@@ -74,16 +80,40 @@ supabase-prod-studio   127.0.0.1:3100->3000/tcp
 supabase-prod-pooler   127.0.0.1:5442->5432/tcp, 127.0.0.1:6553->6543/tcp
 ```
 
-Verify:
+## 4. Separate URLs per environment
 
-```bash
-curl -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8010/auth/v1/health      # 200
-curl -o /dev/null -w '%{http_code}\n' http://10.150.150.130:8010/auth/v1/health # 200 from LAN
-ss -ltnp | grep -E ':8010|:3100|:5442|:6553'
+Two fully distinct sets — nothing shared:
+
+| Purpose | Quality | Production |
+| --- | --- | --- |
+| API (Kong) | `http://10.150.150.130:8000` | `http://10.150.150.130:8010` |
+| Studio | `http://127.0.0.1:3000` | `http://127.0.0.1:3100` |
+| App via nginx | `http://10.150.150.130:8081` | `http://10.150.150.130:9091` |
+| Postgres (psql) | `postgresql://postgres:<QTY_PW>@127.0.0.1:5432/postgres` | `postgresql://postgres:<PROD_PW>@127.0.0.1:5442/postgres` |
+| Pooler | `127.0.0.1:6543` | `127.0.0.1:6553` |
+
+Backend `.env` (Production) must therefore read:
+
+```
+API_EXTERNAL_URL=http://10.150.150.130:8010
+SUPABASE_PUBLIC_URL=http://10.150.150.130:8010
+SITE_URL=http://10.150.150.130:9091
 ```
 
-If 8010 still refuses from the LAN, check the kong `ports:` line — Quality's file binds it to `0.0.0.0`;
-if yours says `127.0.0.1`, change that one entry to `0.0.0.0` (or reach the app only through Nginx on 9091).
+and the frontend `.env`: `VITE_SUPABASE_URL=http://10.150.150.130:8010` (browser-reachable host, not
+`127.0.0.1`).
+
+## 5. Verify
+
+```bash
+curl -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8010/auth/v1/health       # 200
+curl -o /dev/null -w '%{http_code}\n' http://10.150.150.130:8010/auth/v1/health  # 200 from LAN
+ss -ltnp | grep -E ':8010|:3100|:5442|:6553'
+psql "postgresql://postgres:<PROD_PW>@127.0.0.1:5442/postgres" -c 'select current_database();'
+```
+
+Studio is localhost-only by design; reach Production Studio through the nginx 9091 vhost
+(`/studio/`, basic auth) or an SSH tunnel — not directly over the LAN.
 
 ## Then realtime
 
@@ -91,9 +121,9 @@ if yours says `127.0.0.1`, change that one entry to `0.0.0.0` (or reach the app 
 docker compose -p resl_production logs --tail=80 realtime
 ```
 
-- `invalid JWT` / `JWSError` → `ANON_KEY` / `SERVICE_ROLE_KEY` were not minted from this `JWT_SECRET`.
-- `REALTIME_DB_ENC_KEY` must be exactly 16 characters; regenerate `SECRET_KEY_BASE` with `openssl rand -hex 32`.
+- `invalid JWT` / `JWSError` → `ANON_KEY` / `SERVICE_ROLE_KEY` were not minted from Production's `JWT_SECRET`.
+- `REALTIME_DB_ENC_KEY` must be exactly 16 chars; regenerate `SECRET_KEY_BASE` with `openssl rand -hex 32`.
 
-The app does not use realtime, so this can be settled after Kong and Studio respond.
+The app does not use realtime, so settle this after Kong and Studio answer.
 
-No application code changes are involved.
+No application code changes are involved — this is server configuration only.
