@@ -58,6 +58,30 @@ sed -i -E 's/container_name: realtime-dev\.[A-Za-z0-9_-]+/container_name: realti
 grep -n 'container_name:' docker-compose.yml    # every name must carry -prod
 ```
 
+## 2b. Remove the orphaned containers left from the old project name
+
+`down` only removed the network, so the containers created earlier (under a different compose project
+label, or already renamed to `-prod` by the sed) survive and still own the names. Docker refuses to
+reuse `/supabase-prod-imgproxy` because that old container object still exists — it is not Quality's.
+
+List and remove them by name pattern:
+
+```bash
+docker ps -a --filter 'name=supabase-prod' --format '{{.ID}}  {{.Names}}  {{.Label "com.docker.compose.project"}}'
+docker ps -a --filter 'name=realtime-prod' --format '{{.ID}}  {{.Names}}  {{.Label "com.docker.compose.project"}}'
+```
+
+Confirm every line is a `-prod` name (never a bare `supabase-<svc>` — that is Quality), then:
+
+```bash
+docker rm -f $(docker ps -aq --filter 'name=supabase-prod') $(docker ps -aq --filter 'name=realtime-prod')
+docker ps -a --filter 'name=prod' --format '{{.Names}}'    # must be empty
+```
+
+Removing containers does not touch volumes, so the Production database data survives.
+
+
+
 ## 3. Recreate cleanly
 
 Stale containers created from the old file keep the wrong mappings; `--force-recreate kong` alone is
