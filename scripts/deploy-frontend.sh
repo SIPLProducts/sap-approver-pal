@@ -3,22 +3,27 @@
 # Bring up the app server (port 8080) from a deployed dist/ folder.
 #
 # Usage (from inside the deployed dist/ folder):
-#   bash deploy-frontend.sh [--no-restart] [--port 8080]
+#   bash deploy-frontend.sh [--no-restart] [--port 8080] [--nginx-port 8081]
+#
+# --port defaults to PORT from ../.env (or .env.runtime); --nginx-port is the
+# external vhost port used only for the connectivity checks.
 #
 # Never touches the SAP middleware process, nginx, Docker or the database.
 # ---------------------------------------------------------------------------
 set -u
 
-PORT=8080
+PORT=""
+NGINX_PORT="${NGINX_PORT:-}"
 REINSTALL=0
 RESTART=1
-PM2_NAME="${PM2_NAME:-Qty_App}"
+PM2_NAME="${PM2_NAME:-}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --reinstall) REINSTALL=1 ;;
     --no-restart) RESTART=0 ;;
-    --port) shift; PORT="${1:-8080}" ;;
+    --port) shift; PORT="${1:-}" ;;
+    --nginx-port) shift; NGINX_PORT="${1:-}" ;;
     -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1"; exit 2 ;;
   esac
@@ -27,6 +32,21 @@ done
 
 cd "$(dirname "$0")" || exit 1
 HERE="$(pwd)"
+
+# Read a key from an env file (last value wins, quotes/CR stripped).
+env_val() {
+  [ -f "$2" ] || return 0
+  grep -m1 "^$1=" "$2" 2>/dev/null | cut -d= -f2- | tr -d '\r' | tr -d '"' | tr -d "'" | sed 's/^ *//; s/ *$//'
+}
+
+# Port/host are per-environment (Quality 8080, Production 8090). Take them from
+# the frontend .env, then .env.runtime, and only then fall back to 8080.
+if [ -z "$PORT" ]; then
+  PORT="$(env_val PORT ../.env)"
+  [ -n "$PORT" ] || PORT="$(env_val PORT .env.runtime)"
+  [ -n "$PORT" ] || PORT=8080
+fi
+[ -n "$PM2_NAME" ] || { if [ "$PORT" = "8080" ]; then PM2_NAME="Qty_App"; else PM2_NAME="Prod_App"; fi; }
 
 FAILED=0
 step()  { printf '\n== %s\n' "$1"; }
@@ -113,6 +133,18 @@ fi
 
 
 chmod 600 .env.runtime
+
+# Endpoints used by the connectivity checks come from .env.runtime, so a
+# Production folder (Kong 8010, middleware 3010, nginx 9091) is never checked
+# against the Quality ports.
+GATEWAY_URL="$(env_val SUPABASE_URL .env.runtime)"
+[ -n "$GATEWAY_URL" ] || GATEWAY_URL="http://127.0.0.1:8000"
+MW_URL="$(env_val MIDDLEWARE_URL .env.runtime)"
+[ -n "$MW_URL" ] || MW_URL="http://127.0.0.1:3002"
+if [ -z "$NGINX_PORT" ]; then
+  if [ "$PORT" = "8080" ]; then NGINX_PORT=8081; else NGINX_PORT=9091; fi
+fi
+printf '   checks : nginx %s | gateway %s | middleware %s\n' "$NGINX_PORT" "$GATEWAY_URL" "$MW_URL"
 
 missing=""
 for key in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY MIDDLEWARE_URL MIDDLEWARE_SHARED_SECRET; do
@@ -256,7 +288,7 @@ if [ "$up" = "1" ]; then
         *.js)  expected='javascript' ;;
         *)     expected='' ;;
       esac
-      for origin in "http://127.0.0.1:$PORT" "http://127.0.0.1:8081"; do
+      for origin in "http://127.0.0.1:$PORT" "http://127.0.0.1:$NGINX_PORT"; do
         headers="$(curl -sS -D - -o /dev/null "$origin/$ref" 2>/dev/null || true)"
         status="$(printf '%s' "$headers" | awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }')"
         ctype="$(printf '%s' "$headers" | tr -d '\r' | grep -i '^content-type:' | tail -n1 | cut -d: -f2- | sed 's/^[[:space:]]*//')"
@@ -272,7 +304,7 @@ if [ "$up" = "1" ]; then
 
     for ref in manifest.webmanifest re-sustainability-logo.jpg; do
       if [ -f "$ref" ]; then
-        for origin in "http://127.0.0.1:$PORT" "http://127.0.0.1:8081"; do
+        for origin in "http://127.0.0.1:$PORT" "http://127.0.0.1:$NGINX_PORT"; do
           rcode="$(curl -sS -o /dev/null -w '%{http_code}' "$origin/$ref" 2>/dev/null || true)"
           if [ "$rcode" = "200" ]; then ok "$origin/$ref (HTTP 200)"
           else fail "$origin/$ref returned HTTP ${rcode:-000}"; fi
@@ -285,40 +317,40 @@ if [ "$up" = "1" ]; then
   # Whatever the browser actually hits (nginx on 8081) must be the app server's
   # HTML. A static file answer there is served from disk and will be stale.
   if command -v curl >/dev/null 2>&1; then
-    hdrs="$(curl -sI http://127.0.0.1:8081/login 2>/dev/null || true)"
+    hdrs="$(curl -sI "http://127.0.0.1:$NGINX_PORT/login" 2>/dev/null || true)"
     if [ -n "$hdrs" ]; then
       if printf '%s' "$hdrs" | grep -qi '^ETag:\|^Last-Modified:'; then
-        fail "nginx on 8081 is serving /login as a STATIC FILE (ETag/Last-Modified present)"
-        echo "   It must proxy instead. In the 8081 server block replace the static"
+        fail "nginx on $NGINX_PORT is serving /login as a STATIC FILE (ETag/Last-Modified present)"
+        echo "   It must proxy instead. In the $NGINX_PORT server block replace the static"
         echo "   'root …/dist; try_files … /index.html;' for 'location /' with:"
         echo "       location / { proxy_pass http://127.0.0.1:$PORT; proxy_set_header Host \$host; }"
         echo "   then: nginx -t && nginx -s reload   (see DEPLOY-QUALITY.md)"
       else
-        ok "nginx on 8081 proxies /login to the app server"
+        ok "nginx on $NGINX_PORT proxies /login to the app server"
       fi
     else
-      warn "nothing answering on port 8081 (nginx down?)"
+      warn "nothing answering on port $NGINX_PORT (nginx down?)"
     fi
   fi
 fi
 
-if curl -fsS -o /dev/null http://127.0.0.1:3002/__health 2>/dev/null; then
-  ok "SAP middleware healthy on port 3002"
+if curl -fsS -o /dev/null "$MW_URL/__health" 2>/dev/null; then
+  ok "SAP middleware healthy at $MW_URL"
 else
-  warn "SAP middleware not answering on port 3002 (login will fail until it is up)"
+  warn "SAP middleware not answering at $MW_URL (login will fail until it is up)"
 fi
 
-gw="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/auth/v1/health 2>/dev/null)"
+gw="$(curl -s -o /dev/null -w '%{http_code}' "$GATEWAY_URL/auth/v1/health" 2>/dev/null)"
 case "$gw" in
-  200|401) ok "database/auth gateway healthy on port 8000" ;;
-  000)     warn "gateway not answering on port 8000 — run: cd ../../backend && docker compose --env-file .env -p resl_quality up -d --force-recreate kong" ;;
-  *)       warn "gateway returned HTTP $gw on port 8000" ;;
+  200|401) ok "database/auth gateway healthy at $GATEWAY_URL" ;;
+  000)     warn "gateway not answering at $GATEWAY_URL — run: cd ../../backend && docker compose --env-file .env -p <resl_quality|resl_production> up -d --force-recreate kong" ;;
+  *)       warn "gateway returned HTTP $gw at $GATEWAY_URL" ;;
 esac
 
 
 # ---------------------------------------------------------------------------
 if [ "$FAILED" = "0" ] && [ "$up" = "1" ]; then
-  printf '\nRESULT: PASS — the app server is running. Log in at http://<this-host>:8081/login\n\n'
+  printf '\nRESULT: PASS — the app server is running. Log in at http://<this-host>:%s/login\n\n' "$NGINX_PORT" 
   exit 0
 fi
 
