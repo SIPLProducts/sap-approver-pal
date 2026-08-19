@@ -1,74 +1,119 @@
-# How to mint Production ANON_KEY and SERVICE_ROLE_KEY
+# Production deployment plan — fix the current folder mix-up and start the stack
 
-You already have `JWT_SECRET` set in `Production/backend/.env`. Use that same value to sign the two keys.
+## What is wrong right now
 
-## 1. Get the value
+The file you pasted at `/data/webapplication/resl_approval/Production/backend/docker-compose.yml` is **the SAP middleware compose file**, not the Supabase backend compose file. It only builds/starts the Node middleware container. It does not belong in `Production/backend/`.
 
-Open `Production/backend/.env` and copy the `JWT_SECRET` value (do not copy any quotes or trailing spaces). In your screenshot:
+Correct folder layout for Production:
 
 ```text
-JWT_SECRET=52fc6cef97387945d4bc8a94ed4f826326e0cdab2020b67687abc93cf744e
+Production/
+  backend/        # Supabase self-hosted stack (docker-compose.yml + .env + volumes/)
+  middleware/     # SAP middleware (docker-compose.yml + .env + copied middleware/ sources)
+  frontend/       # .env + dist/
+  logs/           # nginx logs
+  scripts/        # seed SQL / shell helpers
 ```
 
-Copy the part after `=` only.
-
-## 2. Run the mint command on the server
-
-SSH into the server and run:
+## 1. Fix the current state
 
 ```bash
-JWT_SECRET='52fc6cef97387945d4bc8a94ed4f826326e0cdab2020b67687abc93cf744e'
-IAT=$(date +%s)
-EXP=$((IAT + 60*60*24*365*10))   # 10 years
+# Remove the middleware file from the backend folder
+cd /data/webapplication/resl_approval/Production/backend
+rm -f docker-compose.yml
 
-mint() {
-  header=$(printf '{"alg":"HS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-  payload=$(printf '{"role":"%s","iss":"supabase","iat":%s,"exp":%s}' "$1" "$IAT" "$EXP" \
-    | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-  sig=$(printf '%s.%s' "$header" "$payload" \
-    | openssl dgst -binary -sha256 -hmac "$JWT_SECRET" \
-    | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-  printf '%s.%s.%s\n' "$header" "$payload" "$sig"
-}
+# Copy the Supabase self-hosted stack into Production/backend
+cd /data/webapplication/resl_approval/Production/backend
+cp -r /path/to/repo/supabase/* .
+# Optional: remove any old data volume that came along
+rm -rf volumes/db/data volumes/storage
 
-echo "ANON_KEY=$(mint anon)"
-echo "SERVICE_ROLE_KEY=$(mint service_role)"
+# Copy the middleware compose file into Production/middleware
+mkdir -p /data/webapplication/resl_approval/Production/middleware
+cp /path/to/repo/deploy/production/middleware/docker-compose.yml \
+   /data/webapplication/resl_approval/Production/middleware/docker-compose.yml
+
+# Copy the middleware sources
+mkdir -p /data/webapplication/resl_approval/Production/middleware
+rm -rf /data/webapplication/resl_approval/Production/middleware/*
+cp -r /path/to/repo/middleware/* /data/webapplication/resl_approval/Production/middleware/
 ```
 
-## 3. Paste the output into the right places
+## 2. Environment files
 
-- `Production/backend/.env`:
-  ```text
-  ANON_KEY=<output from ANON_KEY>
-  SERVICE_ROLE_KEY=<output from SERVICE_ROLE_KEY>
-  ```
-- `Production/frontend/.env`:
-  ```text
-  VITE_SUPABASE_PUBLISHABLE_KEY=<output from ANON_KEY>
-  SUPABASE_PUBLISHABLE_KEY=<output from ANON_KEY>
-  SUPABASE_SERVICE_ROLE_KEY=<output from SERVICE_ROLE_KEY>
-  ```
-
-Both `.env` files must use the same anon key, and that key must be minted from the same `JWT_SECRET` that is in `Production/backend/.env`.
-
-## 4. Restart / rebuild
-
-After changing the backend `.env`, restart the Supabase stack:
+### Backend
 
 ```bash
 cd /data/webapplication/resl_approval/Production/backend
-docker compose -p resl_production down
-docker compose -p resl_production up -d
+cp /path/to/repo/deploy/production/backend/.env.example .env
+chmod 600 .env
 ```
 
-After changing the frontend `.env`, rebuild and redeploy the app so the browser bundle picks up the new `VITE_SUPABASE_PUBLISHABLE_KEY`:
+Fill in the secrets:
+
+```bash
+openssl rand -hex 24   # POSTGRES_PASSWORD, DASHBOARD_PASSWORD
+openssl rand -hex 32   # JWT_SECRET, SECRET_KEY_BASE, LOGFLARE_* tokens
+openssl rand -hex 16   # VAULT_ENC_KEY
+```
+
+Then mint `ANON_KEY` and `SERVICE_ROLE_KEY` from **that Production `JWT_SECRET`**.
+
+### Middleware
+
+```bash
+cd /data/webapplication/resl_approval/Production/middleware
+cp /path/to/repo/deploy/production/middleware/.env.example .env
+chmod 600 .env
+```
+
+Edit `.env` and set `MIDDLEWARE_SHARED_SECRET` to a long random value different from Quality.
+
+### Frontend
 
 ```bash
 cd /data/webapplication/resl_approval/Production/frontend
-rm -rf dist .output .wrangler
-bash deploy-frontend.sh --port 8090 --nginx-port 9091
+cp /path/to/repo/deploy/production/frontend/.env.example .env
+chmod 600 .env
 ```
 
-## Important
+Fill in the Production keys and `PORT=8090`.
 
-Do not use the Quality keys for Production unless the Quality `JWT_SECRET` is identical. The keys you pasted earlier were Quality's keys; if you keep them, you must also set Production's `JWT_SECRET` to the same Quality value. Otherwise, generate fresh Production keys as shown above.
+## 3. Commands to start Production
+
+### Backend (Supabase stack)
+
+```bash
+cd /data/webapplication/resl_approval/Production/backend
+docker compose -p resl_production --env-file .env up -d
+docker compose -p resl_production ps
+
+# Verify
+curl -i http://127.0.0.1:8010/auth/v1/health
+```
+
+Project name **must** be `resl_production` to avoid sharing containers with Quality (`resl_quality`).
+
+### Middleware
+
+```bash
+cd /data/webapplication/resl_approval/Production/middleware
+docker compose -p resl_production up -d --build
+
+# Verify
+curl -i http://127.0.0.1:3010/__health
+```
+
+Again, project name `resl_production` — never reuse `resl_quality`.
+
+## 4. Answer your question
+
+The file you pasted is **not** the correct `Production/backend/docker-compose.yml`. It is the middleware compose file. The backend compose file must be the one from the repo's `supabase/` folder. After fixing the folders, the commands above are what you run.
+
+## Important notes
+
+- Do not reuse Quality's `JWT_SECRET`. If you want fresh Production keys, keep `JWT_SECRET` different from Quality and mint new keys from it.
+- `MIDDLEWARE_SHARED_SECRET` must be different from Quality.
+- `POSTGRES_PORT_EXT=5442` for Production (Quality uses 5432).
+- The frontend `.env` must contain `PORT=8090`, not 8080, and point to `8010` for Kong.
+- After the backend starts, apply schema/seed SQL, then update the `sap_global_settings` row to set `middleware_url = 'http://127.0.0.1:3010'` and `proxy_secret` to the Production middleware secret.
