@@ -1,78 +1,73 @@
-# The 401 is the placeholder, not a broken stack
+# Production Backend Verification & Seeding
 
-You sent the literal text `<PRODUCTION_ANON_KEY>` as the API key, so Kong correctly answered
-`401 Unauthorized`. Kong is healthy — it responded in 1 ms with a request id. Nothing is wrong with
-Production; the command just needs the real key substituted.
+Use the Production anon key you provided in all API checks below. It is a publishable key (role `anon`), so it is safe to paste into shell commands.
 
-## Run it with the actual key
-
-Read `ANON_KEY` straight out of the Production backend `.env` so nothing is typed by hand:
+## Step 1 — Verify the API gateway responds with your key
 
 ```bash
-cd /data/webapplication/resl_approval/Production/backend
+ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3MTI5NjQ4LCJleHAiOjIxMDI0ODk2NDh9.lKrEgssvFYmKLqZPaOLOsV5qMSU1BrlLKt7H5KOcwZY'
 
-ANON=$(grep -E '^ANON_KEY=' .env | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d '[:space:]')
-echo "key length: ${#ANON}"      # expect several hundred characters, not 0
+# health (should be 200)
+curl -i -H "apikey: $ANON" http://127.0.0.1:8010/auth/v1/health
 
-curl -s -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+# PostgREST reachable (200 with [] is OK — RLS hides admin-only rows)
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
   "http://127.0.0.1:8010/rest/v1/sap_api_configs?select=name&limit=5"
 ```
 
-Notes on that command:
+If this returns 401, the key does not match the running stack's `JWT_SECRET` — the key must be minted from the same `JWT_SECRET` present in `Production/backend/.env`.
 
-- `apikey` gets the request past Kong; `Authorization: Bearer` is what PostgREST uses to resolve the
-  role, so send both.
-- If `key length: 0`, the `.env` has no `ANON_KEY` line and the key still has to be minted from
-  Production's `JWT_SECRET`.
+## Step 2 — Confirm the key matches the stack `.env`
 
-Expected outcomes:
+```bash
+cd /data/webapplication/resl_approval/Production/backend
+grep -E '^(ANON_KEY|SERVICE_ROLE_KEY|JWT_SECRET)=' .env | cut -c1-40
+```
 
-- `[]` — the gateway, PostgREST and the database all work; the anon role simply has no SELECT policy on
-  that table. This is correct and expected, because `sap_api_configs` is admin-only by design.
-- `{"message":"No API key found in request"}` — the header did not reach Kong; check the variable.
-- `{"message":"Unauthorized"}` again — the key does not match Production's `JWT_SECRET`, so it must be
-  re-minted from that secret.
+`ANON_KEY` in `.env` must be byte-identical to the key above. If it differs, update `.env`, then:
 
-## The check that actually matters
+```bash
+docker compose -p resl_production --env-file .env up -d kong auth rest
+```
 
-REST is gated by RLS, so it is a poor way to confirm the seed loaded. Query the database directly:
+## Step 3 — Verify the schema and seed data actually landed
+
+REST is RLS-restricted, so count rows directly in Postgres:
 
 ```bash
 docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
-  "select
-     (select count(*) from public.sap_api_configs)         as endpoints,
-     (select count(*) from public.sap_api_request_fields)  as req_fields,
-     (select count(*) from public.sap_api_response_fields) as resp_fields,
-     (select count(*) from public.custom_roles)            as roles,
-     (select count(*) from public.role_permissions)        as perms,
-     (select count(*) from public.approval_strategies)     as strategies;"
-
-docker exec -i supabase-prod-db psql -U postgres -d postgres -c \
-  "select name, module, http_method, endpoint_url, auth_type, is_active
-     from public.sap_api_configs where name = 'Login_API';"
+  "select count(*) as configs from public.sap_api_configs;
+   select count(*) as req_fields from public.sap_api_request_fields;
+   select name from public.sap_api_configs order by name limit 20;"
 ```
 
-Targets: 47 / 406 / 755 / 8 / 397 / 17, and exactly one `Login_API` row pointing at
-`/sd_approval_mng/login/login?sap-client=300`.
-
-If those counts are 0, the seed has not been applied yet:
+`Login_API` must appear in that list. If `configs` is 0, load the seed:
 
 ```bash
-cd /data/webapplication/resl_approval/Production/scripts
-docker exec -i supabase-prod-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
-  < quality-seed-data.sql
+docker exec -i supabase-prod-db psql -U postgres -d postgres \
+  < /data/webapplication/resl_approval/Production/scripts/quality-seed-data.sql
 ```
 
-Use `quality-seed-data.sql` — it is the only variant that contains the `Login_API` endpoint row.
+## Step 4 — Point the frontend at Production
 
-## Then verify through the app, not through anon REST
+In the Production frontend `.env` (and rebuilt runtime env):
 
-`sap_api_configs` is readable only by an authenticated Admin, which is why anon REST returns nothing
-useful. Sign in at `http://10.150.150.130:9091/login` and open **Admin → SAP API Settings**; all 47
-endpoints including `Login_API` should be listed there.
+```
+VITE_SUPABASE_URL=http://10.150.150.130:8010
+VITE_SUPABASE_PUBLISHABLE_KEY=<the anon key above>
+SUPABASE_URL=http://10.150.150.130:8010
+SUPABASE_PUBLISHABLE_KEY=<the anon key above>
+SUPABASE_ANON_KEY=<the anon key above>
+```
 
-Remaining step before login works: set the Production SAP connection and middleware secret
-(`middleware_url = http://127.0.0.1:3010`, port 3010, proxy secret matching Production's middleware
-`.env`) either via `quality-sap-config.sql` or in that same Admin screen.
+Then rebuild and redeploy the frontend so the key is embedded in the client bundle.
 
-No application code changes are required.
+## Step 5 — Production SAP settings
+
+Set the Production middleware/SAP values (middleware port 3010, Production proxy secret, SAP user/password) either through the Admin UI after the first Admin login, or by adapting `scripts/quality-sap-config.sql` with Production values and running it via `docker exec ... psql`.
+
+## Notes
+
+- `MIDDLEWARE_SHARED_SECRET` in the frontend/server env must exactly equal the `proxy_secret` stored in `sap_global_secrets`, otherwise login fails with "Middleware rejected the shared secret".
+- The service role key is never used from the browser; keep it only in `Production/backend/.env`.
