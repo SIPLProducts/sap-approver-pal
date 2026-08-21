@@ -378,8 +378,10 @@ function SdDashboardPage() {
 
       ) : (
         <>
-          {/* KPI row */}
-          <section className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {/* KPI row — always 6 across */}
+          <div className="overflow-x-auto -mx-1 px-1">
+          <section className="grid gap-2 grid-cols-6 min-w-[860px]">
+
             <KpiTile
               label="Records"
               value={fmtInt(stats.totalRecords)}
