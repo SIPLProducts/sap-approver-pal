@@ -759,6 +759,7 @@ function ServiceEntrySheetPage() {
                 UnRelease
               </Button>
 
+              {/* Delete button hidden for now
               <Button
                 variant="destructive"
                 size="sm"
@@ -768,6 +769,7 @@ function ServiceEntrySheetPage() {
                 {deleting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 Delete
               </Button>
+              */}
 
             </div>
           </div>
