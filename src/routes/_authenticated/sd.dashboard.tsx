@@ -326,7 +326,7 @@ function SdDashboardPage() {
       phData,
       bpStatus,
     };
-  }, [rows]);
+  }, [filteredRows]);
 
   const hasContext = !!from && !!to;
   const loading = query.isFetching;
