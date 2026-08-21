@@ -42,10 +42,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { KpiTile } from "@/components/exec/kpi-tile";
 import { PageHeader } from "@/components/exec/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AlertCircle } from "lucide-react";
+import { format } from "date-fns";
+
 
 import { useActiveContext } from "@/hooks/use-active-context";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
