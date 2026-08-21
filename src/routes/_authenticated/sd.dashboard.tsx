@@ -424,6 +424,8 @@ function SdDashboardPage() {
               accent="warning"
             />
           </section>
+          </div>
+
 
           {/* Row A */}
           <section className="grid gap-4 lg:grid-cols-3">
