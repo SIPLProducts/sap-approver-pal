@@ -130,7 +130,121 @@ const TOOLTIP_STYLE = {
   boxShadow: "var(--shadow-elegant, 0 10px 30px -10px rgba(0,0,0,0.2))",
 };
 
+const DATE_FIELDS = ["CONTRACT_DATE", "CONTRACT_CREATE_DATE", "SALES_CREATE_DATE"] as const;
+
+function parseSapDate(v: string | number | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s || s === "00000000" || s === "0000-00-00") return null;
+  let y: number, m: number, d: number;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (iso) {
+    y = +iso[1]!;
+    m = +iso[2]!;
+    d = +iso[3]!;
+  } else if (/^\d{8}$/.test(s)) {
+    y = +s.slice(0, 4);
+    m = +s.slice(4, 6);
+    d = +s.slice(6, 8);
+  } else {
+    const dmy = /^(\d{2})[./-](\d{2})[./-](\d{4})$/.exec(s);
+    if (!dmy) return null;
+    d = +dmy[1]!;
+    m = +dmy[2]!;
+    y = +dmy[3]!;
+  }
+  if (!y || !m || !d) return null;
+  const t = new Date(y, m - 1, d).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+function startOfDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+function endOfDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+}
+
+function DateRangeFilter({
+  from,
+  to,
+  onFrom,
+  onTo,
+  onClear,
+}: {
+  from: Date | undefined;
+  to: Date | undefined;
+  onFrom: (d: Date | undefined) => void;
+  onTo: (d: Date | undefined) => void;
+  onClear: () => void;
+}) {
+  const preset = (days: number | "year") => {
+    const now = new Date();
+    if (days === "year") {
+      onFrom(new Date(now.getFullYear(), 0, 1));
+    } else {
+      const start = new Date(now);
+      start.setDate(start.getDate() - days);
+      onFrom(start);
+    }
+    onTo(now);
+  };
+
+  const picker = (
+    label: string,
+    value: Date | undefined,
+    onChange: (d: Date | undefined) => void,
+  ) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("h-8 justify-start text-left font-normal", !value && "text-muted-foreground")}
+        >
+          <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+          {value ? format(value, "dd MMM yyyy") : label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={value}
+          onSelect={onChange}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+        <div className="flex flex-wrap gap-1 border-t p-2">
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
+            Last 30 days
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(90)}>
+            Last 90 days
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset("year")}>
+            This year
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {picker("Date from", from, onFrom)}
+      <span className="text-xs text-muted-foreground">–</span>
+      {picker("Date to", to, onTo)}
+      {(from || to) && (
+        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onClear} aria-label="Clear date range">
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function SdDashboardPage() {
+
   const fetchFn = useServerFn(fetchBmwStatusReport);
   const { activePlants } = useActiveContext();
 
