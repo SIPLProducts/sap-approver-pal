@@ -469,27 +469,47 @@ function SdDashboardPage() {
         subtitle="Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report."
         meta={
           hasContext && !loading ? (
-            <Badge variant="secondary" className="text-xs h-7 font-mono">
-              {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="text-xs h-7 font-mono">
+                {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
+              </Badge>
+              {(dateFrom || dateTo) && (
+                <Badge variant="outline" className="text-xs h-7 font-mono">
+                  {dateFrom ? format(dateFrom, "dd MMM yyyy") : "…"} – {dateTo ? format(dateTo, "dd MMM yyyy") : "…"}
+                </Badge>
+              )}
+            </div>
           ) : undefined
         }
         actions={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => query.refetch()}
-            disabled={loading || !hasContext}
-            className="h-8"
-          >
-            {loading ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            )}
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <DateRangeFilter
+              from={dateFrom}
+              to={dateTo}
+              onFrom={setDateFrom}
+              onTo={setDateTo}
+              onClear={() => {
+                setDateFrom(undefined);
+                setDateTo(undefined);
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => query.refetch()}
+              disabled={loading || !hasContext}
+              className="h-8"
+            >
+              {loading ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Refresh
+            </Button>
+          </div>
         }
+
       />
 
       {!hasContext ? (
