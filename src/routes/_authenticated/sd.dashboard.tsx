@@ -164,6 +164,21 @@ function SdDashboardPage() {
 
   const rows = query.data ?? [];
 
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+
+  const filteredRows = useMemo(() => {
+    if (!dateFrom && !dateTo) return rows;
+    const lo = dateFrom ? startOfDayMs(dateFrom) : Number.NEGATIVE_INFINITY;
+    const hi = dateTo ? endOfDayMs(dateTo) : Number.POSITIVE_INFINITY;
+    return rows.filter((r) => {
+      const stamps = DATE_FIELDS.map((f) => parseSapDate(r[f])).filter((v): v is number => v !== null);
+      if (stamps.length === 0) return true;
+      return stamps.some((t) => t >= lo && t <= hi);
+    });
+  }, [rows, dateFrom, dateTo]);
+
+
   const stats = useMemo(() => {
     const customers = new Set<string>();
     const contracts = new Set<string>();
