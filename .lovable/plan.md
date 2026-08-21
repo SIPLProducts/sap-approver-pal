@@ -1,114 +1,27 @@
-# Fix Production REST 401 (Kong does not know this anon key)
+# SD Dashboard: fixed 6-up KPI row + Date Range filter
 
-## What the output proves
+## 1. KPI cards always 6 per row
 
-- Seed data landed correctly: 47 endpoints, 406 request fields, 755 response fields, 8 roles, 397 permissions, 34 strategies, and `Login_API` is present and active.
-- `/auth/v1/health` returns 200 — but that route has **no key check**, so it proves nothing about the key.
-- `/rest/v1/...` returns **401 from Kong**, not from PostgREST. Kong's `key-auth` plugin only accepts keys registered as consumer credentials from `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_KEY` at container start. So the running Kong was started with a **different** `ANON_KEY` than the one you pasted.
+The KPI section currently reflows (2 columns on mobile, 3 on large, 6 on extra-large). Change it to a fixed 6-column grid at every breakpoint, so all six tiles stay on one line regardless of screen width. On narrow screens the row scrolls horizontally instead of wrapping, so cards keep a readable minimum width rather than being squeezed to nothing. Tighter gap and slightly smaller tile padding at small widths keep the row compact.
 
-## Step 1 — See which key Kong is actually running with
+The loading skeleton's KPI row gets the same fixed 6-up treatment so the layout does not jump when data arrives.
 
-```bash
-cd /data/webapplication/resl_approval/Production/backend
-grep -E '^(ANON_KEY|SERVICE_ROLE_KEY|JWT_SECRET)=' .env
-docker exec supabase-prod-kong env | grep -E 'SUPABASE_ANON_KEY|SUPABASE_SERVICE_KEY'
-```
+## 2. Date Range filter
 
-Compare the value Kong holds with your key:
+A Date Range control is added to the dashboard header actions area, next to Refresh:
 
-```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3MTI5NjQ4LCJleHAiOjIxMDI0ODk2NDh9.lKrEgssvFYmKLqZPaOLOsV5qMSU1BrlLKt7H5KOcwZY
-```
+- Two date pickers, From and To (calendar popovers), plus a Clear action.
+- Quick presets for common ranges: Last 30 days, Last 90 days, This year.
+- Empty range = current behaviour, all rows included.
 
-Two possible outcomes:
+The filter applies to the report rows already returned by SAP, so no change to the existing SAP request or server function. Rows are matched on their document dates (contract date / contract create date, and sales create date); a row is kept when any of its dates falls inside the selected range. Rows with no parseable date are kept, so nothing silently disappears.
 
-- **Kong holds a different key** → decide which key is canonical (Step 2A).
-- **Kong holds this exact key but REST still 401s** → Kong wasn't reloaded after the `.env` change; recreate it (Step 3).
+Every KPI, chart and table on the page is derived from the same row set, so all of them respond to the range automatically. A small badge in the header shows the active range and the filtered row count.
 
-## Step 2A — Make this key canonical
+## Technical notes
 
-Only valid if this key's signature verifies against the Production `JWT_SECRET` (PostgREST/GoTrue validate the signature; Kong only string-matches). Verify:
-
-```bash
-JWT_SECRET=$(grep -E '^JWT_SECRET=' .env | cut -d= -f2-)
-python3 - "$JWT_SECRET" <<'PY'
-import base64,hashlib,hmac,sys,json
-sec=sys.argv[1].encode()
-tok="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3MTI5NjQ4LCJleHAiOjIxMDI0ODk2NDh9.lKrEgssvFYmKLqZPaOLOsV5qMSU1BrlLKt7H5KOcwZY"
-h,p,s=tok.split(".")
-def b64(x): return base64.urlsafe_b64encode(x).decode().rstrip("=")
-print("payload:", json.loads(base64.urlsafe_b64decode(p+"==")))
-print("signature valid:", b64(hmac.new(sec,f"{h}.{p}".encode(),hashlib.sha256).digest())==s)
-PY
-```
-
-- **valid: True** → set `ANON_KEY=` to this key in `Production/backend/.env` and go to Step 3.
-- **valid: False** → this key belongs to a different `JWT_SECRET`. Either keep the key already in `.env` (simpler — use it everywhere in the frontend), or mint a fresh anon + service key from the Production `JWT_SECRET`.
-
-## Step 2B — Mint keys from the Production JWT_SECRET (only if Step 2A said False and you want new keys)
-
-```bash
-mint() { # $1=role
-  H=$(printf '{"alg":"HS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-  P=$(printf '{"role":"%s","iss":"supabase","iat":1787129648,"exp":2102489648}' "$1" \
-      | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-  S=$(printf '%s.%s' "$H" "$P" | openssl dgst -sha256 -hmac "$JWT_SECRET" -binary \
-      | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-  printf '%s.%s.%s\n' "$H" "$P" "$S"
-}
-echo "ANON_KEY=$(mint anon)"
-echo "SERVICE_ROLE_KEY=$(mint service_role)"
-```
-
-Paste both into `Production/backend/.env`.
-
-## Step 3 — Recreate the gateway so the credentials reload
-
-Kong builds its consumer keyauth list at startup from the env, so a restart alone is not enough — recreate it:
-
-```bash
-cd /data/webapplication/resl_approval/Production/backend
-docker compose -p resl_production --env-file .env up -d --force-recreate kong
-docker compose -p resl_production --env-file .env up -d rest auth
-```
-
-Retest (expect `200`):
-
-```bash
-ANON=$(grep -E '^ANON_KEY=' .env | cut -d= -f2-)
-curl -s -o /dev/null -w '%{http_code}\n' \
-  -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
-  "http://127.0.0.1:8010/rest/v1/sap_api_configs?select=name&limit=1"
-```
-
-An empty `[]` with 200 is also correct — `sap_api_configs` is Admin-only under RLS, so anonymous reads return no rows. The 200 is what matters.
-
-## Step 4 — Use the same key in the Production frontend
-
-`Production/frontend/.env` (then rebuild so the key is embedded in the client bundle):
-
-```
-VITE_SUPABASE_URL=http://10.150.150.130:8010
-VITE_SUPABASE_PUBLISHABLE_KEY=<the ANON_KEY now in backend/.env>
-SUPABASE_URL=http://10.150.150.130:8010
-SUPABASE_PUBLISHABLE_KEY=<same>
-SUPABASE_ANON_KEY=<same>
-SUPABASE_SERVICE_ROLE_KEY=<Production service_role key>
-MIDDLEWARE_URL=http://127.0.0.1:3010
-MIDDLEWARE_SHARED_SECRET=<Production proxy secret>
-PORT=8090
-HOST=127.0.0.1
-NODE_ENV=production
-```
-
-A mismatch here is what produces the "Missing Supabase environment variable" and "Unauthorized: Invalid token" errors you saw earlier.
-
-## Step 5 — Production SAP settings, then first login
-
-Set middleware port 3010, the Production proxy secret, and SAP base URL/credentials — either via Admin → SAP API Settings after the first Admin login, or by adapting `scripts/quality-sap-config.sql` with Production values and applying it:
-
-```bash
-docker exec -i supabase-prod-db psql -U postgres -d postgres < prod-sap-config.sql
-```
-
-`sap_global_secrets.proxy_secret` must equal `MIDDLEWARE_SHARED_SECRET` in both the frontend `.env` and the middleware `.env`, or login fails with "Middleware rejected the shared secret".
+- File touched: `src/routes/_authenticated/sd.dashboard.tsx` only.
+- KPI grid: replace `grid-cols-2 lg:grid-cols-3 xl:grid-cols-6` with a fixed `grid-cols-6` inside an `overflow-x-auto` wrapper with a min-width so tiles do not collapse; same for `DashboardSkeleton`.
+- New local state `dateFrom` / `dateTo` (`Date | undefined`), rendered with the shadcn Calendar in a Popover (`pointer-events-auto` on the calendar).
+- New `filteredRows` memo between `rows` and the `stats` memo: parses SAP date strings (`YYYY-MM-DD` and `YYYYMMDD`) from `CONTRACT_DATE`, `CONTRACT_CREATE_DATE`, `SALES_CREATE_DATE`; the existing `stats` memo switches its input from `rows` to `filteredRows`.
+- No changes to `fetchBmwStatusReport`, the query key, caching behaviour, or any existing KPI/chart computation logic.
