@@ -435,7 +435,7 @@ function SdDashboardPage() {
     ].filter((d) => d.value > 0);
 
     return {
-      totalRecords: rows.length,
+      totalRecords: filteredRows.length,
       customers: customers.size,
       contracts: contracts.size,
       salesOrders: salesOrders.size,
