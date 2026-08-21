@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Activity,
   Building2,
+  CalendarIcon,
   FileCheck2,
   FileText,
   Landmark,
@@ -18,7 +19,9 @@ import {
   Users,
   Wallet,
   Workflow,
+  X,
 } from "lucide-react";
+
 import {
   Bar,
   BarChart,
@@ -39,10 +42,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { KpiTile } from "@/components/exec/kpi-tile";
 import { PageHeader } from "@/components/exec/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AlertCircle } from "lucide-react";
+import { format } from "date-fns";
+
 
 import { useActiveContext } from "@/hooks/use-active-context";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
@@ -123,7 +130,121 @@ const TOOLTIP_STYLE = {
   boxShadow: "var(--shadow-elegant, 0 10px 30px -10px rgba(0,0,0,0.2))",
 };
 
+const DATE_FIELDS = ["CONTRACT_DATE", "CONTRACT_CREATE_DATE", "SALES_CREATE_DATE"] as const;
+
+function parseSapDate(v: string | number | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s || s === "00000000" || s === "0000-00-00") return null;
+  let y: number, m: number, d: number;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (iso) {
+    y = +iso[1]!;
+    m = +iso[2]!;
+    d = +iso[3]!;
+  } else if (/^\d{8}$/.test(s)) {
+    y = +s.slice(0, 4);
+    m = +s.slice(4, 6);
+    d = +s.slice(6, 8);
+  } else {
+    const dmy = /^(\d{2})[./-](\d{2})[./-](\d{4})$/.exec(s);
+    if (!dmy) return null;
+    d = +dmy[1]!;
+    m = +dmy[2]!;
+    y = +dmy[3]!;
+  }
+  if (!y || !m || !d) return null;
+  const t = new Date(y, m - 1, d).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+function startOfDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+function endOfDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+}
+
+function DateRangeFilter({
+  from,
+  to,
+  onFrom,
+  onTo,
+  onClear,
+}: {
+  from: Date | undefined;
+  to: Date | undefined;
+  onFrom: (d: Date | undefined) => void;
+  onTo: (d: Date | undefined) => void;
+  onClear: () => void;
+}) {
+  const preset = (days: number | "year") => {
+    const now = new Date();
+    if (days === "year") {
+      onFrom(new Date(now.getFullYear(), 0, 1));
+    } else {
+      const start = new Date(now);
+      start.setDate(start.getDate() - days);
+      onFrom(start);
+    }
+    onTo(now);
+  };
+
+  const picker = (
+    label: string,
+    value: Date | undefined,
+    onChange: (d: Date | undefined) => void,
+  ) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("h-8 justify-start text-left font-normal", !value && "text-muted-foreground")}
+        >
+          <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+          {value ? format(value, "dd MMM yyyy") : label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={value}
+          onSelect={onChange}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+        <div className="flex flex-wrap gap-1 border-t p-2">
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
+            Last 30 days
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(90)}>
+            Last 90 days
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset("year")}>
+            This year
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {picker("Date from", from, onFrom)}
+      <span className="text-xs text-muted-foreground">–</span>
+      {picker("Date to", to, onTo)}
+      {(from || to) && (
+        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onClear} aria-label="Clear date range">
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function SdDashboardPage() {
+
   const fetchFn = useServerFn(fetchBmwStatusReport);
   const { activePlants } = useActiveContext();
 
@@ -157,6 +278,21 @@ function SdDashboardPage() {
 
   const rows = query.data ?? [];
 
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+
+  const filteredRows = useMemo(() => {
+    if (!dateFrom && !dateTo) return rows;
+    const lo = dateFrom ? startOfDayMs(dateFrom) : Number.NEGATIVE_INFINITY;
+    const hi = dateTo ? endOfDayMs(dateTo) : Number.POSITIVE_INFINITY;
+    return rows.filter((r) => {
+      const stamps = DATE_FIELDS.map((f) => parseSapDate(r[f])).filter((v): v is number => v !== null);
+      if (stamps.length === 0) return true;
+      return stamps.some((t) => t >= lo && t <= hi);
+    });
+  }, [rows, dateFrom, dateTo]);
+
+
   const stats = useMemo(() => {
     const customers = new Set<string>();
     const contracts = new Set<string>();
@@ -180,7 +316,7 @@ function SdDashboardPage() {
     const seenContractForValue = new Set<string>();
     const seenPhContract = new Set<string>();
 
-    for (const r of rows) {
+    for (const r of filteredRows) {
       const cust = nonEmpty(r.CUSTOMER);
       if (cust) customers.add(cust);
       const contract = nonEmpty(r.CONTRACT_NO);
@@ -299,7 +435,7 @@ function SdDashboardPage() {
     ].filter((d) => d.value > 0);
 
     return {
-      totalRecords: rows.length,
+      totalRecords: filteredRows.length,
       customers: customers.size,
       contracts: contracts.size,
       salesOrders: salesOrders.size,
@@ -319,7 +455,7 @@ function SdDashboardPage() {
       phData,
       bpStatus,
     };
-  }, [rows]);
+  }, [filteredRows]);
 
   const hasContext = !!from && !!to;
   const loading = query.isFetching;
@@ -333,27 +469,47 @@ function SdDashboardPage() {
         subtitle="Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report."
         meta={
           hasContext && !loading ? (
-            <Badge variant="secondary" className="text-xs h-7 font-mono">
-              {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="text-xs h-7 font-mono">
+                {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
+              </Badge>
+              {(dateFrom || dateTo) && (
+                <Badge variant="outline" className="text-xs h-7 font-mono">
+                  {dateFrom ? format(dateFrom, "dd MMM yyyy") : "…"} – {dateTo ? format(dateTo, "dd MMM yyyy") : "…"}
+                </Badge>
+              )}
+            </div>
           ) : undefined
         }
         actions={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => query.refetch()}
-            disabled={loading || !hasContext}
-            className="h-8"
-          >
-            {loading ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            )}
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <DateRangeFilter
+              from={dateFrom}
+              to={dateTo}
+              onFrom={setDateFrom}
+              onTo={setDateTo}
+              onClear={() => {
+                setDateFrom(undefined);
+                setDateTo(undefined);
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => query.refetch()}
+              disabled={loading || !hasContext}
+              className="h-8"
+            >
+              {loading ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Refresh
+            </Button>
+          </div>
         }
+
       />
 
       {!hasContext ? (
@@ -378,8 +534,10 @@ function SdDashboardPage() {
 
       ) : (
         <>
-          {/* KPI row */}
-          <section className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {/* KPI row — always 6 across */}
+          <div className="overflow-x-auto -mx-1 px-1">
+          <section className="grid gap-2 grid-cols-6 min-w-[860px]">
+
             <KpiTile
               label="Records"
               value={fmtInt(stats.totalRecords)}
@@ -424,6 +582,8 @@ function SdDashboardPage() {
               accent="warning"
             />
           </section>
+          </div>
+
 
           {/* Row A */}
           <section className="grid gap-4 lg:grid-cols-3">
@@ -727,11 +887,14 @@ function MicroTile({ label, value, icon }: { label: string; value: string; icon?
 function DashboardSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[104px] rounded-xl" />
-        ))}
+      <div className="overflow-x-auto -mx-1 px-1">
+        <div className="grid gap-2 grid-cols-6 min-w-[860px]">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-[104px] rounded-xl" />
+          ))}
+        </div>
       </div>
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Skeleton className="h-[380px] rounded-xl lg:col-span-2" />
         <Skeleton className="h-[380px] rounded-xl" />
