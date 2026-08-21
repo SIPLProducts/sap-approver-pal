@@ -727,11 +727,14 @@ function MicroTile({ label, value, icon }: { label: string; value: string; icon?
 function DashboardSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[104px] rounded-xl" />
-        ))}
+      <div className="overflow-x-auto -mx-1 px-1">
+        <div className="grid gap-2 grid-cols-6 min-w-[860px]">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-[104px] rounded-xl" />
+          ))}
+        </div>
       </div>
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Skeleton className="h-[380px] rounded-xl lg:col-span-2" />
         <Skeleton className="h-[380px] rounded-xl" />
