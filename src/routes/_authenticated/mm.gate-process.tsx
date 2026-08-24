@@ -80,6 +80,7 @@ function GateProcessPage() {
   const [items, setItems] = useState<Record<number, ItemFields>>({});
   const [ratings, setRatings] = useState<Record<number, RatingFields>>({});
   const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
+  const [messageDialog, setMessageDialog] = useState<{ open: boolean; message: string } | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
   const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
