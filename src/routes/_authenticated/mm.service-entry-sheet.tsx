@@ -218,14 +218,14 @@ function ServiceEntrySheetPage() {
 
   const [releaseCode, setReleaseCode] = useState("");
   const [releaseGroup, setReleaseGroup] = useState("");
-  const [setRelease, setSetRelease] = useState(false);
+  const [setRelease, setSetRelease] = useState(true);
   const [cancelRelease, setCancelRelease] = useState(false);
 
   const [poRanges, setPoRanges] = useState<RangeState>(() => emptyRanges(PO_FIELDS));
   const [entryRanges, setEntryRanges] = useState<RangeState>(() => emptyRanges(ENTRY_SHEET_FIELDS));
 
-  const [blocking, setBlocking] = useState("");
-  const [acceptance, setAcceptance] = useState("");
+  const [blocking, setBlocking] = useState("not_blocked");
+  const [acceptance, setAcceptance] = useState("not_accepted");
 
   const [scopeOfList, setScopeOfList] = useState("ENTRY_REL");
 
@@ -323,12 +323,12 @@ function ServiceEntrySheetPage() {
   function reset() {
     setReleaseCode("");
     setReleaseGroup("");
-    setSetRelease(false);
+    setSetRelease(true);
     setCancelRelease(false);
     setPoRanges(emptyRanges(PO_FIELDS));
     setEntryRanges(emptyRanges(ENTRY_SHEET_FIELDS));
-    setBlocking("");
-    setAcceptance("");
+    setBlocking("not_blocked");
+    setAcceptance("not_accepted");
 
     setScopeOfList("ENTRY_REL");
     setRows([]);
