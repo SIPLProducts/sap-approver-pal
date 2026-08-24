@@ -153,7 +153,12 @@ function GateProcessPage() {
     },
     onSuccess: (res, vars) => {
       if (res.error) {
-        toast.error(res.error);
+        setOutput(null);
+        setItems({});
+        setRatings({});
+        setLastAction(null);
+        setMessageDialog({ open: true, message: res.error });
+
       } else {
         setLastAction(vars.action);
         setOutput(res.output);
