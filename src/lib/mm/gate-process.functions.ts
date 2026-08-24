@@ -6,6 +6,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { extractTypeEErrorMessage } from "@/lib/mm/sap-message";
 import { z } from "zod";
 
 export type GateRow = {

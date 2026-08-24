@@ -53,8 +53,20 @@ export function extractFalseStatusMessage(payload: any): string | null {
     const message = extractFalseStatusMessage(value);
     if (message) return message;
   }
+/**
+ * Find a TYPE: "E" envelope at any depth and return its exact MSG value.
+ * ZNFA APIs commonly return { TYPE: "E", MSG: "..." } on failure.
+ */
+export function extractTypeEErrorMessage(payload: any): string | null {
+  const type = findFirstDeep(payload, ["TYPE"]);
+  if (typeof type === "string" && type.trim().toUpperCase() === "E") {
+    const msg = findFirstDeep(payload, ["MSG"]);
+    if (typeof msg === "string" && msg.trim()) return msg.trim();
+  }
   return null;
 }
+
+
 
 /**
  * Find a MESSAGES: [{ TYPE, MESSAGE }] array at any depth and return the exact
