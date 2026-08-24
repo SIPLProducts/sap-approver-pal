@@ -381,6 +381,18 @@ export const createZnfa = createServerFn({ method: "POST" })
 
     const sapJson: any = proxied ? (json?.data ?? {}) : json;
     console.log("[znfa-create] json.keys=", Object.keys(json ?? {}), "sapJson.keys=", Object.keys(sapJson ?? {}));
+
+    const createTypeEError = extractTypeEErrorMessage(sapJson);
+    if (createTypeEError) {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `znfa-create: TYPE E - ${createTypeEError} ${text.slice(0, 300)}`.slice(0, 500),
+      });
+      return { output: null as ZnfaOutput | null, error: createTypeEError };
+    }
+
     const outputRoot: any = sapJson?.OUTPUT ?? sapJson?.output ?? sapJson ?? {};
     console.log("[znfa-create] outputRoot.keys=", Object.keys(outputRoot ?? {}));
     const itemsRaw: any[] = Array.isArray(outputRoot?.ITEMS)
