@@ -127,7 +127,7 @@ function GateProcessPage() {
       setRatings({});
       setLastAction(null);
       if (res.error) {
-        toast.error(res.error);
+        setMessageDialog({ open: true, message: res.error });
       } else {
         toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
       }
