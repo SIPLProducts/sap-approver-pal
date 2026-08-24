@@ -53,6 +53,9 @@ export function extractFalseStatusMessage(payload: any): string | null {
     const message = extractFalseStatusMessage(value);
     if (message) return message;
   }
+  return null;
+}
+
 /**
  * Find a TYPE: "E" envelope at any depth and return its exact MSG value.
  * ZNFA APIs commonly return { TYPE: "E", MSG: "..." } on failure.
