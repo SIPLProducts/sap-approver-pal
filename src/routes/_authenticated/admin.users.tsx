@@ -204,34 +204,42 @@ function UserManagementPage() {
                         Deselect All
                       </Button>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      {allScreens.map((s) => {
-                        const selected = roleForm.screen_keys.includes(s.key);
-                        return (
-                          <button
-                            type="button"
-                            key={s.key}
-                            onClick={() => {
-                              setRoleForm({
-                                ...roleForm,
-                                screen_keys: selected
-                                  ? roleForm.screen_keys.filter((k) => k !== s.key)
-                                  : [...roleForm.screen_keys, s.key],
-                              });
-                            }}
-                            className={cn(
-                              "flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm text-left transition-colors",
-                              selected
-                                ? "border-primary/60 bg-primary/5 text-foreground"
-                                : "border-dashed border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                            )}
-                          >
-                            <span className="truncate">{s.label}</span>
-                            {selected && <X className="h-4 w-4 shrink-0 opacity-70" />}
-                          </button>
-                        );
-                      })}
+                    <div className="space-y-3 pt-1">
+                      {SCREEN_GROUPS.map((g) => (
+                        <div key={g.module} className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.module}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {g.screens.map((s) => {
+                              const selected = roleForm.screen_keys.includes(s.key);
+                              return (
+                                <button
+                                  type="button"
+                                  key={s.key}
+                                  onClick={() => {
+                                    setRoleForm({
+                                      ...roleForm,
+                                      screen_keys: selected
+                                        ? roleForm.screen_keys.filter((k) => k !== s.key)
+                                        : [...roleForm.screen_keys, s.key],
+                                    });
+                                  }}
+                                  className={cn(
+                                    "flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm text-left transition-colors",
+                                    selected
+                                      ? "border-primary/60 bg-primary/5 text-foreground"
+                                      : "border-dashed border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                                  )}
+                                >
+                                  <span className="truncate">{s.label}</span>
+                                  {selected && <X className="h-4 w-4 shrink-0 opacity-70" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
+
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pt-2">
