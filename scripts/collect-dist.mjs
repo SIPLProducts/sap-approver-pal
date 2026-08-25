@@ -153,6 +153,47 @@ for (const name of DROP_AT_ROOT) {
 rmSync(join(root, ".wrangler"), { recursive: true, force: true });
 rmSync(outputDir, { recursive: true, force: true });
 
+const assetsDir = join(distDir, "assets");
+function rewriteHtmlAssetReferencesForCurrentAssets(html, label) {
+  const assetFiles = existsSync(assetsDir) ? readdirSync(assetsDir) : [];
+  const HASHED = /^(.*)-[A-Za-z0-9_-]{6,}(\.[A-Za-z0-9]+)$/;
+  const byLogicalName = new Map();
+
+  for (const file of assetFiles) {
+    const m = file.match(HASHED);
+    if (m) byLogicalName.set(m[1] + m[2], file);
+  }
+
+  const unresolved = new Set();
+  const rewritten = html.replace(/\/assets\/([^"'?#>\s]+)/g, (full, file) => {
+    if (existsSync(join(assetsDir, file))) return full;
+    const m = file.match(HASHED);
+    const replacement = m ? byLogicalName.get(m[1] + m[2]) : undefined;
+    if (replacement) return `/assets/${replacement}`;
+    unresolved.add(file);
+    return full;
+  });
+
+  const cleaned = unresolved.size
+    ? rewritten.replace(/<link\b[^>]*>/g, (tag) =>
+        [...unresolved].some((file) => tag.includes(file)) ? "" : tag,
+      )
+    : rewritten;
+  const brokenScript = [...unresolved].some((file) =>
+    new RegExp(`<script[^>]*${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(cleaned),
+  );
+
+  if (brokenScript) {
+    return { html: cleaned, ok: false, unresolved };
+  }
+  if (unresolved.size) {
+    console.warn(
+      `[collect-dist] ${label}: removed ${unresolved.size} stale preload/stylesheet asset reference(s).`,
+    );
+  }
+  return { html: cleaned, ok: true, unresolved };
+}
+
 // 5. Drop the static shell in as dist/index.html — nginx serves it via
 //    `root .../dist; index index.html;`. scripts/build.mjs captures it during
 //    the shell pass and points TSS_SHELL_HTML at it.
@@ -197,47 +238,6 @@ if (!selfHost && !existsSync(join(distDir, "index.html"))) {
 // 5b. Consistency gate: every hashed asset referenced by shipped HTML must
 //     exist in this dist/. This is what catches a mixed build (server bundle
 //     from one pass, assets/ from another) before it can be deployed.
-const assetsDir = join(distDir, "assets");
-function rewriteHtmlAssetReferencesForCurrentAssets(html, label) {
-  const assetFiles = existsSync(assetsDir) ? readdirSync(assetsDir) : [];
-  const HASHED = /^(.*)-[A-Za-z0-9_-]{6,}(\.[A-Za-z0-9]+)$/;
-  const byLogicalName = new Map();
-
-  for (const file of assetFiles) {
-    const m = file.match(HASHED);
-    if (m) byLogicalName.set(m[1] + m[2], file);
-  }
-
-  const unresolved = new Set();
-  const rewritten = html.replace(/\/assets\/([^"'?#>\s]+)/g, (full, file) => {
-    if (existsSync(join(assetsDir, file))) return full;
-    const m = file.match(HASHED);
-    const replacement = m ? byLogicalName.get(m[1] + m[2]) : undefined;
-    if (replacement) return `/assets/${replacement}`;
-    unresolved.add(file);
-    return full;
-  });
-
-  const cleaned = unresolved.size
-    ? rewritten.replace(/<link\b[^>]*>/g, (tag) =>
-        [...unresolved].some((file) => tag.includes(file)) ? "" : tag,
-      )
-    : rewritten;
-  const brokenScript = [...unresolved].some((file) =>
-    new RegExp(`<script[^>]*${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(cleaned),
-  );
-
-  if (brokenScript) {
-    return { html: cleaned, ok: false, unresolved };
-  }
-  if (unresolved.size) {
-    console.warn(
-      `[collect-dist] ${label}: removed ${unresolved.size} stale preload/stylesheet asset reference(s).`,
-    );
-  }
-  return { html: cleaned, ok: true, unresolved };
-}
-
 const missingAssets = new Set();
 for (const name of readdirSync(distDir)) {
   if (!name.endsWith(".html")) continue;
