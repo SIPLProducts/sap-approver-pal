@@ -51,7 +51,6 @@ import { AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 
 
-import { useActiveContext } from "@/hooks/use-active-context";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
 import { cn } from "@/lib/utils";
 
