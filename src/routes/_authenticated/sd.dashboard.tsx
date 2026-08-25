@@ -169,42 +169,25 @@ function endOfDayMs(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
 }
 
-function DateRangeFilter({
-  from,
-  to,
-  onFrom,
-  onTo,
-  onClear,
+function DateField({
+  label,
+  value,
+  onChange,
 }: {
-  from: Date | undefined;
-  to: Date | undefined;
-  onFrom: (d: Date | undefined) => void;
-  onTo: (d: Date | undefined) => void;
-  onClear: () => void;
+  label: string;
+  value: Date | undefined;
+  onChange: (d: Date | undefined) => void;
 }) {
-  const preset = (days: number | "year") => {
-    const now = new Date();
-    if (days === "year") {
-      onFrom(new Date(now.getFullYear(), 0, 1));
-    } else {
-      const start = new Date(now);
-      start.setDate(start.getDate() - days);
-      onFrom(start);
-    }
-    onTo(now);
-  };
-
-  const picker = (
-    label: string,
-    value: Date | undefined,
-    onChange: (d: Date | undefined) => void,
-  ) => (
+  return (
     <Popover>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           size="sm"
-          className={cn("h-8 justify-start text-left font-normal", !value && "text-muted-foreground")}
+          className={cn(
+            "h-9 w-[150px] justify-start text-left font-normal",
+            !value && "text-muted-foreground",
+          )}
         >
           <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
           {value ? format(value, "dd MMM yyyy") : label}
@@ -218,34 +201,23 @@ function DateRangeFilter({
           initialFocus
           className={cn("p-3 pointer-events-auto")}
         />
-        <div className="flex flex-wrap gap-1 border-t p-2">
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
-            Last 30 days
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(90)}>
-            Last 90 days
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset("year")}>
-            This year
-          </Button>
-        </div>
+        {value && (
+          <div className="border-t p-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => onChange(undefined)}
+            >
+              <X className="h-3 w-3 mr-1" /> Clear
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
-
-  return (
-    <div className="flex items-center gap-1.5">
-      {picker("Date from", from, onFrom)}
-      <span className="text-xs text-muted-foreground">–</span>
-      {picker("Date to", to, onTo)}
-      {(from || to) && (
-        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onClear} aria-label="Clear date range">
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      )}
-    </div>
-  );
 }
+
 
 type SelectionMode = "customer" | "contract" | "sales";
 
