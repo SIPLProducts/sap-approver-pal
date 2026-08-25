@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -52,10 +52,6 @@ import { format } from "date-fns";
 
 
 import { useActiveContext } from "@/hooks/use-active-context";
-import { PlantSelect } from "@/components/sap/plant-select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Filter } from "lucide-react";
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
 import { cn } from "@/lib/utils";
 
@@ -169,25 +165,42 @@ function endOfDayMs(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
 }
 
-function DateField({
-  label,
-  value,
-  onChange,
+function DateRangeFilter({
+  from,
+  to,
+  onFrom,
+  onTo,
+  onClear,
 }: {
-  label: string;
-  value: Date | undefined;
-  onChange: (d: Date | undefined) => void;
+  from: Date | undefined;
+  to: Date | undefined;
+  onFrom: (d: Date | undefined) => void;
+  onTo: (d: Date | undefined) => void;
+  onClear: () => void;
 }) {
-  return (
+  const preset = (days: number | "year") => {
+    const now = new Date();
+    if (days === "year") {
+      onFrom(new Date(now.getFullYear(), 0, 1));
+    } else {
+      const start = new Date(now);
+      start.setDate(start.getDate() - days);
+      onFrom(start);
+    }
+    onTo(now);
+  };
+
+  const picker = (
+    label: string,
+    value: Date | undefined,
+    onChange: (d: Date | undefined) => void,
+  ) => (
     <Popover>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           size="sm"
-          className={cn(
-            "h-9 w-[150px] justify-start text-left font-normal",
-            !value && "text-muted-foreground",
-          )}
+          className={cn("h-8 justify-start text-left font-normal", !value && "text-muted-foreground")}
         >
           <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
           {value ? format(value, "dd MMM yyyy") : label}
@@ -201,25 +214,34 @@ function DateField({
           initialFocus
           className={cn("p-3 pointer-events-auto")}
         />
-        {value && (
-          <div className="border-t p-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => onChange(undefined)}
-            >
-              <X className="h-3 w-3 mr-1" /> Clear
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-1 border-t p-2">
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
+            Last 30 days
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(90)}>
+            Last 90 days
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset("year")}>
+            This year
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {picker("Date from", from, onFrom)}
+      <span className="text-xs text-muted-foreground">–</span>
+      {picker("Date to", to, onTo)}
+      {(from || to) && (
+        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onClear} aria-label="Clear date range">
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
+  );
 }
-
-
-type SelectionMode = "customer" | "contract" | "sales";
 
 function SdDashboardPage() {
 
@@ -227,35 +249,11 @@ function SdDashboardPage() {
   const { activePlants } = useActiveContext();
 
   const sorted = useMemo(() => [...activePlants].sort(), [activePlants]);
-  const defaultPlant = sorted[0] ?? "";
-
-  // Filter bar state (draft) + applied snapshot that drives the SAP call
-  const [plant, setPlant] = useState<string>(defaultPlant);
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
-  const [mode, setMode] = useState<SelectionMode>("customer");
-
-  const [applied, setApplied] = useState<{
-    plant: string;
-    mode: SelectionMode;
-    dateFrom: Date | undefined;
-    dateTo: Date | undefined;
-  }>({ plant: defaultPlant, mode: "customer", dateFrom: undefined, dateTo: undefined });
-
-  // Keep in sync with the top-bar plant selection
-  useEffect(() => {
-    setPlant((prev) => (prev && sorted.includes(prev) ? prev : defaultPlant));
-    setApplied((prev) =>
-      prev.plant && sorted.includes(prev.plant) ? prev : { ...prev, plant: defaultPlant },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultPlant, sorted.join(",")]);
-
-  const from = applied.plant;
-  const to = applied.plant;
+  const from = sorted[0] ?? "";
+  const to = sorted[sorted.length - 1] ?? "";
 
   const query = useQuery({
-    queryKey: ["sd-dashboard-bmw", from, to, applied.mode],
+    queryKey: ["sd-dashboard-bmw", from, to],
     enabled: !!from && !!to,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -271,7 +269,7 @@ function SdDashboardPage() {
           customer_to: "",
           contract_from: "",
           contract_to: "",
-          mode: applied.mode,
+          mode: "sales" as const,
         },
       });
       return (res?.rows ?? []) as BmwStatusRow[];
@@ -280,30 +278,19 @@ function SdDashboardPage() {
 
   const rows = query.data ?? [];
 
-  const applyFilters = () => {
-    setApplied({ plant, mode, dateFrom, dateTo });
-  };
-  const clearFilters = () => {
-    setPlant(defaultPlant);
-    setDateFrom(undefined);
-    setDateTo(undefined);
-    setMode("customer");
-    setApplied({ plant: defaultPlant, mode: "customer", dateFrom: undefined, dateTo: undefined });
-  };
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const filteredRows = useMemo(() => {
-    const f = applied.dateFrom;
-    const t = applied.dateTo;
-    if (!f && !t) return rows;
-    const lo = f ? startOfDayMs(f) : Number.NEGATIVE_INFINITY;
-    const hi = t ? endOfDayMs(t) : Number.POSITIVE_INFINITY;
+    if (!dateFrom && !dateTo) return rows;
+    const lo = dateFrom ? startOfDayMs(dateFrom) : Number.NEGATIVE_INFINITY;
+    const hi = dateTo ? endOfDayMs(dateTo) : Number.POSITIVE_INFINITY;
     return rows.filter((r) => {
-      const stamps = DATE_FIELDS.map((fl) => parseSapDate(r[fl])).filter((v): v is number => v !== null);
+      const stamps = DATE_FIELDS.map((f) => parseSapDate(r[f])).filter((v): v is number => v !== null);
       if (stamps.length === 0) return true;
-      return stamps.some((x) => x >= lo && x <= hi);
+      return stamps.some((t) => t >= lo && t <= hi);
     });
-  }, [rows, applied.dateFrom, applied.dateTo]);
-
+  }, [rows, dateFrom, dateTo]);
 
 
   const stats = useMemo(() => {
@@ -486,13 +473,9 @@ function SdDashboardPage() {
               <Badge variant="secondary" className="text-xs h-7 font-mono">
                 {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
               </Badge>
-              <Badge variant="outline" className="text-xs h-7 capitalize">
-                {applied.mode}-wise
-              </Badge>
-              {(applied.dateFrom || applied.dateTo) && (
+              {(dateFrom || dateTo) && (
                 <Badge variant="outline" className="text-xs h-7 font-mono">
-                  {applied.dateFrom ? format(applied.dateFrom, "dd MMM yyyy") : "…"} –{" "}
-                  {applied.dateTo ? format(applied.dateTo, "dd MMM yyyy") : "…"}
+                  {dateFrom ? format(dateFrom, "dd MMM yyyy") : "…"} – {dateTo ? format(dateTo, "dd MMM yyyy") : "…"}
                 </Badge>
               )}
             </div>
@@ -500,6 +483,16 @@ function SdDashboardPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <DateRangeFilter
+              from={dateFrom}
+              to={dateTo}
+              onFrom={setDateFrom}
+              onTo={setDateTo}
+              onClear={() => {
+                setDateFrom(undefined);
+                setDateTo(undefined);
+              }}
+            />
             <Button
               size="sm"
               variant="outline"
@@ -518,71 +511,6 @@ function SdDashboardPage() {
         }
 
       />
-
-      {/* Filter bar */}
-      <Card className="p-2.5">
-        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-          <div className="flex items-center gap-1.5 pb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <Filter className="h-3.5 w-3.5 text-primary" />
-            Filters
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Plant</Label>
-            <div className="w-[190px]">
-              <PlantSelect
-                value={plant}
-                onChange={setPlant}
-                placeholder="Select plant…"
-                source="user-plant"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">From Date</Label>
-            <DateField label="From date" value={dateFrom} onChange={setDateFrom} />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">To Date</Label>
-            <DateField label="To date" value={dateTo} onChange={setDateTo} />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Selection Type</Label>
-            <RadioGroup
-              value={mode}
-              onValueChange={(v) => setMode(v as SelectionMode)}
-              className="flex items-center gap-4 h-9"
-            >
-              <div className="flex items-center gap-1.5">
-                <RadioGroupItem value="customer" id="sd-dash-r-cus" />
-                <Label htmlFor="sd-dash-r-cus" className="text-xs font-normal">Customer</Label>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <RadioGroupItem value="contract" id="sd-dash-r-cont" />
-                <Label htmlFor="sd-dash-r-cont" className="text-xs font-normal">Contract</Label>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <RadioGroupItem value="sales" id="sd-dash-r-sales" />
-                <Label htmlFor="sd-dash-r-sales" className="text-xs font-normal">Sales</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="flex items-center gap-2 ml-auto">
-            <Button size="sm" className="h-9" onClick={applyFilters} disabled={!plant || loading}>
-              {loading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Filter className="h-3.5 w-3.5 mr-1.5" />}
-              Apply
-            </Button>
-            <Button size="sm" variant="ghost" className="h-9" onClick={clearFilters}>
-              <X className="h-3.5 w-3.5 mr-1.5" /> Clear
-            </Button>
-          </div>
-        </div>
-      </Card>
-
 
       {!hasContext ? (
         <EmptyState
