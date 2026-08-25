@@ -213,17 +213,25 @@ function DateRangeFilter({
           initialFocus
           className={cn("p-3 pointer-events-auto")}
         />
-        <div className="flex flex-wrap gap-1 border-t p-2">
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
-            Last 30 days
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(90)}>
-            Last 90 days
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset("year")}>
-            This year
+        <div className="flex items-center justify-between gap-2 border-t p-2">
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(7)}>
+              Last 7 days
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
+              Last 30 days
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-destructive hover:text-destructive"
+            onClick={onClear}
+          >
+            Clear
           </Button>
         </div>
+
       </PopoverContent>
     </Popover>
   );
