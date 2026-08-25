@@ -52,7 +52,9 @@ import { format } from "date-fns";
 
 
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
+import { useActiveContext } from "@/hooks/use-active-context";
 import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/_authenticated/sd/dashboard")({
   component: SdDashboardPage,
@@ -213,17 +215,25 @@ function DateRangeFilter({
           initialFocus
           className={cn("p-3 pointer-events-auto")}
         />
-        <div className="flex flex-wrap gap-1 border-t p-2">
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
-            Last 30 days
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(90)}>
-            Last 90 days
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset("year")}>
-            This year
+        <div className="flex items-center justify-between gap-2 border-t p-2">
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(7)}>
+              Last 7 days
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
+              Last 30 days
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-destructive hover:text-destructive"
+            onClick={onClear}
+          >
+            Clear
           </Button>
         </div>
+
       </PopoverContent>
     </Popover>
   );
@@ -244,12 +254,25 @@ function DateRangeFilter({
 
 function SdDashboardPage() {
   const fetchFn = useServerFn(fetchBmwStatusReport);
+  const { activePlants } = useActiveContext();
 
-  const from = "3801";
-  const to = "3801";
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+
+  // Plants selected in the top bar drive the sales-org range; falls back to
+  // the default payload values when nothing is selected.
+  const sortedPlants = useMemo(
+    () => [...activePlants].filter((c) => c && c !== "ALL").sort(),
+    [activePlants],
+  );
+  const from = sortedPlants[0] ?? "3801";
+  const to = sortedPlants[sortedPlants.length - 1] ?? "3801";
+
+  const contractFrom = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "2026-03-01";
+  const contractTo = dateTo ? format(dateTo, "yyyy-MM-dd") : "2026-03-25";
 
   const query = useQuery({
-    queryKey: ["sd-dashboard-bmw", from, to],
+    queryKey: ["sd-dashboard-bmw", from, to, contractFrom, contractTo],
     enabled: !!from && !!to,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -263,8 +286,8 @@ function SdDashboardPage() {
           sales_org_to: to,
           customer_from: "",
           customer_to: "",
-          contract_from: "2026-03-01",
-          contract_to: "2026-03-25",
+          contract_from: contractFrom,
+          contract_to: contractTo,
           mode: "customer" as const,
         },
       });
@@ -273,9 +296,6 @@ function SdDashboardPage() {
   });
 
   const rows = query.data ?? [];
-
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const filteredRows = useMemo(() => {
     if (!dateFrom && !dateTo) return rows;
@@ -287,6 +307,7 @@ function SdDashboardPage() {
       return stamps.some((t) => t >= lo && t <= hi);
     });
   }, [rows, dateFrom, dateTo]);
+
 
 
   const stats = useMemo(() => {
