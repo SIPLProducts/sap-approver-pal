@@ -47,8 +47,9 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
       { key: "sd.bmw_status",  label: "BMW Status Report",     activity: "SD.BMW_STATUS" },
     ],
   },
-
+  {
     module: "Admin",
+
     screens: [
       { key: "admin.users",            label: "Users & Roles",       activity: "ADMIN.USERS" },
       { key: "admin.custom_roles",     label: "Custom Roles",        activity: "ADMIN.CUSTOM_ROLES" },
