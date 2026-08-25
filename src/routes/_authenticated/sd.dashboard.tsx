@@ -243,13 +243,10 @@ function DateRangeFilter({
 }
 
 function SdDashboardPage() {
-
   const fetchFn = useServerFn(fetchBmwStatusReport);
-  const { activePlants } = useActiveContext();
 
-  const sorted = useMemo(() => [...activePlants].sort(), [activePlants]);
-  const from = sorted[0] ?? "";
-  const to = sorted[sorted.length - 1] ?? "";
+  const from = "3801";
+  const to = "3801";
 
   const query = useQuery({
     queryKey: ["sd-dashboard-bmw", from, to],
@@ -266,9 +263,9 @@ function SdDashboardPage() {
           sales_org_to: to,
           customer_from: "",
           customer_to: "",
-          contract_from: "",
-          contract_to: "",
-          mode: "sales" as const,
+          contract_from: "2026-03-01",
+          contract_to: "2026-03-25",
+          mode: "customer" as const,
         },
       });
       return (res?.rows ?? []) as BmwStatusRow[];
