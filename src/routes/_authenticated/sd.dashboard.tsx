@@ -486,9 +486,13 @@ function SdDashboardPage() {
               <Badge variant="secondary" className="text-xs h-7 font-mono">
                 {fmtInt(stats.totalRecords)} rows · updated {relTime(query.dataUpdatedAt)}
               </Badge>
-              {(dateFrom || dateTo) && (
+              <Badge variant="outline" className="text-xs h-7 capitalize">
+                {applied.mode}-wise
+              </Badge>
+              {(applied.dateFrom || applied.dateTo) && (
                 <Badge variant="outline" className="text-xs h-7 font-mono">
-                  {dateFrom ? format(dateFrom, "dd MMM yyyy") : "…"} – {dateTo ? format(dateTo, "dd MMM yyyy") : "…"}
+                  {applied.dateFrom ? format(applied.dateFrom, "dd MMM yyyy") : "…"} –{" "}
+                  {applied.dateTo ? format(applied.dateTo, "dd MMM yyyy") : "…"}
                 </Badge>
               )}
             </div>
@@ -496,16 +500,6 @@ function SdDashboardPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <DateRangeFilter
-              from={dateFrom}
-              to={dateTo}
-              onFrom={setDateFrom}
-              onTo={setDateTo}
-              onClear={() => {
-                setDateFrom(undefined);
-                setDateTo(undefined);
-              }}
-            />
             <Button
               size="sm"
               variant="outline"
@@ -524,6 +518,71 @@ function SdDashboardPage() {
         }
 
       />
+
+      {/* Filter bar */}
+      <Card className="p-2.5">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+          <div className="flex items-center gap-1.5 pb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <Filter className="h-3.5 w-3.5 text-primary" />
+            Filters
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Plant</Label>
+            <div className="w-[190px]">
+              <PlantSelect
+                value={plant}
+                onChange={setPlant}
+                placeholder="Select plant…"
+                source="user-plant"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">From Date</Label>
+            <DateField label="From date" value={dateFrom} onChange={setDateFrom} />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">To Date</Label>
+            <DateField label="To date" value={dateTo} onChange={setDateTo} />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Selection Type</Label>
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as SelectionMode)}
+              className="flex items-center gap-4 h-9"
+            >
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="customer" id="sd-dash-r-cus" />
+                <Label htmlFor="sd-dash-r-cus" className="text-xs font-normal">Customer</Label>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="contract" id="sd-dash-r-cont" />
+                <Label htmlFor="sd-dash-r-cont" className="text-xs font-normal">Contract</Label>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="sales" id="sd-dash-r-sales" />
+                <Label htmlFor="sd-dash-r-sales" className="text-xs font-normal">Sales</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <Button size="sm" className="h-9" onClick={applyFilters} disabled={!plant || loading}>
+              {loading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Filter className="h-3.5 w-3.5 mr-1.5" />}
+              Apply
+            </Button>
+            <Button size="sm" variant="ghost" className="h-9" onClick={clearFilters}>
+              <X className="h-3.5 w-3.5 mr-1.5" /> Clear
+            </Button>
+          </div>
+        </div>
+      </Card>
+
 
       {!hasContext ? (
         <EmptyState
