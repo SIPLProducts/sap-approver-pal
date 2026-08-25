@@ -243,17 +243,43 @@ function DateRangeFilter({
   );
 }
 
+type SelectionMode = "customer" | "contract" | "sales";
+
 function SdDashboardPage() {
 
   const fetchFn = useServerFn(fetchBmwStatusReport);
   const { activePlants } = useActiveContext();
 
   const sorted = useMemo(() => [...activePlants].sort(), [activePlants]);
-  const from = sorted[0] ?? "";
-  const to = sorted[sorted.length - 1] ?? "";
+  const defaultPlant = sorted[0] ?? "";
+
+  // Filter bar state (draft) + applied snapshot that drives the SAP call
+  const [plant, setPlant] = useState<string>(defaultPlant);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [mode, setMode] = useState<SelectionMode>("customer");
+
+  const [applied, setApplied] = useState<{
+    plant: string;
+    mode: SelectionMode;
+    dateFrom: Date | undefined;
+    dateTo: Date | undefined;
+  }>({ plant: defaultPlant, mode: "customer", dateFrom: undefined, dateTo: undefined });
+
+  // Keep in sync with the top-bar plant selection
+  useEffect(() => {
+    setPlant((prev) => (prev && sorted.includes(prev) ? prev : defaultPlant));
+    setApplied((prev) =>
+      prev.plant && sorted.includes(prev.plant) ? prev : { ...prev, plant: defaultPlant },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultPlant, sorted.join(",")]);
+
+  const from = applied.plant;
+  const to = applied.plant;
 
   const query = useQuery({
-    queryKey: ["sd-dashboard-bmw", from, to],
+    queryKey: ["sd-dashboard-bmw", from, to, applied.mode],
     enabled: !!from && !!to,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -269,7 +295,7 @@ function SdDashboardPage() {
           customer_to: "",
           contract_from: "",
           contract_to: "",
-          mode: "sales" as const,
+          mode: applied.mode,
         },
       });
       return (res?.rows ?? []) as BmwStatusRow[];
@@ -278,19 +304,30 @@ function SdDashboardPage() {
 
   const rows = query.data ?? [];
 
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const applyFilters = () => {
+    setApplied({ plant, mode, dateFrom, dateTo });
+  };
+  const clearFilters = () => {
+    setPlant(defaultPlant);
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setMode("customer");
+    setApplied({ plant: defaultPlant, mode: "customer", dateFrom: undefined, dateTo: undefined });
+  };
 
   const filteredRows = useMemo(() => {
-    if (!dateFrom && !dateTo) return rows;
-    const lo = dateFrom ? startOfDayMs(dateFrom) : Number.NEGATIVE_INFINITY;
-    const hi = dateTo ? endOfDayMs(dateTo) : Number.POSITIVE_INFINITY;
+    const f = applied.dateFrom;
+    const t = applied.dateTo;
+    if (!f && !t) return rows;
+    const lo = f ? startOfDayMs(f) : Number.NEGATIVE_INFINITY;
+    const hi = t ? endOfDayMs(t) : Number.POSITIVE_INFINITY;
     return rows.filter((r) => {
-      const stamps = DATE_FIELDS.map((f) => parseSapDate(r[f])).filter((v): v is number => v !== null);
+      const stamps = DATE_FIELDS.map((fl) => parseSapDate(r[fl])).filter((v): v is number => v !== null);
       if (stamps.length === 0) return true;
-      return stamps.some((t) => t >= lo && t <= hi);
+      return stamps.some((x) => x >= lo && x <= hi);
     });
-  }, [rows, dateFrom, dateTo]);
+  }, [rows, applied.dateFrom, applied.dateTo]);
+
 
 
   const stats = useMemo(() => {
