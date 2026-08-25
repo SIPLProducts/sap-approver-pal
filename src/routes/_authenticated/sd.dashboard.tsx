@@ -52,7 +52,9 @@ import { format } from "date-fns";
 
 
 import { fetchBmwStatusReport, type BmwStatusRow } from "@/lib/sd/bmw-status-report.functions";
+import { useActiveContext } from "@/hooks/use-active-context";
 import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/_authenticated/sd/dashboard")({
   component: SdDashboardPage,
