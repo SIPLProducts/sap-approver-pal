@@ -23,6 +23,31 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
     ],
   },
   {
+    module: "MM Approvals",
+    screens: [
+      { key: "mm.dashboard",            label: "MM Dashboard",         activity: "MM.DASHBOARD" },
+      { key: "mm.pr_release",           label: "PR Release",           activity: "MM.PR_RELEASE" },
+      { key: "mm.po_release",           label: "PO Release",           activity: "MM.PO_RELEASE" },
+      { key: "mm.material_reservation", label: "Material Reservation", activity: "MM.MATERIAL_RESERVATION" },
+      { key: "mm.gate_process",         label: "ZNFA Rating",          activity: "MM.GATE_PROCESS" },
+      { key: "mm.gate_pass",            label: "Gate Pass",            activity: "MM.GATE_PASS" },
+      { key: "mm.migo_release",         label: "MIGO Release",         activity: "MM.MIGO_RELEASE" },
+      { key: "mm.znfa_release",         label: "ZNFA Release",         activity: "MM.ZNFA_RELEASE" },
+      { key: "mm.service_entry_sheet",  label: "Service Entry Sheet",  activity: "MM.SERVICE_ENTRY_SHEET" },
+    ],
+  },
+  {
+    module: "SD Approvals",
+    screens: [
+      { key: "sd.dashboard",   label: "SD Dashboard",          activity: "SD.DASHBOARD" },
+      { key: "sd.price",       label: "Price Approvals",       activity: "SD.PRICE" },
+      { key: "sd.contract",    label: "Contract Approvals",    activity: "SD.CONTRACT" },
+      { key: "sd.sc_so",       label: "Service Cert & SO",     activity: "SD.SC_SO" },
+      { key: "sd.sales_order", label: "Sales Order Approvals", activity: "SD.SALES_ORDER" },
+      { key: "sd.bmw_status",  label: "BMW Status Report",     activity: "SD.BMW_STATUS" },
+    ],
+  },
+
     module: "Admin",
     screens: [
       { key: "admin.users",            label: "Users & Roles",       activity: "ADMIN.USERS" },
