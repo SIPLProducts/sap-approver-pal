@@ -119,15 +119,11 @@ export const fetchSalesOrderApprovals = createServerFn({ method: "POST" })
 
 
     const custFrom = (data.customer_from ?? "").trim();
-    const custTo = (data.customer_to ?? "").trim() || custFrom;
-    const searchTerms = (data.search_terms ?? []).map((s) => s.trim()).filter(Boolean);
 
     const inputs = {
       PLANT: data.plants.map((p) => ({ plant: p })),
-      CUSTOMER_FROM: custFrom,
-      CUSTOMER_TO: custTo,
-      SEARCH_TERMS: searchTerms.map((s) => ({ search_term: s })),
-      SORTL: searchTerms[0] ?? "",
+      CUSTOMER: custFrom,
+      SEARCH_TERMS: [] as string[],
       USER_ID: userId,
       R_PEND,
       R_ACCP,
