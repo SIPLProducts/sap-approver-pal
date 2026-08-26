@@ -195,48 +195,63 @@ function DateRangeFilter({
     label: string,
     value: Date | undefined,
     onChange: (d: Date | undefined) => void,
-  ) => (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn("h-8 justify-start text-left font-normal", !value && "text-muted-foreground")}
-        >
-          <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
-          {value ? format(value, "dd MMM yyyy") : label}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={onChange}
-          initialFocus
-          className={cn("p-3 pointer-events-auto")}
-        />
-        <div className="flex items-center justify-between gap-2 border-t p-2">
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(7)}>
-              Last 7 days
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
-              Last 30 days
+  ) => {
+    const calendarStyles = {
+      nav: "absolute inset-x-2 top-2 flex w-auto items-center justify-between gap-1",
+      button_previous:
+        "h-(--cell-size) w-(--cell-size) rounded-lg border border-border bg-background p-0 hover:bg-muted aria-disabled:opacity-50",
+      button_next:
+        "h-(--cell-size) w-(--cell-size) rounded-lg border border-border bg-background p-0 hover:bg-muted aria-disabled:opacity-50",
+      month_caption: "flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)",
+      caption_label: "text-sm font-medium select-none",
+      weekday:
+        "text-muted-foreground flex-1 select-none text-center text-[0.8rem] font-normal",
+      outside: "text-muted-foreground/40 pointer-events-none",
+      today: "border border-border rounded-md text-foreground bg-transparent",
+    };
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("h-8 justify-start text-left font-normal", !value && "text-muted-foreground")}
+          >
+            <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+            {value ? format(value, "dd MMM yyyy") : label}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={value}
+            onSelect={onChange}
+            initialFocus
+            className={cn("p-4 pointer-events-auto [--cell-size:2.5rem]")}
+            classNames={calendarStyles}
+          />
+          <div className="flex items-center justify-between gap-2 border-t p-2">
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(7)}>
+                Last 7 days
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
+                Last 30 days
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={onClear}
+            >
+              Clear
             </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-destructive hover:text-destructive"
-            onClick={onClear}
-          >
-            Clear
-          </Button>
-        </div>
-
-      </PopoverContent>
-    </Popover>
-  );
+        </PopoverContent>
+      </Popover>
+    );
+  };
 
   return (
     <div className="flex items-center gap-1.5">
