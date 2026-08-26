@@ -136,21 +136,19 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
     const R_REJ = isAll || data.status === "rejected" ? "X" : "";
 
 
-    const custFrom = (data.customer_from ?? "").trim();
-    const custTo = (data.customer_to ?? "").trim() || custFrom;
-    const searchTerms = (data.search_terms ?? []).map((s) => s.trim()).filter(Boolean);
+    const customer = (data.customer_from ?? "").trim();
 
     const inputs = {
       PLANT: data.plants.map((p) => ({ plant: p })),
-      CUSTOMER_FROM: custFrom,
-      CUSTOMER_TO: custTo,
-      SEARCH_TERMS: searchTerms.map((s) => ({ search_term: s })),
-      SORTL: searchTerms[0] ?? "",
+      CUSTOMER: customer,
+      SEARCH_TERMS: [] as string[],
+      SORTL: "",
       USER_ID: userId,
       R_PEND,
       R_ACCP,
       R_REJ,
     };
+
 
 
     const globalProxy =
@@ -183,10 +181,9 @@ export const fetchContractApprovals = createServerFn({ method: "POST" })
       const join = cfg.endpoint_url.includes("?") ? "&" : "?";
       const qs =
         `${join}PLANT=${encodeURIComponent(firstPlant)}` +
-        `&CUSTOMER_FROM=${encodeURIComponent(inputs.CUSTOMER_FROM)}` +
-        `&CUSTOMER_TO=${encodeURIComponent(inputs.CUSTOMER_TO)}` +
-        `&SORTL=${encodeURIComponent(inputs.SORTL)}` +
-        `&SEARCH_TERMS=${encodeURIComponent(searchTerms.join(","))}` +
+        `&CUSTOMER=${encodeURIComponent(inputs.CUSTOMER)}` +
+        `&SEARCH_TERMS=` +
+        `&SORTL=` +
         `&USER_ID=${encodeURIComponent(inputs.USER_ID)}` +
         `&R_PEND=${encodeURIComponent(inputs.R_PEND)}` +
         `&R_ACCP=${encodeURIComponent(inputs.R_ACCP)}` +
