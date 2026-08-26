@@ -217,6 +217,33 @@ server {
 
 Reload: `nginx -t && systemctl reload nginx`
 
+## 3b. SAP API Settings — one script for everything
+
+SAP API Settings live in the database, not in the frontend build, so a new
+frontend deployment never carries them across. If endpoints are missing on the
+server, run this single script:
+
+```bash
+# on the Quality server, from the repo/scripts folder
+docker exec -i supabase-db psql -U postgres -d postgres < scripts/sync-sap-config.sql
+```
+
+It installs/refreshes every endpoint, all request and response field mappings,
+tenants, custom roles, role permissions and approval strategies in one
+transaction. It is idempotent (matched by endpoint name), so it is safe to
+re-run after every release. It deliberately does NOT touch the middleware URL,
+proxy secret, SAP base URL or SAP credentials — Quality connection settings stay
+as they are.
+
+The script ends with two checks: row counts, then a list of endpoints that are
+still `MISSING` or `INACTIVE`. An empty second result means nothing is missing.
+
+Regenerate it from the reference environment (where the APIs are correct):
+
+```bash
+python3 scripts/generate-sap-sync.py     # writes scripts/sync-sap-config.sql
+```
+
 ## 4. App URLs
 
 | What | URL |
