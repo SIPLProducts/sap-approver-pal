@@ -80,6 +80,9 @@ function GatePassPage() {
     flag === "hod" ? "hod" : flag === "store" ? "stores" : flag === "scm" ? "scm" : flag === "plant" ? "plant" : "";
 
 
+  // Mode captured at the moment Execute succeeded — drives which row fields stay editable.
+  const [executedFlag, setExecutedFlag] = useState<FlagKey>("");
+
   const [header, setHeader] = useState<Record<string, any> | null>(null);
   const [rows, setRows] = useState<DataRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -116,6 +119,7 @@ function GatePassPage() {
       setHeader(res.header);
       setRows(res.data);
       setSelected(new Set());
+      setExecutedFlag(flag);
       if (res.messages.length > 0) {
         setResponseDialog({
           open: true,
