@@ -84,7 +84,7 @@ once nginx is up). Apply, in order, through Studio's SQL editor or `psql`:
 ```bash
 # via psql from the host
 psql "postgresql://postgres:<POSTGRES_PASSWORD>@127.0.0.1:5442/postgres" \
-  -f scripts/sync-sap-config.sql
+  -v ON_ERROR_STOP=1 -f scripts/sync-sap-config.sql
 ```
 
    The tail of the script prints row counts plus a list of any endpoint that is
