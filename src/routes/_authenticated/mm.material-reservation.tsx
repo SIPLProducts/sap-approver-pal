@@ -14,6 +14,14 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/material-reservation.functions";
 import { PageHeader } from "@/components/exec/page-header";
+import { DocumentNumberSelect } from "@/components/mm/document-number-select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
   component: MaterialReservationPage,
