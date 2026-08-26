@@ -410,6 +410,23 @@ function MaterialReservationPage() {
           />
         </>
       )}
+
+      <Dialog
+        open={messageDialog.open}
+        onOpenChange={(open) => setMessageDialog((prev) => ({ ...prev, open }))}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Material Reservation</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm whitespace-pre-wrap">{messageDialog.message}</div>
+          <DialogFooter>
+            <Button size="sm" onClick={() => setMessageDialog({ open: false, message: "" })}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
 
   );
