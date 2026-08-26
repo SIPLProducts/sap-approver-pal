@@ -75,15 +75,29 @@ curl -i http://127.0.0.1:8010/auth/v1/health      # 200 or 401 = healthy
 Studio is on `http://127.0.0.1:3100` (also `http://10.150.150.130:9091/studio/`
 once nginx is up). Apply, in order, through Studio's SQL editor or `psql`:
 
+1. The schema/migration SQL for `public.*` (tables, RLS policies, GRANTs).
+2. `scripts/sync-sap-config.sql` — **one script for all SAP API Settings**:
+   every endpoint, all request/response field mappings, tenants, custom roles,
+   role permissions and approval strategies. Idempotent, matches endpoints by
+   name, and runs in a single transaction.
+
 ```bash
 # via psql from the host
 psql "postgresql://postgres:<POSTGRES_PASSWORD>@127.0.0.1:5442/postgres" \
-  -f scripts/quality-seed-data-sql-editor.sql
+  -f scripts/sync-sap-config.sql
 ```
 
-1. The schema/migration SQL for `public.*` (tables, RLS policies, GRANTs).
-2. `scripts/quality-seed-data-sql-editor.sql` — SAP API endpoints, request/
-   response field mappings, roles, screens.
+   The tail of the script prints row counts plus a list of any endpoint that is
+   still `MISSING` or `INACTIVE` — an empty second result means everything is
+   in place. Re-run it after every release where SAP APIs were added or changed;
+   if an API is missing on the server, this is the fix.
+
+   Regenerate it from the reference environment first with
+   `python3 scripts/generate-sap-sync.py` (uses the `PG*` env vars).
+   It never exports middleware URL/port, proxy secret, SAP base URL or
+   credentials, so Production connection settings are preserved.
+3. Update the middleware row for Production:
+
 3. Update the middleware row for Production:
 
 ```sql
