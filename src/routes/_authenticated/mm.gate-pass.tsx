@@ -63,11 +63,21 @@ function GatePassPage() {
 
   const [userId, setUserId] = useState("");
   const [gatePassNumber, setGatePassNumber] = useState("");
-  const [hodApproval, setHodApproval] = useState(false);
-  const [storeApproval, setStoreApproval] = useState(false);
-  const [scmHead, setScmHead] = useState(false);
-  const [plantHead, setPlantHead] = useState(false);
-  const [returnReceipt, setReturnReceipt] = useState(false);
+  // Single-selection group: only one approval flag may be active at a time.
+  type FlagKey = "" | "hod" | "store" | "scm" | "plant" | "return";
+  const [flag, setFlag] = useState<FlagKey>("");
+  const hodApproval = flag === "hod";
+  const storeApproval = flag === "store";
+  const scmHead = flag === "scm";
+  const plantHead = flag === "plant";
+  const returnReceipt = flag === "return";
+  const pickFlag = (k: Exclude<FlagKey, "">, on: boolean) => {
+    setFlag(on ? k : "");
+    setGatePassNumber("");
+  };
+  const f4Flag: GatePassF4Flag =
+    flag === "hod" ? "hod" : flag === "store" ? "stores" : flag === "scm" ? "scm" : flag === "plant" ? "plant" : "";
+
 
   const [header, setHeader] = useState<Record<string, any> | null>(null);
   const [rows, setRows] = useState<DataRow[]>([]);
