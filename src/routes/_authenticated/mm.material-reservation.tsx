@@ -315,11 +315,11 @@ function MaterialReservationPage() {
         <div className="grid gap-3 md:grid-cols-[240px_200px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Document Number</Label>
-            <Input
+            <DocumentNumberSelect
               value={docNumber}
-              onChange={(e) => setDocNumber(e.target.value)}
-              placeholder="Document number"
-              className="h-9 text-sm"
+              onChange={setDocNumber}
+              userId={userId}
+              onFailure={(message) => setMessageDialog({ open: true, message })}
             />
           </div>
           <div className="space-y-1.5">
