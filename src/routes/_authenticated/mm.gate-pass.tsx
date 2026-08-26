@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
@@ -432,6 +433,7 @@ function GatePassPage() {
               onChange={setGatePassNumber}
               userId={userId}
               flag={f4Flag}
+              className="max-w-[260px]"
               onFailure={(message) =>
                 setResponseDialog({
                   open: true,
@@ -441,65 +443,33 @@ function GatePassPage() {
               }
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">HOD Approval</Label>
-            <div className="h-9 flex items-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={hodApproval}
-                  onCheckedChange={(v) => pickFlag("hod", v === true)}
-                />
-                HOD Approval
-              </label>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Store Approval</Label>
-            <div className="h-9 flex items-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={storeApproval}
-                  onCheckedChange={(v) => pickFlag("store", v === true)}
-                />
-                Store Approval
-              </label>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">SCM Head</Label>
-            <div className="h-9 flex items-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={scmHead}
-                  onCheckedChange={(v) => pickFlag("scm", v === true)}
-                />
-                SCM Head
-              </label>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Plant Head</Label>
-            <div className="h-9 flex items-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={plantHead}
-                  onCheckedChange={(v) => pickFlag("plant", v === true)}
-                />
-                Plant Head
-              </label>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Return Receipt</Label>
-            <div className="h-9 flex items-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={returnReceipt}
-                  onCheckedChange={(v) => pickFlag("return", v === true)}
-                />
-                Return Receipt
-              </label>
-            </div>
+          <div className="space-y-1.5 md:col-span-2 lg:col-span-2">
+            <Label className="text-xs sr-only">Approval Type</Label>
+            <RadioGroup value={flag || undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {(
+                [
+                  { value: "hod", label: "HOD Approval" },
+                  { value: "store", label: "Store Approval" },
+                  { value: "scm", label: "SCM Head" },
+                  { value: "plant", label: "Plant Head" },
+                  { value: "return", label: "Return Receipt" },
+                ] as const
+              ).map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-1.5 text-sm cursor-pointer whitespace-nowrap"
+                >
+                  <RadioGroupItem
+                    value={opt.value}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      pickFlag(opt.value, flag !== opt.value);
+                    }}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </RadioGroup>
           </div>
         </div>
         <div className="flex gap-2 justify-end mt-4">
