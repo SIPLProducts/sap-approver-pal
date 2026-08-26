@@ -149,6 +149,7 @@ function GatePassPage() {
     | {
         open: boolean;
         title: string;
+        messageOnly?: boolean;
         results: Array<{ label: string; message: string; ok: boolean; response?: any }>;
       }
     | null
