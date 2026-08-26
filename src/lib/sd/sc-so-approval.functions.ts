@@ -140,9 +140,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const custFrom = (data.customer_from ?? "").trim();
-    const custTo = (data.customer_to ?? "").trim() || custFrom;
-    const searchTerms = (data.search_terms ?? []).map((s) => s.trim()).filter(Boolean);
+    const customer = (data.customer_from ?? "").trim();
 
     const resolvedUserId =
       (data.user_id && data.user_id.trim()) ||
@@ -154,10 +152,9 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
     const isAllType = data.approval_type === "all";
     const inputs = {
       PLANT: data.plants.map((p) => ({ plant: p })),
-      CUSTOMER_FROM: custFrom,
-      CUSTOMER_TO: custTo,
-      SEARCH_TERMS: searchTerms.map((s) => ({ search_term: s })),
-      SORTL: searchTerms[0] ?? "",
+      CUSTOMER: customer,
+      SEARCH_TERMS: [] as string[],
+      SORTL: "",
       USER_ID: resolvedUserId,
       R_PEND: isAllStatus || data.status === "pending" ? "X" : "",
       R_ACCP: isAllStatus || data.status === "accepted" ? "X" : "",
@@ -165,6 +162,7 @@ export const fetchScSoApprovals = createServerFn({ method: "POST" })
       service: isAllType || data.approval_type === "service" ? "X" : "",
       Sales: isAllType || data.approval_type === "sales" ? "X" : "",
     };
+
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
