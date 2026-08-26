@@ -124,6 +124,7 @@ function GatePassPage() {
         setResponseDialog({
           open: true,
           title: "Gate Pass Response",
+          messageOnly: true,
           results: res.messages.map((m) => ({
             label: m.type ? `Type ${m.type}` : "Gate Pass",
             message: m.message,
@@ -134,6 +135,7 @@ function GatePassPage() {
         setResponseDialog({
           open: true,
           title: "Gate Pass Response",
+          messageOnly: true,
           results: [{ label: "Gate Pass", message: res.error, ok: false }],
         });
       } else {
