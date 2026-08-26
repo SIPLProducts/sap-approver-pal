@@ -255,6 +255,7 @@ function GatePassPage() {
     setUserId(userIdData?.sap_user_id ?? "");
     setGatePassNumber("");
     setFlag("");
+    setExecutedFlag("");
     setHeader(null);
     setRows([]);
     setSelected(new Set());
@@ -280,6 +281,66 @@ function GatePassPage() {
     return Object.keys(header);
   }, [header]);
 
+  const lockedKeys = useMemo<Set<string>>(() => {
+    const map: Record<Exclude<FlagKey, "">, string[]> = {
+      hod: [
+        "ISSUED_QUANTITY",
+        "STORE_APPROVAL",
+        "JUSTIFICATION",
+        "SCM_HEAD",
+        "PH_APPROVAL",
+        "PH_REJECTION",
+        "RETURN_STATUS",
+        "REMARKS",
+      ],
+      store: [
+        "HOD_APPROVAL",
+        "HOD_REJECTION",
+        "HOD_REMARKS",
+        "SCM_HEAD",
+        "PH_APPROVAL",
+        "PH_REJECTION",
+        "RETURN_STATUS",
+        "REMARKS",
+        "RETURNED_QUANTITY",
+      ],
+      scm: [
+        "HOD_APPROVAL",
+        "HOD_REJECTION",
+        "HOD_REMARKS",
+        "ISSUED_QUANTITY",
+        "STORE_APPROVAL",
+        "JUSTIFICATION",
+        "PH_APPROVAL",
+        "PH_REJECTION",
+        "RETURN_STATUS",
+        "REMARKS",
+      ],
+      plant: [
+        "HOD_APPROVAL",
+        "HOD_REJECTION",
+        "HOD_REMARKS",
+        "ISSUED_QUANTITY",
+        "STORE_APPROVAL",
+        "JUSTIFICATION",
+        "SCM_HEAD",
+        "RETURN_STATUS",
+      ],
+      return: [
+        "HOD_APPROVAL",
+        "HOD_REJECTION",
+        "HOD_REMARKS",
+        "ISSUED_QUANTITY",
+        "STORE_APPROVAL",
+        "JUSTIFICATION",
+        "SCM_HEAD",
+        "PH_APPROVAL",
+        "PH_REJECTION",
+      ],
+    };
+    return new Set(executedFlag ? map[executedFlag] : []);
+  }, [executedFlag]);
+
   const columns = useMemo<CloudscapeColumn<DataRow>[]>(() => {
     const readonly = (k: string, label?: string, minWidth = 120): CloudscapeColumn<DataRow> => ({
       id: k,
@@ -292,14 +353,28 @@ function GatePassPage() {
       },
     });
 
-    const editCheckbox = (k: string, label?: string): CloudscapeColumn<DataRow> => ({
+    const editCheckbox = (
+      k: string,
+      label?: string,
+      partnerKey?: string,
+    ): CloudscapeColumn<DataRow> => ({
       id: k,
       header: label ?? humanize(k),
       minWidth: 110,
       cell: (item) => (
         <Checkbox
           checked={(item as any)[k] === "X"}
-          onCheckedChange={(v) => updateRowField(item, k, v === true ? "X" : "")}
+          disabled={lockedKeys.has(k)}
+          onCheckedChange={(v) => {
+            const on = v === true;
+            setRows((prev) =>
+              prev.map((r) =>
+                r === item
+                  ? { ...r, [k]: on ? "X" : "", ...(partnerKey && on ? { [partnerKey]: "" } : {}) }
+                  : r,
+              ),
+            );
+          }}
         />
       ),
     });
@@ -311,6 +386,7 @@ function GatePassPage() {
       cell: (item) => (
         <Input
           value={toStr((item as any)[k])}
+          disabled={lockedKeys.has(k)}
           onChange={(e) => updateRowField(item, k, e.target.value)}
           className="h-8 text-sm"
         />
@@ -325,20 +401,20 @@ function GatePassPage() {
       readonly("VALUE"),
       readonly("EXPECTED_DATE_OF_RETURN", "Expected Return", 150),
       readonly("USER_REMARKS", "User Remarks", 180),
-      editCheckbox("HOD_APPROVAL", "HOD Approval"),
-      editCheckbox("HOD_REJECTION", "HOD Rejection"),
+      editCheckbox("HOD_APPROVAL", "HOD Approval", "HOD_REJECTION"),
+      editCheckbox("HOD_REJECTION", "HOD Rejection", "HOD_APPROVAL"),
       editInput("HOD_REMARKS", "HOD Remarks"),
-      readonly("ISSUED_QUANTITY", "Issued Qty"),
+      editInput("ISSUED_QUANTITY", "Issued Qty", 130),
       editCheckbox("STORE_APPROVAL", "Store Approval"),
       editInput("JUSTIFICATION", "Justification"),
-      readonly("SCM_HEAD", "SCM Head"),
-      readonly("PH_APPROVAL", "PH Approval"),
-      readonly("PH_REJECTION", "PH Rejection"),
-      readonly("RETURN_STATUS", "Return Status"),
+      editCheckbox("SCM_HEAD", "SCM Head"),
+      editCheckbox("PH_APPROVAL", "PH Approval", "PH_REJECTION"),
+      editCheckbox("PH_REJECTION", "PH Rejection", "PH_APPROVAL"),
+      editCheckbox("RETURN_STATUS", "Return Status"),
       editInput("REMARKS", "Remarks"),
-      readonly("RETURNED_QUANTITY", "Returned Qty"),
+      editInput("RETURNED_QUANTITY", "Returned Qty", 130),
     ];
-  }, []);
+  }, [lockedKeys]);
 
   return (
     <div className="page-shell page-stack">
