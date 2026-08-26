@@ -35,15 +35,17 @@ def q(sql: str) -> list[str]:
 
 CONFIGS = """
 select format(
-  'insert into public.sap_api_configs (name,description,module,endpoint_url,http_method,auth_type,middleware_url,proxy_secret_ref,api_type,auto_sync_enabled,schedule_cron,is_active) values (%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L) on conflict (name) do update set description=excluded.description,module=excluded.module,endpoint_url=excluded.endpoint_url,http_method=excluded.http_method,auth_type=excluded.auth_type,middleware_url=excluded.middleware_url,proxy_secret_ref=excluded.proxy_secret_ref,api_type=excluded.api_type,auto_sync_enabled=excluded.auto_sync_enabled,schedule_cron=excluded.schedule_cron,is_active=excluded.is_active,updated_at=now();',
+  'update public.sap_api_configs set description=%%L,module=%%L,endpoint_url=%%L,http_method=%%L,auth_type=%%L,middleware_url=%%L,proxy_secret_ref=%%L,api_type=%%L,auto_sync_enabled=%%L,schedule_cron=%%L,is_active=%%L,updated_at=now() where name=%%L; insert into public.sap_api_configs (name,description,module,endpoint_url,http_method,auth_type,middleware_url,proxy_secret_ref,api_type,auto_sync_enabled,schedule_cron,is_active) select %%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L,%%L where not exists (select 1 from public.sap_api_configs where name=%%L);',
+  %s, module, endpoint_url, http_method, auth_type, middleware_url,
+  proxy_secret_ref, api_type, auto_sync_enabled, schedule_cron, is_active, name,
   name, %s, module, endpoint_url, http_method, auth_type, middleware_url,
-  proxy_secret_ref, api_type, auto_sync_enabled, schedule_cron, is_active)
+  proxy_secret_ref, api_type, auto_sync_enabled, schedule_cron, is_active, name)
 from public.sap_api_configs order by name;
-""" % CLEAN.format("description")
+""" % (CLEAN.format("description"), CLEAN.format("description"))
 
 REQUEST_FIELDS = """
 select format(
-  'insert into public.sap_api_request_fields (config_id,field_name,source,default_value,required,sort_order) select c.id,%%L,%%L,%%L,%%L,%%L from public.sap_api_configs c where c.name=%%L;',
+  'insert into public.sap_api_request_fields (config_id,field_name,source,default_value,required,sort_order) select c.id,%%L,%%L,%%L,%%L,%%L from (select id from public.sap_api_configs where name=%%L order by id limit 1) c;',
   f.field_name, f.source, %s, f.required, f.sort_order, c.name)
 from public.sap_api_request_fields f
 join public.sap_api_configs c on c.id = f.config_id
@@ -52,7 +54,7 @@ order by c.name, f.sort_order, f.field_name;
 
 RESPONSE_FIELDS = """
 select format(
-  'insert into public.sap_api_response_fields (config_id,field_name,target_table,target_column,transform_expr,sort_order) select c.id,%%L,%%L,%%L,%%L,%%L from public.sap_api_configs c where c.name=%%L;',
+  'insert into public.sap_api_response_fields (config_id,field_name,target_table,target_column,transform_expr,sort_order) select c.id,%%L,%%L,%%L,%%L,%%L from (select id from public.sap_api_configs where name=%%L order by id limit 1) c;',
   f.field_name, f.target_table, f.target_column, %s, f.sort_order, c.name)
 from public.sap_api_response_fields f
 join public.sap_api_configs c on c.id = f.config_id
@@ -111,9 +113,11 @@ HEADER = """-- =================================================================
 -- Endpoints are matched BY NAME, so it works even when a server already has
 -- rows with different ids (e.g. Login_API). Safe to re-run any number of times.
 -- Everything runs in one transaction: on error nothing is applied.
+-- Run with -v ON_ERROR_STOP=1 so psql stops at the first real error instead
+-- of printing repeated "current transaction is aborted" messages.
 --
 -- Quality:
---   docker exec -i supabase-db psql -U postgres -d postgres < sync-sap-config.sql
+--   docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < sync-sap-config.sql
 -- Production:
 --   psql "postgresql://postgres:<PASSWORD>@127.0.0.1:5442/postgres" \\
 --        -f sync-sap-config.sql
