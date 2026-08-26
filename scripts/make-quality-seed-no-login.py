@@ -93,7 +93,6 @@ def write(path, title, body, verify=True):
 
 base = os.path.dirname(__file__)
 sizes = {
-    sizes = {
     "quality-seed-data-sql-editor.sql": write(OUT, "Combined (psql)", part1 + part2 + part3),
     "quality-seed-part1-configs-roles.sql": write(
         os.path.join(base, "quality-seed-part1-configs-roles.sql"),
