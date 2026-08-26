@@ -224,8 +224,13 @@ frontend deployment never carries them across. If endpoints are missing on the
 server, run this single script:
 
 ```bash
-# on the Quality server, from the repo/scripts folder
+# From the project root folder:
+ls -lh scripts/sync-sap-config.sql
 docker exec -i supabase-db psql -U postgres -d postgres < scripts/sync-sap-config.sql
+
+# OR, if you are already inside the scripts folder:
+ls -lh sync-sap-config.sql
+docker exec -i supabase-db psql -U postgres -d postgres < sync-sap-config.sql
 ```
 
 It installs/refreshes every endpoint, all request and response field mappings,
