@@ -227,22 +227,22 @@ function DateRangeFilter({
             selected={value}
             onSelect={onChange}
             initialFocus
-            className={cn("p-4 pointer-events-auto [--cell-size:2.5rem]")}
+            className={cn("p-2.5 pointer-events-auto [--cell-size:2rem]")}
             classNames={calendarStyles}
           />
-          <div className="flex items-center justify-between gap-2 border-t p-2">
+          <div className="flex items-center justify-between gap-2 border-t p-1.5">
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(7)}>
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => preset(7)}>
                 Last 7 days
               </Button>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => preset(30)}>
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => preset(30)}>
                 Last 30 days
               </Button>
             </div>
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs text-destructive hover:text-destructive"
+              className="h-6 text-xs text-destructive hover:text-destructive"
               onClick={onClear}
             >
               Clear
