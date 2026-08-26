@@ -98,8 +98,6 @@ psql "postgresql://postgres:<POSTGRES_PASSWORD>@127.0.0.1:5442/postgres" \
    credentials, so Production connection settings are preserved.
 3. Update the middleware row for Production:
 
-3. Update the middleware row for Production:
-
 ```sql
 update public.sap_global_settings
    set connection_mode = 'via_proxy',
