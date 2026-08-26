@@ -77,7 +77,7 @@ from public.custom_roles order by name;
 
 ROLE_PERMISSIONS = """
 select format(
-  'insert into public.role_permissions (id,custom_role_id,built_in_role,screen_key,action,allowed) values (%L,%L,%L,%L,%L,%L) on conflict (id) do update set custom_role_id=excluded.custom_role_id,built_in_role=excluded.built_in_role,screen_key=excluded.screen_key,action=excluded.action,allowed=excluded.allowed;',
+  'with src(id,custom_role_id,built_in_role,screen_key,action,allowed) as (values (%L::uuid,%L::uuid,%L::public.app_role,%L,%L,%L::boolean)), updated_natural as (update public.role_permissions rp set allowed=src.allowed from src where ((src.custom_role_id is not null and rp.custom_role_id=src.custom_role_id and rp.screen_key=src.screen_key and rp.action=src.action) or (src.built_in_role is not null and rp.built_in_role=src.built_in_role and rp.screen_key=src.screen_key and rp.action=src.action)) returning rp.id), updated_by_id as (update public.role_permissions rp set custom_role_id=src.custom_role_id,built_in_role=src.built_in_role,screen_key=src.screen_key,action=src.action,allowed=src.allowed from src where not exists (select 1 from updated_natural) and rp.id=src.id returning rp.id) insert into public.role_permissions (id,custom_role_id,built_in_role,screen_key,action,allowed) select id,custom_role_id,built_in_role,screen_key,action,allowed from src where not exists (select 1 from updated_natural) and not exists (select 1 from updated_by_id);',
   id, custom_role_id, built_in_role, screen_key, action, allowed)
 from public.role_permissions order by screen_key, action;
 """
@@ -112,6 +112,9 @@ HEADER = """-- =================================================================
 --
 -- Endpoints are matched BY NAME, so it works even when a server already has
 -- rows with different ids (e.g. Login_API). Safe to re-run any number of times.
+-- Role permissions are matched by custom/built-in role + screen + action, so
+-- servers with different permission ids are updated instead of failing on the
+-- partial unique indexes.
 -- Everything runs in one transaction: on error nothing is applied.
 -- Run with -v ON_ERROR_STOP=1 so psql stops at the first real error instead
 -- of printing repeated "current transaction is aborted" messages.
