@@ -79,6 +79,10 @@ function MaterialReservationPage() {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [rowStates, setRowStates] = useState<Map<string, RowState>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [messageDialog, setMessageDialog] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: "",
+  });
   const hasResults = header !== null || rows.length > 0;
 
   useEffect(() => {
