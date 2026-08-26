@@ -141,7 +141,8 @@ export function buildDynamicColumns<T extends Record<string, any>>(
 
   return nonEmpty.map((key) => {
     // Decide render mode.
-    const forcedText = forceText.has(key) || FORCE_TEXT_KEYS.has(key);
+    const forcedText =
+      forceText.has(key) || FORCE_TEXT_KEYS.has(key) || key.toUpperCase().startsWith("REL");
     const forcedNumeric = forceNum.has(key);
 
     // Sniff sample values.
