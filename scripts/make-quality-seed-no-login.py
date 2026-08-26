@@ -110,3 +110,4 @@ for name, size in sizes.items():
 print("configs=%d request=%d response=%d other=%d" % (
     len(sections["configs"]), len(sections["request"]),
     len(sections["response"]), len(sections["other"])))
+
