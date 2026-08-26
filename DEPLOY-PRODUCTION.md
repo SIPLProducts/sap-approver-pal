@@ -79,7 +79,8 @@ once nginx is up). Apply, in order, through Studio's SQL editor or `psql`:
 2. `scripts/sync-sap-config.sql` — **one script for all SAP API Settings**:
    every endpoint, all request/response field mappings, tenants, custom roles,
    role permissions and approval strategies. Idempotent, matches endpoints by
-   name, and runs in a single transaction.
+   name and role permissions by role + screen + action, and runs in a single
+   transaction.
 
 ```bash
 # via psql from the host
@@ -91,6 +92,9 @@ psql "postgresql://postgres:<POSTGRES_PASSWORD>@127.0.0.1:5442/postgres" \
    still `MISSING` or `INACTIVE` — an empty second result means everything is
    in place. Re-run it after every release where SAP APIs were added or changed;
    if an API is missing on the server, this is the fix.
+   If you previously saw `role_permissions_custom_uq` or
+   `role_permissions_builtin_uq`, copy the latest regenerated script and rerun
+   it; that duplicate-permission case is handled by this script version.
 
    Regenerate it from the reference environment first with
    `python3 scripts/generate-sap-sync.py` (uses the `PG*` env vars).

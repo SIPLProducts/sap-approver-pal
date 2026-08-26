@@ -235,13 +235,18 @@ docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < syn
 
 It installs/refreshes every endpoint, all request and response field mappings,
 tenants, custom roles, role permissions and approval strategies in one
-transaction. It is idempotent (matched by endpoint name), so it is safe to
-re-run after every release. It deliberately does NOT touch the middleware URL,
-proxy secret, SAP base URL or SAP credentials — Quality connection settings stay
-as they are.
+transaction. It is idempotent: endpoints are matched by name, and role
+permissions are matched by role + screen + action, so it is safe to re-run after
+every release. It deliberately does NOT touch the middleware URL, proxy secret,
+SAP base URL or SAP credentials — Quality connection settings stay as they are.
 
 Use `-v ON_ERROR_STOP=1`; if anything fails, psql stops at the first real SQL
 error instead of continuing with repeated transaction-aborted messages.
+
+If you previously saw `role_permissions_custom_uq` or
+`role_permissions_builtin_uq`, copy the latest regenerated
+`scripts/sync-sap-config.sql` to the server and rerun the same command above.
+That duplicate-permission case is handled by this script version.
 
 The script ends with two checks: row counts, then a list of endpoints that are
 still `MISSING` or `INACTIVE`. An empty second result means nothing is missing.
