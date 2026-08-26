@@ -226,11 +226,11 @@ server, run this single script:
 ```bash
 # From the project root folder:
 ls -lh scripts/sync-sap-config.sql
-docker exec -i supabase-db psql -U postgres -d postgres < scripts/sync-sap-config.sql
+docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < scripts/sync-sap-config.sql
 
 # OR, if you are already inside the scripts folder:
 ls -lh sync-sap-config.sql
-docker exec -i supabase-db psql -U postgres -d postgres < sync-sap-config.sql
+docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < sync-sap-config.sql
 ```
 
 It installs/refreshes every endpoint, all request and response field mappings,
@@ -239,6 +239,9 @@ transaction. It is idempotent (matched by endpoint name), so it is safe to
 re-run after every release. It deliberately does NOT touch the middleware URL,
 proxy secret, SAP base URL or SAP credentials — Quality connection settings stay
 as they are.
+
+Use `-v ON_ERROR_STOP=1`; if anything fails, psql stops at the first real SQL
+error instead of continuing with repeated transaction-aborted messages.
 
 The script ends with two checks: row counts, then a list of endpoints that are
 still `MISSING` or `INACTIVE`. An empty second result means nothing is missing.
