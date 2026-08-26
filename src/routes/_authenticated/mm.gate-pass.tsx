@@ -28,6 +28,7 @@ import {
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGatePass, saveGatePass } from "@/lib/mm/gate-pass.functions";
+import { GatePassNumberSelect, type GatePassF4Flag } from "@/components/mm/gate-pass-number-select";
 import { PageHeader } from "@/components/exec/page-header";
 
 export const Route = createFileRoute("/_authenticated/mm/gate-pass")({
@@ -249,11 +250,7 @@ function GatePassPage() {
   function reset() {
     setUserId(userIdData?.sap_user_id ?? "");
     setGatePassNumber("");
-    setHodApproval(false);
-    setStoreApproval(false);
-    setScmHead(false);
-    setPlantHead(false);
-    setReturnReceipt(false);
+    setFlag("");
     setHeader(null);
     setRows([]);
     setSelected(new Set());
@@ -350,11 +347,18 @@ function GatePassPage() {
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Gate Pass Number</Label>
-            <Input
+            <GatePassNumberSelect
               value={gatePassNumber}
-              onChange={(e) => setGatePassNumber(e.target.value)}
-              placeholder="Gate pass number"
-              className="h-9 text-sm"
+              onChange={setGatePassNumber}
+              userId={userId}
+              flag={f4Flag}
+              onFailure={(message) =>
+                setResponseDialog({
+                  open: true,
+                  title: "Gate Pass Response",
+                  results: [{ label: "Gate Pass", message, ok: false }],
+                })
+              }
             />
           </div>
           <div className="space-y-1.5">
@@ -363,7 +367,7 @@ function GatePassPage() {
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
                   checked={hodApproval}
-                  onCheckedChange={(v) => setHodApproval(v === true)}
+                  onCheckedChange={(v) => pickFlag("hod", v === true)}
                 />
                 HOD Approval
               </label>
@@ -375,7 +379,7 @@ function GatePassPage() {
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
                   checked={storeApproval}
-                  onCheckedChange={(v) => setStoreApproval(v === true)}
+                  onCheckedChange={(v) => pickFlag("store", v === true)}
                 />
                 Store Approval
               </label>
@@ -387,7 +391,7 @@ function GatePassPage() {
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
                   checked={scmHead}
-                  onCheckedChange={(v) => setScmHead(v === true)}
+                  onCheckedChange={(v) => pickFlag("scm", v === true)}
                 />
                 SCM Head
               </label>
@@ -399,7 +403,7 @@ function GatePassPage() {
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
                   checked={plantHead}
-                  onCheckedChange={(v) => setPlantHead(v === true)}
+                  onCheckedChange={(v) => pickFlag("plant", v === true)}
                 />
                 Plant Head
               </label>
@@ -411,7 +415,7 @@ function GatePassPage() {
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
                   checked={returnReceipt}
-                  onCheckedChange={(v) => setReturnReceipt(v === true)}
+                  onCheckedChange={(v) => pickFlag("return", v === true)}
                 />
                 Return Receipt
               </label>
