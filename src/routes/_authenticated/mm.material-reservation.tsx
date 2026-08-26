@@ -14,6 +14,14 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/material-reservation.functions";
 import { PageHeader } from "@/components/exec/page-header";
+import { DocumentNumberSelect } from "@/components/mm/document-number-select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
   component: MaterialReservationPage,
@@ -71,6 +79,10 @@ function MaterialReservationPage() {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [rowStates, setRowStates] = useState<Map<string, RowState>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [messageDialog, setMessageDialog] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: "",
+  });
   const hasResults = header !== null || rows.length > 0;
 
   useEffect(() => {
@@ -315,11 +327,11 @@ function MaterialReservationPage() {
         <div className="grid gap-3 md:grid-cols-[240px_200px_1fr_auto] items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">Document Number</Label>
-            <Input
+            <DocumentNumberSelect
               value={docNumber}
-              onChange={(e) => setDocNumber(e.target.value)}
-              placeholder="Document number"
-              className="h-9 text-sm"
+              onChange={setDocNumber}
+              userId={userId}
+              onFailure={(message) => setMessageDialog({ open: true, message })}
             />
           </div>
           <div className="space-y-1.5">
@@ -398,6 +410,23 @@ function MaterialReservationPage() {
           />
         </>
       )}
+
+      <Dialog
+        open={messageDialog.open}
+        onOpenChange={(open) => setMessageDialog((prev) => ({ ...prev, open }))}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Material Reservation</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm whitespace-pre-wrap">{messageDialog.message}</div>
+          <DialogFooter>
+            <Button size="sm" onClick={() => setMessageDialog({ open: false, message: "" })}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
 
   );
