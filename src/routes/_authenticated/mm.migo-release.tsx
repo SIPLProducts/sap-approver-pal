@@ -109,11 +109,24 @@ function MigoReleasePage() {
       return v as { ok: boolean; type: string; message: string; mat_doc: string; doc_year: number; raw: any };
     },
     onSuccess: (res) => {
-      const parts: string[] = [res.message];
-      if (res.mat_doc) parts.push(`Material Document: ${res.mat_doc}`);
-      if (res.doc_year) parts.push(`Document Year: ${res.doc_year}`);
+      const infoLines = [
+        res.mat_doc ? `Material Document: ${res.mat_doc}` : null,
+        res.doc_year ? `Document Year: ${res.doc_year}` : null,
+      ].filter(Boolean) as string[];
 
-      setResultDialog({ open: true, ok: res.ok, title: res.ok ? "Success" : "Failed", lines: parts });
+      setResultDialog({
+        open: true,
+        title: res.ok ? "MIGO Post Response" : "MIGO Post Failed",
+        refLabel: "Material Doc",
+        results: [
+          {
+            ref: res.mat_doc ? String(res.mat_doc) : "MIGO",
+            message: [res.message, ...infoLines].filter(Boolean).join("\n"),
+            ok: !!res.ok,
+            response: res.raw ?? res,
+          },
+        ],
+      });
       if (res.ok) {
         toast.success(res.message || "Posted successfully");
         setMatDocNo("");
