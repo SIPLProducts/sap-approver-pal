@@ -1388,6 +1388,8 @@ function ZnfaReleasePage() {
   const [attachPrintMime, setAttachPrintMime] = useState("application/pdf");
   const [attachPrintError, setAttachPrintError] = useState<string | null>(null);
   const [attachPrintBlobUrl, setAttachPrintBlobUrl] = useState<string | null>(null);
+  // Size of the decoded document; used by the preview card for non-inline types.
+  const [attachPrintSize, setAttachPrintSize] = useState(0);
   const fetchAttachPrint = useServerFn(fetchZnfaAttachPrint);
   const attachPrintMutation = useMutation({
     mutationFn: (vars: { row: Record<string, any> }) => fetchAttachPrint({ data: vars }),
