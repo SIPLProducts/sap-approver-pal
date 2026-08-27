@@ -108,7 +108,12 @@ function MaterialReservationPage() {
         });
       });
       setRowStates(seeded);
-      if (res.error) toast.error(res.error);
+      if (res.error)
+        setMessageDialog({
+          open: true,
+          title: "Material Reservation",
+          results: [{ ref: "Material Reservation", message: res.error, ok: false }],
+        });
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
@@ -125,8 +130,18 @@ function MaterialReservationPage() {
       return v as { ok: boolean; message: string; documentNumber: string | null };
     },
     onSuccess: (res) => {
-      if (res.ok) toast.success(res.message || "Saved successfully");
-      else toast.error(res.message || "Save failed");
+      setMessageDialog({
+        open: true,
+        title: "Material Reservation Response",
+        results: [
+          {
+            ref: res.documentNumber ? `Doc ${res.documentNumber}` : "Material Reservation",
+            message: res.message || (res.ok ? "Saved successfully" : "Save failed"),
+            ok: !!res.ok,
+            response: res,
+          },
+        ],
+      });
       if (res.ok) {
         // Refresh list
         mutation.mutate({
