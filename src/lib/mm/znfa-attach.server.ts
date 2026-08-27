@@ -104,8 +104,65 @@ export function extractBase64Payload(json: any): {
     }
   }
 
+  // Fallback: SAP may return the document under an unexpected key, nested, or
+  // split across line-table chunks. Search the whole response for the largest
+  // base64-looking payload (chunks under the same array are concatenated).
+  const deep = findDeepBase64(root);
+  if (deep) {
+    const { base64, mimeFromPrefix } = cleanBase64(deep);
+    if (base64) return { base64, mimeType: mimeFromPrefix ?? fallbackMime, msg };
+  }
+
   return { base64: null, mimeType: fallbackMime, msg };
 }
+
+const BASE64_MIN_LEN = 200;
+
+function looksLikeBase64(value: string): boolean {
+  const s = value.trim().replace(/\s+/g, "");
+  if (s.length < BASE64_MIN_LEN) return false;
+  return /^(?:data:[^;,]*;base64,)?[A-Za-z0-9+/=_-]+$/.test(s);
+}
+
+/**
+ * Recursively finds the longest base64-looking string in the response. Arrays
+ * whose items each carry a base64-ish chunk (SAP line tables) are joined in
+ * order before being compared.
+ */
+function findDeepBase64(node: any, depth = 0): string | null {
+  if (depth > 8 || node == null) return null;
+  if (typeof node === "string") return looksLikeBase64(node) ? node.trim() : null;
+  if (typeof node !== "object") return null;
+
+  let best: string | null = null;
+  const consider = (candidate: string | null) => {
+    if (candidate && (!best || candidate.length > best.length)) best = candidate;
+  };
+
+  if (Array.isArray(node)) {
+    // Chunked line table: join every chunk found directly on the items.
+    const chunks: string[] = [];
+    for (const item of node) {
+      if (typeof item === "string" && looksLikeBase64(item)) {
+        chunks.push(item.trim());
+      } else if (item && typeof item === "object" && !Array.isArray(item)) {
+        for (const v of Object.values(item)) {
+          if (typeof v === "string" && looksLikeBase64(v)) {
+            chunks.push(v.trim());
+            break;
+          }
+        }
+      }
+    }
+    if (chunks.length > 1) consider(chunks.join(""));
+    for (const item of node) consider(findDeepBase64(item, depth + 1));
+    return best;
+  }
+
+  for (const value of Object.values(node)) consider(findDeepBase64(value, depth + 1));
+  return best;
+}
+
 
 function extractSapMsg(json: any): string | null {
   const payload: any = Array.isArray(json) ? json[0] : json;
