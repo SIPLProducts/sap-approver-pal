@@ -962,7 +962,7 @@ function ZnfaReleasePage() {
       const msg = res.sapMessage ?? res.error;
       if (!res.ok) {
         setDisplayError(msg ?? "SAP rejected the request.");
-        toast.error(msg ?? "SAP rejected the request.");
+        showSapError("ZNFA Release Response", msg ?? "SAP rejected the request.", res.number ?? undefined);
         return;
       }
       setDisplayError(null);
@@ -1005,7 +1005,7 @@ function ZnfaReleasePage() {
       const msg = res.sapMessage ?? res.error;
       if (!res.ok) {
         setRejectError(msg ?? "SAP rejected the request.");
-        toast.error(msg ?? "SAP rejected the request.");
+        showSapError("ZNFA Reject Response", msg ?? "SAP rejected the request.", res.number ?? undefined);
         return;
       }
       setRejectError(null);
@@ -1051,7 +1051,7 @@ function ZnfaReleasePage() {
       const msg = res.sapMessage ?? res.error;
       if (!res.ok) {
         setClarifyError(msg ?? "SAP rejected the request.");
-        toast.error(msg ?? "SAP rejected the request.");
+        showSapError("ZNFA Clarification Response", msg ?? "SAP rejected the request.");
         return;
       }
       setClarifyError(null);
@@ -1115,7 +1115,7 @@ function ZnfaReleasePage() {
       if (!res.ok) {
         setDisClarifyLines([]);
         setDisClarifyError(msg ?? "SAP rejected the request.");
-        toast.error(msg ?? "SAP rejected the request.");
+        showSapError("ZNFA Display Clarification Response", msg ?? "SAP rejected the request.");
         return;
       }
       setDisClarifyError(null);
