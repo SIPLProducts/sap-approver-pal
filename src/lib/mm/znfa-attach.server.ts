@@ -117,11 +117,26 @@ export function extractBase64Payload(json: any): {
 }
 
 const BASE64_MIN_LEN = 200;
+/** SAP line tables split documents into short lines (often 132–255 chars). */
+const BASE64_CHUNK_MIN_LEN = 8;
+
+function isBase64Charset(value: string): boolean {
+  const s = value.trim().replace(/\s+/g, "");
+  if (!s) return false;
+  return /^(?:data:[^;,]*;base64,)?[A-Za-z0-9+/=_-]+$/.test(s);
+}
 
 function looksLikeBase64(value: string): boolean {
   const s = value.trim().replace(/\s+/g, "");
   if (s.length < BASE64_MIN_LEN) return false;
-  return /^(?:data:[^;,]*;base64,)?[A-Za-z0-9+/=_-]+$/.test(s);
+  return isBase64Charset(s);
+}
+
+/** Chunk-level test: same charset, but without the standalone length floor. */
+function looksLikeBase64Chunk(value: string): boolean {
+  const s = value.trim().replace(/\s+/g, "");
+  if (s.length < BASE64_CHUNK_MIN_LEN) return false;
+  return isBase64Charset(s);
 }
 
 /**
@@ -140,27 +155,54 @@ function findDeepBase64(node: any, depth = 0): string | null {
   };
 
   if (Array.isArray(node)) {
-    // Chunked line table: join every chunk found directly on the items.
-    const chunks: string[] = [];
+    // Chunked line table: join every chunk found directly on the items. Short
+    // lines count here — SAP splits documents across many short rows.
+    const stringChunks: string[] = [];
+    const byKey = new Map<string, string[]>();
     for (const item of node) {
-      if (typeof item === "string" && looksLikeBase64(item)) {
-        chunks.push(item.trim());
+      if (typeof item === "string" && looksLikeBase64Chunk(item)) {
+        stringChunks.push(item.trim());
       } else if (item && typeof item === "object" && !Array.isArray(item)) {
-        for (const v of Object.values(item)) {
-          if (typeof v === "string" && looksLikeBase64(v)) {
-            chunks.push(v.trim());
-            break;
+        for (const [k, v] of Object.entries(item)) {
+          if (typeof v === "string" && looksLikeBase64Chunk(v)) {
+            const list = byKey.get(k) ?? [];
+            list.push(v.trim());
+            byKey.set(k, list);
           }
         }
       }
     }
-    if (chunks.length > 1) consider(chunks.join(""));
+    if (stringChunks.length > 1) consider(stringChunks.join(""));
+    // Join per key so a single column's lines are concatenated in order.
+    for (const list of byKey.values()) {
+      if (list.length > 1) consider(list.join(""));
+      else if (list.length === 1 && looksLikeBase64(list[0]!)) consider(list[0]!);
+    }
     for (const item of node) consider(findDeepBase64(item, depth + 1));
     return best;
   }
 
   for (const value of Object.values(node)) consider(findDeepBase64(value, depth + 1));
   return best;
+}
+
+/**
+ * Structural description of a SAP response for logs: key paths, array lengths
+ * and string lengths only — never any content.
+ */
+export function describeShape(node: any, depth = 0): string {
+  if (depth > 6) return "…";
+  if (node == null) return String(node);
+  if (typeof node === "string") return `string(${node.length})`;
+  if (typeof node !== "object") return typeof node;
+  if (Array.isArray(node)) {
+    const first = node.length > 0 ? describeShape(node[0], depth + 1) : "";
+    return `array(${node.length})${first ? `[${first}]` : ""}`;
+  }
+  const parts = Object.entries(node)
+    .slice(0, 25)
+    .map(([k, v]) => `${k}:${describeShape(v, depth + 1)}`);
+  return `{${parts.join(", ")}}`;
 }
 
 

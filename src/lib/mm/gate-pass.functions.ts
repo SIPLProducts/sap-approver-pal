@@ -11,6 +11,7 @@ import {
   extractFalseStatusMessage,
   extractMessagesArrayError,
   extractSapMessage,
+  extractTypeEErrorMessage,
   findFirstDeep,
 } from "@/lib/mm/sap-message";
 import { z } from "zod";
@@ -412,55 +413,82 @@ export const saveGatePass = createServerFn({ method: "POST" })
       return { ok: false, message: `Invalid JSON from SAP: ${text.slice(0, 200)}`, document_number: null, error: "invalid_json", messages: [] as Array<{ type: string; message: string }> };
     }
 
-    const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+    let sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+    // SAP/middleware sometimes returns the payload as a JSON-encoded string.
+    if (typeof sapJson === "string") {
+      const trimmed = sapJson.trim();
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        try {
+          sapJson = JSON.parse(trimmed);
+        } catch {
+          /* keep the raw string */
+        }
+      }
+    }
 
-    // Preferred shape: { MESSAGES: [{ TYPE, MESSAGE }] }
-    if (Array.isArray(sapJson?.MESSAGES) && sapJson.MESSAGES.length > 0) {
-      const collected = collectSapMessages(sapJson);
-      const msg = sapJson.MESSAGES
-        .map((m: any) => String(m?.MESSAGE ?? "").trim())
-        .filter(Boolean)
-        .join("; ") || "SAP returned an error";
-      const anyError = sapJson.MESSAGES.some(
-        (m: any) => {
-          const t = String(m?.TYPE ?? "").toUpperCase();
-          return t === "E" || t === "A";
-        },
-      );
-      const ok = res.ok && !anyError;
+    // Any shape (nested, array-wrapped or proxied): show only the exact SAP text.
+    const collected = collectSapMessages(sapJson);
+    const errorText =
+      extractMessagesArrayError(sapJson) ?? extractTypeEErrorMessage(sapJson) ?? null;
+    const docNumber = (() => {
+      const raw = findFirstDeep(sapJson, ["DOCUMENT_NUMBER"]);
+      const s = raw == null ? "" : String(raw).trim();
+      return s || null;
+    })();
+
+    if (errorText) {
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
-        status: ok ? "ok" : "error",
+        status: "error",
         latency_ms,
-        message: `gate-pass-save: ${msg}`,
+        message: `gate-pass-save: ${errorText}`.slice(0, 500),
       });
-      const docMatch = msg.match(/Document\s*No\s*:?\s*(\S+)/i);
       return {
-        ok,
-        message: msg,
-        document_number: (sapJson?.DOCUMENT_NUMBER ?? docMatch?.[1]) ?? null,
-        error: ok ? null : msg,
+        ok: false,
+        message: errorText,
+        document_number: docNumber,
+        error: errorText,
+        messages: collected.length > 0 ? collected : [{ type: "E", message: errorText }],
+      };
+    }
+
+    if (collected.length > 0) {
+      const msg = collected.map((m) => m.message.trim()).filter(Boolean).join("; ");
+      const docMatch = msg.match(/Document\s*No\s*:?\s*(\S+)/i);
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: res.ok ? "ok" : "error",
+        latency_ms,
+        message: `gate-pass-save: ${msg}`.slice(0, 500),
+      });
+      return {
+        ok: res.ok,
+        message: msg || "Saved successfully",
+        document_number: docNumber ?? docMatch?.[1] ?? null,
+        error: res.ok ? null : msg,
         messages: collected,
       };
     }
 
     // Legacy single-object shape: { TYPE, DOCUMENT_NUMBER, MESSAGE }
-    const type = String(sapJson?.TYPE ?? "").toUpperCase();
-    const message = String(sapJson?.MESSAGE ?? "").trim();
-    const ok = res.ok && (type === "S" || type === "I" || type === "");
+    const typeRaw = findFirstDeep(sapJson, ["TYPE"]);
+    const type = String(typeRaw ?? "").toUpperCase();
+    const message = extractSapMessage(sapJson) ?? "";
+    const ok = res.ok && type !== "E" && type !== "A";
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
       status: ok ? "ok" : "error",
       latency_ms,
-      message: `gate-pass-save: ${type || "?"} ${message || text.slice(0, 200)}`,
+      message: `gate-pass-save: ${type || "?"} ${message || text.slice(0, 200)}`.slice(0, 500),
     });
 
     return {
       ok,
       message: message || (ok ? "Saved successfully" : `SAP returned ${res.status}`),
-      document_number: sapJson?.DOCUMENT_NUMBER ?? null,
+      document_number: docNumber,
       error: ok ? null : (message || `SAP returned ${res.status}`),
       messages: message ? [{ type, message }] : [],
     };
+
   });

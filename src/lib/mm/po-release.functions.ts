@@ -7,7 +7,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { extractFalseStatusMessage } from "@/lib/mm/sap-message";
+import { extractFalseStatusMessage, extractSapMessage } from "@/lib/mm/sap-message";
 
 const CONFIG_NAME = "PO_Release_Multiple_Fetch_API";
 
@@ -298,7 +298,13 @@ async function processPoAction(
         }
         if (!errMsg) {
           if (proxied && json?.ok !== true) {
-            errMsg = String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
+            // Prefer the exact SAP text (MSGTXT/MESSAGE) over the middleware wrapper text.
+            sapResponse = json?.data ?? json;
+            const exact = extractSapMessage(json?.data) ?? extractSapMessage(json);
+            msgtxt = exact ?? msgtxt;
+            errMsg =
+              exact ??
+              String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
           } else {
             const sapJson: any = proxied ? json?.data : json;
             sapResponse = sapJson;
@@ -323,7 +329,12 @@ async function processPoAction(
               }
               return undefined;
             };
-            msgtxt = String(findFirst(primary, ["MSGTXT", "MESSAGE"]) ?? "");
+            // Prefer the primary envelope's text; fall back to a deep search of the
+            // whole SAP payload (nested/lowercase/array shapes) so the exact SAP
+            // message is always what reaches the popup.
+            msgtxt =
+              String(findFirst(primary, ["MSGTXT", "MESSAGE"]) ?? "").trim() ||
+              (extractSapMessage(sapJson) ?? "");
             const status = String(
               findFirst(primary, ["STATUS", "MSGTY", "TYPE"]) ?? "",
             ).trim().toUpperCase();

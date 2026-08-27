@@ -73,9 +73,8 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ row: z.record(z.any()) }).parse(d))
   .handler(async ({ data }): Promise<ZnfaAttachPrintResponse> => {
-    const { invokeZnfaAttachApi, normalizeBase64, extractBase64Payload } = await import(
-      "./znfa-attach.server"
-    );
+    const { invokeZnfaAttachApi, normalizeBase64, extractBase64Payload, describeShape } =
+      await import("./znfa-attach.server");
     const res = await invokeZnfaAttachApi(
       "ZNFA_ATTACH_PRINT_API",
       [data.row],
@@ -92,6 +91,8 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
     }
 
     const { base64, mimeType, msg } = extractBase64Payload(res.json);
+    // Structural diagnostics only (key paths and lengths — never the payload).
+    console.log("[znfa-attach-print] response shape:", describeShape(res.json));
     if (!base64) {
       return {
         base64: null,
@@ -102,11 +103,40 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
       };
     }
     const normalized = normalizeBase64(base64);
+    // A PDF that fails its own header check would only reach the browser as a
+    // broken file, so report the SAP message instead of a dead preview.
+    let bytes: Uint8Array | null = null;
+    try {
+      bytes = Buffer.from(normalized, "base64");
+    } catch {
+      bytes = null;
+    }
+    const isPdf = mimeType.toLowerCase().includes("pdf");
+    const headerOk =
+      !!bytes &&
+      bytes.length > 8 &&
+      (!isPdf || Buffer.from(bytes).subarray(0, 5).toString("latin1").startsWith("%PDF"));
+    if (!headerOk) {
+      console.error(
+        `[znfa-attach-print] decoded payload failed validation (base64=${normalized.length} chars, bytes=${bytes?.length ?? 0}, mime=${mimeType})`,
+      );
+      return {
+        base64: null,
+        dataUrl: null,
+        mimeType: "application/pdf",
+        error: null,
+        sapMessage:
+          msg ||
+          res.sapMessage ||
+          "SAP returned a document that could not be decoded. Please retry or contact BASIS.",
+      };
+    }
     return {
       base64: normalized,
       dataUrl: `data:${mimeType};base64,${normalized}`,
       mimeType,
       error: null,
       sapMessage: null,
+
     };
   });
