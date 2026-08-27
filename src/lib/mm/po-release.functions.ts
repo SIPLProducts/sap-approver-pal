@@ -329,7 +329,12 @@ async function processPoAction(
               }
               return undefined;
             };
-            msgtxt = String(findFirst(primary, ["MSGTXT", "MESSAGE"]) ?? "");
+            // Prefer the primary envelope's text; fall back to a deep search of the
+            // whole SAP payload (nested/lowercase/array shapes) so the exact SAP
+            // message is always what reaches the popup.
+            msgtxt =
+              String(findFirst(primary, ["MSGTXT", "MESSAGE"]) ?? "").trim() ||
+              (extractSapMessage(sapJson) ?? "");
             const status = String(
               findFirst(primary, ["STATUS", "MSGTY", "TYPE"]) ?? "",
             ).trim().toUpperCase();
