@@ -219,7 +219,12 @@ function GateProcessPage() {
     onSuccess: (res) => {
       if (res.ok) {
         if (res.ter_sub_id) setHeader((p) => ({ ...p, TER_SUB_ID: res.ter_sub_id! }));
-        toast.success(res.message ?? "Saved successfully");
+        setMessageDialog({
+          open: true,
+          title: "ZNFA Rating",
+          refLabel: "Document",
+          results: [{ ref: "", message: res.message ?? "Saved successfully", ok: true }],
+        });
       } else {
         setMessageDialog({
           open: true,
