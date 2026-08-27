@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
@@ -6,6 +6,10 @@ import { fetchZnfaRelease } from "@/lib/mm/znfa-release.functions";
 import { fetchZnfaDisplay } from "@/lib/mm/znfa-display.functions";
 import { fetchZnfaClick } from "@/lib/mm/znfa-click.functions";
 import { fetchZnfaPrint } from "@/lib/mm/znfa-print.functions";
+import {
+  fetchZnfaAttachments,
+  fetchZnfaAttachPrint,
+} from "@/lib/mm/znfa-attach.functions";
 import { approveZnfa } from "@/lib/mm/znfa-approve.functions";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import {
