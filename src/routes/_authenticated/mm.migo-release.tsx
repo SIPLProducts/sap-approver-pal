@@ -91,7 +91,13 @@ function MigoReleasePage() {
       });
       setEdits(seeded);
       setCustomFields(null);
-      if (res.error) toast.error(res.error);
+      if (res.error)
+        setResultDialog({
+          open: true,
+          title: "MIGO Response",
+          refLabel: "Material Doc",
+          results: [{ ref: "MIGO", message: res.error, ok: false }],
+        });
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
@@ -190,7 +196,12 @@ function MigoReleasePage() {
     },
     onSuccess: (res) => {
       if (res.error) {
-        toast.error(res.error);
+        setResultDialog({
+          open: true,
+          title: "MIGO Check Response",
+          refLabel: "Material Doc",
+          results: [{ ref: "MIGO Check", message: res.error, ok: false, response: res.raw }],
+        });
         return;
       }
       setCustomFields(res.fields ?? {});
