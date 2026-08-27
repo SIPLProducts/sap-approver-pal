@@ -333,7 +333,7 @@ function findDeepBase64(node: any, depth = 0): string | null {
         }
       }
     }
-    if (stringChunks.length > 1) consider(joinBase64Chunks(stringChunks));
+    if (stringChunks.length > 1) considerLines(stringChunks);
     // Pick document columns only: a column of pure numbers (line numbers) or a
     // column whose total size is a small fraction of the largest one is metadata.
     const totals = new Map<string, number>();
@@ -350,9 +350,13 @@ function findDeepBase64(node: any, depth = 0): string | null {
     for (const [k, total] of totals) {
       if (maxTotal > 0 && total < maxTotal / 4) continue;
       const list = byKey.get(k)!;
-      if (list.length > 1) consider(joinBase64Chunks(list));
-      else if (list.length === 1 && looksLikeBase64(list[0]!)) consider(list[0]!);
+      if (list.length > 1) considerLines(list);
+      else if (list.length === 1 && looksLikeBase64(list[0]!)) considerLines(list);
+      console.log(
+        `[znfa-attach] column ${k} lines=${list.length} totalChars=${total} min=${Math.min(...list.map((v) => v.length))} max=${Math.max(...list.map((v) => v.length))} mod4=${[...new Set(list.map((v) => v.replace(/=+$/, "").length % 4))].join("/")}`,
+      );
     }
+
     for (const item of rows) consider(findDeepBase64(item, depth + 1));
     return best;
   }
