@@ -81,6 +81,7 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
       extractBase64Payload,
       describeShape,
       sniffMimeFromBytes,
+      describePdfBytes,
     } = await import("./znfa-attach.server");
     const res = await invokeZnfaAttachApi(
       "ZNFA_ATTACH_PRINT_API",
