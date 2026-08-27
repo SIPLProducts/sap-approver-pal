@@ -180,7 +180,20 @@ function findDeepBase64(node: any, depth = 0): string | null {
 
   let best: string | null = null;
   const consider = (candidate: string | null) => {
-    if (candidate && (!best || candidate.length > best.length)) best = candidate;
+    if (!candidate) return;
+    if (!best) {
+      best = candidate;
+      return;
+    }
+    // A candidate that decodes to a complete PDF (ends with %%EOF) beats a
+    // longer but truncated one; otherwise the longest payload wins.
+    const candidateComplete = isCompletePdf(candidate);
+    const bestComplete = isCompletePdf(best);
+    if (candidateComplete !== bestComplete) {
+      if (candidateComplete) best = candidate;
+      return;
+    }
+    if (candidate.length > best.length) best = candidate;
   };
 
   if (Array.isArray(node)) {
