@@ -449,25 +449,11 @@ function MigoReleasePage() {
         </>
       )}
 
-      <Dialog open={!!resultDialog?.open} onOpenChange={(open) => setResultDialog((prev) => (prev ? { ...prev, open } : prev))}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className={resultDialog?.ok ? "text-success" : "text-destructive"}>
-              {resultDialog?.title}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1 text-sm">
-            {resultDialog?.lines.map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button size="sm" onClick={() => setResultDialog((prev) => (prev ? { ...prev, open: false } : prev))}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SapResponseDialog
+        dialog={resultDialog}
+        onOpenChange={(open) => setResultDialog((prev) => (prev ? { ...prev, open } : prev))}
+        defaultTitle="MIGO Response"
+      />
     </div>
   );
 }
