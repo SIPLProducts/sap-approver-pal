@@ -14,7 +14,7 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { SapResponseDialog, type SapResponseDialogState } from "@/components/mm/sap-response-dialog";
 
 const STCK_TYPE_OPTIONS = [
   { value: "1", label: "1 Unrestricted" },
@@ -69,7 +69,7 @@ function MigoReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customFields, setCustomFields] = useState<Record<string, any> | null>(null);
   const hasResults = header !== null || rows.length > 0;
-  const [resultDialog, setResultDialog] = useState<{ open: boolean; ok: boolean; title: string; lines: string[] } | null>(null);
+  const [resultDialog, setResultDialog] = useState<SapResponseDialogState | null>(null);
 
   const mutation = useMutation({
     mutationFn: async (vars: { mat_doc_number: string; mat_doc_year: string }) => {
@@ -91,7 +91,13 @@ function MigoReleasePage() {
       });
       setEdits(seeded);
       setCustomFields(null);
-      if (res.error) toast.error(res.error);
+      if (res.error)
+        setResultDialog({
+          open: true,
+          title: "MIGO Response",
+          refLabel: "Material Doc",
+          results: [{ ref: "MIGO", message: res.error, ok: false }],
+        });
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
@@ -109,11 +115,24 @@ function MigoReleasePage() {
       return v as { ok: boolean; type: string; message: string; mat_doc: string; doc_year: number; raw: any };
     },
     onSuccess: (res) => {
-      const parts: string[] = [res.message];
-      if (res.mat_doc) parts.push(`Material Document: ${res.mat_doc}`);
-      if (res.doc_year) parts.push(`Document Year: ${res.doc_year}`);
+      const infoLines = [
+        res.mat_doc ? `Material Document: ${res.mat_doc}` : null,
+        res.doc_year ? `Document Year: ${res.doc_year}` : null,
+      ].filter(Boolean) as string[];
 
-      setResultDialog({ open: true, ok: res.ok, title: res.ok ? "Success" : "Failed", lines: parts });
+      setResultDialog({
+        open: true,
+        title: res.ok ? "MIGO Post Response" : "MIGO Post Failed",
+        refLabel: "Material Doc",
+        results: [
+          {
+            ref: res.mat_doc ? String(res.mat_doc) : "MIGO",
+            message: [res.message, ...infoLines].filter(Boolean).join("\n"),
+            ok: !!res.ok,
+            response: res.raw ?? res,
+          },
+        ],
+      });
       if (res.ok) {
         toast.success(res.message || "Posted successfully");
         setMatDocNo("");
@@ -177,7 +196,12 @@ function MigoReleasePage() {
     },
     onSuccess: (res) => {
       if (res.error) {
-        toast.error(res.error);
+        setResultDialog({
+          open: true,
+          title: "MIGO Check Response",
+          refLabel: "Material Doc",
+          results: [{ ref: "MIGO Check", message: res.error, ok: false, response: res.raw }],
+        });
         return;
       }
       setCustomFields(res.fields ?? {});
@@ -436,25 +460,11 @@ function MigoReleasePage() {
         </>
       )}
 
-      <Dialog open={!!resultDialog?.open} onOpenChange={(open) => setResultDialog((prev) => (prev ? { ...prev, open } : prev))}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className={resultDialog?.ok ? "text-success" : "text-destructive"}>
-              {resultDialog?.title}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1 text-sm">
-            {resultDialog?.lines.map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button size="sm" onClick={() => setResultDialog((prev) => (prev ? { ...prev, open: false } : prev))}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SapResponseDialog
+        dialog={resultDialog}
+        onOpenChange={(open) => setResultDialog((prev) => (prev ? { ...prev, open } : prev))}
+        defaultTitle="MIGO Response"
+      />
     </div>
   );
 }

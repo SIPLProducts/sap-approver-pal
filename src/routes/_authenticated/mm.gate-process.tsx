@@ -10,12 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
 import {
   Table,
   TableBody,
@@ -80,7 +77,7 @@ function GateProcessPage() {
   const [items, setItems] = useState<Record<number, ItemFields>>({});
   const [ratings, setRatings] = useState<Record<number, RatingFields>>({});
   const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
-  const [messageDialog, setMessageDialog] = useState<{ open: boolean; message: string } | null>(null);
+  const [messageDialog, setMessageDialog] = useState<SapResponseDialogState | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
   const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
@@ -127,7 +124,12 @@ function GateProcessPage() {
       setRatings({});
       setLastAction(null);
       if (res.error) {
-        setMessageDialog({ open: true, message: res.error });
+        setMessageDialog({
+          open: true,
+          title: "ZNFA Rating",
+          refLabel: "Document",
+          results: [{ ref: "", message: res.error, ok: false }],
+        });
       } else {
         toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
       }
@@ -157,7 +159,12 @@ function GateProcessPage() {
         setItems({});
         setRatings({});
         setLastAction(null);
-        setMessageDialog({ open: true, message: res.error });
+        setMessageDialog({
+          open: true,
+          title: "ZNFA Rating",
+          refLabel: "Document",
+          results: [{ ref: "", message: res.error, ok: false }],
+        });
 
       } else {
         setLastAction(vars.action);
@@ -214,7 +221,12 @@ function GateProcessPage() {
         if (res.ter_sub_id) setHeader((p) => ({ ...p, TER_SUB_ID: res.ter_sub_id! }));
         toast.success(res.message ?? "Saved successfully");
       } else {
-        toast.error(res.error ?? "Save failed");
+        setMessageDialog({
+          open: true,
+          title: "ZNFA Rating",
+          refLabel: "Document",
+          results: [{ ref: "", message: res.error ?? "Save failed", ok: false }],
+        });
       }
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to save"),
@@ -589,25 +601,11 @@ function GateProcessPage() {
         </>
       )}
 
-      <Dialog
-        open={!!messageDialog?.open}
+      <SapResponseDialog
+        dialog={messageDialog}
         onOpenChange={(open) => setMessageDialog((prev) => (prev ? { ...prev, open } : prev))}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>ZNFA Rating</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm">{messageDialog?.message}</p>
-          <DialogFooter>
-            <Button
-              size="sm"
-              onClick={() => setMessageDialog((prev) => (prev ? { ...prev, open: false } : prev))}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        defaultTitle="ZNFA Rating"
+      />
     </div>
   );
 }

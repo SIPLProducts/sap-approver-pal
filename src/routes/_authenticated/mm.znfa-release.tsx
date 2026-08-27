@@ -65,6 +65,10 @@ import {
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
 import { NfaNumberSelect } from "@/components/mm/nfa-number-select";
+import {
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
 
 import { cn } from "@/lib/utils";
 
@@ -732,6 +736,16 @@ function ZnfaReleasePage() {
     setSelectedTextKey(null);
   }
 
+  const [sapDialog, setSapDialog] = useState<SapResponseDialogState | null>(null);
+  function showSapError(title: string, message: string, ref?: string) {
+    setSapDialog({
+      open: true,
+      title,
+      refLabel: "NFA Number",
+      results: [{ ref: ref ?? "", message, ok: false }],
+    });
+  }
+
   const fetchDisplay = useServerFn(fetchZnfaDisplay);
   const displayMutation = useMutation({
     mutationFn: (vars: { znfaNum: string }) => fetchDisplay({ data: vars }),
@@ -741,7 +755,7 @@ function ZnfaReleasePage() {
         setDisplayConfirmed(false);
         if (msg) {
           setDisplayError(msg);
-          toast.error(msg);
+          showSapError("ZNFA Display", msg, res.znfa?.NFA_NO ?? undefined);
         }
         return;
       }
@@ -771,7 +785,7 @@ function ZnfaReleasePage() {
         setClickedNfaNo(null);
         if (msg) {
           setDisplayError(msg);
-          toast.error(msg);
+          showSapError("ZNFA Release", msg, res.znfa?.NFA_NO ?? undefined);
         }
         return;
       }
@@ -922,7 +936,7 @@ function ZnfaReleasePage() {
       if (msg) {
         setReleaseRows(null);
         setReleaseError(msg);
-        toast.error(msg);
+        showSapError("ZNFA Release", msg);
         return;
       }
       setReleaseError(null);
@@ -948,7 +962,7 @@ function ZnfaReleasePage() {
       const msg = res.sapMessage ?? res.error;
       if (!res.ok) {
         setDisplayError(msg ?? "SAP rejected the request.");
-        toast.error(msg ?? "SAP rejected the request.");
+        showSapError("ZNFA Release Response", msg ?? "SAP rejected the request.", res.number ?? undefined);
         return;
       }
       setDisplayError(null);
@@ -991,7 +1005,7 @@ function ZnfaReleasePage() {
       const msg = res.sapMessage ?? res.error;
       if (!res.ok) {
         setRejectError(msg ?? "SAP rejected the request.");
-        toast.error(msg ?? "SAP rejected the request.");
+        showSapError("ZNFA Reject Response", msg ?? "SAP rejected the request.", res.number ?? undefined);
         return;
       }
       setRejectError(null);
@@ -1037,7 +1051,7 @@ function ZnfaReleasePage() {
       const msg = res.sapMessage ?? res.error;
       if (!res.ok) {
         setClarifyError(msg ?? "SAP rejected the request.");
-        toast.error(msg ?? "SAP rejected the request.");
+        showSapError("ZNFA Clarification Response", msg ?? "SAP rejected the request.");
         return;
       }
       setClarifyError(null);
@@ -1101,7 +1115,7 @@ function ZnfaReleasePage() {
       if (!res.ok) {
         setDisClarifyLines([]);
         setDisClarifyError(msg ?? "SAP rejected the request.");
-        toast.error(msg ?? "SAP rejected the request.");
+        showSapError("ZNFA Display Clarification Response", msg ?? "SAP rejected the request.");
         return;
       }
       setDisClarifyError(null);
@@ -2285,6 +2299,12 @@ function ZnfaReleasePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <SapResponseDialog
+        dialog={sapDialog}
+        onOpenChange={(open) => setSapDialog((prev) => (prev ? { ...prev, open } : prev))}
+        defaultTitle="ZNFA Response"
+      />
     </div>
   );
 }

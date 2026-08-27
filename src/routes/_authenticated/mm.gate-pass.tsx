@@ -10,21 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { SapResponseDialog } from "@/components/mm/sap-response-dialog";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGatePass, saveGatePass } from "@/lib/mm/gate-pass.functions";
@@ -574,74 +560,27 @@ function GatePassPage() {
         </>
       )}
 
-      <Dialog
-        open={!!responseDialog?.open}
+      <SapResponseDialog
+        dialog={
+          responseDialog
+            ? {
+                open: responseDialog.open,
+                title: responseDialog.title,
+                refLabel: "Gate Pass",
+                results: responseDialog.results.map((r) => ({
+                  ref: r.label,
+                  message: r.message,
+                  ok: r.ok,
+                  response: r.response,
+                })),
+              }
+            : null
+        }
         onOpenChange={(open) =>
           setResponseDialog((prev) => (prev ? { ...prev, open } : prev))
         }
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{responseDialog?.title ?? "Gate Pass Response"}</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto space-y-3">
-            {responseDialog?.messageOnly ? (
-              <div className="space-y-2">
-                {responseDialog.results.map((r, i) => (
-                  <div key={`msg-${i}`} className="text-sm whitespace-pre-wrap">
-                    {r.message}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Gate Pass</TableHead>
-                        <TableHead className="text-xs">Message</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {responseDialog?.results.map((r, i) => (
-                        <TableRow key={`${r.label}-${i}`}>
-                          <TableCell className="text-xs font-medium whitespace-nowrap">
-                            {r.label}
-                          </TableCell>
-                          <TableCell className="text-xs whitespace-pre-wrap">
-                            {r.message || "-"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {responseDialog?.results.map((r, i) => (
-                  <details key={`raw-${r.label}-${i}`} className="border rounded-md">
-                    <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted-foreground">
-                      Raw response
-                    </summary>
-                    <pre className="text-xs font-mono bg-muted/50 p-3 overflow-x-auto whitespace-pre">
-{JSON.stringify(r.response ?? { message: r.message }, null, 2)}
-                    </pre>
-                  </details>
-                ))}
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              size="sm"
-              onClick={() =>
-                setResponseDialog((prev) => (prev ? { ...prev, open: false } : prev))
-              }
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        defaultTitle="Gate Pass Response"
+      />
     </div>
   );
 }

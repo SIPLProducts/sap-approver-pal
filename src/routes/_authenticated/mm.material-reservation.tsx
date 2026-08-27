@@ -16,12 +16,9 @@ import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/mate
 import { PageHeader } from "@/components/exec/page-header";
 import { DocumentNumberSelect } from "@/components/mm/document-number-select";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
   component: MaterialReservationPage,
@@ -79,10 +76,7 @@ function MaterialReservationPage() {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [rowStates, setRowStates] = useState<Map<string, RowState>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [messageDialog, setMessageDialog] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: "",
-  });
+  const [messageDialog, setMessageDialog] = useState<SapResponseDialogState | null>(null);
   const hasResults = header !== null || rows.length > 0;
 
   useEffect(() => {
@@ -114,7 +108,12 @@ function MaterialReservationPage() {
         });
       });
       setRowStates(seeded);
-      if (res.error) toast.error(res.error);
+      if (res.error)
+        setMessageDialog({
+          open: true,
+          title: "Material Reservation",
+          results: [{ ref: "Material Reservation", message: res.error, ok: false }],
+        });
       else toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to fetch from SAP"),
@@ -131,8 +130,18 @@ function MaterialReservationPage() {
       return v as { ok: boolean; message: string; documentNumber: string | null };
     },
     onSuccess: (res) => {
-      if (res.ok) toast.success(res.message || "Saved successfully");
-      else toast.error(res.message || "Save failed");
+      setMessageDialog({
+        open: true,
+        title: "Material Reservation Response",
+        results: [
+          {
+            ref: res.documentNumber ? `Doc ${res.documentNumber}` : "Material Reservation",
+            message: res.message || (res.ok ? "Saved successfully" : "Save failed"),
+            ok: !!res.ok,
+            response: res,
+          },
+        ],
+      });
       if (res.ok) {
         // Refresh list
         mutation.mutate({
@@ -331,7 +340,13 @@ function MaterialReservationPage() {
               value={docNumber}
               onChange={setDocNumber}
               userId={userId}
-              onFailure={(message) => setMessageDialog({ open: true, message })}
+              onFailure={(message) =>
+                setMessageDialog({
+                  open: true,
+                  title: "Material Reservation",
+                  results: [{ ref: "Material Reservation", message, ok: false }],
+                })
+              }
             />
           </div>
           <div className="space-y-1.5">
@@ -411,22 +426,11 @@ function MaterialReservationPage() {
         </>
       )}
 
-      <Dialog
-        open={messageDialog.open}
-        onOpenChange={(open) => setMessageDialog((prev) => ({ ...prev, open }))}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Material Reservation</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm whitespace-pre-wrap">{messageDialog.message}</div>
-          <DialogFooter>
-            <Button size="sm" onClick={() => setMessageDialog({ open: false, message: "" })}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SapResponseDialog
+        dialog={messageDialog}
+        onOpenChange={(open) => setMessageDialog((prev) => (prev ? { ...prev, open } : prev))}
+        defaultTitle="Material Reservation"
+      />
     </div>
 
   );
