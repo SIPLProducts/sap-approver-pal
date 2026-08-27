@@ -1355,11 +1355,29 @@ function ZnfaReleasePage() {
       });
       return;
     }
+    const attachmentId = String(rfqNumber ?? "").trim();
+    const vendor = String(row.VENDOR ?? "").trim();
+    const name1 = String(row.NAME1 ?? "").trim();
+    const noAttachments = String(row.NO_ATTACHMENTS ?? "").trim();
+    if (!attachmentId || !vendor || !name1 || !noAttachments) {
+      setSapDialog({
+        open: true,
+        title: "Attachments",
+        results: [
+          {
+            ref: "",
+            message: "Attachment row is missing required values. Please reload the NFA and try again.",
+            ok: false,
+          },
+        ],
+      });
+      return;
+    }
     attachDetailMutation.mutate({
-      ATTACHMENT_ID: String(row.ATTACHMENT_ID ?? "").trim(),
-      VENDOR: String(row.VENDOR ?? "").trim(),
-      NAME1: String(row.NAME1 ?? "").trim(),
-      NO_ATTACHMENTS: String(row.NO_ATTACHMENTS ?? ""),
+      ATTACHMENT_ID: attachmentId,
+      VENDOR: vendor,
+      NAME1: name1,
+      NO_ATTACHMENTS: noAttachments,
     });
   }
 
