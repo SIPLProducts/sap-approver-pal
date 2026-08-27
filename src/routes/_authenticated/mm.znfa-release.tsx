@@ -2560,7 +2560,8 @@ function ZnfaReleasePage() {
                         className="max-h-full max-w-full object-contain"
                       />
                     </div>
-                  ) : (attachPrintMime || "").toLowerCase().includes("pdf") ? (
+                  ) : (attachPrintMime || "").toLowerCase().includes("pdf") &&
+                    !attachPrintIncomplete ? (
                     <iframe
                       src={attachPrintBlobUrl}
                       title="Attachment preview"
@@ -2579,8 +2580,9 @@ function ZnfaReleasePage() {
                         )
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        This file type cannot be displayed inside the browser. Use Download or
-                        Open in new tab below.
+                        {attachPrintIncomplete
+                          ? "SAP returned this PDF without its end marker, so it may be incomplete and cannot be shown inline. Use Download or Open in new tab below."
+                          : "This file type cannot be displayed inside the browser. Use Download or Open in new tab below."}
                       </p>
                     </div>
                   )}
