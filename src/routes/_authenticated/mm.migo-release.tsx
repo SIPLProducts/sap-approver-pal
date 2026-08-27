@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
+import { swalConfirm } from "@/lib/mm/swal";
 import { PageHeader } from "@/components/exec/page-header";
 import { SapResponseDialog, type SapResponseDialogState } from "@/components/mm/sap-response-dialog";
 
@@ -160,6 +161,13 @@ function MigoReleasePage() {
       .map(({ r, k }) => ({ ...r, ...(edits.get(k) ?? {}) }));
 
     void (async () => {
+      const ok = await swalConfirm({
+        title: "Post material document?",
+        text: `${items.length} row${items.length === 1 ? "" : "s"} will be posted in SAP.`,
+        confirmLabel: "Post",
+        destructive: false,
+      });
+      if (!ok) return;
       postMutation.mutate({
         header: { ...(header ?? {}) },
         data: items,

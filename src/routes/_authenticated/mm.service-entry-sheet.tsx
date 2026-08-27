@@ -34,6 +34,7 @@ import {
   type SapResponseDialogState,
 } from "@/components/mm/sap-response-dialog";
 import { PlantSelect } from "@/components/sap/plant-select";
+import { swalConfirm } from "@/lib/mm/swal";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 
 export const Route = createFileRoute("/_authenticated/mm/service-entry-sheet")({
@@ -424,6 +425,15 @@ function ServiceEntrySheetPage() {
   }
 
   async function doRelease() {
+    if (
+      !(await swalConfirm({
+        title: "Release selected entry sheets?",
+        text: "The selected entry sheets will be released in SAP.",
+        confirmLabel: "Release",
+        destructive: false,
+      }))
+    )
+      return;
     const items = rows
       .map((r, i) => ({ r, key: rowKey(r, i) }))
       .filter(({ key }) => selectedKeys.has(key))
@@ -490,6 +500,14 @@ function ServiceEntrySheetPage() {
     }
   }
   async function doReject() {
+    if (
+      !(await swalConfirm({
+        title: "UnRelease selected entry sheets?",
+        text: "The selected entry sheets will be un-released in SAP.",
+        confirmLabel: "UnRelease",
+      }))
+    )
+      return;
     const items = rows
       .map((r, i) => ({ r, key: rowKey(r, i) }))
       .filter(({ key }) => selectedKeys.has(key))

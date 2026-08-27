@@ -18,13 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { SapResponseDialog } from "@/components/mm/sap-response-dialog";
+import { swalConfirm } from "@/lib/mm/swal";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
@@ -275,6 +270,13 @@ function PoReleasePage() {
       .filter((it) => it.EBELN);
     if (items.length === 0) return;
     void (async () => {
+      const ok = await swalConfirm({
+        title: "Release selected PO items?",
+        text: `${items.length} item${items.length === 1 ? "" : "s"} will be released in SAP.`,
+        confirmLabel: "Release",
+        destructive: false,
+      });
+      if (!ok) return;
       releaseMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
@@ -346,6 +348,12 @@ function PoReleasePage() {
       .filter((it) => it.EBELN);
     if (items.length === 0) return;
     void (async () => {
+      const ok = await swalConfirm({
+        title: "Reject selected PO items?",
+        text: `${items.length} item${items.length === 1 ? "" : "s"} will be rejected in SAP.`,
+        confirmLabel: "Reject",
+      });
+      if (!ok) return;
       rejectMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
@@ -522,84 +530,39 @@ function PoReleasePage() {
         </Card>
       )}
 
-      <Dialog
-        open={!!responseDialog?.open}
-        onOpenChange={(open) =>
-          setResponseDialog((prev) => (prev ? { ...prev, open } : prev))
-        }
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{responseDialog?.title ?? "PO Response"}</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto space-y-3">
-            <div className="overflow-x-auto border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">PO Number</TableHead>
-                    <TableHead className="text-xs">Message</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {responseDialog?.results.map((r) => (
-                    <TableRow key={r.ebeln}>
-                      <TableCell className="text-xs font-medium whitespace-nowrap align-top">
-                        {r.ebeln}
-                      </TableCell>
-                      <TableCell
-                        className={cn("text-xs", r.ok ? "text-success" : "text-destructive")}
-                      >
-                        {r.message || "-"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            {responseDialog?.results.map((r) => (
-              <details key={`raw-${r.ebeln}`} className="border rounded-md">
-                <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted-foreground">
-                  Raw response — PO {r.ebeln}
-                </summary>
-                <pre className="text-xs font-mono bg-muted/50 p-3 overflow-x-auto whitespace-pre">
-{JSON.stringify(r.response ?? { message: r.message }, null, 2)}
-                </pre>
-              </details>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button
-              size="sm"
-              onClick={() =>
-                setResponseDialog((prev) => (prev ? { ...prev, open: false } : prev))
+      <SapResponseDialog
+        dialog={
+          responseDialog
+            ? {
+                open: responseDialog.open,
+                title: responseDialog.title,
+                refLabel: "PO Number",
+                results: responseDialog.results.map((r) => ({
+                  ref: r.ebeln,
+                  message: r.message,
+                  ok: r.ok,
+                  response: r.response,
+                })),
               }
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            : null
+        }
+        onOpenChange={(open) => setResponseDialog((prev) => (prev ? { ...prev, open } : prev))}
+        defaultTitle="PO Response"
+      />
 
-      <Dialog
-        open={!!messageDialog?.open}
+      <SapResponseDialog
+        dialog={
+          messageDialog
+            ? {
+                open: messageDialog.open,
+                title: "PO Release",
+                results: [{ ref: "", message: messageDialog.message, ok: false }],
+              }
+            : null
+        }
         onOpenChange={(open) => setMessageDialog((prev) => (prev ? { ...prev, open } : prev))}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>PO Release</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm">{messageDialog?.message}</p>
-          <DialogFooter>
-            <Button
-              size="sm"
-              onClick={() => setMessageDialog((prev) => (prev ? { ...prev, open: false } : prev))}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        defaultTitle="PO Release"
+      />
     </div>
   );
 }

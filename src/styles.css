@@ -492,3 +492,122 @@ td.tabular-nums {
   }
 }
 
+
+/* ── SweetAlert (MM Approvals popups) — brand styling ───────────────────── */
+.swal-brand-container {
+  z-index: 100;
+}
+.swal-brand-popup {
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.35);
+  padding: 1.25rem 1.25rem 1rem;
+}
+.swal-brand-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--foreground);
+  padding: 0 0 0.25rem;
+}
+.swal-brand-html {
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  margin: 0.5rem 0 0;
+  text-align: left;
+}
+.swal-brand-message {
+  margin: 0;
+  font-size: 0.875rem;
+  text-align: center;
+}
+.swal-brand-message.is-error,
+.swal-brand-table td.is-error {
+  color: var(--destructive);
+}
+.swal-brand-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.swal-brand-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.swal-brand-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.swal-brand-table thead th {
+  background: var(--muted);
+  color: var(--foreground);
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  font-weight: 600;
+}
+.swal-brand-table tbody th,
+.swal-brand-table tbody td {
+  padding: 0.4rem 0.6rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  font-weight: 500;
+}
+.swal-brand-raw {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.swal-brand-raw > summary {
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.swal-brand-raw pre {
+  margin: 0;
+  padding: 0.6rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  background: color-mix(in oklab, var(--muted) 60%, transparent);
+  overflow-x: auto;
+  white-space: pre;
+}
+.swal-brand-actions {
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.swal-brand-confirm,
+.swal-brand-cancel {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.swal-brand-confirm {
+  background: var(--primary);
+  color: var(--primary-foreground, #fff);
+}
+.swal-brand-confirm.is-destructive {
+  background: var(--destructive);
+  color: #fff;
+}
+.swal-brand-cancel {
+  background: transparent;
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.swal-brand-confirm:hover,
+.swal-brand-cancel:hover {
+  filter: brightness(0.96);
+}
