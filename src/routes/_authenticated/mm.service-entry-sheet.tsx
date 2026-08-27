@@ -375,7 +375,12 @@ function ServiceEntrySheetPage() {
         setSelectedKeys(new Set());
         setHasRun(false);
         if (!opts?.silent) {
-          setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.error });
+          setMessageDialog({
+            open: true,
+            title: "Service Entry Sheet",
+            refLabel: "Entry Sheet",
+            results: [{ ref: "", message: res.error, ok: false }],
+          });
         }
         return;
       }
@@ -383,7 +388,12 @@ function ServiceEntrySheetPage() {
       setSelectedKeys(new Set());
       setHasRun(true);
       if (res.message && !opts?.silent) {
-        setMessageDialog({ open: true, title: "Service Entry Sheet", message: res.message });
+        setMessageDialog({
+          open: true,
+          title: "Service Entry Sheet",
+          refLabel: "Entry Sheet",
+          results: [{ ref: "", message: res.message, ok: true }],
+        });
       }
       if (!opts?.silent) {
         requestAnimationFrame(() => {
