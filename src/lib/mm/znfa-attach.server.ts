@@ -168,6 +168,17 @@ export function sniffMimeFromBytes(bytes: Uint8Array): string | null {
   return null;
 }
 
+/** Structural PDF health for logs/UI: header + trailer presence only. */
+export function describePdfBytes(bytes: Uint8Array): { isPdf: boolean; hasTrailer: boolean } {
+  const buf = Buffer.from(bytes);
+  const isPdf = buf.subarray(0, 4).toString("latin1") === "%PDF";
+  const hasTrailer = buf
+    .subarray(Math.max(0, buf.length - 2048))
+    .toString("latin1")
+    .includes("%%EOF");
+  return { isPdf, hasTrailer };
+}
+
 /**
  * Recursively finds the longest base64-looking string in the response. Arrays
  * whose items each carry a base64-ish chunk (SAP line tables) are joined in
