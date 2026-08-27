@@ -153,5 +153,6 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
       mimeType: effectiveMime,
       error: null,
       sapMessage: null,
+      incomplete: pdfInfo.isPdf && !pdfInfo.hasTrailer,
     };
   });
