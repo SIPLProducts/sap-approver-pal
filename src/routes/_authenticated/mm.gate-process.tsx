@@ -601,25 +601,11 @@ function GateProcessPage() {
         </>
       )}
 
-      <Dialog
-        open={!!messageDialog?.open}
+      <SapResponseDialog
+        dialog={messageDialog}
         onOpenChange={(open) => setMessageDialog((prev) => (prev ? { ...prev, open } : prev))}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>ZNFA Rating</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm">{messageDialog?.message}</p>
-          <DialogFooter>
-            <Button
-              size="sm"
-              onClick={() => setMessageDialog((prev) => (prev ? { ...prev, open: false } : prev))}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        defaultTitle="ZNFA Rating"
+      />
     </div>
   );
 }
