@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Filter, Info, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "lucide-react";
+import { Filter, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "lucide-react";
 
 import type { CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
