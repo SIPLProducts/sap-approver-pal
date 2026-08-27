@@ -389,6 +389,21 @@ export const saveMaterialReservation = createServerFn({ method: "POST" })
       };
     }
 
+    // Failure shape: { STATUS: "FALSE", MESSAGE: "..." } — surface exact MESSAGE.
+    const falseStatusMsg = extractFalseStatusMessagePreferMessage(sapJson);
+    if (falseStatusMsg) {
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        message: `material-save: ${falseStatusMsg}`,
+      });
+      return {
+        ok: false,
+        message: falseStatusMsg,
+        documentNumber: findFirstDeep(sapJson, ["DOCUMENT_NUMBER"]) ?? null,
+      };
+    }
 
     // Success shape: { TYPE: "S", DOCUMENT_NUMBER, MESSAGE }
     const type = String(sapJson?.TYPE ?? "").toUpperCase();
