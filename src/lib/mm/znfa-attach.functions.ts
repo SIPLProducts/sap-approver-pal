@@ -73,8 +73,13 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ row: z.record(z.any()) }).parse(d))
   .handler(async ({ data }): Promise<ZnfaAttachPrintResponse> => {
-    const { invokeZnfaAttachApi, normalizeBase64, extractBase64Payload, describeShape } =
-      await import("./znfa-attach.server");
+    const {
+      invokeZnfaAttachApi,
+      normalizeBase64,
+      extractBase64Payload,
+      describeShape,
+      sniffMimeFromBytes,
+    } = await import("./znfa-attach.server");
     const res = await invokeZnfaAttachApi(
       "ZNFA_ATTACH_PRINT_API",
       [data.row],
@@ -103,20 +108,22 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
       };
     }
     const normalized = normalizeBase64(base64);
-    // A PDF that fails its own header check would only reach the browser as a
-    // broken file, so report the SAP message instead of a dead preview.
     let bytes: Uint8Array | null = null;
     try {
       bytes = Buffer.from(normalized, "base64");
     } catch {
       bytes = null;
     }
-    const isPdf = mimeType.toLowerCase().includes("pdf");
-    const headerOk =
-      !!bytes &&
-      bytes.length > 8 &&
-      (!isPdf || Buffer.from(bytes).subarray(0, 5).toString("latin1").startsWith("%PDF"));
-    if (!headerOk) {
+    // Magic-byte sniffing: SAP often omits FILE_EXT, so the "application/pdf"
+    // fallback must not be treated as a guarantee that this is a PDF.
+    const sniffed = bytes ? sniffMimeFromBytes(bytes) : null;
+    if (bytes && bytes.length > 8) {
+      console.log(
+        `[znfa-attach-print] magic=${Buffer.from(bytes).subarray(0, 4).toString("hex")} bytes=${bytes.length} mime=${mimeType} sniffed=${sniffed ?? "none"}`,
+      );
+    }
+    // Only a genuinely undecodable / empty payload is refused.
+    if (!bytes || bytes.length <= 8) {
       console.error(
         `[znfa-attach-print] decoded payload failed validation (base64=${normalized.length} chars, bytes=${bytes?.length ?? 0}, mime=${mimeType})`,
       );
@@ -131,12 +138,16 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
           "SAP returned a document that could not be decoded. Please retry or contact BASIS.",
       };
     }
+    // Prefer the sniffed type when SAP gave us no explicit hint (fallback pdf).
+    const effectiveMime =
+      mimeType === "application/pdf" && sniffed && sniffed !== "application/pdf"
+        ? sniffed
+        : mimeType;
     return {
       base64: normalized,
-      dataUrl: `data:${mimeType};base64,${normalized}`,
-      mimeType,
+      dataUrl: `data:${effectiveMime};base64,${normalized}`,
+      mimeType: effectiveMime,
       error: null,
       sapMessage: null,
-
     };
   });
