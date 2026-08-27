@@ -282,29 +282,17 @@ function ContractPage() {
     },
   });
 
-  const missingReason = useMemo(() => {
-    if (status !== "pending") return false;
-    for (const { k } of indexed) {
-      if (selected.has(k) && !(reasons.get(k) ?? "").trim()) return true;
-    }
-    return false;
-  }, [status, indexed, selected, reasons]);
-
   async function decide(action: "accepted" | "rejected") {
     if (status !== "pending" || selected.size === 0 || decisionMutation.isPending) return;
     const selectedRows = indexed
       .filter(({ k }) => selected.has(k))
       .map(({ r, k }) => ({ ...r, reason: (reasons.get(k) ?? "").trim() }));
-    if (selectedRows.some((r) => !r.reason)) {
-      toast.error("Reason is required for all selected rows");
-      return;
-    }
 
     decisionMutation.mutate({ action, user_id: userId.trim(), rows: selectedRows });
   }
 
   const showSelect = status === "pending";
-  const canAct = showSelect && selected.size > 0 && !missingReason;
+  const canAct = showSelect && selected.size > 0;
   const colSpan = showSelect ? 19 : 18;
 
   return (
