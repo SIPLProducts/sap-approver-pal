@@ -5,7 +5,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { invokeZnfaAttachApi } from "./znfa-attach.server";
 
 export type ZnfaAttachListResponse = {
   rows: Record<string, any>[];
@@ -32,6 +31,7 @@ export const fetchZnfaAttachments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => AttachRow.parse(d))
   .handler(async ({ data }): Promise<ZnfaAttachListResponse> => {
+    const { invokeZnfaAttachApi } = await import("./znfa-attach.server");
     const payload = [
       {
         CHECK: "X",
@@ -56,27 +56,39 @@ export const fetchZnfaAttachments = createServerFn({ method: "POST" })
             ? [json]
             : [];
 
-    const rows = list.filter((r) => r && typeof r === "object") as Record<string, any>[];
-    const sapMsg = res.sapMessage;
-    if (sapMsg && rows.length === 0) return { rows: [], error: null, sapMessage: sapMsg };
+    const rows = list.filter(
+      (r) => r && typeof r === "object" && String(r.OBJDES ?? "").trim() !== "",
+    ) as Record<string, any>[];
     if (rows.length === 0) {
-      return { rows: [], error: null, sapMessage: "No attachments returned by SAP." };
+      return {
+        rows: [],
+        error: null,
+        sapMessage: res.sapMessage || "No attachments returned by SAP.",
+      };
     }
     return { rows, error: null, sapMessage: null };
   });
 
 export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ row: z.record(z.string(), z.any()) }).parse(d))
+  .inputValidator((d) => z.object({ row: z.record(z.any()) }).parse(d))
   .handler(async ({ data }): Promise<ZnfaAttachPrintResponse> => {
-    const { normalizeBase64, extractBase64Payload } = await import("./znfa-attach.server");
+    const { invokeZnfaAttachApi, normalizeBase64, extractBase64Payload } = await import(
+      "./znfa-attach.server"
+    );
     const res = await invokeZnfaAttachApi(
       "ZNFA_ATTACH_PRINT_API",
       [data.row],
       "znfa-attach-print",
     );
     if (res.error) {
-      return { base64: null, dataUrl: null, mimeType: "application/pdf", error: res.error, sapMessage: null };
+      return {
+        base64: null,
+        dataUrl: null,
+        mimeType: "application/pdf",
+        error: res.error,
+        sapMessage: null,
+      };
     }
 
     const { base64, mimeType, msg } = extractBase64Payload(res.json);
