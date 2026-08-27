@@ -732,6 +732,16 @@ function ZnfaReleasePage() {
     setSelectedTextKey(null);
   }
 
+  const [sapDialog, setSapDialog] = useState<SapResponseDialogState | null>(null);
+  function showSapError(title: string, message: string, ref?: string) {
+    setSapDialog({
+      open: true,
+      title,
+      refLabel: "NFA Number",
+      results: [{ ref: ref ?? "", message, ok: false }],
+    });
+  }
+
   const fetchDisplay = useServerFn(fetchZnfaDisplay);
   const displayMutation = useMutation({
     mutationFn: (vars: { znfaNum: string }) => fetchDisplay({ data: vars }),
