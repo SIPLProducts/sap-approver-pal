@@ -49,8 +49,7 @@ function escapeHtml(value: unknown): string {
 function buildHtml(opts: SwalSapResponseOptions): string {
   const results = opts.results ?? [];
   const refLabel = escapeHtml(opts.refLabel ?? "Document");
-  const singleMessageOnly =
-    results.length === 1 && !results[0]?.response && !results[0]?.ref;
+  const singleMessageOnly = results.length === 1 && !results[0]?.ref;
 
   if (singleMessageOnly) {
     const r = results[0]!;
