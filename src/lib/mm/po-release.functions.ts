@@ -298,7 +298,13 @@ async function processPoAction(
         }
         if (!errMsg) {
           if (proxied && json?.ok !== true) {
-            errMsg = String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
+            // Prefer the exact SAP text (MSGTXT/MESSAGE) over the middleware wrapper text.
+            sapResponse = json?.data ?? json;
+            const exact = extractSapMessage(json?.data) ?? extractSapMessage(json);
+            msgtxt = exact ?? msgtxt;
+            errMsg =
+              exact ??
+              String(json?.error ?? `Middleware reported SAP status ${json?.status ?? "unknown"}.`);
           } else {
             const sapJson: any = proxied ? json?.data : json;
             sapResponse = sapJson;
