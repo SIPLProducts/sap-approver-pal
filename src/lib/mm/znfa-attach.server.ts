@@ -149,6 +149,70 @@ function joinBase64Chunks(chunks: string[]): string {
   return joined.padEnd(joined.length + ((4 - (joined.length % 4)) % 4), "=");
 }
 
+function padB64(s: string): string {
+  const t = s.replace(/=+$/, "");
+  return t.padEnd(t.length + ((4 - (t.length % 4)) % 4), "=");
+}
+
+function decodeB64(candidate: string): Buffer | null {
+  try {
+    const buf = Buffer.from(normalizeBase64(candidate), "base64");
+    return buf.length > 8 ? buf : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Builds every plausible reassembly of a SAP line table, because SAP may split
+ * one continuous Base64 stream OR emit independently padded lines OR hex.
+ * Each variant is returned as normalized Base64.
+ */
+export function candidateVariants(lines: string[]): string[] {
+  const clean = lines.map((l) => l.trim()).filter(Boolean);
+  if (clean.length === 0) return [];
+  const out: string[] = [];
+  const push = (v: string | null) => {
+    if (v && v.length > 8 && !out.includes(v)) out.push(v);
+  };
+
+  // 1) strip per-line padding, join, re-pad once (previous behaviour)
+  push(joinBase64Chunks(clean));
+  // 2) join verbatim (keeps interior padding)
+  push(padB64(clean.join("").replace(/\s+/g, "")));
+  // 3) decode each line independently and concatenate the byte buffers
+  try {
+    const parts = clean.map((l) => Buffer.from(padB64(l.replace(/[^A-Za-z0-9+/=_-]/g, "")), "base64"));
+    if (parts.every((p) => p.length > 0)) push(Buffer.concat(parts).toString("base64"));
+  } catch {
+    /* ignore */
+  }
+  // 4) hex XSTRING lines
+  if (clean.every((l) => /^[0-9a-fA-F]+$/.test(l) && l.length % 2 === 0)) {
+    try {
+      push(Buffer.from(clean.join(""), "hex").toString("base64"));
+    } catch {
+      /* ignore */
+    }
+  }
+  return out;
+}
+
+/**
+ * Ranks a decoded payload: complete PDF > PDF > recognised magic > unknown.
+ */
+export function scoreCandidate(candidate: string): number {
+  const bytes = decodeB64(candidate);
+  if (!bytes) return 0;
+  const head = bytes.subarray(0, 5).toString("latin1");
+  if (head.startsWith("%PDF")) {
+    const tail = bytes.subarray(Math.max(0, bytes.length - 2048)).toString("latin1");
+    return tail.includes("%%EOF") ? 4 : 3;
+  }
+  return sniffMimeFromBytes(bytes) ? 2 : 1;
+}
+
+
 /** Detect the real file type from the decoded magic bytes. */
 export function sniffMimeFromBytes(bytes: Uint8Array): string | null {
   const b = bytes;
@@ -232,16 +296,21 @@ function findDeepBase64(node: any, depth = 0): string | null {
       best = candidate;
       return;
     }
-    // A candidate that decodes to a complete PDF (ends with %%EOF) beats a
-    // longer but truncated one; otherwise the longest payload wins.
-    const candidateComplete = isCompletePdf(candidate);
-    const bestComplete = isCompletePdf(best);
-    if (candidateComplete !== bestComplete) {
-      if (candidateComplete) best = candidate;
+    // Rank by decoded content first (complete PDF beats a truncated or
+    // misaligned payload), and only then by size.
+    const cs = scoreCandidate(candidate);
+    const bs = scoreCandidate(best);
+    if (cs !== bs) {
+      if (cs > bs) best = candidate;
       return;
     }
     if (candidate.length > best.length) best = candidate;
   };
+  /** Consider every plausible reassembly of a set of line-table lines. */
+  const considerLines = (lines: string[]) => {
+    for (const variant of candidateVariants(lines)) consider(variant);
+  };
+
 
   if (Array.isArray(node)) {
     // Chunked line table: join every chunk found directly on the items, in the
@@ -264,7 +333,7 @@ function findDeepBase64(node: any, depth = 0): string | null {
         }
       }
     }
-    if (stringChunks.length > 1) consider(joinBase64Chunks(stringChunks));
+    if (stringChunks.length > 1) considerLines(stringChunks);
     // Pick document columns only: a column of pure numbers (line numbers) or a
     // column whose total size is a small fraction of the largest one is metadata.
     const totals = new Map<string, number>();
@@ -281,9 +350,13 @@ function findDeepBase64(node: any, depth = 0): string | null {
     for (const [k, total] of totals) {
       if (maxTotal > 0 && total < maxTotal / 4) continue;
       const list = byKey.get(k)!;
-      if (list.length > 1) consider(joinBase64Chunks(list));
-      else if (list.length === 1 && looksLikeBase64(list[0]!)) consider(list[0]!);
+      if (list.length > 1) considerLines(list);
+      else if (list.length === 1 && looksLikeBase64(list[0]!)) considerLines(list);
+      console.log(
+        `[znfa-attach] column ${k} lines=${list.length} totalChars=${total} min=${Math.min(...list.map((v) => v.length))} max=${Math.max(...list.map((v) => v.length))} mod4=${[...new Set(list.map((v) => v.replace(/=+$/, "").length % 4))].join("/")}`,
+      );
     }
+
     for (const item of rows) consider(findDeepBase64(item, depth + 1));
     return best;
   }
