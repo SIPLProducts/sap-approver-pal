@@ -7,7 +7,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { extractFalseStatusMessage } from "@/lib/mm/sap-message";
+import { extractFalseStatusMessage, extractSapMessage } from "@/lib/mm/sap-message";
 
 const CONFIG_NAME = "PO_Release_Multiple_Fetch_API";
 
