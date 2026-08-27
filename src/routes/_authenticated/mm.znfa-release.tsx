@@ -1391,6 +1391,8 @@ function ZnfaReleasePage() {
   const [attachPrintBlobUrl, setAttachPrintBlobUrl] = useState<string | null>(null);
   // Size of the decoded document; used by the preview card for non-inline types.
   const [attachPrintSize, setAttachPrintSize] = useState(0);
+  // PDF whose %%EOF trailer is missing — cannot render inline reliably.
+  const [attachPrintIncomplete, setAttachPrintIncomplete] = useState(false);
   const fetchAttachPrint = useServerFn(fetchZnfaAttachPrint);
   const attachPrintMutation = useMutation({
     mutationFn: (vars: { row: Record<string, any> }) => fetchAttachPrint({ data: vars }),
@@ -1399,11 +1401,13 @@ function ZnfaReleasePage() {
       if (msg || !res.base64) {
         setAttachPrintBase64(null);
         setAttachPrintMime("application/pdf");
+        setAttachPrintIncomplete(false);
         setAttachPrintError(msg || "Could not open the attachment.");
         return;
       }
       setAttachPrintError(null);
       setAttachPrintMime(res.mimeType?.trim() || "application/pdf");
+      setAttachPrintIncomplete(Boolean(res.incomplete));
       setAttachPrintBase64(res.base64);
     },
     onError: (err: any) => {
@@ -2556,7 +2560,8 @@ function ZnfaReleasePage() {
                         className="max-h-full max-w-full object-contain"
                       />
                     </div>
-                  ) : (attachPrintMime || "").toLowerCase().includes("pdf") ? (
+                  ) : (attachPrintMime || "").toLowerCase().includes("pdf") &&
+                    !attachPrintIncomplete ? (
                     <iframe
                       src={attachPrintBlobUrl}
                       title="Attachment preview"
@@ -2575,8 +2580,9 @@ function ZnfaReleasePage() {
                         )
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        This file type cannot be displayed inside the browser. Use Download or
-                        Open in new tab below.
+                        {attachPrintIncomplete
+                          ? "SAP returned this PDF without its end marker, so it may be incomplete and cannot be shown inline. Use Download or Open in new tab below."
+                          : "This file type cannot be displayed inside the browser. Use Download or Open in new tab below."}
                       </p>
                     </div>
                   )}
