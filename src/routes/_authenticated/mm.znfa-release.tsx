@@ -1391,6 +1391,8 @@ function ZnfaReleasePage() {
   const [attachPrintBlobUrl, setAttachPrintBlobUrl] = useState<string | null>(null);
   // Size of the decoded document; used by the preview card for non-inline types.
   const [attachPrintSize, setAttachPrintSize] = useState(0);
+  // PDF whose %%EOF trailer is missing — cannot render inline reliably.
+  const [attachPrintIncomplete, setAttachPrintIncomplete] = useState(false);
   const fetchAttachPrint = useServerFn(fetchZnfaAttachPrint);
   const attachPrintMutation = useMutation({
     mutationFn: (vars: { row: Record<string, any> }) => fetchAttachPrint({ data: vars }),
@@ -1399,11 +1401,13 @@ function ZnfaReleasePage() {
       if (msg || !res.base64) {
         setAttachPrintBase64(null);
         setAttachPrintMime("application/pdf");
+        setAttachPrintIncomplete(false);
         setAttachPrintError(msg || "Could not open the attachment.");
         return;
       }
       setAttachPrintError(null);
       setAttachPrintMime(res.mimeType?.trim() || "application/pdf");
+      setAttachPrintIncomplete(Boolean(res.incomplete));
       setAttachPrintBase64(res.base64);
     },
     onError: (err: any) => {
