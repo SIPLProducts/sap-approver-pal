@@ -140,6 +140,35 @@ function looksLikeBase64Chunk(value: string): boolean {
 }
 
 /**
+ * Joins SAP line-table chunks. Interior "=" padding would truncate the decode
+ * (Buffer.from stops at the first pad), so padding is dropped from every chunk
+ * and re-applied once at the end.
+ */
+function joinBase64Chunks(chunks: string[]): string {
+  const joined = chunks.map((c) => c.trim().replace(/=+$/, "")).join("");
+  return joined.padEnd(joined.length + ((4 - (joined.length % 4)) % 4), "=");
+}
+
+/** Detect the real file type from the decoded magic bytes. */
+export function sniffMimeFromBytes(bytes: Uint8Array): string | null {
+  const b = bytes;
+  if (b.length < 4) return null;
+  const ascii = (n: number) =>
+    Array.from(b.subarray(0, n))
+      .map((c) => String.fromCharCode(c))
+      .join("");
+  if (ascii(5).startsWith("%PDF")) return "application/pdf";
+  if (b[0] === 0x50 && b[1] === 0x4b) return "application/zip"; // also docx/xlsx/pptx
+  if (b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0)
+    return "application/msword"; // legacy OLE Office / .msg
+  if (b[0] === 0x89 && ascii(4).slice(1) === "PNG") return "image/png";
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (ascii(4) === "GIF8") return "image/gif";
+  if (ascii(4) === "{\\rt") return "application/rtf";
+  return null;
+}
+
+/**
  * Recursively finds the longest base64-looking string in the response. Arrays
  * whose items each carry a base64-ish chunk (SAP line tables) are joined in
  * order before being compared.
@@ -172,10 +201,10 @@ function findDeepBase64(node: any, depth = 0): string | null {
         }
       }
     }
-    if (stringChunks.length > 1) consider(stringChunks.join(""));
+    if (stringChunks.length > 1) consider(joinBase64Chunks(stringChunks));
     // Join per key so a single column's lines are concatenated in order.
     for (const list of byKey.values()) {
-      if (list.length > 1) consider(list.join(""));
+      if (list.length > 1) consider(joinBase64Chunks(list));
       else if (list.length === 1 && looksLikeBase64(list[0]!)) consider(list[0]!);
     }
     for (const item of node) consider(findDeepBase64(item, depth + 1));
