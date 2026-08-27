@@ -167,14 +167,17 @@ export async function invokeZnfaAttachApi(
         sapMessage: null,
       };
     }
-    target = `${middlewareUrl.replace(/\/$/, "")}/sap/invoke`;
+    // SAP expects a JSON array body; /sap/raw-invoke forwards it verbatim
+    // (no request-field mapping, no response mapping).
+    target = `${middlewareUrl.replace(/\/$/, "")}/sap/raw-invoke`;
     method = "POST";
     const secret =
       (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
       globalSecret?.proxy_secret ||
       process.env.MIDDLEWARE_SHARED_SECRET;
     if (secret) headers["x-shared-secret"] = secret;
-    bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload, raw: true });
+    bodyOut = JSON.stringify({ configId: cfg.id, configName: cfg.name, inputs: payload });
+
   } else {
     target = cfg.endpoint_url;
     bodyOut = JSON.stringify(payload);
