@@ -18,6 +18,8 @@ export type ZnfaAttachPrintResponse = {
   mimeType: string;
   error: string | null;
   sapMessage: string | null;
+  /** True when the document is a PDF whose %%EOF trailer is missing. */
+  incomplete?: boolean;
 };
 
 const AttachRow = z.object({
