@@ -15,7 +15,7 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGatePass, saveGatePass } from "@/lib/mm/gate-pass.functions";
 import { GatePassNumberSelect, type GatePassF4Flag } from "@/components/mm/gate-pass-number-select";
-import { swalConfirm } from "@/lib/mm/swal";
+
 import { PageHeader } from "@/components/exec/page-header";
 
 export const Route = createFileRoute("/_authenticated/mm/gate-pass")({
@@ -257,16 +257,7 @@ function GatePassPage() {
       toast.error("Select at least one row to save");
       return;
     }
-    void (async () => {
-      const ok = await swalConfirm({
-        title: "Save selected rows?",
-        text: `${selectedRows.length} row${selectedRows.length === 1 ? "" : "s"} will be sent to SAP.`,
-        confirmLabel: "Save",
-        destructive: false,
-      });
-      if (!ok) return;
-      saveMutation.mutate(selectedRows);
-    })();
+    saveMutation.mutate(selectedRows);
   }
 
   function updateRowField(item: DataRow, key: string, value: any) {

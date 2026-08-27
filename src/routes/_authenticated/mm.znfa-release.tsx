@@ -29,7 +29,7 @@ import {
   X,
 } from "lucide-react";
 
-import { swalConfirm } from "@/lib/mm/swal";
+
 import { PageHeader } from "@/components/exec/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -1320,13 +1320,6 @@ function ZnfaReleasePage() {
       toast.error("Select a Release Code");
       return;
     }
-    const ok = await swalConfirm({
-      title: `Approve NFA ${openedNfaNo}?`,
-      text: "The NFA will be released in SAP.",
-      confirmLabel: "Approve",
-      destructive: false,
-    });
-    if (!ok) return;
     setDisplayError(null);
     approveMutation.mutate({ znfaNum: openedNfaNo, user: releaseId, relCode: releaseCode });
   }
