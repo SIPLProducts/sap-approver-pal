@@ -2254,6 +2254,9 @@ function ZnfaReleasePage() {
                               <TableHead className="whitespace-nowrap text-xs">
                                 Created Date
                               </TableHead>
+                              <TableHead className="whitespace-nowrap text-xs">
+                                Created By
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
