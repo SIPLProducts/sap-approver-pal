@@ -2274,6 +2274,9 @@ function ZnfaReleasePage() {
                                 <TableCell className="whitespace-nowrap text-sm">
                                   {String(r.CRDAT ?? "").trim() || "—"}
                                 </TableCell>
+                                <TableCell className="whitespace-nowrap text-sm">
+                                  {String(r.CRONAM ?? "").trim() || "—"}
+                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
