@@ -172,10 +172,10 @@ function findDeepBase64(node: any, depth = 0): string | null {
         }
       }
     }
-    if (stringChunks.length > 1) consider(stringChunks.join(""));
+    if (stringChunks.length > 1) consider(joinBase64Chunks(stringChunks));
     // Join per key so a single column's lines are concatenated in order.
     for (const list of byKey.values()) {
-      if (list.length > 1) consider(list.join(""));
+      if (list.length > 1) consider(joinBase64Chunks(list));
       else if (list.length === 1 && looksLikeBase64(list[0]!)) consider(list[0]!);
     }
     for (const item of node) consider(findDeepBase64(item, depth + 1));
