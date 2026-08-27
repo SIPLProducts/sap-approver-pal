@@ -19,8 +19,6 @@ import {
   SapResponseDialog,
   type SapResponseDialogState,
 } from "@/components/mm/sap-response-dialog";
-import {
-} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
   component: MaterialReservationPage,
@@ -78,10 +76,7 @@ function MaterialReservationPage() {
   const [rows, setRows] = useState<DataRow[]>([]);
   const [rowStates, setRowStates] = useState<Map<string, RowState>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [messageDialog, setMessageDialog] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: "",
-  });
+  const [messageDialog, setMessageDialog] = useState<SapResponseDialogState | null>(null);
   const hasResults = header !== null || rows.length > 0;
 
   useEffect(() => {
