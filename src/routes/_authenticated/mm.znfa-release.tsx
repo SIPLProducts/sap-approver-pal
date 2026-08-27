@@ -2299,6 +2299,12 @@ function ZnfaReleasePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <SapResponseDialog
+        dialog={sapDialog}
+        onOpenChange={(open) => setSapDialog((prev) => (prev ? { ...prev, open } : prev))}
+        defaultTitle="ZNFA Response"
+      />
     </div>
   );
 }
