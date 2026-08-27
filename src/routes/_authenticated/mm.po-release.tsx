@@ -348,6 +348,12 @@ function PoReleasePage() {
       .filter((it) => it.EBELN);
     if (items.length === 0) return;
     void (async () => {
+      const ok = await swalConfirm({
+        title: "Reject selected PO items?",
+        text: `${items.length} item${items.length === 1 ? "" : "s"} will be rejected in SAP.`,
+        confirmLabel: "Reject",
+      });
+      if (!ok) return;
       rejectMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
