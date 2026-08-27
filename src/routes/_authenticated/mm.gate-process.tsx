@@ -124,7 +124,12 @@ function GateProcessPage() {
       setRatings({});
       setLastAction(null);
       if (res.error) {
-        setMessageDialog({ open: true, message: res.error });
+        setMessageDialog({
+          open: true,
+          title: "ZNFA Rating",
+          refLabel: "Document",
+          results: [{ ref: "", message: res.error, ok: false }],
+        });
       } else {
         toast.success(`Loaded ${res.count} record${res.count === 1 ? "" : "s"} from SAP`);
       }
@@ -154,7 +159,12 @@ function GateProcessPage() {
         setItems({});
         setRatings({});
         setLastAction(null);
-        setMessageDialog({ open: true, message: res.error });
+        setMessageDialog({
+          open: true,
+          title: "ZNFA Rating",
+          refLabel: "Document",
+          results: [{ ref: "", message: res.error, ok: false }],
+        });
 
       } else {
         setLastAction(vars.action);
