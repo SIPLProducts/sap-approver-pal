@@ -2017,6 +2017,7 @@ function ZnfaReleasePage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-10 text-xs">CB</TableHead>
+                          <TableHead className="whitespace-nowrap text-xs">Attachment ID</TableHead>
                           <TableHead className="whitespace-nowrap text-xs">Vendor</TableHead>
                           <TableHead className="whitespace-nowrap text-xs">Name</TableHead>
                           <TableHead className="whitespace-nowrap text-right text-xs">
@@ -2028,7 +2029,7 @@ function ZnfaReleasePage() {
                         {attachRows.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={4}
+                              colSpan={5}
                               className="h-24 text-center text-sm text-muted-foreground"
                             >
                               No attachments returned by SAP.
@@ -2045,6 +2046,9 @@ function ZnfaReleasePage() {
                                   onCheckedChange={() => toggleAttachRow(attachKey)}
                                   aria-label={`Select attachment ${String(a.NAME1 ?? i + 1)}`}
                                 />
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-sm font-mono text-xs">
+                                {String(rfqNumber ?? "").trim() || "—"}
                               </TableCell>
 
                               <TableCell className="whitespace-nowrap text-sm">
