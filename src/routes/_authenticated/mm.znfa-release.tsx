@@ -1422,6 +1422,7 @@ function ZnfaReleasePage() {
   useEffect(() => {
     if (!attachPrintBase64) {
       setAttachPrintBlobUrl(null);
+      setAttachPrintSize(0);
       return;
     }
     let url: string | null = null;
@@ -1438,6 +1439,7 @@ function ZnfaReleasePage() {
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
       url = URL.createObjectURL(new Blob([bytes], { type: attachPrintMime || "application/pdf" }));
+      setAttachPrintSize(bytes.length);
       setAttachPrintBlobUrl(url);
       setAttachPrintError(null);
     } catch {
