@@ -173,6 +173,18 @@ export function sniffMimeFromBytes(bytes: Uint8Array): string | null {
  * whose items each carry a base64-ish chunk (SAP line tables) are joined in
  * order before being compared.
  */
+/** True when the base64 decodes to a PDF whose trailer (%%EOF) is present. */
+function isCompletePdf(candidate: string): boolean {
+  try {
+    const bytes = Buffer.from(normalizeBase64(candidate), "base64");
+    if (bytes.length < 8) return false;
+    if (bytes.subarray(0, 4).toString("latin1") !== "%PDF") return false;
+    return bytes.subarray(Math.max(0, bytes.length - 1024)).toString("latin1").includes("%%EOF");
+  } catch {
+    return false;
+  }
+}
+
 function findDeepBase64(node: any, depth = 0): string | null {
   if (depth > 8 || node == null) return null;
   if (typeof node === "string") return looksLikeBase64(node) ? node.trim() : null;
@@ -180,7 +192,20 @@ function findDeepBase64(node: any, depth = 0): string | null {
 
   let best: string | null = null;
   const consider = (candidate: string | null) => {
-    if (candidate && (!best || candidate.length > best.length)) best = candidate;
+    if (!candidate) return;
+    if (!best) {
+      best = candidate;
+      return;
+    }
+    // A candidate that decodes to a complete PDF (ends with %%EOF) beats a
+    // longer but truncated one; otherwise the longest payload wins.
+    const candidateComplete = isCompletePdf(candidate);
+    const bestComplete = isCompletePdf(best);
+    if (candidateComplete !== bestComplete) {
+      if (candidateComplete) best = candidate;
+      return;
+    }
+    if (candidate.length > best.length) best = candidate;
   };
 
   if (Array.isArray(node)) {

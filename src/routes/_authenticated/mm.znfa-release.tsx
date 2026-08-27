@@ -23,6 +23,7 @@ import {
   Filter,
   KeyRound,
   ListChecks,
+  FileText,
   Loader2,
   MessageSquare,
   MessagesSquare,
@@ -1388,6 +1389,8 @@ function ZnfaReleasePage() {
   const [attachPrintMime, setAttachPrintMime] = useState("application/pdf");
   const [attachPrintError, setAttachPrintError] = useState<string | null>(null);
   const [attachPrintBlobUrl, setAttachPrintBlobUrl] = useState<string | null>(null);
+  // Size of the decoded document; used by the preview card for non-inline types.
+  const [attachPrintSize, setAttachPrintSize] = useState(0);
   const fetchAttachPrint = useServerFn(fetchZnfaAttachPrint);
   const attachPrintMutation = useMutation({
     mutationFn: (vars: { row: Record<string, any> }) => fetchAttachPrint({ data: vars }),
@@ -1420,6 +1423,7 @@ function ZnfaReleasePage() {
   useEffect(() => {
     if (!attachPrintBase64) {
       setAttachPrintBlobUrl(null);
+      setAttachPrintSize(0);
       return;
     }
     let url: string | null = null;
@@ -1436,6 +1440,7 @@ function ZnfaReleasePage() {
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
       url = URL.createObjectURL(new Blob([bytes], { type: attachPrintMime || "application/pdf" }));
+      setAttachPrintSize(bytes.length);
       setAttachPrintBlobUrl(url);
       setAttachPrintError(null);
     } catch {
@@ -2551,12 +2556,29 @@ function ZnfaReleasePage() {
                         className="max-h-full max-w-full object-contain"
                       />
                     </div>
-                  ) : (
+                  ) : (attachPrintMime || "").toLowerCase().includes("pdf") ? (
                     <iframe
                       src={attachPrintBlobUrl}
                       title="Attachment preview"
                       className="h-[65vh] w-full rounded-md"
                     />
+                  ) : (
+                    // Word / Outlook / zip and other formats render as an empty
+                    // frame in browsers — show a download card instead.
+                    <div className="flex h-[40vh] flex-col items-center justify-center gap-2 rounded-md p-6 text-center">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm font-medium text-foreground">
+                        Document ready ({printFileExtension(attachPrintMime).toUpperCase()}
+                        {attachPrintSize
+                          ? ` · ${(attachPrintSize / 1024).toFixed(0)} KB`
+                          : ""}
+                        )
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        This file type cannot be displayed inside the browser. Use Download or
+                        Open in new tab below.
+                      </p>
+                    </div>
                   )}
                 </div>
 
