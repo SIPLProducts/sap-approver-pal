@@ -325,7 +325,13 @@ function MaterialReservationPage() {
               value={docNumber}
               onChange={setDocNumber}
               userId={userId}
-              onFailure={(message) => setMessageDialog({ open: true, message })}
+              onFailure={(message) =>
+                setMessageDialog({
+                  open: true,
+                  title: "Material Reservation",
+                  results: [{ ref: "Material Reservation", message, ok: false }],
+                })
+              }
             />
           </div>
           <div className="space-y-1.5">
@@ -405,22 +411,11 @@ function MaterialReservationPage() {
         </>
       )}
 
-      <Dialog
-        open={messageDialog.open}
-        onOpenChange={(open) => setMessageDialog((prev) => ({ ...prev, open }))}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Material Reservation</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm whitespace-pre-wrap">{messageDialog.message}</div>
-          <DialogFooter>
-            <Button size="sm" onClick={() => setMessageDialog({ open: false, message: "" })}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SapResponseDialog
+        dialog={messageDialog}
+        onOpenChange={(open) => setMessageDialog((prev) => (prev ? { ...prev, open } : prev))}
+        defaultTitle="Material Reservation"
+      />
     </div>
 
   );
