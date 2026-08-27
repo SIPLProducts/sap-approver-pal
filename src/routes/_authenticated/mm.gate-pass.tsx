@@ -63,8 +63,11 @@ function GatePassPage() {
     setFlag(on ? k : "");
     setGatePassNumber("");
   };
+  // Return Receipt intentionally has no F4 help: keep the flag empty so
+  // Gate_Pass_Doc_F4_API is not called for that mode.
   const f4Flag: GatePassF4Flag =
     flag === "hod" ? "hod" : flag === "store" ? "stores" : flag === "scm" ? "scm" : flag === "plant" ? "plant" : "";
+
 
 
   // Mode captured at the moment Execute succeeded — drives which row fields stay editable.
