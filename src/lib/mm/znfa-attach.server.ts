@@ -186,6 +186,24 @@ function findDeepBase64(node: any, depth = 0): string | null {
   return best;
 }
 
+/**
+ * Structural description of a SAP response for logs: key paths, array lengths
+ * and string lengths only — never any content.
+ */
+export function describeShape(node: any, depth = 0): string {
+  if (depth > 6) return "…";
+  if (node == null) return String(node);
+  if (typeof node === "string") return `string(${node.length})`;
+  if (typeof node !== "object") return typeof node;
+  if (Array.isArray(node)) {
+    const first = node.length > 0 ? describeShape(node[0], depth + 1) : "";
+    return `array(${node.length})${first ? `[${first}]` : ""}`;
+  }
+  const parts = Object.entries(node)
+    .slice(0, 25)
+    .map(([k, v]) => `${k}:${describeShape(v, depth + 1)}`);
+  return `{${parts.join(", ")}}`;
+}
 
 
 function extractSapMsg(json: any): string | null {
