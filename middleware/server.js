@@ -683,6 +683,49 @@ app.post("/sap/invoke", requireSharedSecret, async (req, res) => {
   }
 });
 
+// Generic verbatim passthrough invoke. Accepts `inputs` as an ARRAY or object
+// and forwards it to SAP exactly as received (no request-field mapping, no
+// response mapping). Used by APIs whose SAP contract is a JSON array body.
+const RawInvokeBody = z.object({
+  configId: z.string().uuid().optional(),
+  configName: z.string().min(1).optional(),
+  inputs: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]),
+});
+app.post("/sap/raw-invoke", requireSharedSecret, async (req, res) => {
+  const parsed = RawInvokeBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.message });
+  const { configId, configName, inputs } = parsed.data;
+  const ref = configId || configName;
+  if (!ref) return res.status(400).json({ ok: false, error: "configId or configName is required" });
+
+  let cfgId = null;
+  try {
+    const cfg = await loadConfig(ref);
+    cfgId = cfg.id;
+    console.log(`[/sap/raw-invoke] config name=${cfg.name} url=${cfg.endpoint_url} method=${cfg.http_method}`);
+    const result = await invokeSapRaw(cfg, inputs);
+    await writeLog({
+      configId: cfg.id,
+      status: result.ok ? "ok" : "error",
+      latency_ms: result.latency_ms,
+      message: `raw-invoke ${cfg.name}: ${result.status}`,
+    });
+    return res.status(result.ok ? 200 : 502).json(result);
+  } catch (e) {
+    console.error("[/sap/raw-invoke] failed", e.message);
+    if (cfgId) {
+      await writeLog({
+        configId: cfgId,
+        status: "error",
+        latency_ms: 0,
+        message: `raw-invoke: ${e.message}`.slice(0, 500),
+      });
+    }
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
 // ---------- Named business endpoints ----------
 // These aliases make the middleware log human-readable. Each one resolves a
 // config by NAME (not UUID) via the same /api/public/middleware/config route,
