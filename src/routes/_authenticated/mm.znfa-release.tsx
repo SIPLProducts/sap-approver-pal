@@ -2156,7 +2156,11 @@ function ZnfaReleasePage() {
                       variant="outline"
                       className="h-8 px-4"
                       onClick={onDisplayAttachments}
+                      disabled={attachDetailMutation.isPending}
                     >
+                      {attachDetailMutation.isPending ? (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      ) : null}
                       Display
                     </Button>
                   </div>
@@ -2216,6 +2220,46 @@ function ZnfaReleasePage() {
                       </TableBody>
                     </Table>
                   </div>
+
+                  {attachDetailRows.length > 0 ? (
+                    <div ref={attachDetailRef} className="space-y-2 pt-2">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <Paperclip className="h-3.5 w-3.5" /> Attachment Details
+                      </Label>
+                      <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="whitespace-nowrap text-xs">
+                                Object Description
+                              </TableHead>
+                              <TableHead className="whitespace-nowrap text-xs">
+                                Created Date
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {attachDetailRows.map((r, i) => (
+                              <TableRow key={`attach-detail-${i}`}>
+                                <TableCell className="whitespace-nowrap text-sm">
+                                  <button
+                                    type="button"
+                                    onClick={() => onAttachPrint(r)}
+                                    className="text-primary underline underline-offset-2 hover:opacity-80"
+                                  >
+                                    {String(r.OBJDES ?? "").trim() || "—"}
+                                  </button>
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap text-sm">
+                                  {String(r.CRDAT ?? "").trim() || "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
