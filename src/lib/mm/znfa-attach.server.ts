@@ -57,12 +57,24 @@ export function extractBase64Payload(json: any): {
   mimeType: string;
   msg: string | null;
 } {
-  const payload: any = Array.isArray(json) ? json[0] : json;
+  let root: any = json;
+  if (typeof root === "string") {
+    const trimmed = root.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        root = JSON.parse(trimmed);
+      } catch {
+        /* keep the raw string */
+      }
+    }
+  }
+  const payload: any = Array.isArray(root) ? root[0] : root;
 
   if (typeof payload === "string") {
     const { base64, mimeFromPrefix } = cleanBase64(payload);
     return { base64, mimeType: mimeFromPrefix ?? "application/pdf", msg: null };
   }
+
 
   const rawMsg = payload?.MSG ?? payload?.msg;
   const msg = typeof rawMsg === "string" && rawMsg.trim() ? rawMsg.trim() : null;
