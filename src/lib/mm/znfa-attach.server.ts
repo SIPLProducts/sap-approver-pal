@@ -296,16 +296,21 @@ function findDeepBase64(node: any, depth = 0): string | null {
       best = candidate;
       return;
     }
-    // A candidate that decodes to a complete PDF (ends with %%EOF) beats a
-    // longer but truncated one; otherwise the longest payload wins.
-    const candidateComplete = isCompletePdf(candidate);
-    const bestComplete = isCompletePdf(best);
-    if (candidateComplete !== bestComplete) {
-      if (candidateComplete) best = candidate;
+    // Rank by decoded content first (complete PDF beats a truncated or
+    // misaligned payload), and only then by size.
+    const cs = scoreCandidate(candidate);
+    const bs = scoreCandidate(best);
+    if (cs !== bs) {
+      if (cs > bs) best = candidate;
       return;
     }
     if (candidate.length > best.length) best = candidate;
   };
+  /** Consider every plausible reassembly of a set of line-table lines. */
+  const considerLines = (lines: string[]) => {
+    for (const variant of candidateVariants(lines)) consider(variant);
+  };
+
 
   if (Array.isArray(node)) {
     // Chunked line table: join every chunk found directly on the items, in the
