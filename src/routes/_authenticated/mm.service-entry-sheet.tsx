@@ -229,12 +229,7 @@ function ServiceEntrySheetPage() {
 
   const [scopeOfList, setScopeOfList] = useState("ENTRY_REL");
 
-  const [messageDialog, setMessageDialog] = useState<{
-    open: boolean;
-    title: string;
-    message: string;
-    lines?: { entrySheet: string; ok: boolean; message: string }[];
-  } | null>(null);
+  const [messageDialog, setMessageDialog] = useState<SapResponseDialogState | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
