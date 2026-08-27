@@ -341,7 +341,18 @@ export const saveMaterialReservation = createServerFn({ method: "POST" })
       return { ok: false, message: `Invalid JSON from SAP: ${text.slice(0, 200)}`, documentNumber: null };
     }
 
-    const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+    let sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
+    // SAP (or the proxy) may hand back a double-encoded JSON string.
+    if (typeof sapJson === "string") {
+      const trimmed = sapJson.trim();
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        try {
+          sapJson = JSON.parse(trimmed);
+        } catch {
+          /* keep the raw string */
+        }
+      }
+    }
 
     // Failure shape: { MESSAGES: [{ TYPE, MESSAGE }] } — may arrive nested or
     // inside an array, so search recursively and surface the exact text.
