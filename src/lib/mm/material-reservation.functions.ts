@@ -345,7 +345,10 @@ export const saveMaterialReservation = createServerFn({ method: "POST" })
 
     // Failure shape: { MESSAGES: [{ TYPE, MESSAGE }] } — may arrive nested or
     // inside an array, so search recursively and surface the exact text.
-    const { collectSapMessages, extractMessagesArrayError } = await import("./sap-message");
+    const { collectSapMessages, extractMessagesArrayError, findFirstDeep } = await import(
+      "./sap-message"
+    );
+
     const collected = collectSapMessages(sapJson);
     if (collected.length > 0) {
       const anyError = collected.some((m) => {
