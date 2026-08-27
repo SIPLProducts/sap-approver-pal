@@ -65,6 +65,10 @@ import {
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
 import { NfaNumberSelect } from "@/components/mm/nfa-number-select";
+import {
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
 
 import { cn } from "@/lib/utils";
 
