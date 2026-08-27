@@ -2047,6 +2047,9 @@ function ZnfaReleasePage() {
                                   aria-label={`Select attachment ${String(a.NAME1 ?? i + 1)}`}
                                 />
                               </TableCell>
+                              <TableCell className="whitespace-nowrap text-sm font-mono text-xs">
+                                {String(rfqNumber ?? "").trim() || "—"}
+                              </TableCell>
 
                               <TableCell className="whitespace-nowrap text-sm">
                                 {String(a.VENDOR ?? "—").trim() || "—"}
