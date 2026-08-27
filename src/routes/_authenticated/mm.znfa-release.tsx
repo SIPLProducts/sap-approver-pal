@@ -2017,6 +2017,7 @@ function ZnfaReleasePage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-10 text-xs">CB</TableHead>
+                          <TableHead className="whitespace-nowrap text-xs">Attachment ID</TableHead>
                           <TableHead className="whitespace-nowrap text-xs">Vendor</TableHead>
                           <TableHead className="whitespace-nowrap text-xs">Name</TableHead>
                           <TableHead className="whitespace-nowrap text-right text-xs">
