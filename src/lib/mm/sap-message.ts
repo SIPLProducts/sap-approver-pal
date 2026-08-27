@@ -57,6 +57,36 @@ export function extractFalseStatusMessage(payload: any): string | null {
 }
 
 /**
+ * Same as extractFalseStatusMessage but prefers the exact MESSAGE key over
+ * MSGTXT. Used where SAP returns { STATUS: "FALSE", MESSAGE: "..." }.
+ */
+export function extractFalseStatusMessagePreferMessage(payload: any): string | null {
+  if (!payload || typeof payload !== "object") return null;
+
+  if (!Array.isArray(payload)) {
+    const entries = Object.entries(payload);
+    const statusEntry = entries.find(([key]) => key.toUpperCase() === "STATUS");
+    if (statusEntry && String(statusEntry[1] ?? "").trim().toUpperCase() === "FALSE") {
+      for (const wanted of ["MESSAGE", "MSGTXT"]) {
+        const hit = entries.find(([key]) => key.toUpperCase() === wanted);
+        if (hit) {
+          const text = String(hit[1] ?? "").trim();
+          if (text) return text;
+        }
+      }
+      const nested = extractSapMessage(payload);
+      return nested || "SAP returned an error";
+    }
+  }
+
+  for (const value of Object.values(payload)) {
+    const message = extractFalseStatusMessagePreferMessage(value);
+    if (message) return message;
+  }
+  return null;
+}
+
+/**
  * Find a TYPE: "E" envelope at any depth and return its exact MSG value.
  * ZNFA APIs commonly return { TYPE: "E", MSG: "..." } on failure.
  */
