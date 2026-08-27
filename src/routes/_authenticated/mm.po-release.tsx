@@ -270,6 +270,13 @@ function PoReleasePage() {
       .filter((it) => it.EBELN);
     if (items.length === 0) return;
     void (async () => {
+      const ok = await swalConfirm({
+        title: "Release selected PO items?",
+        text: `${items.length} item${items.length === 1 ? "" : "s"} will be released in SAP.`,
+        confirmLabel: "Release",
+        destructive: false,
+      });
+      if (!ok) return;
       releaseMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
