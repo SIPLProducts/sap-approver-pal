@@ -29,7 +29,7 @@ import {
   X,
 } from "lucide-react";
 
-import { swalConfirm } from "@/lib/mm/swal";
+
 import { PageHeader } from "@/components/exec/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 

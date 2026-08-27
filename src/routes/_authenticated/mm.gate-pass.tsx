@@ -15,7 +15,7 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGatePass, saveGatePass } from "@/lib/mm/gate-pass.functions";
 import { GatePassNumberSelect, type GatePassF4Flag } from "@/components/mm/gate-pass-number-select";
-import { swalConfirm } from "@/lib/mm/swal";
+
 import { PageHeader } from "@/components/exec/page-header";
 
 export const Route = createFileRoute("/_authenticated/mm/gate-pass")({
