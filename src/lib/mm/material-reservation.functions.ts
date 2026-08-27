@@ -343,15 +343,22 @@ export const saveMaterialReservation = createServerFn({ method: "POST" })
 
     const sapJson: any = proxied ? (json?.data ?? json ?? {}) : json;
 
-    // Failure shape: { MESSAGES: [{ TYPE, MESSAGE }] }
-    if (Array.isArray(sapJson?.MESSAGES) && sapJson.MESSAGES.length > 0) {
-      const msg = sapJson.MESSAGES
-        .map((m: any) => String(m?.MESSAGE ?? "").trim())
-        .filter(Boolean)
-        .join("; ") || "SAP returned an error";
-      const anyError = sapJson.MESSAGES.some(
-        (m: any) => String(m?.TYPE ?? "").toUpperCase() === "E" || String(m?.TYPE ?? "").toUpperCase() === "A",
-      );
+    // Failure shape: { MESSAGES: [{ TYPE, MESSAGE }] } — may arrive nested or
+    // inside an array, so search recursively and surface the exact text.
+    const { collectSapMessages, extractMessagesArrayError } = await import("./sap-message");
+    const collected = collectSapMessages(sapJson);
+    if (collected.length > 0) {
+      const anyError = collected.some((m) => {
+        const t = m.type.trim().toUpperCase();
+        return t === "E" || t === "A";
+      });
+      const msg =
+        (anyError ? extractMessagesArrayError(sapJson) : null) ||
+        collected
+          .map((m) => m.message.trim())
+          .filter(Boolean)
+          .join("; ") ||
+        "SAP returned an error";
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
         status: anyError ? "error" : "ok",
@@ -361,9 +368,10 @@ export const saveMaterialReservation = createServerFn({ method: "POST" })
       return {
         ok: !anyError,
         message: msg,
-        documentNumber: sapJson?.DOCUMENT_NUMBER ?? null,
+        documentNumber: findFirstDeep(sapJson, ["DOCUMENT_NUMBER"]) ?? null,
       };
     }
+
 
     // Success shape: { TYPE: "S", DOCUMENT_NUMBER, MESSAGE }
     const type = String(sapJson?.TYPE ?? "").toUpperCase();
