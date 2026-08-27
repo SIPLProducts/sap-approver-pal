@@ -30,13 +30,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 
