@@ -418,19 +418,29 @@ function GatePassPage() {
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Gate Pass Number</Label>
-            <GatePassNumberSelect
-              value={gatePassNumber}
-              onChange={setGatePassNumber}
-              userId={userId}
-              flag={f4Flag}
-              onFailure={(message) =>
-                setResponseDialog({
-                  open: true,
-                  title: "Gate Pass Response",
-                  results: [{ label: "Gate Pass", message, ok: false }],
-                })
-              }
-            />
+            {returnReceipt ? (
+              // Return Receipt: manual entry only — no F4 help is called.
+              <Input
+                value={gatePassNumber}
+                onChange={(e) => setGatePassNumber(e.target.value)}
+                placeholder="Enter gate pass number"
+                className="h-9 font-mono text-xs"
+              />
+            ) : (
+              <GatePassNumberSelect
+                value={gatePassNumber}
+                onChange={setGatePassNumber}
+                userId={userId}
+                flag={f4Flag}
+                onFailure={(message) =>
+                  setResponseDialog({
+                    open: true,
+                    title: "Gate Pass Response",
+                    results: [{ label: "Gate Pass", message, ok: false }],
+                  })
+                }
+              />
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">HOD Approval</Label>
