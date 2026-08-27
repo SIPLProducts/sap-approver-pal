@@ -295,7 +295,9 @@ export const saveMaterialReservation = createServerFn({ method: "POST" })
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
-      bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload });
+      // Preserve SAP's MESSAGES array so the exact TYPE E message reaches the
+      // existing response parser instead of being removed by configured field mapping.
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload, raw: true });
       proxied = true;
     } else {
       target = cfg.endpoint_url;
