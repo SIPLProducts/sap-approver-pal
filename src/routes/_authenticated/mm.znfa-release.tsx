@@ -2029,7 +2029,7 @@ function ZnfaReleasePage() {
                         {attachRows.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={4}
+                              colSpan={5}
                               className="h-24 text-center text-sm text-muted-foreground"
                             >
                               No attachments returned by SAP.
