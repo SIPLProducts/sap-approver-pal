@@ -425,6 +425,12 @@ function PrReleasePage() {
       .filter((it) => it.PREQ_NO);
     if (items.length === 0) return;
     void (async () => {
+      const ok = await swalConfirm({
+        title: "Reject selected PR items?",
+        text: `${items.length} item${items.length === 1 ? "" : "s"} will be rejected in SAP.`,
+        confirmLabel: "Reject",
+      });
+      if (!ok) return;
       rejectMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
