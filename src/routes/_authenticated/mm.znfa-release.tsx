@@ -755,7 +755,7 @@ function ZnfaReleasePage() {
         setDisplayConfirmed(false);
         if (msg) {
           setDisplayError(msg);
-          toast.error(msg);
+          showSapError("ZNFA Display", msg, res.znfa?.NFA_NO ?? undefined);
         }
         return;
       }
@@ -785,7 +785,7 @@ function ZnfaReleasePage() {
         setClickedNfaNo(null);
         if (msg) {
           setDisplayError(msg);
-          toast.error(msg);
+          showSapError("ZNFA Release", msg, res.znfa?.NFA_NO ?? undefined);
         }
         return;
       }
@@ -936,7 +936,7 @@ function ZnfaReleasePage() {
       if (msg) {
         setReleaseRows(null);
         setReleaseError(msg);
-        toast.error(msg);
+        showSapError("ZNFA Release", msg);
         return;
       }
       setReleaseError(null);
