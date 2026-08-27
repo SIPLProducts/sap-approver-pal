@@ -14,7 +14,7 @@ import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { SapResponseDialog, type SapResponseDialogState } from "@/components/mm/sap-response-dialog";
 
 const STCK_TYPE_OPTIONS = [
   { value: "1", label: "1 Unrestricted" },
@@ -69,7 +69,7 @@ function MigoReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customFields, setCustomFields] = useState<Record<string, any> | null>(null);
   const hasResults = header !== null || rows.length > 0;
-  const [resultDialog, setResultDialog] = useState<{ open: boolean; ok: boolean; title: string; lines: string[] } | null>(null);
+  const [resultDialog, setResultDialog] = useState<SapResponseDialogState | null>(null);
 
   const mutation = useMutation({
     mutationFn: async (vars: { mat_doc_number: string; mat_doc_year: string }) => {
