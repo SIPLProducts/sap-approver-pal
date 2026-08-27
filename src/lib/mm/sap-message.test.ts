@@ -23,6 +23,27 @@ describe("extractFalseStatusMessage", () => {
 });
 
 describe("extractMessagesArrayError", () => {
+  it("returns the exact Material Reservation Save TYPE E message", () => {
+    const response = {
+      MESSAGES: [
+        {
+          TYPE: "E",
+          MESSAGE: "Requested quantity should be lessthan or equal to total stock",
+        },
+      ],
+    };
+
+    expect(extractMessagesArrayError(response)).toBe(
+      "Requested quantity should be lessthan or equal to total stock",
+    );
+    expect(collectSapMessages(response)).toEqual([
+      {
+        type: "E",
+        message: "Requested quantity should be lessthan or equal to total stock",
+      },
+    ]);
+  });
+
   it("returns the exact MESSAGE of the first E entry", () => {
     expect(
       extractMessagesArrayError({
