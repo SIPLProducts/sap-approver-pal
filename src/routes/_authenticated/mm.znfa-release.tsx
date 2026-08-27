@@ -2555,12 +2555,29 @@ function ZnfaReleasePage() {
                         className="max-h-full max-w-full object-contain"
                       />
                     </div>
-                  ) : (
+                  ) : (attachPrintMime || "").toLowerCase().includes("pdf") ? (
                     <iframe
                       src={attachPrintBlobUrl}
                       title="Attachment preview"
                       className="h-[65vh] w-full rounded-md"
                     />
+                  ) : (
+                    // Word / Outlook / zip and other formats render as an empty
+                    // frame in browsers — show a download card instead.
+                    <div className="flex h-[40vh] flex-col items-center justify-center gap-2 rounded-md p-6 text-center">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm font-medium text-foreground">
+                        Document ready ({printFileExtension(attachPrintMime).toUpperCase()}
+                        {attachPrintSize
+                          ? ` · ${(attachPrintSize / 1024).toFixed(0)} KB`
+                          : ""}
+                        )
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        This file type cannot be displayed inside the browser. Use Download or
+                        Open in new tab below.
+                      </p>
+                    </div>
                   )}
                 </div>
 
