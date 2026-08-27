@@ -408,7 +408,14 @@ function ServiceEntrySheetPage() {
         setMessageDialog({
           open: true,
           title: "Service Entry Sheet",
-          message: (e as Error).message || "Could not fetch service entry sheets.",
+          refLabel: "Entry Sheet",
+          results: [
+            {
+              ref: "",
+              message: (e as Error).message || "Could not fetch service entry sheets.",
+              ok: false,
+            },
+          ],
         });
       }
     } finally {
