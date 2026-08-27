@@ -920,48 +920,11 @@ function ServiceEntrySheetPage() {
 
 
 
-      <Dialog
-        open={!!messageDialog?.open}
-        onOpenChange={(o) => setMessageDialog((p) => (p ? { ...p, open: o } : p))}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Info className="h-4 w-4" /> {messageDialog?.title}
-            </DialogTitle>
-            <DialogDescription className="pt-2 text-sm text-foreground">
-              {messageDialog?.lines?.length ? (
-                <span className="block space-y-2">
-                  {messageDialog.lines.map((l, i) => (
-                    <span key={`${l.entrySheet}-${i}`} className="block rounded-md border px-3 py-2">
-                      <span className="block font-mono text-xs text-muted-foreground">
-                        {l.entrySheet}
-                      </span>
-                      <span
-                        className={`block whitespace-pre-wrap text-sm ${
-                          l.ok ? "text-foreground" : "text-destructive"
-                        }`}
-                      >
-                        {l.message}
-                      </span>
-                    </span>
-                  ))}
-                </span>
-              ) : (
-                messageDialog?.message
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              onClick={() => setMessageDialog((p) => (p ? { ...p, open: false } : p))}
-              size="sm"
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SapResponseDialog
+        dialog={messageDialog}
+        onOpenChange={(open) => setMessageDialog((p) => (p ? { ...p, open } : p))}
+        defaultTitle="Service Entry Sheet"
+      />
     </div>
   );
 }
