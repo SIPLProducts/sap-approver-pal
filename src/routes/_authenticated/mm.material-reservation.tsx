@@ -299,7 +299,9 @@ function MaterialReservationPage() {
         return (
           <Checkbox
             checked={st?.hodRejection ?? false}
-            onCheckedChange={(v) => updateRow(k, { hodRejection: v === true })}
+            onCheckedChange={(v) =>
+              updateRow(k, v === true ? { hodRejection: true, hodApproval: false } : { hodRejection: false })
+            }
           />
         );
       },
