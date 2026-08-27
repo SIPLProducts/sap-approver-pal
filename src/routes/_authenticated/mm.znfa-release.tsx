@@ -23,6 +23,7 @@ import {
   Filter,
   KeyRound,
   ListChecks,
+  FileText,
   Loader2,
   MessageSquare,
   MessagesSquare,
