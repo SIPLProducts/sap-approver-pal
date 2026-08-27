@@ -160,20 +160,11 @@ function MigoReleasePage() {
       .filter(({ k }) => selected.has(k))
       .map(({ r, k }) => ({ ...r, ...(edits.get(k) ?? {}) }));
 
-    void (async () => {
-      const ok = await swalConfirm({
-        title: "Post material document?",
-        text: `${items.length} row${items.length === 1 ? "" : "s"} will be posted in SAP.`,
-        confirmLabel: "Post",
-        destructive: false,
-      });
-      if (!ok) return;
-      postMutation.mutate({
-        header: { ...(header ?? {}) },
-        data: items,
-        custom: customFields ?? null,
-      });
-    })();
+    postMutation.mutate({
+      header: { ...(header ?? {}) },
+      data: items,
+      custom: customFields ?? null,
+    });
   }
 
   function execute() {

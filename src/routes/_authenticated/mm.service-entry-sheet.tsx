@@ -425,15 +425,6 @@ function ServiceEntrySheetPage() {
   }
 
   async function doRelease() {
-    if (
-      !(await swalConfirm({
-        title: "Release selected entry sheets?",
-        text: "The selected entry sheets will be released in SAP.",
-        confirmLabel: "Release",
-        destructive: false,
-      }))
-    )
-      return;
     const items = rows
       .map((r, i) => ({ r, key: rowKey(r, i) }))
       .filter(({ key }) => selectedKeys.has(key))

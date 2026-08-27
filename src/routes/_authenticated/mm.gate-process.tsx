@@ -248,15 +248,6 @@ function GateProcessPage() {
   }
 
   async function doSave() {
-    if (
-      !(await swalConfirm({
-        title: "Save changes?",
-        text: "The selected changes will be sent to SAP.",
-        confirmLabel: "Save",
-        destructive: false,
-      }))
-    )
-      return;
     if (lastAction !== "RATE" && lastAction !== "CHANGE") return;
     const itemsArr = Array.isArray(output?.ITEMS) ? output!.ITEMS!.map((it, idx) => {
       const f = items[idx];

@@ -1320,13 +1320,6 @@ function ZnfaReleasePage() {
       toast.error("Select a Release Code");
       return;
     }
-    const ok = await swalConfirm({
-      title: `Approve NFA ${openedNfaNo}?`,
-      text: "The NFA will be released in SAP.",
-      confirmLabel: "Approve",
-      destructive: false,
-    });
-    if (!ok) return;
     setDisplayError(null);
     approveMutation.mutate({ znfaNum: openedNfaNo, user: releaseId, relCode: releaseCode });
   }

@@ -169,15 +169,6 @@ function MaterialReservationPage() {
   }
 
   async function doSave() {
-    if (
-      !(await swalConfirm({
-        title: "Save selected reservations?",
-        text: "The selected rows will be sent to SAP.",
-        confirmLabel: "Save",
-        destructive: false,
-      }))
-    )
-      return;
     const items = rows
       .map((r, i) => ({ r, i, k: rowKey(r, i) }))
       .filter(({ k }) => selected.has(k))

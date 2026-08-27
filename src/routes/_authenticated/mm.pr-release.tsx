@@ -348,20 +348,11 @@ function PrReleasePage() {
       }))
       .filter((it) => it.PREQ_NO && it.PREQ_ITEM);
     if (items.length === 0) return;
-    void (async () => {
-      const ok = await swalConfirm({
-        title: "Release selected PR items?",
-        text: `${items.length} item${items.length === 1 ? "" : "s"} will be released in SAP.`,
-        confirmLabel: "Release",
-        destructive: false,
-      });
-      if (!ok) return;
-      releaseMutation.mutate({
-        relgroup: releaseGroup.trim(),
-        relcode: releaseCode.trim(),
-        items,
-      });
-    })();
+    releaseMutation.mutate({
+      relgroup: releaseGroup.trim(),
+      relcode: releaseCode.trim(),
+      items,
+    });
   }
   const rejectFn = useServerFn(rejectPrItems);
   const rejectMutation = useMutation({

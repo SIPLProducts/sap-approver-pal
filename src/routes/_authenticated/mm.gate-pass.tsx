@@ -257,16 +257,7 @@ function GatePassPage() {
       toast.error("Select at least one row to save");
       return;
     }
-    void (async () => {
-      const ok = await swalConfirm({
-        title: "Save selected rows?",
-        text: `${selectedRows.length} row${selectedRows.length === 1 ? "" : "s"} will be sent to SAP.`,
-        confirmLabel: "Save",
-        destructive: false,
-      });
-      if (!ok) return;
-      saveMutation.mutate(selectedRows);
-    })();
+    saveMutation.mutate(selectedRows);
   }
 
   function updateRowField(item: DataRow, key: string, value: any) {
