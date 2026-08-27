@@ -120,9 +120,10 @@ export const fetchZnfaAttachPrint = createServerFn({ method: "POST" })
     // Magic-byte sniffing: SAP often omits FILE_EXT, so the "application/pdf"
     // fallback must not be treated as a guarantee that this is a PDF.
     const sniffed = bytes ? sniffMimeFromBytes(bytes) : null;
+    const pdfInfo = bytes ? describePdfBytes(bytes) : { isPdf: false, hasTrailer: false };
     if (bytes && bytes.length > 8) {
       console.log(
-        `[znfa-attach-print] magic=${Buffer.from(bytes).subarray(0, 4).toString("hex")} bytes=${bytes.length} mime=${mimeType} sniffed=${sniffed ?? "none"}`,
+        `[znfa-attach-print] magic=${Buffer.from(bytes).subarray(0, 4).toString("hex")} bytes=${bytes.length} mime=${mimeType} sniffed=${sniffed ?? "none"} pdfHeader=${pdfInfo.isPdf ? "yes" : "no"} trailer=${pdfInfo.hasTrailer ? "yes" : "no"}`,
       );
     }
     // Only a genuinely undecodable / empty payload is refused.
