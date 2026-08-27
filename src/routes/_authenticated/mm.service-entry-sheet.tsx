@@ -437,7 +437,14 @@ function ServiceEntrySheetPage() {
       setMessageDialog({
         open: true,
         title: "Release",
-        message: "Selected rows have no Entry Sheet / Release Code to release.",
+        refLabel: "Entry Sheet",
+        results: [
+          {
+            ref: "",
+            message: "Selected rows have no Entry Sheet / Release Code to release.",
+            ok: false,
+          },
+        ],
       });
       return;
     }
@@ -446,21 +453,37 @@ function ServiceEntrySheetPage() {
     try {
       const res = await runRelease({ data: { items } });
       if (res.error) {
-        setMessageDialog({ open: true, title: "Release", message: res.error });
+        setMessageDialog({
+          open: true,
+          title: "Release",
+          refLabel: "Entry Sheet",
+          results: [{ ref: "", message: res.error, ok: false }],
+        });
         return;
       }
       setMessageDialog({
         open: true,
         title: "Release",
-        message: "",
-        lines: res.results ?? [],
+        refLabel: "Entry Sheet",
+        results: (res.results ?? []).map((l) => ({
+          ref: l.entrySheet,
+          message: l.message,
+          ok: l.ok,
+        })),
       });
       void execute({ silent: true });
     } catch (e) {
       setMessageDialog({
         open: true,
         title: "Release",
-        message: (e as Error).message || "Could not release the selected entry sheets.",
+        refLabel: "Entry Sheet",
+        results: [
+          {
+            ref: "",
+            message: (e as Error).message || "Could not release the selected entry sheets.",
+            ok: false,
+          },
+        ],
       });
     } finally {
       setReleasing(false);
@@ -479,8 +502,15 @@ function ServiceEntrySheetPage() {
     if (items.length === 0) {
       setMessageDialog({
         open: true,
-        title: "Reject",
-        message: "Selected rows have no Entry Sheet / Release Code to reject.",
+        title: "UnRelease",
+        refLabel: "Entry Sheet",
+        results: [
+          {
+            ref: "",
+            message: "Selected rows have no Entry Sheet / Release Code to UnRelease.",
+            ok: false,
+          },
+        ],
       });
       return;
     }
@@ -489,21 +519,37 @@ function ServiceEntrySheetPage() {
     try {
       const res = await runReject({ data: { items } });
       if (res.error) {
-        setMessageDialog({ open: true, title: "Reject", message: res.error });
+        setMessageDialog({
+          open: true,
+          title: "UnRelease",
+          refLabel: "Entry Sheet",
+          results: [{ ref: "", message: res.error, ok: false }],
+        });
         return;
       }
       setMessageDialog({
         open: true,
-        title: "Reject",
-        message: "",
-        lines: res.results ?? [],
+        title: "UnRelease",
+        refLabel: "Entry Sheet",
+        results: (res.results ?? []).map((l) => ({
+          ref: l.entrySheet,
+          message: l.message,
+          ok: l.ok,
+        })),
       });
       void execute({ silent: true });
     } catch (e) {
       setMessageDialog({
         open: true,
-        title: "Reject",
-        message: (e as Error).message || "Could not reject the selected entry sheets.",
+        title: "UnRelease",
+        refLabel: "Entry Sheet",
+        results: [
+          {
+            ref: "",
+            message: (e as Error).message || "Could not UnRelease the selected entry sheets.",
+            ok: false,
+          },
+        ],
       });
     } finally {
       setRejecting(false);
@@ -523,7 +569,10 @@ function ServiceEntrySheetPage() {
       setMessageDialog({
         open: true,
         title: "Delete",
-        message: "Selected rows have no Entry Sheet to delete.",
+        refLabel: "Entry Sheet",
+        results: [
+          { ref: "", message: "Selected rows have no Entry Sheet to delete.", ok: false },
+        ],
       });
       return;
     }
@@ -532,21 +581,37 @@ function ServiceEntrySheetPage() {
     try {
       const res = await runDelete({ data: { items } });
       if (res.error) {
-        setMessageDialog({ open: true, title: "Delete", message: res.error });
+        setMessageDialog({
+          open: true,
+          title: "Delete",
+          refLabel: "Entry Sheet",
+          results: [{ ref: "", message: res.error, ok: false }],
+        });
         return;
       }
       setMessageDialog({
         open: true,
         title: "Delete",
-        message: "",
-        lines: res.results ?? [],
+        refLabel: "Entry Sheet",
+        results: (res.results ?? []).map((l) => ({
+          ref: l.entrySheet,
+          message: l.message,
+          ok: l.ok,
+        })),
       });
       void execute({ silent: true });
     } catch (e) {
       setMessageDialog({
         open: true,
         title: "Delete",
-        message: (e as Error).message || "Could not delete the selected entry sheets.",
+        refLabel: "Entry Sheet",
+        results: [
+          {
+            ref: "",
+            message: (e as Error).message || "Could not delete the selected entry sheets.",
+            ok: false,
+          },
+        ],
       });
     } finally {
       setDeleting(false);
