@@ -16,11 +16,10 @@ import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/mate
 import { PageHeader } from "@/components/exec/page-header";
 import { DocumentNumberSelect } from "@/components/mm/document-number-select";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
+import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/mm/material-reservation")({
