@@ -49,8 +49,7 @@ function escapeHtml(value: unknown): string {
 function buildHtml(opts: SwalSapResponseOptions): string {
   const results = opts.results ?? [];
   const refLabel = escapeHtml(opts.refLabel ?? "Document");
-  const singleMessageOnly =
-    results.length === 1 && !results[0]?.response && !results[0]?.ref;
+  const singleMessageOnly = results.length === 1 && !results[0]?.ref;
 
   if (singleMessageOnly) {
     const r = results[0]!;
@@ -68,15 +67,6 @@ function buildHtml(opts: SwalSapResponseOptions): string {
     )
     .join("");
 
-  const raw = results
-    .map(
-      (r, i) => `<details class="swal-brand-raw">
-        <summary>Raw response${r.ref ? ` — ${escapeHtml(r.ref)}` : ` #${i + 1}`}</summary>
-        <pre>${escapeHtml(JSON.stringify(r.response ?? { message: r.message }, null, 2))}</pre>
-      </details>`,
-    )
-    .join("");
-
   return `<div class="swal-brand-body">
     <div class="swal-brand-table-wrap">
       <table class="swal-brand-table">
@@ -84,7 +74,6 @@ function buildHtml(opts: SwalSapResponseOptions): string {
         <tbody>${rows}</tbody>
       </table>
     </div>
-    ${raw}
   </div>`;
 }
 
