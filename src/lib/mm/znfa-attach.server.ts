@@ -185,6 +185,30 @@ function isCompletePdf(candidate: string): boolean {
   }
 }
 
+/** SAP sequence/line-number columns used to order line-table rows. */
+const SEQ_KEYS = ["LINE_NO", "LINENO", "LINE", "SEQ", "SEQNR", "SEQ_NO", "ZEILE", "NO", "INDEX"];
+
+function seqOf(item: any): number | null {
+  if (!item || typeof item !== "object") return null;
+  for (const k of SEQ_KEYS) {
+    const raw = item[k] ?? item[k.toLowerCase()];
+    if (raw == null) continue;
+    const n = Number(String(raw).trim());
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+/** Order rows by an explicit sequence column when every row carries one. */
+function orderRows(rows: any[]): any[] {
+  const seqs = rows.map(seqOf);
+  if (seqs.some((s) => s == null)) return rows;
+  return rows
+    .map((r, i) => ({ r, s: seqs[i] as number, i }))
+    .sort((a, b) => a.s - b.s || a.i - b.i)
+    .map((x) => x.r);
+}
+
 function findDeepBase64(node: any, depth = 0): string | null {
   if (depth > 8 || node == null) return null;
   if (typeof node === "string") return looksLikeBase64(node) ? node.trim() : null;
@@ -209,16 +233,19 @@ function findDeepBase64(node: any, depth = 0): string | null {
   };
 
   if (Array.isArray(node)) {
-    // Chunked line table: join every chunk found directly on the items. Short
-    // lines count here — SAP splits documents across many short rows.
+    // Chunked line table: join every chunk found directly on the items, in the
+    // SAP sequence order when the rows carry one.
+    const rows = orderRows(node);
     const stringChunks: string[] = [];
     const byKey = new Map<string, string[]>();
-    for (const item of node) {
+    for (const item of rows) {
       if (typeof item === "string" && looksLikeBase64Chunk(item)) {
         stringChunks.push(item.trim());
       } else if (item && typeof item === "object" && !Array.isArray(item)) {
         for (const [k, v] of Object.entries(item)) {
-          if (typeof v === "string" && looksLikeBase64Chunk(v)) {
+          // Keep every line of a column, including a short final line — the
+          // file tail (and the %%EOF trailer) lives there.
+          if (typeof v === "string" && v.trim() && isBase64Charset(v)) {
             const list = byKey.get(k) ?? [];
             list.push(v.trim());
             byKey.set(k, list);
@@ -227,12 +254,26 @@ function findDeepBase64(node: any, depth = 0): string | null {
       }
     }
     if (stringChunks.length > 1) consider(joinBase64Chunks(stringChunks));
-    // Join per key so a single column's lines are concatenated in order.
-    for (const list of byKey.values()) {
+    // Pick document columns only: a column of pure numbers (line numbers) or a
+    // column whose total size is a small fraction of the largest one is metadata.
+    const totals = new Map<string, number>();
+    for (const [k, list] of byKey) {
+      const numericOnly = list.every((v) => /^\d+$/.test(v));
+      const hasLongLine = list.some((v) => v.length >= BASE64_CHUNK_MIN_LEN * 4);
+      if (numericOnly || !hasLongLine) continue;
+      totals.set(
+        k,
+        list.reduce((n, v) => n + v.length, 0),
+      );
+    }
+    const maxTotal = Math.max(0, ...totals.values());
+    for (const [k, total] of totals) {
+      if (maxTotal > 0 && total < maxTotal / 4) continue;
+      const list = byKey.get(k)!;
       if (list.length > 1) consider(joinBase64Chunks(list));
       else if (list.length === 1 && looksLikeBase64(list[0]!)) consider(list[0]!);
     }
-    for (const item of node) consider(findDeepBase64(item, depth + 1));
+    for (const item of rows) consider(findDeepBase64(item, depth + 1));
     return best;
   }
 
