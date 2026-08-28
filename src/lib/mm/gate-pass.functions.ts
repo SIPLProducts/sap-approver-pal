@@ -9,6 +9,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   collectSapMessages,
   extractFalseStatusMessage,
+  extractFalseStatusMessagePreferMessage,
   extractMessagesArrayError,
   extractSapMessage,
   extractTypeEErrorMessage,
@@ -429,7 +430,10 @@ export const saveGatePass = createServerFn({ method: "POST" })
     // Any shape (nested, array-wrapped or proxied): show only the exact SAP text.
     const collected = collectSapMessages(sapJson);
     const errorText =
-      extractMessagesArrayError(sapJson) ?? extractTypeEErrorMessage(sapJson) ?? null;
+      extractMessagesArrayError(sapJson) ??
+      extractTypeEErrorMessage(sapJson) ??
+      extractFalseStatusMessagePreferMessage(sapJson) ??
+      null;
     const docNumber = (() => {
       const raw = findFirstDeep(sapJson, ["DOCUMENT_NUMBER"]);
       const s = raw == null ? "" : String(raw).trim();
