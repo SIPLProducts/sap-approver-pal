@@ -23,6 +23,25 @@ describe("extractFalseStatusMessage", () => {
 });
 
 describe("extractMessagesArrayError", () => {
+  it("returns the exact Gate Pass Save TYPE E message", () => {
+    const response = {
+      MESSAGES: [
+        {
+          TYPE: "E",
+          MESSAGE: "Please maintain remarks",
+        },
+      ],
+    };
+
+    expect(extractMessagesArrayError(response)).toBe("Please maintain remarks");
+    expect(collectSapMessages(response)).toEqual([
+      {
+        type: "E",
+        message: "Please maintain remarks",
+      },
+    ]);
+  });
+
   it("returns the exact Material Reservation Save TYPE E message", () => {
     const response = {
       MESSAGES: [
