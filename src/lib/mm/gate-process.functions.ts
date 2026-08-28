@@ -30,9 +30,9 @@ export type ZnfaCreateRow = {
 };
 
 export type ZnfaAttachment = {
-  NAME?: string | null;
-  CREATED_BY?: string | null;
-  CREATED_ON?: string | null;
+  OBJDES?: string | null;
+  OWNNAM?: string | null;
+  CRDAT?: string | null;
 };
 
 export type ZnfaOutput = {
@@ -63,6 +63,15 @@ function pick(o: any, k: string) {
   if (!o || typeof o !== "object") return null;
   const hit = Object.keys(o).find((x) => x.toLowerCase() === k.toLowerCase());
   return hit ? (o[hit] ?? null) : null;
+}
+
+function formatSapDate(v: any): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s || s === "0000-00-00") return null;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s;
+  return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
 function mapRow(raw: any): GateRow {
@@ -425,9 +434,9 @@ export const createZnfa = createServerFn({ method: "POST" })
         RATE: pick(r, "RATE"),
       })),
       ATTACHMENTS: attachmentsRaw.map((a: any) => ({
-        NAME: pick(a, "NAME"),
-        CREATED_BY: pick(a, "CREATED_BY"),
-        CREATED_ON: pick(a, "CREATED_ON"),
+        OBJDES: pick(a, "OBJDES"),
+        OWNNAM: pick(a, "OWNNAM"),
+        CRDAT: formatSapDate(pick(a, "CRDAT")),
       })),
     };
     console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "output.ATTACHMENTS.len=", output.ATTACHMENTS?.length, "PR_NUMBER=", output.PR_NUMBER);

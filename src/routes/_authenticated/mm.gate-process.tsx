@@ -418,18 +418,18 @@ function GateProcessPage() {
                     <Table>
                       <TableHeader className="bg-muted/50">
                         <TableRow>
-                          <TableHead className="text-xs">Name</TableHead>
+                          <TableHead className="text-xs">Object Description</TableHead>
                           <TableHead className="text-xs">Created By</TableHead>
-                          <TableHead className="text-xs">Created On</TableHead>
+                          <TableHead className="text-xs">Created Date</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {Array.isArray(output.ATTACHMENTS) && output.ATTACHMENTS.length > 0 ? (
                           output.ATTACHMENTS.map((att, idx) => (
                             <TableRow key={idx}>
-                              <TableCell className="text-xs">{toStr(att.NAME)}</TableCell>
-                              <TableCell className="text-xs">{toStr(att.CREATED_BY)}</TableCell>
-                              <TableCell className="text-xs">{toStr(att.CREATED_ON)}</TableCell>
+                              <TableCell className="text-xs">{toStr(att.OBJDES)}</TableCell>
+                              <TableCell className="text-xs">{toStr(att.OWNNAM)}</TableCell>
+                              <TableCell className="text-xs">{toStr(att.CRDAT)}</TableCell>
                             </TableRow>
                           ))
                         ) : (
