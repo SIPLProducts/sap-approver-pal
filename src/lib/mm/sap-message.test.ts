@@ -27,6 +27,24 @@ describe("extractFalseStatusMessage", () => {
   });
 });
 
+describe("extractFalseStatusMessagePreferMessage", () => {
+  it("returns the exact MESSAGE key for a Gate Pass Save STATUS FALSE response", () => {
+    expect(
+      extractFalseStatusMessagePreferMessage({ STATUS: "FALSE", MESSAGE: "Please maintain remarks" }),
+    ).toBe("Please maintain remarks");
+  });
+
+  it("falls back to MSGTXT when MESSAGE is missing", () => {
+    expect(
+      extractFalseStatusMessagePreferMessage({ data: { GET: { STATUS: "false", MSGTXT: "No data" } } }),
+    ).toBe("No data");
+  });
+
+  it("ignores successful STATUS TRUE responses", () => {
+    expect(extractFalseStatusMessagePreferMessage({ STATUS: "TRUE", MESSAGE: "ok" })).toBeNull();
+  });
+});
+
 describe("extractMessagesArrayError", () => {
   it("returns the exact Gate Pass Save TYPE E message", () => {
     const response = {
