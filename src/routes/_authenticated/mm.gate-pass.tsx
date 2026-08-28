@@ -174,6 +174,16 @@ function GatePassPage() {
       };
     },
     onSuccess: (res) => {
+      if (!res.ok) {
+        setResponseDialog({
+          open: true,
+          title: "Gate Pass Response",
+          messageOnly: true,
+          results: [{ label: "", message: res.error ?? res.message, ok: false }],
+        });
+        return;
+      }
+
       const msg = res.document_number
         ? `${res.message} (Doc: ${res.document_number})`
         : res.message;
@@ -196,26 +206,24 @@ function GatePassPage() {
             : [
                 {
                   label: res.document_number ? `Doc ${res.document_number}` : "Gate Pass",
-                  message: res.ok ? msg : (res.error ?? msg),
-                  ok: !!res.ok,
+                  message: msg,
+                  ok: true,
                   response: res,
                 },
               ],
       });
-      if (res.ok) {
-        setSelected(new Set());
-        // Refresh the results
-        if (userId.trim()) {
-          mutation.mutate({
-            user_id: userId.trim(),
-            gate_pass_number: gatePassNumber.trim(),
-            hod_approval: hodApproval,
-            store_approval: storeApproval,
-            scm_head: scmHead,
-            plant_head: plantHead,
-            return_receipt: returnReceipt,
-          });
-        }
+      setSelected(new Set());
+      // Refresh the results
+      if (userId.trim()) {
+        mutation.mutate({
+          user_id: userId.trim(),
+          gate_pass_number: gatePassNumber.trim(),
+          hod_approval: hodApproval,
+          store_approval: storeApproval,
+          scm_head: scmHead,
+          plant_head: plantHead,
+          return_receipt: returnReceipt,
+        });
       }
     },
     onError: (e: Error) => {
