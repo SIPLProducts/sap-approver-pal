@@ -23,7 +23,12 @@ export function cleanBase64(raw: string): { base64: string; mimeFromPrefix: stri
     mimeFromPrefix = prefix[1]?.trim() || null;
     s = s.slice(prefix[0].length);
   }
-  s = s.replace(/\\[nrt"'\\/]/g, "").replace(/[^A-Za-z0-9+/=_-]/g, "");
+  // Preserve escaped Base64 slashes ("\\/" means "/"). Dropping the slash
+  // changes the decoded bytes and can make a valid PDF look like another type.
+  s = s
+    .replace(/\\\//g, "/")
+    .replace(/\\[nrt"'\\]/g, "")
+    .replace(/[^A-Za-z0-9+/=_-]/g, "");
   return { base64: s, mimeFromPrefix };
 }
 
@@ -83,6 +88,7 @@ export function extractBase64Payload(json: any): {
     .toLowerCase();
   const fallbackMime = MIME_BY_EXT[ext] ?? "application/pdf";
 
+  let explicitBase64: string | null = null;
   for (const key of [
     "PDF",
     "pdf",
@@ -100,7 +106,14 @@ export function extractBase64Payload(json: any): {
     const candidate = payload?.[key];
     if (typeof candidate === "string" && candidate.trim()) {
       const { base64, mimeFromPrefix } = cleanBase64(candidate);
-      if (base64) return { base64, mimeType: mimeFromPrefix ?? fallbackMime, msg };
+      if (base64 && (!explicitBase64 || scoreCandidate(base64) > scoreCandidate(explicitBase64))) {
+        explicitBase64 = base64;
+      }
+      if (base64 && mimeFromPrefix) {
+        const deep = findDeepBase64(root);
+        const selected = selectBestCandidate(explicitBase64, deep);
+        return { base64: selected, mimeType: mimeFromPrefix, msg };
+      }
     }
   }
 
@@ -108,12 +121,31 @@ export function extractBase64Payload(json: any): {
   // split across line-table chunks. Search the whole response for the largest
   // base64-looking payload (chunks under the same array are concatenated).
   const deep = findDeepBase64(root);
-  if (deep) {
-    const { base64, mimeFromPrefix } = cleanBase64(deep);
+  const selected = selectBestCandidate(explicitBase64, deep);
+  if (selected) {
+    const { base64, mimeFromPrefix } = cleanBase64(selected);
     if (base64) return { base64, mimeType: mimeFromPrefix ?? fallbackMime, msg };
   }
 
   return { base64: null, mimeType: fallbackMime, msg };
+}
+
+/** Prefer decoded document validity over the response key encountered first. */
+function selectBestCandidate(...candidates: Array<string | null>): string | null {
+  let best: string | null = null;
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (!best) {
+      best = candidate;
+      continue;
+    }
+    const candidateScore = scoreCandidate(candidate);
+    const bestScore = scoreCandidate(best);
+    if (candidateScore > bestScore || (candidateScore === bestScore && candidate.length > best.length)) {
+      best = candidate;
+    }
+  }
+  return best;
 }
 
 const BASE64_MIN_LEN = 200;
@@ -248,18 +280,6 @@ export function describePdfBytes(bytes: Uint8Array): { isPdf: boolean; hasTraile
  * whose items each carry a base64-ish chunk (SAP line tables) are joined in
  * order before being compared.
  */
-/** True when the base64 decodes to a PDF whose trailer (%%EOF) is present. */
-function isCompletePdf(candidate: string): boolean {
-  try {
-    const bytes = Buffer.from(normalizeBase64(candidate), "base64");
-    if (bytes.length < 8) return false;
-    if (bytes.subarray(0, 4).toString("latin1") !== "%PDF") return false;
-    return bytes.subarray(Math.max(0, bytes.length - 1024)).toString("latin1").includes("%%EOF");
-  } catch {
-    return false;
-  }
-}
-
 /** SAP sequence/line-number columns used to order line-table rows. */
 const SEQ_KEYS = ["LINE_NO", "LINENO", "LINE", "SEQ", "SEQNR", "SEQ_NO", "ZEILE", "NO", "INDEX"];
 
@@ -286,7 +306,15 @@ function orderRows(rows: any[]): any[] {
 
 function findDeepBase64(node: any, depth = 0): string | null {
   if (depth > 8 || node == null) return null;
-  if (typeof node === "string") return looksLikeBase64(node) ? node.trim() : null;
+  if (typeof node === "string") {
+    const candidate = node.trim();
+    // Keep the normal length guard for unknown strings, but accept a shorter
+    // value when its decoded magic proves it is a document payload.
+    return looksLikeBase64(candidate) ||
+      (looksLikeBase64Chunk(candidate) && scoreCandidate(candidate) >= 2)
+      ? candidate
+      : null;
+  }
   if (typeof node !== "object") return null;
 
   let best: string | null = null;
@@ -349,9 +377,13 @@ function findDeepBase64(node: any, depth = 0): string | null {
     const maxTotal = Math.max(0, ...totals.values());
     for (const [k, total] of totals) {
       if (maxTotal > 0 && total < maxTotal / 4) continue;
-      const list = byKey.get(k)!;
+      const list = byKey.get(k);
+      if (!list) continue;
       if (list.length > 1) considerLines(list);
-      else if (list.length === 1 && looksLikeBase64(list[0]!)) considerLines(list);
+      else {
+        const first = list[0];
+        if (first && looksLikeBase64(first)) considerLines(list);
+      }
       console.log(
         `[znfa-attach] column ${k} lines=${list.length} totalChars=${total} min=${Math.min(...list.map((v) => v.length))} max=${Math.max(...list.map((v) => v.length))} mod4=${[...new Set(list.map((v) => v.replace(/=+$/, "").length % 4))].join("/")}`,
       );
