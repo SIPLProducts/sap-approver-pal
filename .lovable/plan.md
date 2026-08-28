@@ -15,16 +15,18 @@
 2. **Trace and normalize the attachment response without exposing document data**
    - Keep the middleware raw passthrough contract, but strengthen response parsing for the actual SAP envelope: nested/double-encoded JSON, Base64 strings, and SAP line-table chunks.
    - Select document candidates by decoded file signature and complete PDF structure rather than field order or encoded length.
-   - If SAP wraps the PDF bytes in a ZIP container, extract the PDF member using a Worker-compatible pure JavaScript implementation before returning it to the browser; never label the wrapper itself as the final document.
-   - Return only the normalized PDF Base64, PDF MIME type, and structural status to the client. Diagnostics will record shape, byte counts, and magic signatures only—not Base64 content.
+   - Fix the confirmed candidate/MIME mismatch: each MIME hint stays paired with the exact Base64 candidate it came from, while the final type is verified from that candidate’s decoded bytes.
+   - Handle chunk delimiters and independently padded fragments even when SAP places all chunks inside one string field, not only when it returns an array.
+   - Return only the normalized PDF Base64, PDF MIME type, and structural status to the client. Diagnostics will record response shape, candidate strategy, byte counts, and magic signatures only—not Base64 content.
 
 3. **Preview handling**
    - Build the browser Blob from the normalized bytes and render confirmed PDFs in the existing preview iframe.
    - Keep Download and Open in new tab using the same normalized PDF Blob.
+   - Do not present a candidate as ZIP merely because a lower-confidence reconstruction begins with `PK`; search every response candidate for a valid PDF first.
    - Show the existing error state only when no valid PDF can be recovered.
 
 4. **Regression coverage and verification**
-   - Extend attachment parsing tests for the real response shapes: nested middleware envelope, double-encoded payload, chunked PDF, misleading ZIP candidate beside a PDF, and ZIP-wrapped PDF.
+   - Extend attachment parsing tests for the real response shapes: nested middleware envelope, double-encoded payload, chunked PDF in arrays and single strings, a prefixed candidate/MIME pairing case, and a misleading ZIP-like candidate beside a valid PDF.
    - Add/adjust a focused Gate Pass assertion for Return Receipt Remarks locking where practical.
    - Run the focused tests and verify the ZNFA preview visually in the authenticated app when a live attachment is available.
 
