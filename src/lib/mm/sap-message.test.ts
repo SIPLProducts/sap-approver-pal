@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { collectSapMessages, extractFalseStatusMessage, extractMessagesArrayError } from "./sap-message";
+import {
+  collectSapMessages,
+  extractFalseStatusMessage,
+  extractFalseStatusMessagePreferMessage,
+  extractMessagesArrayError,
+} from "./sap-message";
 
 describe("extractFalseStatusMessage", () => {
   it("returns MSGTXT from a top-level STATUS FALSE response", () => {
@@ -19,6 +24,24 @@ describe("extractFalseStatusMessage", () => {
 
   it("does not treat successful rows as failures", () => {
     expect(extractFalseStatusMessage({ data: [{ STATUS: "TRUE", EBELN: "4500000010" }] })).toBeNull();
+  });
+});
+
+describe("extractFalseStatusMessagePreferMessage", () => {
+  it("returns the exact MESSAGE key for a Gate Pass Save STATUS FALSE response", () => {
+    expect(
+      extractFalseStatusMessagePreferMessage({ STATUS: "FALSE", MESSAGE: "Please maintain remarks" }),
+    ).toBe("Please maintain remarks");
+  });
+
+  it("falls back to MSGTXT when MESSAGE is missing", () => {
+    expect(
+      extractFalseStatusMessagePreferMessage({ data: { GET: { STATUS: "false", MSGTXT: "No data" } } }),
+    ).toBe("No data");
+  });
+
+  it("ignores successful STATUS TRUE responses", () => {
+    expect(extractFalseStatusMessagePreferMessage({ STATUS: "TRUE", MESSAGE: "ok" })).toBeNull();
   });
 });
 
