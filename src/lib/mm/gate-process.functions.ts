@@ -425,9 +425,9 @@ export const createZnfa = createServerFn({ method: "POST" })
         RATE: pick(r, "RATE"),
       })),
       ATTACHMENTS: attachmentsRaw.map((a: any) => ({
-        NAME: pick(a, "NAME"),
-        CREATED_BY: pick(a, "CREATED_BY"),
-        CREATED_ON: pick(a, "CREATED_ON"),
+        OBJDES: pick(a, "OBJDES"),
+        OWNNAM: pick(a, "OWNNAM"),
+        CRDAT: formatSapDate(pick(a, "CRDAT")),
       })),
     };
     console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "output.ATTACHMENTS.len=", output.ATTACHMENTS?.length, "PR_NUMBER=", output.PR_NUMBER);
