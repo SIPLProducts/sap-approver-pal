@@ -327,6 +327,7 @@ function GatePassPage() {
         "SCM_HEAD",
         "PH_APPROVAL",
         "PH_REJECTION",
+        "REMARKS",
       ],
     };
     return new Set(executedFlag ? map[executedFlag] : []);

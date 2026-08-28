@@ -62,17 +62,7 @@ export function extractBase64Payload(json: any): {
   mimeType: string;
   msg: string | null;
 } {
-  let root: any = json;
-  if (typeof root === "string") {
-    const trimmed = root.trim();
-    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-      try {
-        root = JSON.parse(trimmed);
-      } catch {
-        /* keep the raw string */
-      }
-    }
-  }
+  const root: any = parseNestedJson(json);
   const payload: any = Array.isArray(root) ? root[0] : root;
 
   if (typeof payload === "string") {
@@ -89,6 +79,7 @@ export function extractBase64Payload(json: any): {
   const fallbackMime = MIME_BY_EXT[ext] ?? "application/pdf";
 
   let explicitBase64: string | null = null;
+  let explicitMime: string | null = null;
   for (const key of [
     "PDF",
     "pdf",
@@ -106,13 +97,14 @@ export function extractBase64Payload(json: any): {
     const candidate = payload?.[key];
     if (typeof candidate === "string" && candidate.trim()) {
       const { base64, mimeFromPrefix } = cleanBase64(candidate);
-      if (base64 && (!explicitBase64 || scoreCandidate(base64) > scoreCandidate(explicitBase64))) {
-        explicitBase64 = base64;
-      }
-      if (base64 && mimeFromPrefix) {
-        const deep = findDeepBase64(root);
-        const selected = selectBestCandidate(explicitBase64, deep);
-        return { base64: selected, mimeType: mimeFromPrefix, msg };
+      const variants = stringCandidateVariants(candidate);
+      const bestFromField = selectBestCandidate(base64, ...variants);
+      if (
+        bestFromField &&
+        (!explicitBase64 || compareCandidates(bestFromField, explicitBase64) > 0)
+      ) {
+        explicitBase64 = bestFromField;
+        explicitMime = mimeFromPrefix;
       }
     }
   }
@@ -124,10 +116,33 @@ export function extractBase64Payload(json: any): {
   const selected = selectBestCandidate(explicitBase64, deep);
   if (selected) {
     const { base64, mimeFromPrefix } = cleanBase64(selected);
-    if (base64) return { base64, mimeType: mimeFromPrefix ?? fallbackMime, msg };
+    if (base64) {
+      const pairedMime = selected === explicitBase64 ? explicitMime : null;
+      return { base64, mimeType: mimeFromPrefix ?? pairedMime ?? fallbackMime, msg };
+    }
   }
 
   return { base64: null, mimeType: fallbackMime, msg };
+}
+
+/** Parse JSON-in-JSON middleware envelopes without altering ordinary strings. */
+function parseNestedJson(value: any, depth = 0): any {
+  if (depth > 4 || typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[") && !trimmed.startsWith('"')) {
+    return value;
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed === value ? value : parseNestedJson(parsed, depth + 1);
+  } catch {
+    return value;
+  }
+}
+
+function compareCandidates(a: string, b: string): number {
+  const scoreDiff = scoreCandidate(a) - scoreCandidate(b);
+  return scoreDiff || a.length - b.length;
 }
 
 /** Prefer decoded document validity over the response key encountered first. */
@@ -139,9 +154,7 @@ function selectBestCandidate(...candidates: Array<string | null>): string | null
       best = candidate;
       continue;
     }
-    const candidateScore = scoreCandidate(candidate);
-    const bestScore = scoreCandidate(best);
-    if (candidateScore > bestScore || (candidateScore === bestScore && candidate.length > best.length)) {
+    if (compareCandidates(candidate, best) > 0) {
       best = candidate;
     }
   }
@@ -231,6 +244,23 @@ export function candidateVariants(lines: string[]): string[] {
 }
 
 /**
+ * Builds candidates for SAP responses that place independently padded chunks
+ * in one string rather than a JSON line-table array.
+ */
+export function stringCandidateVariants(raw: string): string[] {
+  const withoutPrefix = raw.trim().replace(/^data:[^;,]*;base64,/i, "");
+  const slashFixed = withoutPrefix.replace(/\\\//g, "/");
+  const lineParts = slashFixed
+    .split(/(?:\\[nr]|[\r\n\t ]+)+/)
+    .map((part) => part.replace(/[^A-Za-z0-9+/=_-]/g, ""))
+    .filter(Boolean);
+  const compact = slashFixed.replace(/[^A-Za-z0-9+/=_-]/g, "");
+  const paddedParts = compact.match(/[A-Za-z0-9+/_-]+={1,2}(?=[A-Za-z0-9+/_-]|$)/g) ?? [];
+  const parts = lineParts.length > 1 ? lineParts : paddedParts.length > 1 ? paddedParts : [];
+  return parts.length > 1 ? candidateVariants(parts) : [];
+}
+
+/**
  * Ranks a decoded payload: complete PDF > PDF > recognised magic > unknown.
  */
 export function scoreCandidate(candidate: string): number {
@@ -307,13 +337,17 @@ function orderRows(rows: any[]): any[] {
 function findDeepBase64(node: any, depth = 0): string | null {
   if (depth > 8 || node == null) return null;
   if (typeof node === "string") {
+    const parsed = parseNestedJson(node);
+    if (parsed !== node) return findDeepBase64(parsed, depth + 1);
     const candidate = node.trim();
+    const reconstructed = selectBestCandidate(...stringCandidateVariants(candidate));
     // Keep the normal length guard for unknown strings, but accept a shorter
     // value when its decoded magic proves it is a document payload.
-    return looksLikeBase64(candidate) ||
+    const direct = looksLikeBase64(candidate) ||
       (looksLikeBase64Chunk(candidate) && scoreCandidate(candidate) >= 2)
       ? candidate
       : null;
+    return selectBestCandidate(direct, reconstructed);
   }
   if (typeof node !== "object") return null;
 
