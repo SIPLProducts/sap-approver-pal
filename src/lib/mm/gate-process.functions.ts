@@ -65,6 +65,15 @@ function pick(o: any, k: string) {
   return hit ? (o[hit] ?? null) : null;
 }
 
+function formatSapDate(v: any): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s || s === "0000-00-00") return null;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
 function mapRow(raw: any): GateRow {
   return {
     check: pick(raw, "CHECK"),
