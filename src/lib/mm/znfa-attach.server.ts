@@ -306,7 +306,15 @@ function orderRows(rows: any[]): any[] {
 
 function findDeepBase64(node: any, depth = 0): string | null {
   if (depth > 8 || node == null) return null;
-  if (typeof node === "string") return looksLikeBase64(node) ? node.trim() : null;
+  if (typeof node === "string") {
+    const candidate = node.trim();
+    // Keep the normal length guard for unknown strings, but accept a shorter
+    // value when its decoded magic proves it is a document payload.
+    return looksLikeBase64(candidate) ||
+      (looksLikeBase64Chunk(candidate) && scoreCandidate(candidate) >= 2)
+      ? candidate
+      : null;
+  }
   if (typeof node !== "object") return null;
 
   let best: string | null = null;
