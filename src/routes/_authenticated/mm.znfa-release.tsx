@@ -1356,7 +1356,7 @@ function ZnfaReleasePage() {
       });
       return;
     }
-    const attachmentId = String(rfqNumber ?? "").trim();
+    const attachmentId = String(row.ATTACHMENT_ID ?? "").trim();
     const vendor = String(row.VENDOR ?? "").trim();
     const name1 = String(row.NAME1 ?? "").trim();
     const noAttachments = String(row.NO_ATTACHMENTS ?? "").trim();
@@ -2227,17 +2227,25 @@ function ZnfaReleasePage() {
                                 />
                               </TableCell>
                               <TableCell className="whitespace-nowrap text-sm font-mono text-xs">
-                                {String(rfqNumber ?? "").trim() || "—"}
+                                {a.ATTACHMENT_ID !== undefined && a.ATTACHMENT_ID !== null && String(a.ATTACHMENT_ID) !== ""
+                                  ? String(a.ATTACHMENT_ID)
+                                  : "—"}
                               </TableCell>
 
                               <TableCell className="whitespace-nowrap text-sm">
-                                {String(a.VENDOR ?? "—").trim() || "—"}
+                                {a.VENDOR !== undefined && a.VENDOR !== null && String(a.VENDOR) !== ""
+                                  ? String(a.VENDOR)
+                                  : "—"}
                               </TableCell>
                               <TableCell className="text-sm">
-                                {String(a.NAME1 ?? "—").trim() || "—"}
+                                {a.NAME1 !== undefined && a.NAME1 !== null && String(a.NAME1) !== ""
+                                  ? String(a.NAME1)
+                                  : "—"}
                               </TableCell>
                               <TableCell className="whitespace-nowrap text-right text-sm tabular-nums">
-                                {String(a.NO_ATTACHMENTS ?? "").trim() || "—"}
+                                {a.NO_ATTACHMENTS !== undefined && a.NO_ATTACHMENTS !== null && String(a.NO_ATTACHMENTS) !== ""
+                                  ? String(a.NO_ATTACHMENTS)
+                                  : "—"}
                               </TableCell>
                             </TableRow>
                             );
