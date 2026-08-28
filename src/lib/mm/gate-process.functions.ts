@@ -30,9 +30,9 @@ export type ZnfaCreateRow = {
 };
 
 export type ZnfaAttachment = {
-  NAME?: string | null;
-  CREATED_BY?: string | null;
-  CREATED_ON?: string | null;
+  OBJDES?: string | null;
+  OWNNAM?: string | null;
+  CRDAT?: string | null;
 };
 
 export type ZnfaOutput = {
