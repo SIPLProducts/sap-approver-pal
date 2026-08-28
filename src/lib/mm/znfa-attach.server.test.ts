@@ -4,6 +4,7 @@ import {
   extractBase64Payload,
   normalizeBase64,
   scoreCandidate,
+  stringCandidateVariants,
 } from "./znfa-attach.server";
 
 const PDF_BYTES = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF", "latin1");
@@ -60,5 +61,47 @@ describe("ZNFA attachment Base64 extraction", () => {
     const result = extractBase64Payload({ PDF: escaped });
 
     expect(normalizeBase64(result.base64 ?? "")).toBe(PDF_BASE64);
+  });
+
+  it("keeps a prefixed MIME hint paired with its own candidate", () => {
+    const result = extractBase64Payload({
+      DATA: `data:application/zip;base64,${ZIP_BASE64}`,
+      response: { document: { BASE64: PDF_BASE64 } },
+    });
+
+    expect(normalizeBase64(result.base64 ?? "")).toBe(PDF_BASE64);
+    expect(result.mimeType).toBe("application/pdf");
+  });
+
+  it("unwraps a double-encoded middleware response", () => {
+    const response = JSON.stringify(JSON.stringify({ data: [{ CONTENT: PDF_BASE64 }] }));
+    const result = extractBase64Payload(response);
+
+    expect(normalizeBase64(result.base64 ?? "")).toBe(PDF_BASE64);
+    expect(scoreCandidate(result.base64 ?? "")).toBe(4);
+  });
+
+  it("reassembles padded chunks stored in one string", () => {
+    const chunks = [
+      PDF_BYTES.subarray(0, 11).toString("base64"),
+      PDF_BYTES.subarray(11, 23).toString("base64"),
+      PDF_BYTES.subarray(23).toString("base64"),
+    ];
+    const result = extractBase64Payload({ CONTENT: chunks.join("\\n") });
+
+    expect(normalizeBase64(result.base64 ?? "")).toBe(PDF_BASE64);
+    expect(scoreCandidate(result.base64 ?? "")).toBe(4);
+  });
+
+  it("generates a valid PDF candidate from interior padding boundaries", () => {
+    const chunks = [
+      PDF_BYTES.subarray(0, 11).toString("base64"),
+      PDF_BYTES.subarray(11, 23).toString("base64"),
+      PDF_BYTES.subarray(23).toString("base64"),
+    ];
+    const variants = stringCandidateVariants(chunks.join(""));
+    const best = variants.sort((a, b) => scoreCandidate(b) - scoreCandidate(a))[0];
+
+    expect(normalizeBase64(best ?? "")).toBe(PDF_BASE64);
   });
 });

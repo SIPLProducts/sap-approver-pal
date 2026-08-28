@@ -22,16 +22,16 @@ export type ZnfaAttachPrintResponse = {
   incomplete?: boolean;
 };
 
-const AttachRow = z.object({
-  ATTACHMENT_ID: z.string().trim().default(""),
-  VENDOR: z.string().trim().default(""),
-  NAME1: z.string().trim().default(""),
-  NO_ATTACHMENTS: z.string().trim().default(""),
-});
-
 export const fetchZnfaAttachments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => AttachRow.parse(d))
+  .inputValidator((d) =>
+    z.object({
+      ATTACHMENT_ID: z.string().trim().default(""),
+      VENDOR: z.string().trim().default(""),
+      NAME1: z.string().trim().default(""),
+      NO_ATTACHMENTS: z.string().trim().default(""),
+    }).parse(d),
+  )
   .handler(async ({ data }): Promise<ZnfaAttachListResponse> => {
     const { invokeZnfaAttachApi } = await import("./znfa-attach.server");
     const payload = [
