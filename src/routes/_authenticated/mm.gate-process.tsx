@@ -70,11 +70,14 @@ function GateProcessPage() {
   const [rows, setRows] = useState<GateRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<ZnfaOutput | null>(null);
+  // header.PR_DATE holds the display value (DD-MM-YYYY); prDateRaw keeps the
+  // exact SAP value so the save payload stays byte-identical.
   const [header, setHeader] = useState<{ PR_NUMBER: string; PR_DATE: string; TER_SUB_ID: string }>({
     PR_NUMBER: "",
     PR_DATE: "",
     TER_SUB_ID: "",
   });
+  const [prDateRaw, setPrDateRaw] = useState("");
   type ItemFields = {
     SR_NO: string;
     MATERIAL: string;
