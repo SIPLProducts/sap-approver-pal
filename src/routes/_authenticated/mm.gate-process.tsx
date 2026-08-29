@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Filter, RotateCcw, Loader2 } from "lucide-react";
+import { Filter, RotateCcw, Loader2, FileText } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,16 @@ import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { formatSapDateDMY } from "@/lib/format";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGateProcess, createZnfa, saveZnfa, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
+import { fetchZnfaAttachPrint } from "@/lib/mm/znfa-attach.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 import { PageHeader } from "@/components/exec/page-header";
 
@@ -81,6 +90,116 @@ function GateProcessPage() {
   const [lastAction, setLastAction] = useState<ZnfaAction | null>(null);
   const [messageDialog, setMessageDialog] = useState<SapResponseDialogState | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
+
+  // ── Attachment document preview (ZNFA_ATTACH_PRINT_API) ─────────────────
+  const [attachPrintOpen, setAttachPrintOpen] = useState(false);
+  const [attachPrintTitle, setAttachPrintTitle] = useState("");
+  const [attachPrintBase64, setAttachPrintBase64] = useState<string | null>(null);
+  const [attachPrintMime, setAttachPrintMime] = useState("application/pdf");
+  const [attachPrintError, setAttachPrintError] = useState<string | null>(null);
+  const [attachPrintBlobUrl, setAttachPrintBlobUrl] = useState<string | null>(null);
+  const [attachPrintSize, setAttachPrintSize] = useState(0);
+  const [attachPrintIncomplete, setAttachPrintIncomplete] = useState(false);
+  const fetchAttachPrint = useServerFn(fetchZnfaAttachPrint);
+  const attachPrintMutation = useMutation({
+    mutationFn: (vars: { row: Record<string, any> }) => fetchAttachPrint({ data: vars }),
+    onSuccess: (res) => {
+      const msg = (res.sapMessage?.trim() ? res.sapMessage.trim() : null) ?? res.error;
+      if (msg || !res.base64) {
+        setAttachPrintBase64(null);
+        setAttachPrintMime("application/pdf");
+        setAttachPrintIncomplete(false);
+        setAttachPrintError(msg || "Could not open the attachment.");
+        return;
+      }
+      setAttachPrintError(null);
+      setAttachPrintMime(res.mimeType?.trim() || "application/pdf");
+      setAttachPrintIncomplete(Boolean(res.incomplete));
+      setAttachPrintBase64(res.base64);
+    },
+    onError: (err: any) => {
+      setAttachPrintBase64(null);
+      setAttachPrintMime("application/pdf");
+      const raw = String(err?.message ?? err ?? "").trim();
+      setAttachPrintError(
+        /401|unauthor/i.test(raw)
+          ? "Your session has expired. Please sign in again and retry."
+          : raw
+            ? `Attachment preview failed: ${raw}`
+            : "An unexpected error occurred while opening the attachment.",
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (!attachPrintBase64) {
+      setAttachPrintBlobUrl(null);
+      setAttachPrintSize(0);
+      return;
+    }
+    let url: string | null = null;
+    try {
+      let b64 = attachPrintBase64.trim().replace(/^["']+/, "").replace(/["']+$/, "");
+      b64 = b64.replace(/^data:[^;,]*;base64,/i, "");
+      b64 = b64
+        .replace(/[^A-Za-z0-9+/=_-]/g, "")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .replace(/=+$/, "");
+      b64 = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=");
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      url = URL.createObjectURL(new Blob([bytes], { type: attachPrintMime || "application/pdf" }));
+      setAttachPrintSize(bytes.length);
+      setAttachPrintBlobUrl(url);
+      setAttachPrintError(null);
+    } catch {
+      setAttachPrintBlobUrl(null);
+      setAttachPrintError("The document returned by SAP could not be decoded for preview.");
+    }
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [attachPrintBase64, attachPrintMime]);
+
+  function attachFileExtension(mime: string): string {
+    const m = (mime || "").toLowerCase().split(";")[0].trim();
+    const known: Record<string, string> = {
+      "application/pdf": "pdf",
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "image/bmp": "bmp",
+      "image/tiff": "tiff",
+      "image/svg+xml": "svg",
+    };
+    if (known[m]) return known[m];
+    const sub = m.split("/")[1]?.replace(/[^\w]+/g, "");
+    return sub || "pdf";
+  }
+
+  function onAttachPrint(att: Record<string, any>) {
+    const row = (att?.__raw && typeof att.__raw === "object" ? att.__raw : att) as Record<string, any>;
+    setAttachPrintTitle(String(att?.OBJDES ?? "").trim());
+    setAttachPrintError(null);
+    setAttachPrintBase64(null);
+    setAttachPrintMime("application/pdf");
+    setAttachPrintOpen(true);
+    attachPrintMutation.mutate({ row });
+  }
+
+  function onAttachPrintDownload() {
+    const href = attachPrintBlobUrl;
+    if (!href) return;
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `${(attachPrintTitle || "attachment").replace(/[^\w.-]+/g, "_")}.${attachFileExtension(attachPrintMime)}`;
+    a.click();
+  }
+
 
   const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
 
@@ -434,7 +553,20 @@ function GateProcessPage() {
                         {Array.isArray(output.ATTACHMENTS) && output.ATTACHMENTS.length > 0 ? (
                           output.ATTACHMENTS.map((att, idx) => (
                             <TableRow key={idx}>
-                              <TableCell className="text-xs">{toStr(att.OBJDES)}</TableCell>
+                              <TableCell className="text-xs">
+                                {toStr(att.OBJDES).trim() ? (
+                                  <button
+                                    type="button"
+                                    className="text-left font-medium text-primary underline underline-offset-2 hover:opacity-80"
+                                    onClick={() => onAttachPrint(att)}
+                                  >
+                                    {toStr(att.OBJDES)}
+                                  </button>
+                                ) : (
+                                  "—"
+                                )}
+                              </TableCell>
+
                               <TableCell className="text-xs">{toStr(att.OWNNAM)}</TableCell>
                               <TableCell className="text-xs">{toStr(att.CRDAT)}</TableCell>
                             </TableRow>
@@ -613,6 +745,90 @@ function GateProcessPage() {
           )}
         </>
       )}
+
+      <Dialog open={attachPrintOpen} onOpenChange={setAttachPrintOpen}>
+        <DialogContent className="max-w-5xl p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>
+              Attachment Preview {attachPrintTitle ? `— ${attachPrintTitle}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Document returned by SAP. Use Download if your browser cannot display it inline.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            {attachPrintMutation.isPending ? (
+              <div className="flex h-[40vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading attachment…
+              </div>
+            ) : attachPrintError ? (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                {attachPrintError}
+              </div>
+            ) : attachPrintBlobUrl ? (
+              <>
+                <div className="rounded-md border bg-white">
+                  {(attachPrintMime || "").toLowerCase().startsWith("image/") ? (
+                    <div className="flex h-[65vh] w-full items-center justify-center overflow-auto rounded-md p-2">
+                      <img
+                        src={attachPrintBlobUrl}
+                        alt={`Attachment preview${attachPrintTitle ? ` for ${attachPrintTitle}` : ""}`}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  ) : (attachPrintMime || "").toLowerCase().includes("pdf") &&
+                    !attachPrintIncomplete ? (
+                    <iframe
+                      src={attachPrintBlobUrl}
+                      title="Attachment preview"
+                      className="h-[65vh] w-full rounded-md"
+                    />
+                  ) : (
+                    <div className="flex h-[40vh] flex-col items-center justify-center gap-2 rounded-md p-6 text-center">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm font-medium text-foreground">
+                        Document ready ({attachFileExtension(attachPrintMime).toUpperCase()}
+                        {attachPrintSize ? ` · ${(attachPrintSize / 1024).toFixed(0)} KB` : ""})
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {attachPrintIncomplete
+                          ? "SAP returned this PDF without its end marker, so it may be incomplete and cannot be shown inline. Use Download or Open in new tab below."
+                          : "This file type cannot be displayed inside the browser. Use Download or Open in new tab below."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => window.open(attachPrintBlobUrl, "_blank")}
+                  >
+                    Open in new tab
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    onClick={onAttachPrintDownload}
+                  >
+                    Download
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                No preview data available.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       <SapResponseDialog
         dialog={messageDialog}

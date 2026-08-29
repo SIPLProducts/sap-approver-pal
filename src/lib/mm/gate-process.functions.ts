@@ -33,7 +33,11 @@ export type ZnfaAttachment = {
   OBJDES?: string | null;
   OWNNAM?: string | null;
   CRDAT?: string | null;
+  /** Untouched SAP row, forwarded verbatim to ZNFA_ATTACH_PRINT_API. */
+  __raw?: Record<string, any>;
+  [key: string]: any;
 };
+
 
 export type ZnfaOutput = {
   PR_NUMBER?: string | null;
@@ -434,10 +438,13 @@ export const createZnfa = createServerFn({ method: "POST" })
         RATE: pick(r, "RATE"),
       })),
       ATTACHMENTS: attachmentsRaw.map((a: any) => ({
+        ...(a && typeof a === "object" ? a : {}),
         OBJDES: pick(a, "OBJDES"),
         OWNNAM: pick(a, "OWNNAM"),
         CRDAT: formatSapDate(pick(a, "CRDAT")),
+        __raw: a && typeof a === "object" ? a : {},
       })),
+
     };
     console.log("[znfa-create] output.ITEMS.len=", output.ITEMS?.length, "output.RATINGS.len=", output.RATINGS?.length, "output.ATTACHMENTS.len=", output.ATTACHMENTS?.length, "PR_NUMBER=", output.PR_NUMBER);
 

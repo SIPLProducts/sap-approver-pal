@@ -24,10 +24,66 @@ const STCK_TYPE_OPTIONS = [
   { value: "3", label: "3 Blocked" },
 ];
 
+/** SAP key → business label shown in the UI (values/payloads unchanged). */
+const FIELD_LABELS: Record<string, string> = {
+  DOC_DATE: "Document Date",
+  PSTNG_DATE: "Posting Date",
+  DELIV_NOTE: "Delivery Note Number",
+  VENDOR_NAME: "Vendor Name",
+  HEADER_TEXT: "Header Text",
+  GAT_NO: "Gate Entry Number",
+  GAT_DATE: "Gate Entry Date",
+  GIR_NO: "Goods Inspection Report Number",
+  GIR_DATE: "Goods Inspection Report Date",
+  VEHICLE_NO: "Vehicle Number",
+  INVOICE_NO: "Invoice Number",
+  TRANSPORT_NO: "Transport Number",
+  ZINSP: "Inspection Date",
+  ZNSP: "Inspection Status",
+  ZMTSNR: "Material Test Serial Number",
+  MAT_DOC: "Material Document Number",
+  DOC_YEAR: "Material Document Year",
+  MATDOC_ITM: "Material Document Item",
+  MATERIAL: "Material Number",
+  WARRANTY: "Warranty Information",
+  OK: "Selection Indicator",
+  PLANT: "Plant",
+  DESCRIPTION: "Material Description",
+  STGE_LOC: "Storage Location",
+  BATCH: "Batch Number",
+  MOVE_TYPE: "Movement Type",
+  STCK_TYPE: "Stock Type",
+  SPEC_STOCK: "Special Stock Indicator",
+  VENDOR: "Vendor Number",
+  CUSTOMER: "Customer Number",
+  SALES_ORD: "Sales Order Number",
+  S_ORD_ITEM: "Sales Order Item",
+  SCHED_LINE: "Schedule Line",
+  ENTRY_QNT: "Entry Quantity",
+  ENTRY_UOM: "Unit of Measure",
+  PO_PR_QNT: "Purchase Order Quantity",
+  ORDERPR_UN: "Purchase Order Unit",
+  PO_NUMBER: "Purchase Order Number",
+  PO_ITEM: "Purchase Order Item",
+  ITEM_TEXT: "Item Text",
+  PROFIT_CTR: "Profit Center",
+  CURRENCY: "Currency",
+  REF_DOC_YR: "Reference Document Year",
+  REF_DOC: "Reference Material Document",
+  REF_DOC_IT: "Reference Document Item",
+  CMMT_ITEM_LONG: "Commitment Item",
+  LINE_ID: "Line",
+};
+
+function fieldLabel(key: string) {
+  return FIELD_LABELS[key.toUpperCase()] ?? key.replace(/_/g, " ");
+}
+
 function isStckTypeKey(k: string) {
   const u = k.toUpperCase();
   return u === "STCK_TYPE" || u === "STCKTYPE";
 }
+
 
 export const Route = createFileRoute("/_authenticated/mm/migo-release")({
   component: MigoReleasePage,
@@ -253,7 +309,7 @@ function MigoReleasePage() {
       if (isCheckboxKey(key)) {
         return {
           id: key,
-          header: key.replace(/_/g, " "),
+          header: fieldLabel(key),
           minWidth: 100,
           cell: (item: DataRow) => {
             const idx = rows.indexOf(item);
@@ -272,7 +328,7 @@ function MigoReleasePage() {
       if (isEditableTextKey(key)) {
         return {
           id: key,
-          header: key.replace(/_/g, " "),
+          header: fieldLabel(key),
           minWidth: 140,
           cell: (item: DataRow) => {
             const idx = rows.indexOf(item);
@@ -291,7 +347,7 @@ function MigoReleasePage() {
       if (isStckTypeKey(key)) {
         return {
           id: key,
-          header: key.replace(/_/g, " "),
+          header: fieldLabel(key),
           minWidth: 200,
           cell: (item: DataRow) => {
             const idx = rows.indexOf(item);
@@ -317,7 +373,7 @@ function MigoReleasePage() {
       }
       return {
         id: key,
-        header: key.replace(/_/g, " "),
+        header: fieldLabel(key),
         minWidth: 120,
         align: numericHint.test(key) ? ("right" as const) : undefined,
         cell: (item: DataRow) => {
@@ -399,7 +455,7 @@ function MigoReleasePage() {
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 {headerFields.map((k) => (
                   <div key={k} className="space-y-1.5">
-                    <Label className="text-xs">{k.replace(/_/g, " ")}</Label>
+                    <Label className="text-xs">{fieldLabel(k)}</Label>
                     <Input
                       value={isSapDateKey(k) ? formatSapDateDMY(header?.[k]) : toStr(header?.[k])}
                       readOnly
@@ -419,7 +475,7 @@ function MigoReleasePage() {
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 {["GAT_NO","GAT_DATE","GIR_NO","GIR_DATE","VEHICLE_NO","INVOICE_NO","TRANSPORT_NO","ZINSP","ZNSP","ZMTSNR"].map((k) => (
                   <div key={k} className="space-y-1.5">
-                    <Label className="text-xs">{k.replace(/_/g, " ")}</Label>
+                    <Label className="text-xs">{fieldLabel(k)}</Label>
                     <Input
                       value={isSapDateKey(k) ? formatSapDateDMY(customFields?.[k]) : toStr(customFields?.[k])}
                       readOnly
