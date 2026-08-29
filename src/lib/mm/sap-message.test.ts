@@ -155,3 +155,26 @@ describe("collectSapMessages", () => {
     expect(collectSapMessages({ DATA: [{ MATERIAL: "1" }] })).toEqual([]);
   });
 });
+
+describe("gate pass save failure shapes", () => {
+  it("extracts the exact MESSAGE from a MESSAGES array payload", () => {
+    const payload = { MESSAGES: [{ TYPE: "E", MESSAGE: "Please maintain remarks" }] };
+    expect(extractMessagesArrayError(payload)).toBe("Please maintain remarks");
+    expect(collectSapMessages(payload)).toEqual([
+      { type: "E", message: "Please maintain remarks" },
+    ]);
+  });
+
+  it("flags any E/A entry in collected messages as an error", () => {
+    const collected = collectSapMessages({
+      MESSAGES: [
+        { TYPE: "S", MESSAGE: "Line ok" },
+        { TYPE: "E", MESSAGE: "Please maintain remarks" },
+      ],
+    });
+    const firstErr = collected.find((m) =>
+      ["E", "A"].includes(String(m.type ?? "").trim().toUpperCase()),
+    );
+    expect(firstErr?.message).toBe("Please maintain remarks");
+  });
+});
