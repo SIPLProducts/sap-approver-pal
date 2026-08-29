@@ -33,7 +33,11 @@ export type ZnfaAttachment = {
   OBJDES?: string | null;
   OWNNAM?: string | null;
   CRDAT?: string | null;
+  /** Untouched SAP row, forwarded verbatim to ZNFA_ATTACH_PRINT_API. */
+  __raw?: Record<string, any>;
+  [key: string]: any;
 };
+
 
 export type ZnfaOutput = {
   PR_NUMBER?: string | null;
