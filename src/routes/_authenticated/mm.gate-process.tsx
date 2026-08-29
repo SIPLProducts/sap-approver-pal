@@ -553,7 +553,20 @@ function GateProcessPage() {
                         {Array.isArray(output.ATTACHMENTS) && output.ATTACHMENTS.length > 0 ? (
                           output.ATTACHMENTS.map((att, idx) => (
                             <TableRow key={idx}>
-                              <TableCell className="text-xs">{toStr(att.OBJDES)}</TableCell>
+                              <TableCell className="text-xs">
+                                {toStr(att.OBJDES).trim() ? (
+                                  <button
+                                    type="button"
+                                    className="text-left font-medium text-primary underline underline-offset-2 hover:opacity-80"
+                                    onClick={() => onAttachPrint(att)}
+                                  >
+                                    {toStr(att.OBJDES)}
+                                  </button>
+                                ) : (
+                                  "—"
+                                )}
+                              </TableCell>
+
                               <TableCell className="text-xs">{toStr(att.OWNNAM)}</TableCell>
                               <TableCell className="text-xs">{toStr(att.CRDAT)}</TableCell>
                             </TableRow>
