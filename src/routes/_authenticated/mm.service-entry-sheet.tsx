@@ -808,133 +808,54 @@ function ServiceEntrySheetPage() {
 
       {/* Results */}
       {hasRun && (
-        <Card ref={resultsRef} className="p-0 scroll-mt-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <ListChecks className="h-3.5 w-3.5" /> Entry Sheets
-              </div>
-              <div className="relative w-full max-w-sm">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search results..."
-                  className="h-9 pl-8 text-sm"
-                  aria-label="Search results"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {filteredRows.length}
-                {search.trim() ? ` / ${rows.length}` : ""} record
-                {filteredRows.length === 1 ? "" : "s"} · {selectedKeys.size} selected
-              </span>
-              <Button
-                variant="success"
-                size="sm"
-                disabled={selectedKeys.size === 0 || releasing}
-                onClick={doRelease}
-              >
-                {releasing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                Release
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={selectedKeys.size === 0 || rejecting}
-                onClick={doReject}
-              >
-                {rejecting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                UnRelease
-              </Button>
+        <div ref={resultsRef} className="scroll-mt-4">
+          <CloudscapeApprovalTable
+            title="Entry Sheets"
+            rows={rows}
+            columns={columns}
+            rowKey={rowKey}
+            showSelect
+            selectedKeys={selectedKeys}
+            onSelectionChange={setSelectedKeys}
+            emptyMessage="No entry sheets found"
+            headerExtras={
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="success"
+                  size="sm"
+                  disabled={selectedKeys.size === 0 || releasing}
+                  onClick={doRelease}
+                >
+                  {releasing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                  Release
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={selectedKeys.size === 0 || rejecting}
+                  onClick={doReject}
+                >
+                  {rejecting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                  UnRelease
+                </Button>
 
-              {/* Delete button hidden for now
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={selectedKeys.size === 0 || deleting}
-                onClick={doDelete}
-              >
-                {deleting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                Delete
-              </Button>
-              */}
-
-            </div>
-          </div>
-          {rows.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-              No entry sheets found
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="w-10 whitespace-nowrap px-3 py-2 text-left">
-                      <Checkbox
-                        checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                        onCheckedChange={(v) => toggleAll(v === true)}
-                        aria-label="Select all entry sheets"
-                      />
-                    </th>
-                    {columns.map((c) => (
-                      <th
-                        key={c.id}
-                        style={c.minWidth ? { minWidth: c.minWidth } : undefined}
-                        className={`whitespace-nowrap px-3 py-2 text-xs font-semibold ${
-                          c.align === "right" ? "text-right" : "text-left"
-                        }`}
-                      >
-                        {c.header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.length === 0 ? (
-                    <tr className="border-t">
-                      <td
-                        colSpan={columns.length + 1}
-                        className="px-3 py-6 text-center text-sm text-muted-foreground"
-                      >
-                        No results match your search.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRows.map(({ r, i }) => {
-                      const key = rowKey(r, i);
-                      return (
-                        <tr key={key} className="border-t">
-                          <td className="whitespace-nowrap px-3 py-2">
-                            <Checkbox
-                              checked={selectedKeys.has(key)}
-                              onCheckedChange={(v) => toggleRow(key, v === true)}
-                              aria-label={`Select ${key}`}
-                            />
-                          </td>
-                          {columns.map((c) => (
-                            <td
-                              key={c.id}
-                              className={`whitespace-nowrap px-3 py-2 ${
-                                c.align === "right" ? "text-right tabular-nums" : ""
-                              }`}
-                            >
-                              {c.cell(r)}
-                            </td>
-                          ))}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+                {/* Delete button hidden for now
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={selectedKeys.size === 0 || deleting}
+                  onClick={doDelete}
+                >
+                  {deleting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                  Delete
+                </Button>
+                */}
+              </div>
+            }
+          />
+        </div>
       )}
+
 
 
 
