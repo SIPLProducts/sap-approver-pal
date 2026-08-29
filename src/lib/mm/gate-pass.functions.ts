@@ -457,19 +457,23 @@ export const saveGatePass = createServerFn({ method: "POST" })
     }
 
     if (collected.length > 0) {
+      const firstErr = collected.find((m) =>
+        ["E", "A"].includes(String(m.type ?? "").trim().toUpperCase()),
+      );
+      const hasError = !!firstErr || !res.ok;
       const msg = collected.map((m) => m.message.trim()).filter(Boolean).join("; ");
       const docMatch = msg.match(/Document\s*No\s*:?\s*(\S+)/i);
       await supabaseAdmin.from("sap_api_sync_log").insert({
         config_id: cfg.id,
-        status: res.ok ? "ok" : "error",
+        status: hasError ? "error" : "ok",
         latency_ms,
         message: `gate-pass-save: ${msg}`.slice(0, 500),
       });
       return {
-        ok: res.ok,
-        message: msg || "Saved successfully",
+        ok: !hasError,
+        message: hasError ? (firstErr?.message.trim() || msg) : msg || "Saved successfully",
         document_number: docNumber ?? docMatch?.[1] ?? null,
-        error: res.ok ? null : msg,
+        error: hasError ? firstErr?.message.trim() || msg : null,
         messages: collected,
       };
     }
