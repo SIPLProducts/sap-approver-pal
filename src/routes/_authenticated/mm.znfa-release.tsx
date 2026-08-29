@@ -1707,7 +1707,7 @@ function ZnfaReleasePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {RELEASE_RESULT_COLUMNS.map((c) => (
+                    {releaseResultColumns.map((c) => (
                       <TableHead
                         key={c.key}
                         className={cn("whitespace-nowrap text-xs", c.numeric && "text-right")}
@@ -1720,7 +1720,7 @@ function ZnfaReleasePage() {
                 <TableBody>
                   {releaseRows.map((row, i) => (
                     <TableRow key={`${row.NFA_NO ?? "row"}-${i}`}>
-                      {RELEASE_RESULT_COLUMNS.map((c) => {
+                      {releaseResultColumns.map((c) => {
                         const raw = row[c.key];
                         const text =
                           raw === null || raw === undefined || raw === "" ? "" : String(raw);
@@ -1743,6 +1743,8 @@ function ZnfaReleasePage() {
                               >
                                 {isBusy ? "Loading…" : text}
                               </button>
+                            ) : c.statusIcon ? (
+                              <SapStatusIcon value={raw} />
                             ) : (
                               (text || "—")
                             )}
