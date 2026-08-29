@@ -412,7 +412,7 @@ function GateProcessPage() {
       action: lastAction,
       user_id: userId.trim(),
       pr_number: header.PR_NUMBER,
-      pr_date: header.PR_DATE,
+      pr_date: dmyToSapDate(header.PR_DATE, prDateRaw),
       ter_sub_id: header.TER_SUB_ID,
       items: itemsArr,
       ratings: ratingsArr,
