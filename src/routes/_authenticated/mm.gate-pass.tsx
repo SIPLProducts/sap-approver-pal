@@ -176,11 +176,19 @@ function GatePassPage() {
     },
     onSuccess: (res) => {
       if (!res.ok) {
+        const sapMessages = Array.isArray(res.messages) ? res.messages : [];
         setResponseDialog({
           open: true,
           title: "Gate Pass Response",
           messageOnly: true,
-          results: [{ label: "", message: res.error ?? res.message, ok: false }],
+          results:
+            sapMessages.length > 0
+              ? sapMessages.map((m) => ({
+                  label: "",
+                  message: m.message,
+                  ok: !["E", "A"].includes(String(m.type ?? "").trim().toUpperCase()),
+                }))
+              : [{ label: "", message: res.error ?? res.message, ok: false }],
         });
         return;
       }
