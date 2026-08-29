@@ -54,6 +54,21 @@ function toStr(v: any): string {
   return String(v);
 }
 
+/**
+ * Converts a DD-MM-YYYY display value back to the SAP shape of `template`
+ * (YYYYMMDD or YYYY-MM-DD). Returns the raw template when unchanged, and the
+ * input untouched when it is not a DD-MM-YYYY value.
+ */
+function dmyToSapDate(display: string, template: string): string {
+  const s = (display ?? "").trim();
+  if (!s) return "";
+  if (formatSapDateDMY(template) === s) return template;
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!m) return s;
+  const [, dd, mm, yyyy] = m;
+  return /^\d{4}-\d{2}-\d{2}/.test(template) ? `${yyyy}-${mm}-${dd}` : `${yyyy}${mm}${dd}`;
+}
+
 function GateProcessPage() {
   const fetchFn = useServerFn(fetchGateProcess);
   const userIdFn = useServerFn(getMySapUserId);
