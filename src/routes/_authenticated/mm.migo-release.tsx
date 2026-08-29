@@ -309,7 +309,7 @@ function MigoReleasePage() {
       if (isCheckboxKey(key)) {
         return {
           id: key,
-          header: key.replace(/_/g, " "),
+          header: fieldLabel(key),
           minWidth: 100,
           cell: (item: DataRow) => {
             const idx = rows.indexOf(item);
@@ -328,7 +328,7 @@ function MigoReleasePage() {
       if (isEditableTextKey(key)) {
         return {
           id: key,
-          header: key.replace(/_/g, " "),
+          header: fieldLabel(key),
           minWidth: 140,
           cell: (item: DataRow) => {
             const idx = rows.indexOf(item);
@@ -347,7 +347,7 @@ function MigoReleasePage() {
       if (isStckTypeKey(key)) {
         return {
           id: key,
-          header: key.replace(/_/g, " "),
+          header: fieldLabel(key),
           minWidth: 200,
           cell: (item: DataRow) => {
             const idx = rows.indexOf(item);
@@ -373,7 +373,7 @@ function MigoReleasePage() {
       }
       return {
         id: key,
-        header: key.replace(/_/g, " "),
+        header: fieldLabel(key),
         minWidth: 120,
         align: numericHint.test(key) ? ("right" as const) : undefined,
         cell: (item: DataRow) => {
@@ -455,7 +455,7 @@ function MigoReleasePage() {
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 {headerFields.map((k) => (
                   <div key={k} className="space-y-1.5">
-                    <Label className="text-xs">{k.replace(/_/g, " ")}</Label>
+                    <Label className="text-xs">{fieldLabel(k)}</Label>
                     <Input
                       value={isSapDateKey(k) ? formatSapDateDMY(header?.[k]) : toStr(header?.[k])}
                       readOnly
@@ -475,7 +475,7 @@ function MigoReleasePage() {
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 {["GAT_NO","GAT_DATE","GIR_NO","GIR_DATE","VEHICLE_NO","INVOICE_NO","TRANSPORT_NO","ZINSP","ZNSP","ZMTSNR"].map((k) => (
                   <div key={k} className="space-y-1.5">
-                    <Label className="text-xs">{k.replace(/_/g, " ")}</Label>
+                    <Label className="text-xs">{fieldLabel(k)}</Label>
                     <Input
                       value={isSapDateKey(k) ? formatSapDateDMY(customFields?.[k]) : toStr(customFields?.[k])}
                       readOnly
