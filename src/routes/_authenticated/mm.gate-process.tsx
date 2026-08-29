@@ -26,7 +26,16 @@ import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { formatSapDateDMY } from "@/lib/format";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGateProcess, createZnfa, saveZnfa, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
+import { fetchZnfaAttachPrint } from "@/lib/mm/znfa-attach.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 import { PageHeader } from "@/components/exec/page-header";
 
