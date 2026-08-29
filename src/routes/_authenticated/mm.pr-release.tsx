@@ -28,6 +28,7 @@ import { PageHeader } from "@/components/exec/page-header";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { formatSapDateDMY, isSapDateKey } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/mm/pr-release")({
   component: PrReleasePage,
@@ -573,6 +574,8 @@ function PrReleasePage() {
                                 />
                               ) : r[key] === null || r[key] === undefined || r[key] === "" ? (
                                 "-"
+                              ) : isSapDateKey(key) ? (
+                                formatSapDateDMY(r[key], "-")
                               ) : (
                                 String(r[key])
                               )}

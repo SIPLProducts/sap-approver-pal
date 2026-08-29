@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
+import { formatSapDateDMY } from "@/lib/format";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGateProcess, createZnfa, saveZnfa, type GateRow, type ZnfaOutput, type ZnfaAction } from "@/lib/mm/gate-process.functions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -369,7 +370,13 @@ function GateProcessPage() {
             selectedKeys={selected}
             onSelectionChange={setSelected}
             emptyMessage={rows.length === 0 ? "Click Execute to load ZNFA Rating records from SAP." : "No records."}
-            columns={buildDynamicColumns(rows)}
+            columns={buildDynamicColumns(rows).map((c) => ({
+              ...c,
+              cell: (r: any) => {
+                const v = c.cell(r);
+                return typeof v === "string" ? formatSapDateDMY(v) : v;
+              },
+            }))}
             headerExtras={
               <div className="flex items-center gap-2">
                 {actionButtons.map(({ label, action, variant }) => (

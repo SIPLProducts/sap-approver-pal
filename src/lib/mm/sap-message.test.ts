@@ -4,6 +4,7 @@ import {
   extractFalseStatusMessage,
   extractFalseStatusMessagePreferMessage,
   extractMessagesArrayError,
+  extractTypeEErrorMessage,
 } from "./sap-message";
 
 describe("extractFalseStatusMessage", () => {
@@ -84,6 +85,26 @@ describe("extractMessagesArrayError", () => {
         message: "Requested quantity should be lessthan or equal to total stock",
       },
     ]);
+  });
+
+  it("Gate Pass Plant Head save: full error chain surfaces the exact MESSAGE", () => {
+    // Mirrors saveGatePass: extractMessagesArrayError ?? extractTypeEErrorMessage
+    // ?? extractFalseStatusMessagePreferMessage.
+    const chain = (j: any) =>
+      extractMessagesArrayError(j) ??
+      extractTypeEErrorMessage(j) ??
+      extractFalseStatusMessagePreferMessage(j) ??
+      null;
+
+    expect(chain({ MESSAGES: [{ TYPE: "E", MESSAGE: "Please maintain remarks" }] })).toBe(
+      "Please maintain remarks",
+    );
+    expect(chain({ data: { MESSAGES: [{ TYPE: "E", MESSAGE: "Please maintain remarks" }] } })).toBe(
+      "Please maintain remarks",
+    );
+    expect(chain({ STATUS: "FALSE", MESSAGE: "Please maintain remarks" })).toBe(
+      "Please maintain remarks",
+    );
   });
 
   it("returns the exact MESSAGE of the first E entry", () => {
