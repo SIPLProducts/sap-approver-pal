@@ -107,6 +107,39 @@ describe("extractMessagesArrayError", () => {
     );
   });
 
+  it("handles the raw middleware envelope used by Gate Pass Save", () => {
+    const middlewareResponse = {
+      ok: true,
+      status: 200,
+      latency_ms: 42,
+      data: {
+        MESSAGES: [{ TYPE: "E", MESSAGE: "Please maintain remarks" }],
+      },
+    };
+
+    const sapPayload = middlewareResponse.data;
+    expect(extractMessagesArrayError(sapPayload)).toBe("Please maintain remarks");
+    expect(collectSapMessages(sapPayload)).toEqual([
+      { type: "E", message: "Please maintain remarks" },
+    ]);
+  });
+
+  it("handles a JSON-encoded raw middleware payload used by Gate Pass Save", () => {
+    const middlewareResponse = {
+      ok: true,
+      status: 200,
+      data: JSON.stringify({
+        MESSAGES: [{ TYPE: "E", MESSAGE: "Please maintain remarks" }],
+      }),
+    };
+
+    const sapPayload = JSON.parse(middlewareResponse.data);
+    expect(extractMessagesArrayError(sapPayload)).toBe("Please maintain remarks");
+    expect(collectSapMessages(sapPayload)).toEqual([
+      { type: "E", message: "Please maintain remarks" },
+    ]);
+  });
+
   it("returns the exact MESSAGE of the first E entry", () => {
     expect(
       extractMessagesArrayError({

@@ -368,7 +368,9 @@ export const saveGatePass = createServerFn({ method: "POST" })
         globalSecret?.proxy_secret ||
         process.env.MIDDLEWARE_SHARED_SECRET;
       if (secret) headers["x-shared-secret"] = secret;
-      bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload });
+      // Preserve the complete SAP envelope so MESSAGES / STATUS / TYPE errors
+      // cannot be removed by configured middleware response-field mappings.
+      bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload, raw: true });
       proxied = true;
     } else {
       target = cfg.endpoint_url;
