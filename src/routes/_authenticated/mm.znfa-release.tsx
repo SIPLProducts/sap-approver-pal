@@ -131,9 +131,33 @@ type DetailColumn = {
   divider?: boolean;
   /** Render a read-only checkbox from an SAP "X" flag instead of text. */
   checkbox?: boolean;
+  /** Render SAP status codes (@01@/@02@/@5D@) as small icons. */
+  statusIcon?: boolean;
   /** Optional second SAP field rendered as "primary / secondary". */
   also?: string;
 };
+
+/** SAP status code → small icon. Unknown codes fall back to plain text. */
+function SapStatusIcon({ value }: { value: unknown }) {
+  const code = String(value ?? "").trim().toUpperCase();
+  if (code === "@01@")
+    return (
+      <Check className="h-4 w-4 text-success" aria-label="Approved" role="img" />
+    );
+  if (code === "@02@")
+    return (
+      <X className="h-4 w-4 text-destructive" aria-label="Rejected" role="img" />
+    );
+  if (code === "@5D@")
+    return (
+      <AlertTriangle
+        className="h-4 w-4 text-warning"
+        aria-label="Pending / attention"
+        role="img"
+      />
+    );
+  return <>{code || "—"}</>;
+}
 
 
 const PR_DETAIL_COLUMNS: DetailColumn[] = [
