@@ -477,7 +477,12 @@ function MigoReleasePage() {
                   <div key={k} className="space-y-1.5">
                     <Label className="text-xs">{fieldLabel(k)}</Label>
                     <Input
-                      value={isSapDateKey(k) ? formatSapDateDMY(customFields?.[k]) : toStr(customFields?.[k])}
+                      value={
+                        // ZINSP is Inspection Date but has no "DATE" in its key.
+                        isSapDateKey(k) || k === "ZINSP"
+                          ? formatSapDateDMY(customFields?.[k])
+                          : toStr(customFields?.[k])
+                      }
                       readOnly
                       className="h-9 text-sm bg-muted/40"
                     />
