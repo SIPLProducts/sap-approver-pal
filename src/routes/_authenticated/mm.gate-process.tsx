@@ -433,6 +433,7 @@ function GateProcessPage() {
     setSelected(new Set());
     setOutput(null);
     setHeader({ PR_NUMBER: "", PR_DATE: "", TER_SUB_ID: "" });
+    setPrDateRaw("");
     setItems({});
     setRatings({});
     setLastAction(null);
