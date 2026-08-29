@@ -746,6 +746,90 @@ function GateProcessPage() {
         </>
       )}
 
+      <Dialog open={attachPrintOpen} onOpenChange={setAttachPrintOpen}>
+        <DialogContent className="max-w-5xl p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>
+              Attachment Preview {attachPrintTitle ? `— ${attachPrintTitle}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Document returned by SAP. Use Download if your browser cannot display it inline.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            {attachPrintMutation.isPending ? (
+              <div className="flex h-[40vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading attachment…
+              </div>
+            ) : attachPrintError ? (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                {attachPrintError}
+              </div>
+            ) : attachPrintBlobUrl ? (
+              <>
+                <div className="rounded-md border bg-white">
+                  {(attachPrintMime || "").toLowerCase().startsWith("image/") ? (
+                    <div className="flex h-[65vh] w-full items-center justify-center overflow-auto rounded-md p-2">
+                      <img
+                        src={attachPrintBlobUrl}
+                        alt={`Attachment preview${attachPrintTitle ? ` for ${attachPrintTitle}` : ""}`}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  ) : (attachPrintMime || "").toLowerCase().includes("pdf") &&
+                    !attachPrintIncomplete ? (
+                    <iframe
+                      src={attachPrintBlobUrl}
+                      title="Attachment preview"
+                      className="h-[65vh] w-full rounded-md"
+                    />
+                  ) : (
+                    <div className="flex h-[40vh] flex-col items-center justify-center gap-2 rounded-md p-6 text-center">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm font-medium text-foreground">
+                        Document ready ({attachFileExtension(attachPrintMime).toUpperCase()}
+                        {attachPrintSize ? ` · ${(attachPrintSize / 1024).toFixed(0)} KB` : ""})
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {attachPrintIncomplete
+                          ? "SAP returned this PDF without its end marker, so it may be incomplete and cannot be shown inline. Use Download or Open in new tab below."
+                          : "This file type cannot be displayed inside the browser. Use Download or Open in new tab below."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => window.open(attachPrintBlobUrl, "_blank")}
+                  >
+                    Open in new tab
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    onClick={onAttachPrintDownload}
+                  >
+                    Download
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                No preview data available.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       <SapResponseDialog
         dialog={messageDialog}
         onOpenChange={(open) => setMessageDialog((prev) => (prev ? { ...prev, open } : prev))}
