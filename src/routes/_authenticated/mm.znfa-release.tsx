@@ -1748,7 +1748,7 @@ function ZnfaReleasePage() {
                             ) : c.statusIcon ? (
                               <SapStatusIcon value={raw} />
                             ) : (
-                              (text || "—")
+                              (display || "—")
                             )}
                           </TableCell>
                         );
