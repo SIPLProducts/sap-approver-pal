@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { formatSapDateDMY, isSapDateKey } from "@/lib/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
 
@@ -322,6 +323,7 @@ function MigoReleasePage() {
         cell: (item: DataRow) => {
           const v = (item as any)[key];
           if (v == null || v === "") return "—";
+          if (isSapDateKey(key)) return formatSapDateDMY(v, "—");
           return String(v);
         },
       } as CloudscapeColumn<DataRow>;
@@ -399,7 +401,7 @@ function MigoReleasePage() {
                   <div key={k} className="space-y-1.5">
                     <Label className="text-xs">{k.replace(/_/g, " ")}</Label>
                     <Input
-                      value={toStr(header?.[k])}
+                      value={isSapDateKey(k) ? formatSapDateDMY(header?.[k]) : toStr(header?.[k])}
                       readOnly
                       className="h-9 text-sm bg-muted/40"
                     />
@@ -419,7 +421,7 @@ function MigoReleasePage() {
                   <div key={k} className="space-y-1.5">
                     <Label className="text-xs">{k.replace(/_/g, " ")}</Label>
                     <Input
-                      value={toStr(customFields?.[k])}
+                      value={isSapDateKey(k) ? formatSapDateDMY(customFields?.[k]) : toStr(customFields?.[k])}
                       readOnly
                       className="h-9 text-sm bg-muted/40"
                     />

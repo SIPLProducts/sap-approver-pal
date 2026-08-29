@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SapResponseDialog } from "@/components/mm/sap-response-dialog";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { formatSapDateDMY, isSapDateKey } from "@/lib/format";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchGatePass, saveGatePass } from "@/lib/mm/gate-pass.functions";
 import { GatePassNumberSelect, type GatePassF4Flag } from "@/components/mm/gate-pass-number-select";
@@ -349,6 +350,7 @@ function GatePassPage() {
       cell: (item) => {
         const v = (item as any)[k];
         if (v == null || v === "") return "—";
+        if (isSapDateKey(k)) return formatSapDateDMY(v, "—");
         return String(v);
       },
     });
@@ -539,7 +541,7 @@ function GatePassPage() {
                   <div key={k} className="space-y-1.5">
                     <Label className="text-xs">{humanize(k)}</Label>
                     <Input
-                      value={toStr(header?.[k])}
+                      value={isSapDateKey(k) ? formatSapDateDMY(header?.[k]) : toStr(header?.[k])}
                       readOnly
                       className="h-9 text-sm bg-muted/40"
                     />

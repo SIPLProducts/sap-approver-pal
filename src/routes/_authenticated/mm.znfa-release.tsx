@@ -77,6 +77,7 @@ import {
 } from "@/components/mm/sap-response-dialog";
 
 import { cn } from "@/lib/utils";
+import { formatSapDateDMY, isSapDateKey } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/mm/znfa-release")({
   component: ZnfaReleasePage,
@@ -198,9 +199,15 @@ const FINAL_RECOMMENDATION_COLUMNS: DetailColumn[] = [
 function cellText(row: Record<string, any>, column: DetailColumn) {
   const primary = row[column.key];
   const secondary = column.also ? row[column.also] : undefined;
-  const parts = [primary, secondary]
-    .filter((v) => v !== null && v !== undefined && String(v).trim() !== "")
-    .map((v) => String(v).trim());
+  const fmt = (v: unknown, key?: string) => {
+    const s = String(v).trim();
+    return key && isSapDateKey(key) ? formatSapDateDMY(s, "—") : s;
+  };
+  const parts = [fmt(primary, column.key), ...(column.also ? [fmt(secondary, column.also)] : [])]
+    .filter((_, i) => {
+      const raw = [primary, secondary][i];
+      return raw !== null && raw !== undefined && String(raw).trim() !== "";
+    });
   return parts.length ? parts.join(" / ") : "—";
 }
 
@@ -2289,7 +2296,7 @@ function ZnfaReleasePage() {
                                   </button>
                                 </TableCell>
                                 <TableCell className="whitespace-nowrap text-sm">
-                                  {String(r.CRDAT ?? "").trim() || "—"}
+                                  {formatSapDateDMY(r.CRDAT) || "—"}
                                 </TableCell>
                                 <TableCell className="whitespace-nowrap text-sm">
                                   {String(r.CRONAM ?? "").trim() || "—"}

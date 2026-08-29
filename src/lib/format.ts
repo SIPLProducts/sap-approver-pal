@@ -77,6 +77,45 @@ export function formatDate(value: unknown, fallback = "—"): string {
     .replace(/ /g, "-");
 }
 
+/**
+ * SAP response dates as DD-MM-YYYY. Handles YYYYMMDD, YYYY-MM-DD, ISO strings
+ * and Date objects. Non-date values are returned unchanged so display-only
+ * callers can apply it safely to any cell.
+ */
+export function formatSapDateDMY(value: unknown, fallback?: string): string {
+  if (value == null || value === "") return fallback ?? "";
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return fallback ?? "";
+    const dd = String(value.getDate()).padStart(2, "0");
+    const mm = String(value.getMonth() + 1).padStart(2, "0");
+    return `${dd}-${mm}-${value.getFullYear()}`;
+  }
+  const s = String(value).trim();
+  if (!s || s === "00000000" || s === "0000-00-00") return fallback ?? "";
+  const m8 = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m8) return `${m8[3]}-${m8[2]}-${m8[1]}`;
+  const mIso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (mIso) return `${mIso[3]}-${mIso[2]}-${mIso[1]}`;
+  // Already DD.MM.YYYY (dynamic-column date rendering) → DD-MM-YYYY.
+  const mDot = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (mDot) return `${mDot[1]}-${mDot[2]}-${mDot[3]}`;
+  // DD/MM/YYYY → DD-MM-YYYY.
+  const mSlash = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (mSlash) return `${mSlash[1]}-${mSlash[2]}-${mSlash[3]}`;
+  return s;
+}
+
+/**
+ * True when an SAP column key denotes a date field. False positives are safe:
+ * formatSapDateDMY leaves non-date values unchanged.
+ */
+export function isSapDateKey(key: string): boolean {
+  const k = key.toUpperCase();
+  if (k.includes("DATCAT") || k.includes("DATE_CAT")) return false;
+  if (k.includes("DATE") || k.endsWith("_DAT") || k.endsWith("DATUM")) return true;
+  return ["BEDAT", "ERDAT", "AEDAT", "CPUDT", "CRDAT", "BADAT", "BLDAT", "BUDAT", "LAST_RESUB"].includes(k);
+}
+
 /** Date + time for audit trails. */
 export function formatDateTime(value: unknown, fallback = "—"): string {
   if (value == null || value === "") return fallback;

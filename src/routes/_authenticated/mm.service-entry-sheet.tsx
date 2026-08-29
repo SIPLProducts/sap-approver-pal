@@ -5,6 +5,7 @@ import { Filter, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "lucide
 
 import type { CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
+import { formatSapDateDMY } from "@/lib/format";
 import {
   fetchServiceEntrySheetPending,
   releaseServiceEntrySheets,
@@ -255,7 +256,15 @@ function ServiceEntrySheetPage() {
       const [entry] = cols.splice(idx, 1);
       cols.unshift(entry);
     }
-    return cols;
+    // MM display rule: SAP date cells render as DD-MM-YYYY. The dynamic column
+    // builder emits DD.MM.YYYY for date-like values; rewrite those cells only.
+    return cols.map((c) => ({
+      ...c,
+      cell: (r: Record<string, any>) => {
+        const v = c.cell(r);
+        return typeof v === "string" ? formatSapDateDMY(v) : v;
+      },
+    }));
   }, [rows]);
   const rowKey = (r: Record<string, any>, i: number) =>
     `${r?.entrySh ?? ""}-${r?.purOrder ?? ""}-${r?.poItem ?? ""}-${i}`;

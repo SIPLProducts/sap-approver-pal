@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
+import { formatSapDateDMY, isSapDateKey } from "@/lib/format";
 import { getMySapUserId } from "@/lib/sd/price-approval.functions";
 import { fetchMaterialReservation, saveMaterialReservation } from "@/lib/mm/material-reservation.functions";
 
@@ -266,6 +267,7 @@ function MaterialReservationPage() {
         }
         const v = (item as any)[c.key];
         if (v == null || v === "") return "—";
+        if (isSapDateKey(c.key)) return formatSapDateDMY(v, "—");
         return String(v);
       },
     }));
@@ -394,7 +396,7 @@ function MaterialReservationPage() {
                 <div key={f.key} className="space-y-1.5">
                   <Label className="text-xs">{f.label}</Label>
                   <Input
-                    value={toStr(header?.[f.key])}
+                    value={isSapDateKey(f.key) ? formatSapDateDMY(header?.[f.key]) : toStr(header?.[f.key])}
                     readOnly
                     className="h-9 text-sm bg-muted/40"
                   />
