@@ -311,7 +311,7 @@ function GateProcessPage() {
         setOutput(res.output);
         setHeader({
           PR_NUMBER: toStr(res.output?.PR_NUMBER),
-          PR_DATE: toStr(res.output?.PR_DATE),
+          PR_DATE: formatSapDateDMY(toStr(res.output?.PR_DATE)),
           TER_SUB_ID: toStr(res.output?.TER_SUB_ID),
         });
         const itemsArr = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS! : [];
