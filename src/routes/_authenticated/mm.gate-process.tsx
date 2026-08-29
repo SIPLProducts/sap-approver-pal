@@ -54,6 +54,21 @@ function toStr(v: any): string {
   return String(v);
 }
 
+/**
+ * Converts a DD-MM-YYYY display value back to the SAP shape of `template`
+ * (YYYYMMDD or YYYY-MM-DD). Returns the raw template when unchanged, and the
+ * input untouched when it is not a DD-MM-YYYY value.
+ */
+function dmyToSapDate(display: string, template: string): string {
+  const s = (display ?? "").trim();
+  if (!s) return "";
+  if (formatSapDateDMY(template) === s) return template;
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!m) return s;
+  const [, dd, mm, yyyy] = m;
+  return /^\d{4}-\d{2}-\d{2}/.test(template) ? `${yyyy}-${mm}-${dd}` : `${yyyy}${mm}${dd}`;
+}
+
 function GateProcessPage() {
   const fetchFn = useServerFn(fetchGateProcess);
   const userIdFn = useServerFn(getMySapUserId);
@@ -70,11 +85,14 @@ function GateProcessPage() {
   const [rows, setRows] = useState<GateRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<ZnfaOutput | null>(null);
+  // header.PR_DATE holds the display value (DD-MM-YYYY); prDateRaw keeps the
+  // exact SAP value so the save payload stays byte-identical.
   const [header, setHeader] = useState<{ PR_NUMBER: string; PR_DATE: string; TER_SUB_ID: string }>({
     PR_NUMBER: "",
     PR_DATE: "",
     TER_SUB_ID: "",
   });
+  const [prDateRaw, setPrDateRaw] = useState("");
   type ItemFields = {
     SR_NO: string;
     MATERIAL: string;
@@ -241,6 +259,7 @@ function GateProcessPage() {
       setSelected(new Set());
       setOutput(null);
       setHeader({ PR_NUMBER: "", PR_DATE: "", TER_SUB_ID: "" });
+      setPrDateRaw("");
       setItems({});
       setRatings({});
       setLastAction(null);
@@ -292,9 +311,10 @@ function GateProcessPage() {
         setOutput(res.output);
         setHeader({
           PR_NUMBER: toStr(res.output?.PR_NUMBER),
-          PR_DATE: toStr(res.output?.PR_DATE),
+          PR_DATE: formatSapDateDMY(toStr(res.output?.PR_DATE)),
           TER_SUB_ID: toStr(res.output?.TER_SUB_ID),
         });
+        setPrDateRaw(toStr(res.output?.PR_DATE));
         const itemsArr = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS! : [];
         const itemsInit: Record<number, ItemFields> = {};
         itemsArr.forEach((it, i) => {
@@ -392,7 +412,7 @@ function GateProcessPage() {
       action: lastAction,
       user_id: userId.trim(),
       pr_number: header.PR_NUMBER,
-      pr_date: header.PR_DATE,
+      pr_date: dmyToSapDate(header.PR_DATE, prDateRaw),
       ter_sub_id: header.TER_SUB_ID,
       items: itemsArr,
       ratings: ratingsArr,
@@ -413,6 +433,7 @@ function GateProcessPage() {
     setSelected(new Set());
     setOutput(null);
     setHeader({ PR_NUMBER: "", PR_DATE: "", TER_SUB_ID: "" });
+    setPrDateRaw("");
     setItems({});
     setRatings({});
     setLastAction(null);

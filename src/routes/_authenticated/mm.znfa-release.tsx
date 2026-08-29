@@ -1724,6 +1724,8 @@ function ZnfaReleasePage() {
                         const raw = row[c.key];
                         const text =
                           raw === null || raw === undefined || raw === "" ? "" : String(raw);
+                        // Date-keyed columns (e.g. NFA_DATE) render as DD-MM-YYYY.
+                        const display = isSapDateKey(c.key) ? formatSapDateDMY(text) : text;
                         const isNfaNo = c.key === "NFA_NO" && text !== "";
                         const isBusy = clickMutation.isPending && clickedNfaNo === text;
                         return (
@@ -1746,7 +1748,7 @@ function ZnfaReleasePage() {
                             ) : c.statusIcon ? (
                               <SapStatusIcon value={raw} />
                             ) : (
-                              (text || "—")
+                              (display || "—")
                             )}
                           </TableCell>
                         );
