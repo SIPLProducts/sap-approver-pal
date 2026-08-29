@@ -314,6 +314,7 @@ function GateProcessPage() {
           PR_DATE: formatSapDateDMY(toStr(res.output?.PR_DATE)),
           TER_SUB_ID: toStr(res.output?.TER_SUB_ID),
         });
+        setPrDateRaw(toStr(res.output?.PR_DATE));
         const itemsArr = Array.isArray(res.output?.ITEMS) ? res.output!.ITEMS! : [];
         const itemsInit: Record<number, ItemFields> = {};
         itemsArr.forEach((it, i) => {
