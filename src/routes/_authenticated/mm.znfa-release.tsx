@@ -303,6 +303,8 @@ function DetailsTableCard({
                           disabled
                           aria-label={c.label}
                         />
+                      ) : c.statusIcon ? (
+                        <SapStatusIcon value={row[c.key]} />
                       ) : (
                         cellText(row, c)
                       )}
