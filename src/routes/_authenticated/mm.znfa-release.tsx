@@ -195,7 +195,7 @@ const REL_MATX_COLUMNS: DetailColumn[] = [
   { key: "APPROVER", label: "Approver" },
   { key: "APP_NAME", label: "Approver Name" },
   { key: "FRGCT", label: "Release Group" },
-  { key: "STATUS", label: "Status" },
+  { key: "STATUS", label: "Status", statusIcon: true },
   { key: "APPROVER_DATE", label: "Approver Date" },
   { key: "REL_SEQUENCE", label: "Sequence" },
 ];
