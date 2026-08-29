@@ -82,6 +82,116 @@ function GateProcessPage() {
   const [messageDialog, setMessageDialog] = useState<SapResponseDialogState | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
+  // ── Attachment document preview (ZNFA_ATTACH_PRINT_API) ─────────────────
+  const [attachPrintOpen, setAttachPrintOpen] = useState(false);
+  const [attachPrintTitle, setAttachPrintTitle] = useState("");
+  const [attachPrintBase64, setAttachPrintBase64] = useState<string | null>(null);
+  const [attachPrintMime, setAttachPrintMime] = useState("application/pdf");
+  const [attachPrintError, setAttachPrintError] = useState<string | null>(null);
+  const [attachPrintBlobUrl, setAttachPrintBlobUrl] = useState<string | null>(null);
+  const [attachPrintSize, setAttachPrintSize] = useState(0);
+  const [attachPrintIncomplete, setAttachPrintIncomplete] = useState(false);
+  const fetchAttachPrint = useServerFn(fetchZnfaAttachPrint);
+  const attachPrintMutation = useMutation({
+    mutationFn: (vars: { row: Record<string, any> }) => fetchAttachPrint({ data: vars }),
+    onSuccess: (res) => {
+      const msg = (res.sapMessage?.trim() ? res.sapMessage.trim() : null) ?? res.error;
+      if (msg || !res.base64) {
+        setAttachPrintBase64(null);
+        setAttachPrintMime("application/pdf");
+        setAttachPrintIncomplete(false);
+        setAttachPrintError(msg || "Could not open the attachment.");
+        return;
+      }
+      setAttachPrintError(null);
+      setAttachPrintMime(res.mimeType?.trim() || "application/pdf");
+      setAttachPrintIncomplete(Boolean(res.incomplete));
+      setAttachPrintBase64(res.base64);
+    },
+    onError: (err: any) => {
+      setAttachPrintBase64(null);
+      setAttachPrintMime("application/pdf");
+      const raw = String(err?.message ?? err ?? "").trim();
+      setAttachPrintError(
+        /401|unauthor/i.test(raw)
+          ? "Your session has expired. Please sign in again and retry."
+          : raw
+            ? `Attachment preview failed: ${raw}`
+            : "An unexpected error occurred while opening the attachment.",
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (!attachPrintBase64) {
+      setAttachPrintBlobUrl(null);
+      setAttachPrintSize(0);
+      return;
+    }
+    let url: string | null = null;
+    try {
+      let b64 = attachPrintBase64.trim().replace(/^["']+/, "").replace(/["']+$/, "");
+      b64 = b64.replace(/^data:[^;,]*;base64,/i, "");
+      b64 = b64
+        .replace(/[^A-Za-z0-9+/=_-]/g, "")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .replace(/=+$/, "");
+      b64 = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=");
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      url = URL.createObjectURL(new Blob([bytes], { type: attachPrintMime || "application/pdf" }));
+      setAttachPrintSize(bytes.length);
+      setAttachPrintBlobUrl(url);
+      setAttachPrintError(null);
+    } catch {
+      setAttachPrintBlobUrl(null);
+      setAttachPrintError("The document returned by SAP could not be decoded for preview.");
+    }
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [attachPrintBase64, attachPrintMime]);
+
+  function attachFileExtension(mime: string): string {
+    const m = (mime || "").toLowerCase().split(";")[0].trim();
+    const known: Record<string, string> = {
+      "application/pdf": "pdf",
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "image/bmp": "bmp",
+      "image/tiff": "tiff",
+      "image/svg+xml": "svg",
+    };
+    if (known[m]) return known[m];
+    const sub = m.split("/")[1]?.replace(/[^\w]+/g, "");
+    return sub || "pdf";
+  }
+
+  function onAttachPrint(att: Record<string, any>) {
+    const row = (att?.__raw && typeof att.__raw === "object" ? att.__raw : att) as Record<string, any>;
+    setAttachPrintTitle(String(att?.OBJDES ?? "").trim());
+    setAttachPrintError(null);
+    setAttachPrintBase64(null);
+    setAttachPrintMime("application/pdf");
+    setAttachPrintOpen(true);
+    attachPrintMutation.mutate({ row });
+  }
+
+  function onAttachPrintDownload() {
+    const href = attachPrintBlobUrl;
+    if (!href) return;
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `${(attachPrintTitle || "attachment").replace(/[^\w.-]+/g, "_")}.${attachFileExtension(attachPrintMime)}`;
+    a.click();
+  }
+
+
   const isEditable = lastAction === "RATE" || lastAction === "CHANGE";
 
   const ratingOptions: string[] = RATING_OPTIONS;
