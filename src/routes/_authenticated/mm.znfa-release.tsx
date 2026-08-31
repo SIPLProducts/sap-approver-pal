@@ -776,14 +776,19 @@ function ZnfaReleasePage() {
   }
 
   const [sapDialog, setSapDialog] = useState<SapResponseDialogState | null>(null);
-  function showSapError(title: string, message: string, ref?: string) {
+  function showSapResponse(title: string, message: string, ref?: string, ok = false) {
     setSapDialog({
       open: true,
       title,
       refLabel: "NFA Number",
-      results: [{ ref: ref ?? "", message, ok: false }],
+      results: [{ ref: ref ?? "", message, ok }],
     });
   }
+
+  function showSapError(title: string, message: string, ref?: string) {
+    showSapResponse(title, message, ref, false);
+  }
+
 
   const fetchDisplay = useServerFn(fetchZnfaDisplay);
   const displayMutation = useMutation({
@@ -1005,7 +1010,13 @@ function ZnfaReleasePage() {
         return;
       }
       setDisplayError(null);
-      toast.success(msg ? msg : `NFA released${res.number ? ` (${res.number})` : ""}`);
+      // Show the exact SAP MSG in the Swal popup on success too.
+      showSapResponse(
+        "ZNFA Release Response",
+        msg ? msg : `NFA released${res.number ? ` (${res.number})` : ""}`,
+        res.number ?? undefined,
+        true,
+      );
       onDocBack();
       if (releaseId && releaseCode) {
         releaseMutation.mutate({
@@ -1051,7 +1062,13 @@ function ZnfaReleasePage() {
       setRejectOpen(false);
       setRejectReason("");
       setDisplayError(null);
-      toast.success(msg ? msg : `NFA rejected${res.number ? ` (${res.number})` : ""}`);
+      // Show the exact SAP MSG in the Swal popup on success too.
+      showSapResponse(
+        "ZNFA Reject Response",
+        msg ? msg : `NFA rejected${res.number ? ` (${res.number})` : ""}`,
+        res.number ?? undefined,
+        true,
+      );
       onDocBack();
       if (releaseId && releaseCode) {
         releaseMutation.mutate({
