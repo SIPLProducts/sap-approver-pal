@@ -776,14 +776,19 @@ function ZnfaReleasePage() {
   }
 
   const [sapDialog, setSapDialog] = useState<SapResponseDialogState | null>(null);
-  function showSapError(title: string, message: string, ref?: string) {
+  function showSapResponse(title: string, message: string, ref?: string, ok = false) {
     setSapDialog({
       open: true,
       title,
       refLabel: "NFA Number",
-      results: [{ ref: ref ?? "", message, ok: false }],
+      results: [{ ref: ref ?? "", message, ok }],
     });
   }
+
+  function showSapError(title: string, message: string, ref?: string) {
+    showSapResponse(title, message, ref, false);
+  }
+
 
   const fetchDisplay = useServerFn(fetchZnfaDisplay);
   const displayMutation = useMutation({
