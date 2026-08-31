@@ -1010,7 +1010,13 @@ function ZnfaReleasePage() {
         return;
       }
       setDisplayError(null);
-      toast.success(msg ? msg : `NFA released${res.number ? ` (${res.number})` : ""}`);
+      // Show the exact SAP MSG in the Swal popup on success too.
+      showSapResponse(
+        "ZNFA Release Response",
+        msg ? msg : `NFA released${res.number ? ` (${res.number})` : ""}`,
+        res.number ?? undefined,
+        true,
+      );
       onDocBack();
       if (releaseId && releaseCode) {
         releaseMutation.mutate({
