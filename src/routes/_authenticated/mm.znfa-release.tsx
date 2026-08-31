@@ -1062,7 +1062,13 @@ function ZnfaReleasePage() {
       setRejectOpen(false);
       setRejectReason("");
       setDisplayError(null);
-      toast.success(msg ? msg : `NFA rejected${res.number ? ` (${res.number})` : ""}`);
+      // Show the exact SAP MSG in the Swal popup on success too.
+      showSapResponse(
+        "ZNFA Reject Response",
+        msg ? msg : `NFA rejected${res.number ? ` (${res.number})` : ""}`,
+        res.number ?? undefined,
+        true,
+      );
       onDocBack();
       if (releaseId && releaseCode) {
         releaseMutation.mutate({
