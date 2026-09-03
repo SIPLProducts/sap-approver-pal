@@ -608,7 +608,7 @@ export const saveZnfa = createServerFn({ method: "POST" })
       return {
         ok: true as const,
         ter_sub_id: (pick(first, "TER_SUB_ID") as string) ?? null,
-        message: (pick(first, "MESSAGE") as string) ?? "Saved successfully",
+        message: (pick(first, "MSG") as string) || (pick(first, "MESSAGE") as string) || "Saved successfully",
         error: null as string | null,
       };
     }
