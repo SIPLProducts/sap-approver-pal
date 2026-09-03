@@ -1,5 +1,5 @@
 /**
- * MM Gate Process / ZNFA Rating — live SAP fetch via the configured ZNFA_Fetch_API
+ * MM Gate Process / ZTER Rating — live SAP fetch via the configured ZNFA_Fetch_API
  * and create/update via ZNFA_Create_API.
  * Reads the admin-managed sap_api_configs row, calls the SAP endpoint
  * (basic or proxy), and returns DATA[] rows as plain DTOs.

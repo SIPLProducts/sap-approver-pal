@@ -266,7 +266,7 @@ function GateProcessPage() {
       if (res.error) {
         setMessageDialog({
           open: true,
-          title: "ZNFA Rating",
+          title: "ZTER Rating",
           refLabel: "Document",
           results: [{ ref: "", message: res.error, ok: false }],
         });
@@ -301,7 +301,7 @@ function GateProcessPage() {
         setLastAction(null);
         setMessageDialog({
           open: true,
-          title: "ZNFA Rating",
+          title: "ZTER Rating",
           refLabel: "Document",
           results: [{ ref: "", message: res.error, ok: false }],
         });
@@ -362,14 +362,14 @@ function GateProcessPage() {
         if (res.ter_sub_id) setHeader((p) => ({ ...p, TER_SUB_ID: res.ter_sub_id! }));
         setMessageDialog({
           open: true,
-          title: "ZNFA Rating",
+          title: "ZTER Rating",
           refLabel: "Document",
           results: [{ ref: "", message: res.message ?? "Saved successfully", ok: true }],
         });
       } else {
         setMessageDialog({
           open: true,
-          title: "ZNFA Rating",
+          title: "ZTER Rating",
           refLabel: "Document",
           results: [{ ref: "", message: res.error ?? "Save failed", ok: false }],
         });
@@ -463,7 +463,7 @@ function GateProcessPage() {
 
   return (
     <div className="page-shell page-stack">
-      <PageHeader eyebrow="MM Approvals" title="ZNFA Rating" subtitle="Rate, change and review ZNFA tender records." />
+      <PageHeader eyebrow="MM Approvals" title="ZTER Rating" subtitle="Rate, change and review ZTER tender records." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
@@ -501,7 +501,7 @@ function GateProcessPage() {
       {hasResults && (
         <>
           <CloudscapeApprovalTable
-            title="ZNFA Rating"
+            title="ZTER Rating"
             countLabel={`(${rows.length})`}
             rows={rows}
             rowKey={rowKey}
@@ -509,7 +509,7 @@ function GateProcessPage() {
             showSelect
             selectedKeys={selected}
             onSelectionChange={setSelected}
-            emptyMessage={rows.length === 0 ? "Click Execute to load ZNFA Rating records from SAP." : "No records."}
+            emptyMessage={rows.length === 0 ? "Click Execute to load ZTER Rating records from SAP." : "No records."}
             columns={buildDynamicColumns(rows).map((c) => ({
               ...c,
               cell: (r: any) => {
@@ -854,7 +854,7 @@ function GateProcessPage() {
       <SapResponseDialog
         dialog={messageDialog}
         onOpenChange={(open) => setMessageDialog((prev) => (prev ? { ...prev, open } : prev))}
-        defaultTitle="ZNFA Rating"
+        defaultTitle="ZTER Rating"
       />
     </div>
   );
