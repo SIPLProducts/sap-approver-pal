@@ -236,7 +236,9 @@ export const fetchPriceMaster = createServerFn({ method: "POST" })
 /* Update (IMW_PMU_EDIT_API)                                          */
 /* ------------------------------------------------------------------ */
 
-const EDIT_CONFIG_NAME = "IMW_PMU_EDIT_API";
+/** Accepted config names (the settings entry may be spelled IWM or IMW). */
+const EDIT_CONFIG_NAMES = ["IMW_PMU_EDIT_API", "IWM_PMU_EDIT_API"] as const;
+
 
 export type PriceMasterUpdateResult = {
   ref: string;
