@@ -353,7 +353,7 @@ function ScSoPage() {
 
   return (
     <div className="page-shell page-stack">
-      <PageHeader eyebrow="SD Approvals" title="Service Certificate & SO Approvals" subtitle="Review and action pending service certificate and sales order approvals." />
+      <PageHeader eyebrow="BMW Approvals" title="Service Certificate & SO Approvals" subtitle="Review and action pending service certificate and sales order approvals." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">

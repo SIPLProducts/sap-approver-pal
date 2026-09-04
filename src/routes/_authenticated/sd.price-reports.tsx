@@ -114,7 +114,7 @@ function PriceReportsPage() {
   return (
     <div className="page-shell page-stack">
       <PageHeader
-        eyebrow="SD Reports"
+        eyebrow="BMW Reports"
         title="Price Approval Reports"
         subtitle="Read-only view of pending price approval records for reporting and export."
         actions={

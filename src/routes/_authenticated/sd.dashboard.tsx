@@ -496,8 +496,8 @@ function SdDashboardPage() {
   return (
     <div className="page-shell page-stack">
       <PageHeader
-        eyebrow="SD Approvals · Live analytics"
-        title="SD Dashboard"
+        eyebrow="BMW Approvals · Live analytics"
+        title="BMW Dashboard"
         subtitle="Portfolio KPIs, approval throughput and trends derived directly from the BMW Status Report."
         meta={
           hasContext && !loading ? (
