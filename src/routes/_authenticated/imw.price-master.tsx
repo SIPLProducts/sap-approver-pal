@@ -324,6 +324,13 @@ function PriceMasterUpdatePage() {
         rowKey={(_r: Row, i: number) => String(i)}
         emptyMessage="Select a Plant and click Execute to load price master records from SAP."
         columns={columns}
+        headerExtras={
+          editable && rows.length > 0 ? (
+            <Button size="sm" onClick={() => toast.info("Update will be enabled once the SAP update API is configured.")}>
+              Update
+            </Button>
+          ) : undefined
+        }
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
