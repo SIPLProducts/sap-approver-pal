@@ -48,7 +48,60 @@ export const Route = createFileRoute("/_authenticated/imw/price-master")({
 });
 
 type Mode = "display" | "update";
-type Row = Record<string, unknown>;
+type Row = PriceMasterRow;
+
+/** SAP key → business label, in display order. */
+const COLUMN_DEFS: { key: string; label: string; kind: "text" | "amount" | "date" }[] = [
+  { key: "WERKS", label: "Plant", kind: "text" },
+  { key: "KUNNR", label: "Customer ID", kind: "text" },
+  { key: "ZCUST_NAME", label: "Customer Name", kind: "text" },
+  { key: "WST_TYPE", label: "Waste Type", kind: "text" },
+  { key: "MATNR", label: "Material Number", kind: "text" },
+  { key: "PRICE", label: "Price", kind: "amount" },
+  { key: "ZCHECK", label: "Default", kind: "text" },
+  { key: "ESCRO", label: "Escrow Chg", kind: "text" },
+  { key: "TRIP", label: "Trip Chg", kind: "text" },
+  { key: "ZDEACTIVE", label: "Deactive", kind: "text" },
+  { key: "ZKGS", label: "Kgs", kind: "text" },
+  { key: "LUMSUMM", label: "Lumsum", kind: "text" },
+  { key: "INCLUSIVE", label: "Inclusive", kind: "text" },
+  { key: "MF_QTY", label: "Manifest Qty", kind: "text" },
+  { key: "MF_VALID_FROM", label: "Manifest From Date", kind: "date" },
+  { key: "MF_VALID_TO", label: "Manifest To Date", kind: "date" },
+  { key: "PRICE_WB02", label: "ZWB02 Price", kind: "amount" },
+  { key: "TRIP_PRICE", label: "Trip Price", kind: "amount" },
+  { key: "VALID_FROM", label: "Valid From", kind: "date" },
+  { key: "VALID_TO", label: "Valid To", kind: "date" },
+  { key: "ZZ_CA_DATE", label: "CA Date", kind: "date" },
+  { key: "PRUEFLOS", label: "CA Number", kind: "text" },
+  { key: "SPE_HANDLING", label: "Spc Handling Chg", kind: "amount" },
+  { key: "EQP_HIRE", label: "Eqp Hire Chg", kind: "amount" },
+  { key: "UNLOADING_LOAD", label: "Un / Ln Chg", kind: "amount" },
+  { key: "OTHERS", label: "Others Chg", kind: "amount" },
+  { key: "TON1", label: "1 Ton", kind: "amount" },
+  { key: "TON5", label: "5 Ton", kind: "amount" },
+  { key: "TON8", label: "8 Ton", kind: "amount" },
+  { key: "TON10", label: "10 Ton", kind: "amount" },
+  { key: "TON12", label: "12 Ton", kind: "amount" },
+  { key: "TON15", label: "15 Ton", kind: "amount" },
+  { key: "TON18", label: "18 Ton", kind: "amount" },
+  { key: "TON20", label: "20 Ton", kind: "amount" },
+  { key: "TON25", label: "25 Ton", kind: "amount" },
+  { key: "TON30", label: "30 Ton", kind: "amount" },
+  { key: "TON35", label: "35 Ton", kind: "amount" },
+  { key: "PRICE_REMARKS", label: "Price Remarks", kind: "text" },
+];
+
+const ZERO_DATES = new Set(["00000000", "0000-00-00", "0000000000", ""]);
+
+function renderCell(row: Row, def: (typeof COLUMN_DEFS)[number]) {
+  const v = row?.[def.key];
+  if (v === null || v === undefined || String(v).trim() === "") return "—";
+  const s = String(v).trim();
+  if (def.kind === "date") return ZERO_DATES.has(s) ? "—" : formatSapDateDMY(s, "—");
+  if (def.kind === "amount") return formatAmount(s, s);
+  return s;
+}
 
 function PriceMasterUpdatePage() {
   const { activePlants } = useActiveContext();
@@ -56,11 +109,46 @@ function PriceMasterUpdatePage() {
   const [customer, setCustomer] = useState("");
   const [mode, setMode] = useState<Mode>("display");
   const [rows, setRows] = useState<Row[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogUserId, setDialogUserId] = useState("");
   const [dialogPassword, setDialogPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  const runFetch = useServerFn(fetchPriceMaster);
+
+  const mutation = useMutation({
+    mutationFn: (vars: {
+      plants: string[];
+      customer?: string;
+      mode: Mode;
+      user_name?: string;
+      password?: string;
+    }) => runFetch({ data: vars }),
+    onSuccess: (res) => {
+      setSelected(new Set());
+      setRows(res.rows ?? []);
+      if (res.error) toast.error(res.error);
+      else if (res.sapMessage) toast.info(res.sapMessage);
+    },
+    onError: (e: Error) => {
+      setRows([]);
+      setSelected(new Set());
+      toast.error(e.message || "Could not load price master records");
+    },
+  });
+
+  const columns = useMemo<CloudscapeColumn<Row>[]>(
+    () =>
+      COLUMN_DEFS.map((def) => ({
+        id: def.key,
+        header: def.label,
+        align: def.kind === "amount" ? ("right" as const) : undefined,
+        cell: (r: Row) => renderCell(r, def),
+      })),
+    [],
+  );
 
   useEffect(() => {
     setPlants((prev) => {
@@ -72,13 +160,23 @@ function PriceMasterUpdatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlants.join(",")]);
 
-  function execute() {
+  function execute(creds?: { user_name: string; password: string }) {
     if (plants.length === 0) {
       toast.error("Select at least one plant");
       return;
     }
-    setRows([]);
-    toast.info("SAP connection for Price Master Update is not configured yet.");
+    const isUpdate = mode === "update";
+    if (isUpdate && !creds) {
+      setDialogOpen(true);
+      return;
+    }
+    mutation.mutate({
+      plants,
+      customer: customer.trim() || undefined,
+      mode,
+      user_name: isUpdate ? creds!.user_name : "",
+      password: isUpdate ? creds!.password : "",
+    });
   }
 
   function reset() {
@@ -86,6 +184,7 @@ function PriceMasterUpdatePage() {
     setCustomer("");
     setMode("display");
     setRows([]);
+    setSelected(new Set());
     setDialogOpen(false);
     setDialogUserId("");
     setDialogPassword("");
@@ -95,7 +194,7 @@ function PriceMasterUpdatePage() {
   function executeFromDialog() {
     if (!dialogUserId.trim() || !dialogPassword.trim()) return;
     setDialogOpen(false);
-    execute();
+    execute({ user_name: dialogUserId.trim(), password: dialogPassword });
   }
 
   return (
