@@ -21,7 +21,7 @@ import { z } from "zod";
 
 const CONFIG_NAME = "IMW_PMU_FETCH_API";
 
-export type PriceMasterRow = Record<string, unknown>;
+export type PriceMasterRow = Record<string, string | number | null>;
 
 export type PriceMasterResponse = {
   rows: PriceMasterRow[];
