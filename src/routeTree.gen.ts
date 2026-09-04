@@ -25,6 +25,7 @@ import { Route as AuthenticatedAdminIntegrationsRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
+import { Route as AuthenticatedImwPriceMasterRouteImport } from './routes/_authenticated/imw.price-master'
 import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
 import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
 import { Route as AuthenticatedMmDashboardRouteImport } from './routes/_authenticated/mm.dashboard'
@@ -138,6 +139,12 @@ const AuthenticatedApprovalIdRoute = AuthenticatedApprovalIdRouteImport.update({
   path: '/approval/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedImwPriceMasterRoute =
+  AuthenticatedImwPriceMasterRouteImport.update({
+    id: '/imw/price-master',
+    path: '/imw/price-master',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInboxIndexRoute = AuthenticatedInboxIndexRouteImport.update({
   id: '/inbox/',
   path: '/inbox/',
@@ -304,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -347,6 +355,7 @@ export interface FileRoutesByTo {
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -392,6 +401,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/_authenticated/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/_authenticated/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/_authenticated/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -437,6 +447,7 @@ export interface FileRouteTypes {
     | '/admin/strategies'
     | '/admin/users'
     | '/approval/$id'
+    | '/imw/price-master'
     | '/inbox/$module'
     | '/mm/dashboard'
     | '/mm/gate-pass'
@@ -480,6 +491,7 @@ export interface FileRouteTypes {
     | '/admin/strategies'
     | '/admin/users'
     | '/approval/$id'
+    | '/imw/price-master'
     | '/inbox/$module'
     | '/mm/dashboard'
     | '/mm/gate-pass'
@@ -524,6 +536,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/strategies'
     | '/_authenticated/admin/users'
     | '/_authenticated/approval/$id'
+    | '/_authenticated/imw/price-master'
     | '/_authenticated/inbox/$module'
     | '/_authenticated/mm/dashboard'
     | '/_authenticated/mm/gate-pass'
@@ -678,6 +691,13 @@ declare module '@tanstack/react-router' {
       path: '/approval/$id'
       fullPath: '/approval/$id'
       preLoaderRoute: typeof AuthenticatedApprovalIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/imw/price-master': {
+      id: '/_authenticated/imw/price-master'
+      path: '/imw/price-master'
+      fullPath: '/imw/price-master'
+      preLoaderRoute: typeof AuthenticatedImwPriceMasterRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/inbox/': {
@@ -874,6 +894,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminStrategiesRoute: typeof AuthenticatedAdminStrategiesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
+  AuthenticatedImwPriceMasterRoute: typeof AuthenticatedImwPriceMasterRoute
   AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
   AuthenticatedMmDashboardRoute: typeof AuthenticatedMmDashboardRoute
   AuthenticatedMmGatePassRoute: typeof AuthenticatedMmGatePassRoute
@@ -908,6 +929,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminStrategiesRoute: AuthenticatedAdminStrategiesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
+  AuthenticatedImwPriceMasterRoute: AuthenticatedImwPriceMasterRoute,
   AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
   AuthenticatedMmDashboardRoute: AuthenticatedMmDashboardRoute,
   AuthenticatedMmGatePassRoute: AuthenticatedMmGatePassRoute,
