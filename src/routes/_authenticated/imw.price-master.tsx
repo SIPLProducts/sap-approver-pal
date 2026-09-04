@@ -224,7 +224,7 @@ function PriceMasterUpdatePage() {
               value={customer}
               onChange={setCustomer}
               plants={plants}
-              onEnter={execute}
+              onEnter={() => execute()}
             />
           </div>
 
