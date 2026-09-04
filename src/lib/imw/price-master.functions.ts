@@ -194,11 +194,21 @@ export const fetchPriceMaster = createServerFn({ method: "POST" })
 
     const sapJson: any = proxied ? (json?.data ?? json) : json;
     const first = Array.isArray(sapJson) ? sapJson[0] : sapJson;
-    const status = String(first?.STATUS ?? "").toUpperCase();
+    const rawStatus = typeof first?.STATUS === "string" ? first.STATUS.trim() : "";
+    const status = rawStatus.toUpperCase();
     const type = String(first?.TYPE ?? "").toUpperCase();
+    const isMessageNode =
+      !!first && typeof first === "object" && !("WERKS" in first) && !!rawStatus;
+
+    // SAP sometimes returns a single status/message node (object or 1-element
+    // array) instead of data rows, e.g. [{ TYPE: "E", STATUS: "No Authorization ..." }].
+    if ((type === "E" || type === "A" || status === "FALSE") && isMessageNode) {
+      return fail(null, rawStatus);
+    }
     if (!Array.isArray(sapJson) && (status === "FALSE" || type === "E")) {
       return fail(null, extractSapMsg(text) ?? "SAP returned an error");
     }
+
 
     const rows = pickRows(sapJson).filter((r) => r && typeof r === "object");
 
