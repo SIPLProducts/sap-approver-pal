@@ -168,8 +168,13 @@ function AuthenticatedLayout() {
     { to: "/mm/service-entry-sheet", label: "Service Entry Sheet", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
   ].filter((it) => can(it.screen));
 
+  const imwChildren = [
+    { to: "/imw/price-master", label: "Price Master Update", icon: Tag, screen: "imw.price_master" },
+  ].filter((it) => can("approvals.inbox.imw") || can(it.screen));
+
   const showMm = mmChildren.length > 0;
   const showSd = sdChildren.length > 0;
+  const showImw = imwChildren.length > 0;
 
   const manage_items = [
     { to: "/history", label: "History", icon: History, screen: "approvals.history" },
