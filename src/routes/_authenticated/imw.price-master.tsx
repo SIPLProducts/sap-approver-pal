@@ -94,6 +94,9 @@ const COLUMN_DEFS: { key: string; label: string; kind: "text" | "amount" | "date
 
 const ZERO_DATES = new Set(["00000000", "0000-00-00", "0000000000", ""]);
 
+type EditKey = "PRICE" | "PRICE_WB02" | "PRICE_REMARKS";
+const EDITABLE_KEYS = new Set<string>(["PRICE", "PRICE_WB02", "PRICE_REMARKS"]);
+
 function renderCell(row: Row, def: (typeof COLUMN_DEFS)[number]) {
   const v = row?.[def.key];
   if (v === null || v === undefined || String(v).trim() === "") return "—";
