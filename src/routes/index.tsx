@@ -208,7 +208,7 @@ function LandingPage() {
               <div className="h-10 w-10 rounded-md bg-foreground text-background grid place-items-center"><Truck className="h-5 w-5" /></div>
               <div>
                 <div className="text-xs uppercase tracking-widest text-muted-foreground">Sales &amp; Distribution</div>
-                <h3 className="text-xl font-semibold">SD Approvals</h3>
+                <h3 className="text-xl font-semibold">BMW Approvals</h3>
               </div>
             </div>
             <ul className="mt-5 space-y-2 text-sm">
@@ -339,7 +339,7 @@ function LandingPage() {
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li><Link to="/login" className="hover:text-foreground">Sign in</Link></li>
               <li><Link to="/inbox/$module" params={{ module: "mm" }} className="hover:text-foreground">MM Approvals</Link></li>
-              <li><Link to="/inbox/$module" params={{ module: "sd" }} className="hover:text-foreground">SD Approvals</Link></li>
+              <li><Link to="/inbox/$module" params={{ module: "sd" }} className="hover:text-foreground">BMW Approvals</Link></li>
               <li><Link to="/notifications" className="hover:text-foreground">Notifications</Link></li>
             </ul>
           </div>

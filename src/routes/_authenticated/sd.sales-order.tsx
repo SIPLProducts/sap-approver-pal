@@ -320,7 +320,7 @@ function SalesOrderPage() {
 
   return (
     <div className="page-shell page-stack">
-      <PageHeader eyebrow="SD Approvals" title="Sales Order Approvals" subtitle="Review and action pending sales order approval requests routed from SAP." />
+      <PageHeader eyebrow="BMW Approvals" title="Sales Order Approvals" subtitle="Review and action pending sales order approval requests routed from SAP." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">

@@ -426,7 +426,7 @@ function BmwStatusReportPage() {
 
   return (
     <div className="page-shell page-stack">
-      <PageHeader eyebrow="SD Reports" title="BMW Status Report" subtitle="Cross-reference customer, contract and sales order approval status in one view." />
+      <PageHeader eyebrow="BMW Reports" title="BMW Status Report" subtitle="Cross-reference customer, contract and sales order approval status in one view." />
 
       <Card className="p-4 space-y-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">

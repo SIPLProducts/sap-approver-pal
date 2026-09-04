@@ -114,7 +114,7 @@ function ContractReportsPage() {
   return (
     <div className="page-shell page-stack">
       <PageHeader
-        eyebrow="SD Reports"
+        eyebrow="BMW Reports"
         title="Contract Approval Reports"
         subtitle="Read-only view of pending contract approval records for reporting and export."
         actions={

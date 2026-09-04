@@ -180,7 +180,7 @@ function PricePage() {
 
   return (
     <div className="page-shell page-stack">
-      <PageHeader eyebrow="SD Approvals" title="Price Approvals" subtitle="Review and action pending price condition approval requests routed from SAP." />
+      <PageHeader eyebrow="BMW Approvals" title="Price Approvals" subtitle="Review and action pending price condition approval requests routed from SAP." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">

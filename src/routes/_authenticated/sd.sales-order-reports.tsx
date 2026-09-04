@@ -108,7 +108,7 @@ function SalesOrderReportsPage() {
   return (
     <div className="page-shell page-stack">
       <PageHeader
-        eyebrow="SD Reports"
+        eyebrow="BMW Reports"
         title="Sales Order Approval Reports"
         subtitle="Read-only view of pending sales order approval records for reporting and export."
         actions={

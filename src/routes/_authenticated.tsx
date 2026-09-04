@@ -144,7 +144,7 @@ function AuthenticatedLayout() {
 
   const can = perms.can;
   const sdChildren = [
-    { to: "/sd/dashboard", label: "SD Dashboard", icon: BarChart3, screen: "approvals.inbox.sd" },
+    { to: "/sd/dashboard", label: "BMW Dashboard", icon: BarChart3, screen: "approvals.inbox.sd" },
     { to: "/sd/price", label: "Price Approvals", icon: Tag, screen: "approvals.inbox.sd" },
     { to: "/sd/contract", label: "Contract Approvals", icon: FileText, screen: "approvals.inbox.sd" },
     { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2, screen: "approvals.inbox.sd" },
@@ -268,12 +268,12 @@ function AuthenticatedLayout() {
                   setOpen(false);
                   nav({ to: "/sd/dashboard" });
                 }}
-                title="SD Approvals"
+                title="BMW Approvals"
                 className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${sdOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}
               >
                 {sdOpen && !collapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
                 <Truck className="h-4 w-4 shrink-0" />
-                {!collapsed && <span className="flex-1 text-left truncate">SD Approvals</span>}
+                {!collapsed && <span className="flex-1 text-left truncate">BMW Approvals</span>}
                 {!collapsed && (
                   <span
                     role="button"

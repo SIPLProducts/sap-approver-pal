@@ -85,7 +85,7 @@ function InboxPage() {
   const overdue = moduleRows.filter((r) => now - new Date(r.created_at).getTime() > 1000 * 60 * 60 * 24 * 2).length;
   const fmtCr = (n: number) => n >= 1e7 ? `₹${(n / 1e7).toFixed(2)} Cr` : n >= 1e5 ? `₹${(n / 1e5).toFixed(2)} L` : `₹${Math.round(n).toLocaleString("en-IN")}`;
 
-  const heading = mod === "MM" ? "MM Approvals" : "SD Approvals";
+  const heading = mod === "MM" ? "MM Approvals" : "BMW Approvals";
   const subtitle = mod === "MM"
     ? "Materials Management documents awaiting your decision."
     : "Sales & Distribution documents awaiting your decision.";

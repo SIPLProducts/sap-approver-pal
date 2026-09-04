@@ -94,7 +94,7 @@ export function SdApprovalShell({
     <div className="space-y-6">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">SD Approvals · {tCode}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">BMW Approvals · {tCode}</p>
           <h1 className="mt-1.5 font-display text-2xl sm:text-3xl font-semibold tracking-tight truncate">{title}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
         </div>

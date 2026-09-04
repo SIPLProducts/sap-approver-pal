@@ -297,7 +297,7 @@ function ContractPage() {
 
   return (
     <div className="page-shell page-stack">
-      <PageHeader eyebrow="SD Approvals" title="Contract Approvals" subtitle="Review and action pending contract approval requests routed from SAP." />
+      <PageHeader eyebrow="BMW Approvals" title="Contract Approvals" subtitle="Review and action pending contract approval requests routed from SAP." />
 
 
       <Card className="p-4">

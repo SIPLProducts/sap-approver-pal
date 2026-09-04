@@ -17,7 +17,7 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
     screens: [
       { key: "approvals.inbox.mm", label: "MM Approvals Inbox", activity: "APPROVALS.INBOX_MM" },
       
-      { key: "approvals.inbox.sd", label: "SD Approvals Inbox", activity: "APPROVALS.INBOX_SD" },
+      { key: "approvals.inbox.sd", label: "BMW Approvals Inbox", activity: "APPROVALS.INBOX_SD" },
       { key: "approvals.history",  label: "Approval History",   activity: "APPROVALS.HISTORY" },
       { key: "approvals.detail",   label: "Approval Detail",    activity: "APPROVALS.DETAIL" },
     ],
@@ -37,9 +37,9 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
     ],
   },
   {
-    module: "SD Approvals",
+    module: "BMW Approvals",
     screens: [
-      { key: "sd.dashboard",   label: "SD Dashboard",          activity: "SD.DASHBOARD" },
+      { key: "sd.dashboard",   label: "BMW Dashboard",          activity: "SD.DASHBOARD" },
       { key: "sd.price",       label: "Price Approvals",       activity: "SD.PRICE" },
       { key: "sd.contract",    label: "Contract Approvals",    activity: "SD.CONTRACT" },
       { key: "sd.sc_so",       label: "Service Cert & SO",     activity: "SD.SC_SO" },
