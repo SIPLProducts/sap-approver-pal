@@ -22,12 +22,21 @@ import {
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
 import {
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
+import {
   CloudscapeApprovalTable,
   type CloudscapeColumn,
 } from "@/components/aws/cloudscape-approval-table";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { fetchPriceMaster, type PriceMasterRow } from "@/lib/imw/price-master.functions";
+import {
+  fetchPriceMaster,
+  updatePriceMaster,
+  type PriceMasterRow,
+} from "@/lib/imw/price-master.functions";
 import { formatAmount, formatSapDateDMY } from "@/lib/format";
+
 
 export const Route = createFileRoute("/_authenticated/imw/price-master")({
   head: () => ({
@@ -122,7 +131,10 @@ function PriceMasterUpdatePage() {
   const [dialogPassword, setDialogPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  const [sapDialog, setSapDialog] = useState<SapResponseDialogState | null>(null);
+
   const runFetch = useServerFn(fetchPriceMaster);
+  const runUpdate = useServerFn(updatePriceMaster);
 
   const mutation = useMutation({
     mutationFn: (vars: {
@@ -136,8 +148,15 @@ function PriceMasterUpdatePage() {
       setSelected(new Set());
       setEdits({});
       setRows(res.rows ?? []);
-      if (res.error) toast.error(res.error);
-      else if (res.sapMessage) toast.info(res.sapMessage);
+      const msg = res.error || res.sapMessage;
+      if (msg) {
+        setSapDialog({
+          open: true,
+          title: "SAP Response",
+          refLabel: "Message",
+          results: [{ ref: "Price Master", message: msg, ok: false }],
+        });
+      }
     },
     onError: (e: Error) => {
       setRows([]);
@@ -146,6 +165,47 @@ function PriceMasterUpdatePage() {
       toast.error(e.message || "Could not load price master records");
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: (vars: { rows: Row[]; user_name?: string; password?: string }) =>
+      runUpdate({ data: vars }),
+    onSuccess: (res) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Update",
+        refLabel: "Customer / Material",
+        results: (res.results ?? []).map((r) => ({
+          ref: r.ref,
+          message: r.message,
+          ok: r.ok,
+        })),
+      });
+    },
+    onError: (e: Error) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Update",
+        refLabel: "Message",
+        results: [
+          { ref: "Update", message: e.message || "Could not update price master", ok: false },
+        ],
+      });
+    },
+  });
+
+  function submitUpdate() {
+    const payloadRows = rows
+      .map((r, i) => ({ r, i }))
+      .filter(({ i }) => selected.has(String(i)))
+      .map(({ r, i }) => ({ ...r, ...(edits[String(i)] ?? {}) }) as Row);
+    if (payloadRows.length === 0) return;
+    updateMutation.mutate({
+      rows: payloadRows,
+      user_name: dialogUserId.trim() || undefined,
+      password: dialogPassword || undefined,
+    });
+  }
+
 
   const editable = mode === "update";
 
@@ -328,16 +388,23 @@ function PriceMasterUpdatePage() {
           editable && rows.length > 0 ? (
             <Button
               size="sm"
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || updateMutation.isPending}
               className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-              onClick={() => toast.info("Update will be enabled once the SAP update API is configured.")}
+              onClick={submitUpdate}
             >
-              Update
+              {updateMutation.isPending ? "Updating…" : "Update"}
             </Button>
           ) : undefined
         }
-
       />
+
+      <SapResponseDialog
+        dialog={sapDialog}
+        onOpenChange={(open) => {
+          if (!open) setSapDialog(null);
+        }}
+      />
+
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
