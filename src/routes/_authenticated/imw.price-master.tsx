@@ -335,6 +335,9 @@ function PriceMasterUpdatePage() {
               onValueChange={(v) => {
                 const next = v as Mode;
                 setMode(next);
+                setRows([]);
+                setSelected(new Set());
+                setEdits({});
                 if (next === "update") {
                   setDialogOpen(true);
                 } else {
