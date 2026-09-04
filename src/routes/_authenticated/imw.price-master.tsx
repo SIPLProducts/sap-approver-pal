@@ -171,6 +171,64 @@ function PriceMasterUpdatePage() {
         emptyMessage="Select a Plant and click Execute to load price master records from SAP."
         columns={buildDynamicColumns(rows)}
       />
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Price Master Update — Credentials</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="imw-update-userid" className="text-xs font-medium">
+                User ID
+              </Label>
+              <Input
+                id="imw-update-userid"
+                type="text"
+                autoComplete="username"
+                placeholder="Enter User ID"
+                value={dialogUserId}
+                onChange={(e) => setDialogUserId(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="imw-update-password" className="text-xs font-medium">
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="imw-update-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Enter password"
+                  value={dialogPassword}
+                  onChange={(e) => setDialogPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={executeFromDialog}
+              disabled={!dialogUserId.trim() || !dialogPassword.trim()}
+            >
+              Execute
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
