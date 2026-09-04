@@ -17,13 +17,13 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/imw/price-master-approvals")({
   head: () => ({
     meta: [
-      { title: "Price Master Update Approvals — IMW Approvals" },
+      { title: "Price Master Update Approvals — IWM Approvals" },
       {
         name: "description",
         content:
           "Review pending, approved and rejected price master update requests by plant, customer and date range.",
       },
-      { property: "og:title", content: "Price Master Update Approvals — IMW Approvals" },
+      { property: "og:title", content: "Price Master Update Approvals — IWM Approvals" },
       {
         property: "og:description",
         content:
@@ -73,7 +73,7 @@ function PriceMasterApprovalsPage() {
   return (
     <div className="page-shell page-stack">
       <PageHeader
-        eyebrow="IMW Approvals"
+        eyebrow="IWM Approvals"
         title="Price Master Update Approvals"
         subtitle="Review price master update requests routed from SAP for the selected plant, customer and date range."
       />
