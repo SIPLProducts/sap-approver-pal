@@ -224,6 +224,7 @@ function PriceMasterUpdatePage() {
     setMode("display");
     setRows([]);
     setSelected(new Set());
+    setEdits({});
     setDialogOpen(false);
     setDialogUserId("");
     setDialogPassword("");
