@@ -131,6 +131,7 @@ function PriceMasterUpdatePage() {
     }) => runFetch({ data: vars }),
     onSuccess: (res) => {
       setSelected(new Set());
+      setEdits({});
       setRows(res.rows ?? []);
       if (res.error) toast.error(res.error);
       else if (res.sapMessage) toast.info(res.sapMessage);
@@ -138,9 +139,12 @@ function PriceMasterUpdatePage() {
     onError: (e: Error) => {
       setRows([]);
       setSelected(new Set());
+      setEdits({});
       toast.error(e.message || "Could not load price master records");
     },
   });
+
+  const editable = mode === "update";
 
   const columns = useMemo<CloudscapeColumn<Row>[]>(
     () =>
@@ -148,9 +152,38 @@ function PriceMasterUpdatePage() {
         id: def.key,
         header: def.label,
         align: def.kind === "amount" ? ("right" as const) : undefined,
-        cell: (r: Row) => renderCell(r, def),
+        cell: (r: Row) => {
+          if (editable && EDITABLE_KEYS.has(def.key)) {
+            const k = String(rows.indexOf(r));
+            const raw = r?.[def.key];
+            const current =
+              edits[k]?.[def.key as EditKey] ??
+              (raw === null || raw === undefined ? "" : String(raw).trim());
+            const isRemarks = def.key === "PRICE_REMARKS";
+            return (
+              <Input
+                value={current}
+                onChange={(e) =>
+                  setEdits((prev) => ({
+                    ...prev,
+                    [k]: { ...prev[k], [def.key as EditKey]: e.target.value },
+                  }))
+                }
+                inputMode={isRemarks ? undefined : "decimal"}
+                placeholder={def.label}
+                aria-label={def.label}
+                className={
+                  isRemarks
+                    ? "h-8 text-xs min-w-[180px]"
+                    : "h-8 text-xs min-w-[110px] text-right"
+                }
+              />
+            );
+          }
+          return renderCell(r, def);
+        },
       })),
-    [],
+    [editable, edits, rows],
   );
 
   useEffect(() => {
