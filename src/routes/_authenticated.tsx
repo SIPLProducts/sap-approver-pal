@@ -325,12 +325,12 @@ function AuthenticatedLayout() {
                   setOpen(false);
                   nav({ to: "/imw/price-master" });
                 }}
-                title="IMW Approvals"
+                title="IWM Approvals"
                 className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${imwOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}
               >
                 {imwOpen && !collapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
                 <Factory className="h-4 w-4 shrink-0" />
-                {!collapsed && <span className="flex-1 text-left truncate">IMW Approvals</span>}
+                {!collapsed && <span className="flex-1 text-left truncate">IWM Approvals</span>}
                 {!collapsed && (
                   <span
                     role="button"

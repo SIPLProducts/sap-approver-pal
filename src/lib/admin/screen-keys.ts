@@ -48,9 +48,9 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
     ],
   },
   {
-    module: "IMW Approvals",
+    module: "IWM Approvals",
     screens: [
-      { key: "approvals.inbox.imw", label: "IMW Approvals Inbox", activity: "APPROVALS.INBOX_IMW" },
+      { key: "approvals.inbox.imw", label: "IWM Approvals Inbox", activity: "APPROVALS.INBOX_IMW" },
       { key: "imw.price_master",    label: "Price Master Update", activity: "IMW.PRICE_MASTER" },
       { key: "imw.price_master_approvals", label: "Price Master Update Approvals", activity: "IMW.PRICE_MASTER_APPROVALS" },
 

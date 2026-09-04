@@ -41,12 +41,12 @@ import { formatAmount, formatSapDateDMY } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/imw/price-master")({
   head: () => ({
     meta: [
-      { title: "Price Master Update — IMW Approvals" },
+      { title: "Price Master Update — IWM Approvals" },
       {
         name: "description",
         content: "Display or update SAP price master records by plant and customer.",
       },
-      { property: "og:title", content: "Price Master Update — IMW Approvals" },
+      { property: "og:title", content: "Price Master Update — IWM Approvals" },
       {
         property: "og:description",
         content: "Display or update SAP price master records by plant and customer.",
@@ -300,7 +300,7 @@ function PriceMasterUpdatePage() {
   return (
     <div className="page-shell page-stack">
       <PageHeader
-        eyebrow="IMW Approvals"
+        eyebrow="IWM Approvals"
         title="Price Master Update"
         subtitle="Display or update price master records for the selected plant and customer."
       />
