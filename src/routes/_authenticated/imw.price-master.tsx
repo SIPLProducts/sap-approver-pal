@@ -126,7 +126,18 @@ function PriceMasterUpdatePage() {
             <Label className="text-xs">Mode</Label>
             <RadioGroup
               value={mode}
-              onValueChange={(v) => setMode(v as Mode)}
+              onValueChange={(v) => {
+                const next = v as Mode;
+                setMode(next);
+                if (next === "update") {
+                  setDialogOpen(true);
+                } else {
+                  setDialogOpen(false);
+                  setDialogUserId("");
+                  setDialogPassword("");
+                  setShowPassword(false);
+                }
+              }}
               className="flex h-9 items-center gap-5"
             >
               <label className="flex cursor-pointer items-center gap-2 text-sm">
