@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft, ChevronsUpDown, Mail, ClipboardCheck } from "lucide-react";
+import { Package, Truck, History, Settings, Users, LogOut, Bell, RefreshCcw, ShieldCheck, Plug, Server, ChevronDown, Tag, FileText, FileCheck2, ShoppingCart, BarChart3, PanelLeft, ChevronsUpDown, Mail, ClipboardCheck, Factory } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,10 @@ function AuthenticatedLayout() {
   const sdOpen = pathname.startsWith("/sd") || pathname.startsWith("/inbox/sd");
   const [sdExpanded, setSdExpanded] = useState(sdOpen);
   useEffect(() => { if (sdOpen) setSdExpanded(true); }, [sdOpen]);
+
+  const imwOpen = pathname.startsWith("/imw");
+  const [imwExpanded, setImwExpanded] = useState(imwOpen);
+  useEffect(() => { if (imwOpen) setImwExpanded(true); }, [imwOpen]);
 
   const mmOpen = pathname.startsWith("/mm") || pathname.startsWith("/inbox/mm");
   const [mmExpanded, setMmExpanded] = useState(mmOpen);
@@ -164,8 +168,13 @@ function AuthenticatedLayout() {
     { to: "/mm/service-entry-sheet", label: "Service Entry Sheet", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
   ].filter((it) => can(it.screen));
 
+  const imwChildren = [
+    { to: "/imw/price-master", label: "Price Master Update", icon: Tag, screen: "imw.price_master" },
+  ].filter((it) => can("approvals.inbox.imw") || can(it.screen));
+
   const showMm = mmChildren.length > 0;
   const showSd = sdChildren.length > 0;
+  const showImw = imwChildren.length > 0;
 
   const manage_items = [
     { to: "/history", label: "History", icon: History, screen: "approvals.history" },
@@ -290,6 +299,52 @@ function AuthenticatedLayout() {
               {sdExpanded && !collapsed && (
                 <div className="ml-5 pl-3 border-l border-sidebar-border/70 space-y-0.5 mt-0.5 mb-1">
                   {sdChildren.map((it) => {
+                    const active = pathname.startsWith(it.to);
+                    const Icon = it.icon;
+                    return (
+                      <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] transition-colors ${active ? "bg-sidebar-primary/15 text-sidebar-primary-foreground/95 font-medium" : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
+                        <Icon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{it.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {showImw && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if (collapsed) setCollapsed(false);
+                  setImwExpanded(true);
+                  setOpen(false);
+                  nav({ to: "/imw/price-master" });
+                }}
+                title="IMW Approvals"
+                className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${imwOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"} ${collapsed ? "justify-center" : ""}`}
+              >
+                {imwOpen && !collapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-sidebar-primary" />}
+                <Factory className="h-4 w-4 shrink-0" />
+                {!collapsed && <span className="flex-1 text-left truncate">IMW Approvals</span>}
+                {!collapsed && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setImwExpanded((v) => !v); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setImwExpanded((v) => !v); } }}
+                    className="p-0.5 -mr-1 rounded hover:bg-sidebar-accent/60"
+                    aria-label={imwExpanded ? "Collapse" : "Expand"}
+                  >
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${imwExpanded ? "rotate-0" : "-rotate-90"}`} />
+                  </span>
+                )}
+              </button>
+              {imwExpanded && !collapsed && (
+                <div className="ml-5 pl-3 border-l border-sidebar-border/70 space-y-0.5 mt-0.5 mb-1">
+                  {imwChildren.map((it) => {
                     const active = pathname.startsWith(it.to);
                     const Icon = it.icon;
                     return (
