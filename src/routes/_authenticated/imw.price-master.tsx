@@ -388,16 +388,23 @@ function PriceMasterUpdatePage() {
           editable && rows.length > 0 ? (
             <Button
               size="sm"
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || updateMutation.isPending}
               className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-              onClick={() => toast.info("Update will be enabled once the SAP update API is configured.")}
+              onClick={submitUpdate}
             >
-              Update
+              {updateMutation.isPending ? "Updating…" : "Update"}
             </Button>
           ) : undefined
         }
-
       />
+
+      <SapResponseDialog
+        dialog={sapDialog}
+        onOpenChange={(open) => {
+          if (!open) setSapDialog(null);
+        }}
+      />
+
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
