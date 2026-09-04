@@ -21,9 +21,13 @@ import {
 } from "@/components/ui/dialog";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
-import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
-import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
+import {
+  CloudscapeApprovalTable,
+  type CloudscapeColumn,
+} from "@/components/aws/cloudscape-approval-table";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { fetchPriceMaster, type PriceMasterRow } from "@/lib/imw/price-master.functions";
+import { formatAmount, formatSapDateDMY } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/imw/price-master")({
   head: () => ({
