@@ -50,6 +50,10 @@ function AuthenticatedLayout() {
   const [sdExpanded, setSdExpanded] = useState(sdOpen);
   useEffect(() => { if (sdOpen) setSdExpanded(true); }, [sdOpen]);
 
+  const imwOpen = pathname.startsWith("/imw");
+  const [imwExpanded, setImwExpanded] = useState(imwOpen);
+  useEffect(() => { if (imwOpen) setImwExpanded(true); }, [imwOpen]);
+
   const mmOpen = pathname.startsWith("/mm") || pathname.startsWith("/inbox/mm");
   const [mmExpanded, setMmExpanded] = useState(mmOpen);
   useEffect(() => { if (mmOpen) setMmExpanded(true); }, [mmOpen]);
