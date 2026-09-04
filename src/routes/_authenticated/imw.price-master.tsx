@@ -94,6 +94,9 @@ const COLUMN_DEFS: { key: string; label: string; kind: "text" | "amount" | "date
 
 const ZERO_DATES = new Set(["00000000", "0000-00-00", "0000000000", ""]);
 
+type EditKey = "PRICE" | "PRICE_WB02" | "PRICE_REMARKS";
+const EDITABLE_KEYS = new Set<string>(["PRICE", "PRICE_WB02", "PRICE_REMARKS"]);
+
 function renderCell(row: Row, def: (typeof COLUMN_DEFS)[number]) {
   const v = row?.[def.key];
   if (v === null || v === undefined || String(v).trim() === "") return "—";
@@ -110,6 +113,9 @@ function PriceMasterUpdatePage() {
   const [mode, setMode] = useState<Mode>("display");
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [edits, setEdits] = useState<
+    Record<string, { PRICE?: string; PRICE_WB02?: string; PRICE_REMARKS?: string }>
+  >({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogUserId, setDialogUserId] = useState("");
@@ -128,6 +134,7 @@ function PriceMasterUpdatePage() {
     }) => runFetch({ data: vars }),
     onSuccess: (res) => {
       setSelected(new Set());
+      setEdits({});
       setRows(res.rows ?? []);
       if (res.error) toast.error(res.error);
       else if (res.sapMessage) toast.info(res.sapMessage);
@@ -135,9 +142,12 @@ function PriceMasterUpdatePage() {
     onError: (e: Error) => {
       setRows([]);
       setSelected(new Set());
+      setEdits({});
       toast.error(e.message || "Could not load price master records");
     },
   });
+
+  const editable = mode === "update";
 
   const columns = useMemo<CloudscapeColumn<Row>[]>(
     () =>
@@ -145,9 +155,38 @@ function PriceMasterUpdatePage() {
         id: def.key,
         header: def.label,
         align: def.kind === "amount" ? ("right" as const) : undefined,
-        cell: (r: Row) => renderCell(r, def),
+        cell: (r: Row) => {
+          if (editable && EDITABLE_KEYS.has(def.key)) {
+            const k = String(rows.indexOf(r));
+            const raw = r?.[def.key];
+            const current =
+              edits[k]?.[def.key as EditKey] ??
+              (raw === null || raw === undefined ? "" : String(raw).trim());
+            const isRemarks = def.key === "PRICE_REMARKS";
+            return (
+              <Input
+                value={current}
+                onChange={(e) =>
+                  setEdits((prev) => ({
+                    ...prev,
+                    [k]: { ...prev[k], [def.key as EditKey]: e.target.value },
+                  }))
+                }
+                inputMode={isRemarks ? undefined : "decimal"}
+                placeholder={def.label}
+                aria-label={def.label}
+                className={
+                  isRemarks
+                    ? "h-8 text-xs min-w-[180px]"
+                    : "h-8 text-xs min-w-[110px] text-right"
+                }
+              />
+            );
+          }
+          return renderCell(r, def);
+        },
       })),
-    [],
+    [editable, edits, rows],
   );
 
   useEffect(() => {
@@ -185,6 +224,7 @@ function PriceMasterUpdatePage() {
     setMode("display");
     setRows([]);
     setSelected(new Set());
+    setEdits({});
     setDialogOpen(false);
     setDialogUserId("");
     setDialogPassword("");
@@ -284,6 +324,13 @@ function PriceMasterUpdatePage() {
         rowKey={(_r: Row, i: number) => String(i)}
         emptyMessage="Select a Plant and click Execute to load price master records from SAP."
         columns={columns}
+        headerExtras={
+          editable && rows.length > 0 ? (
+            <Button size="sm" onClick={() => toast.info("Update will be enabled once the SAP update API is configured.")}>
+              Update
+            </Button>
+          ) : undefined
+        }
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
