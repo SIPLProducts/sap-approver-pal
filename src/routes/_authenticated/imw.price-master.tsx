@@ -110,6 +110,9 @@ function PriceMasterUpdatePage() {
   const [mode, setMode] = useState<Mode>("display");
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [edits, setEdits] = useState<
+    Record<string, { PRICE?: string; PRICE_WB02?: string; PRICE_REMARKS?: string }>
+  >({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogUserId, setDialogUserId] = useState("");
