@@ -326,11 +326,17 @@ function PriceMasterUpdatePage() {
         columns={columns}
         headerExtras={
           editable && rows.length > 0 ? (
-            <Button size="sm" onClick={() => toast.info("Update will be enabled once the SAP update API is configured.")}>
+            <Button
+              size="sm"
+              disabled={selected.size === 0}
+              className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+              onClick={() => toast.info("Update will be enabled once the SAP update API is configured.")}
+            >
               Update
             </Button>
           ) : undefined
         }
+
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
