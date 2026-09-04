@@ -50,6 +50,11 @@ function PriceMasterUpdatePage() {
   const [mode, setMode] = useState<Mode>("display");
   const [rows, setRows] = useState<Row[]>([]);
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogUserId, setDialogUserId] = useState("");
+  const [dialogPassword, setDialogPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
   useEffect(() => {
     setPlants((prev) => {
       if (activePlants.length === 0) return [];
