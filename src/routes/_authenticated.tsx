@@ -170,6 +170,8 @@ function AuthenticatedLayout() {
 
   const imwChildren = [
     { to: "/imw/price-master", label: "Price Master Update", icon: Tag, screen: "imw.price_master" },
+    { to: "/imw/price-master-approvals", label: "Price Master Update Approvals", icon: Tag, screen: "imw.price_master_approvals" },
+
   ].filter((it) => can("approvals.inbox.imw") || can(it.screen));
 
   const showMm = mmChildren.length > 0;
