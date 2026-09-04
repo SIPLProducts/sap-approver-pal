@@ -79,6 +79,16 @@ function PriceMasterUpdatePage() {
     setCustomer("");
     setMode("display");
     setRows([]);
+    setDialogOpen(false);
+    setDialogUserId("");
+    setDialogPassword("");
+    setShowPassword(false);
+  }
+
+  function executeFromDialog() {
+    if (!dialogUserId.trim() || !dialogPassword.trim()) return;
+    setDialogOpen(false);
+    execute();
   }
 
   return (
