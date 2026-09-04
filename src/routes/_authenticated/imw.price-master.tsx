@@ -258,9 +258,13 @@ function PriceMasterUpdatePage() {
           </div>
 
           <div className="flex gap-2">
-            <Button size="sm" onClick={execute} disabled={plants.length === 0}>
+            <Button
+              size="sm"
+              onClick={() => execute()}
+              disabled={plants.length === 0 || mutation.isPending}
+            >
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-              Execute
+              {mutation.isPending ? "Loading…" : "Execute"}
             </Button>
             <Button variant="ghost" size="sm" onClick={reset}>
               Reset
@@ -273,9 +277,13 @@ function PriceMasterUpdatePage() {
         title="Price Master"
         countLabel={`(${rows.length})`}
         rows={rows}
+        loading={mutation.isPending}
+        showSelect
+        selectedKeys={selected}
+        onSelectionChange={setSelected}
         rowKey={(_r: Row, i: number) => String(i)}
         emptyMessage="Select a Plant and click Execute to load price master records from SAP."
-        columns={buildDynamicColumns(rows)}
+        columns={columns}
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
