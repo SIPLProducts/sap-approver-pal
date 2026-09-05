@@ -40,13 +40,18 @@ export const fetchMigo = createServerFn({ method: "POST" })
     const matDocNo = data.mat_doc_number.trim();
     const matDocYear = data.mat_doc_year.trim();
 
+    // Configured request fields are matched case-sensitively by the middleware,
+    // so send both spellings of the document keys.
     const inputs: Record<string, string> = {
       mblnr: matDocNo,
       mjahr: matDocYear,
+      MBLNR: matDocNo,
+      MJAHR: matDocYear,
       RELEASE: data.transaction_type === "release" ? "X" : "",
       DISPLAY: data.transaction_type === "display" ? "X" : "",
       CANCEL: data.transaction_type === "cancel" ? "X" : "",
     };
+
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
@@ -152,6 +157,25 @@ export const fetchMigo = createServerFn({ method: "POST" })
     const rows: Record<string, any>[] = dataArr.map((r) =>
       r && typeof r === "object" ? { ...r } : {},
     );
+
+    if (!header && rows.length === 0) {
+      const { extractSapMessage } = await import("@/lib/mm/sap-message");
+      const sapText = extractSapMessage(sapJson);
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: "error",
+        latency_ms,
+        rows_processed: 0,
+        message: `migo-fetch: empty response ${text.slice(0, 300)}`,
+      });
+      return {
+        header: null as Record<string, any> | null,
+        data: [] as Record<string, any>[],
+        fetched_at: new Date().toISOString(),
+        error: sapText || "SAP returned no data for this document.",
+      };
+    }
+
 
     await supabaseAdmin.from("sap_api_sync_log").insert({
       config_id: cfg.id,
