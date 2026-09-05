@@ -328,6 +328,7 @@ function MigoReleasePage() {
             return (
               <Checkbox
                 checked={checked}
+                disabled={transactionType === "display"}
                 onCheckedChange={(v) => updateCell(k, key, v === true ? "X" : "")}
               />
             );
@@ -346,6 +347,7 @@ function MigoReleasePage() {
             return (
               <Input
                 value={toStr(cur?.[key])}
+                disabled={transactionType === "display"}
                 onChange={(e) => updateCell(k, key, e.target.value)}
                 className="h-8 text-xs"
               />
@@ -364,7 +366,7 @@ function MigoReleasePage() {
             const cur = edits.get(k) ?? item;
             const val = toStr(cur?.[key]);
             return (
-              <Select value={val} onValueChange={(v) => updateCell(k, key, v)}>
+              <Select value={val} disabled={transactionType === "display"} onValueChange={(v) => updateCell(k, key, v)}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -393,7 +395,7 @@ function MigoReleasePage() {
         },
       } as CloudscapeColumn<DataRow>;
     });
-  }, [rows, edits]);
+  }, [rows, edits, transactionType]);
 
   const headerFields = useMemo(() => Object.keys(header ?? {}), [header]);
 
@@ -517,19 +519,21 @@ function MigoReleasePage() {
           )}
 
 
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              variant="success"
-              disabled={selected.size === 0 || postMutation.isPending}
-              onClick={onPost}
-            >
-              {postMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : null}
-              Post
-            </Button>
-          </div>
+          {transactionType !== "display" && (
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant={transactionType === "cancel" ? "destructive" : "success"}
+                disabled={selected.size === 0 || postMutation.isPending}
+                onClick={onPost}
+              >
+                {postMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : null}
+                {transactionType === "cancel" ? "Cancel" : "Post"}
+              </Button>
+            </div>
+          )}
 
           <CloudscapeApprovalTable
             title="MIGO Items"
@@ -538,7 +542,7 @@ function MigoReleasePage() {
             rowKey={rowKey}
             loading={mutation.isPending}
             emptyMessage="No line items."
-            showSelect
+            showSelect={transactionType !== "display"}
             selectedKeys={selected}
             onSelectionChange={setSelected}
             columns={columns}
