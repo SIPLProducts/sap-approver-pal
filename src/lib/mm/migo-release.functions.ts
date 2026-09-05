@@ -40,13 +40,18 @@ export const fetchMigo = createServerFn({ method: "POST" })
     const matDocNo = data.mat_doc_number.trim();
     const matDocYear = data.mat_doc_year.trim();
 
+    // Configured request fields are matched case-sensitively by the middleware,
+    // so send both spellings of the document keys.
     const inputs: Record<string, string> = {
       mblnr: matDocNo,
       mjahr: matDocYear,
+      MBLNR: matDocNo,
+      MJAHR: matDocYear,
       RELEASE: data.transaction_type === "release" ? "X" : "",
       DISPLAY: data.transaction_type === "display" ? "X" : "",
       CANCEL: data.transaction_type === "cancel" ? "X" : "",
     };
+
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" &&
