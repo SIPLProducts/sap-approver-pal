@@ -17,6 +17,7 @@ export const fetchMigo = createServerFn({ method: "POST" })
     z.object({
       mat_doc_number: z.string().trim().min(1, "Material Document Number is required").max(40),
       mat_doc_year: z.string().trim().min(4, "Material Document Year is required").max(4),
+      transaction_type: z.enum(["release", "display", "cancel"]),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -42,6 +43,9 @@ export const fetchMigo = createServerFn({ method: "POST" })
     const inputs: Record<string, string> = {
       mblnr: matDocNo,
       mjahr: matDocYear,
+      RELEASE: data.transaction_type === "release" ? "X" : "",
+      DISPLAY: data.transaction_type === "display" ? "X" : "",
+      CANCEL: data.transaction_type === "cancel" ? "X" : "",
     };
 
     const globalProxy =

@@ -168,10 +168,9 @@ function AuthenticatedLayout() {
     { to: "/mm/service-entry-sheet", label: "Service Entry Sheet", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
   ].filter((it) => can(it.screen));
 
-  const imwChildren = [
+  const imwChildren: { to: string; label: React.ReactNode; icon: React.ElementType; screen: string }[] = [
     { to: "/imw/price-master", label: "Price Master Update", icon: Tag, screen: "imw.price_master" },
-    { to: "/imw/price-master-approvals", label: "Price Master Update Approvals", icon: Tag, screen: "imw.price_master_approvals" },
-
+    { to: "/imw/price-master-approvals", label: <span className="leading-tight">Price Master Update<br />Approvals</span>, icon: Tag, screen: "imw.price_master_approvals" },
   ].filter((it) => can("approvals.inbox.imw") || can(it.screen));
 
   const showMm = mmChildren.length > 0;
@@ -350,10 +349,11 @@ function AuthenticatedLayout() {
                     const active = pathname.startsWith(it.to);
                     const Icon = it.icon;
                     return (
-                      <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] transition-colors ${active ? "bg-sidebar-primary/15 text-sidebar-primary-foreground/95 font-medium" : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
-                        <Icon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{it.label}</span>
-                      </Link>
+                    <Link key={it.to} to={it.to} onClick={() => setOpen(false)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] transition-colors ${active ? "bg-sidebar-primary/15 text-sidebar-primary-foreground/95 font-medium" : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"}`}>
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span className={typeof it.label === "string" ? "truncate" : ""}>{it.label}</span>
+                    </Link>
                     );
                   })}
                 </div>

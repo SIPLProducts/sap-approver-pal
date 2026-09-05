@@ -24,6 +24,12 @@ const STCK_TYPE_OPTIONS = [
   { value: "3", label: "3 Blocked" },
 ];
 
+const TRANSACTION_TYPE_OPTIONS = [
+  { value: "release", label: "Release" },
+  { value: "display", label: "Display" },
+  { value: "cancel", label: "Cancel" },
+];
+
 /** SAP key → business label shown in the UI (values/payloads unchanged). */
 const FIELD_LABELS: Record<string, string> = {
   DOC_DATE: "Document Date",
@@ -119,6 +125,7 @@ function MigoReleasePage() {
   const fetchFn = useServerFn(fetchMigo);
   const checkFn = useServerFn(checkMigo);
 
+  const [transactionType, setTransactionType] = useState<"release" | "display" | "cancel">("release");
   const [matDocNo, setMatDocNo] = useState("");
   const [matDocYear, setMatDocYear] = useState("");
   const [header, setHeader] = useState<Record<string, any> | null>(null);
@@ -130,7 +137,7 @@ function MigoReleasePage() {
   const [resultDialog, setResultDialog] = useState<SapResponseDialogState | null>(null);
 
   const mutation = useMutation({
-    mutationFn: async (vars: { mat_doc_number: string; mat_doc_year: string }) => {
+    mutationFn: async (vars: { mat_doc_number: string; mat_doc_year: string; transaction_type: "release" | "display" | "cancel" }) => {
       const v: any = await fetchFn({ data: vars });
       const data = Array.isArray(v?.data) ? (v.data as DataRow[]) : [];
       return {
@@ -232,10 +239,12 @@ function MigoReleasePage() {
     mutation.mutate({
       mat_doc_number: matDocNo.trim(),
       mat_doc_year: matDocYear.trim(),
+      transaction_type: transactionType,
     });
   }
 
   function reset() {
+    setTransactionType("release");
     setMatDocNo("");
     setMatDocYear("");
     setHeader(null);
@@ -396,7 +405,22 @@ function MigoReleasePage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
-          <div className="grid gap-3 md:grid-cols-[240px_180px_auto] items-end">
+          <div className="grid gap-3 md:grid-cols-[200px_240px_180px_auto] items-end">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Transaction Type</Label>
+              <Select value={transactionType} onValueChange={(v) => setTransactionType(v as "release" | "display" | "cancel")}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRANSACTION_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Material Document Number</Label>
               <Input
