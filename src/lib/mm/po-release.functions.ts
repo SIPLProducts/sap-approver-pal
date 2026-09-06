@@ -487,6 +487,8 @@ export const fetchPoGet = createServerFn({ method: "POST" })
           WERKS: plant.trim(),
           FRGGR: data.relgroup.trim(),
           FRGCO: data.relcode.trim(),
+          CANCEL_REC: data.cancel_record ? "X" : "",
+          USER_ID: (data.user_id ?? "").trim(),
         },
       };
 
