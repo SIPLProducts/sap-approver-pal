@@ -82,9 +82,11 @@ function rowKey(r: Record<string, any>, idx: number) {
 
 function PoReleasePage() {
   const { plants: assignedPlants, activePlants } = useActiveContext();
+  const sapProfile = useSapProfile();
   const [plants, setPlants] = useState<string[]>(activePlants.slice(0, 1));
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
+  const [cancelRecord, setCancelRecord] = useState(false);
   const poKeys = useMemo(
     () => releaseKeysFor(assignedPlants, "po", plants),
     [assignedPlants, plants],
