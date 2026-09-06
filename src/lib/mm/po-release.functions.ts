@@ -437,6 +437,8 @@ export const fetchPoGet = createServerFn({ method: "POST" })
       relgroup: z.string().trim().min(1, "Release Group is required").max(10),
       relcode: z.string().trim().min(1, "Release Code is required").max(10),
       plants: z.array(z.string().trim().min(1)).min(1, "At least one plant is required"),
+      cancel_record: z.boolean().optional().default(false),
+      user_id: z.string().trim().optional().default(""),
     }).parse(d),
   )
   .handler(async ({ data }) => {
