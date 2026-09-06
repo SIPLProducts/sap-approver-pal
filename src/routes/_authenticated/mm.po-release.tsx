@@ -43,6 +43,7 @@ const COLUMN_LABELS: Record<string, string> = {
   EBELN: "Purchase Order Number",
   EBELP: "PO Item",
   BATXT: "Document Type",
+  PLANT_CODE: "Plant",
   PLANT_NAME: "Plant",
   VENDOR_NAME: "Vendor Name",
   RLWRT: "Net Value",
