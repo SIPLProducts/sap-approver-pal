@@ -124,7 +124,13 @@ function PoReleasePage() {
 
   const fetchFn = useServerFn(fetchPoGet);
   const mutation = useMutation({
-    mutationFn: (input: { relgroup: string; relcode: string; plants: string[] }) =>
+    mutationFn: (input: {
+      relgroup: string;
+      relcode: string;
+      plants: string[];
+      cancel_record: boolean;
+      user_id: string;
+    }) =>
       fetchFn({ data: input }),
     onSuccess: (res) => {
       if (res.error) {
@@ -157,6 +163,8 @@ function PoReleasePage() {
       relgroup: releaseGroup.trim(),
       relcode: releaseCode.trim(),
       plants,
+      cancel_record: cancelRecord,
+      user_id: sapProfile?.user ?? "",
     });
   }
 
@@ -164,6 +172,7 @@ function PoReleasePage() {
     setPlants(activePlants.slice(0, 1));
     setReleaseGroup("");
     setReleaseCode("");
+    setCancelRecord(false);
     setRows([]);
     setSelected(new Set());
     setRemarks({});
@@ -250,6 +259,8 @@ function PoReleasePage() {
           relgroup: releaseGroup.trim(),
           relcode: releaseCode.trim(),
           plants,
+          cancel_record: cancelRecord,
+          user_id: sapProfile?.user ?? "",
         });
       }
     },
@@ -319,6 +330,8 @@ function PoReleasePage() {
           relgroup: releaseGroup.trim(),
           relcode: releaseCode.trim(),
           plants,
+          cancel_record: cancelRecord,
+          user_id: sapProfile?.user ?? "",
         });
       }
     },
@@ -389,7 +402,17 @@ function PoReleasePage() {
             disabled={mutation.isPending}
           />
 
-          <div />
+          <div className="flex items-center gap-2 pb-2">
+            <Checkbox
+              id="po-cancel-record"
+              checked={cancelRecord}
+              onCheckedChange={(v) => setCancelRecord(v === true)}
+              disabled={mutation.isPending}
+            />
+            <Label htmlFor="po-cancel-record" className="text-xs cursor-pointer">
+              Cancel Record
+            </Label>
+          </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={mutation.isPending}>
               {mutation.isPending ? (
