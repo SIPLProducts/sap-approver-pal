@@ -483,7 +483,7 @@ function PrReleasePage() {
               Cancel Record
             </Label>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
+          <div className="flex shrink-0 flex-nowrap gap-2 md:justify-end">
             <Button size="sm" onClick={execute} disabled={mutation.isPending}>
               {mutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
