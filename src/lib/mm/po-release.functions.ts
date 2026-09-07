@@ -453,6 +453,18 @@ export const undoPoRelease = createServerFn({ method: "POST" })
     processPoAction(CANCEL_RELEASE_CONFIG_NAME, "YCANCEL", data, "undo-release"),
   );
 
+const CANCEL_REJECT_CONFIG_NAME = "PO_CANCEL_REJECT";
+
+/** Undo (cancel) an existing rejection for the selected purchase orders. */
+export const undoPoReject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => poActionInput.parse(d))
+  .handler(async ({ data }) =>
+    processPoAction(CANCEL_REJECT_CONFIG_NAME, "CANCEL_REJ", data, "undo-reject"),
+  );
+
+
+
 
 
 const PO_GET_CONFIG_NAME = "PO_GET_API";
