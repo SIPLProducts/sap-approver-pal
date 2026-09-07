@@ -450,8 +450,8 @@ function PrReleasePage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[280px_240px_240px_1fr_auto] items-end">
-          <div className="space-y-1.5">
+        <div className="grid min-w-0 items-end gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.2fr)_minmax(360px,1.6fr)_auto_auto]">
+          <div className="min-w-0 space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
@@ -461,16 +461,18 @@ function PrReleasePage() {
               source="user-plant"
             />
           </div>
-          <ReleaseKeySelect
-            keys={prKeys}
-            group={releaseGroup}
-            code={releaseCode}
-            onGroupChange={setReleaseGroup}
-            onCodeChange={setReleaseCode}
-            disabled={mutation.isPending}
-          />
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <ReleaseKeySelect
+              keys={prKeys}
+              group={releaseGroup}
+              code={releaseCode}
+              onGroupChange={setReleaseGroup}
+              onCodeChange={setReleaseCode}
+              disabled={mutation.isPending}
+            />
+          </div>
 
-          <div className="flex items-center gap-2 pb-1.5">
+          <div className="flex shrink-0 items-center gap-2 pb-1.5">
             <Checkbox
               id="pr-cancel-record"
               checked={cancelRecord}
@@ -481,7 +483,7 @@ function PrReleasePage() {
               Cancel Record
             </Label>
           </div>
-          <div className="flex gap-2">
+          <div className="flex shrink-0 flex-nowrap gap-2 md:justify-end">
             <Button size="sm" onClick={execute} disabled={mutation.isPending}>
               {mutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
