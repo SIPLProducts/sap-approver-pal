@@ -507,7 +507,7 @@ function PrReleasePage() {
           disabled={selected.size === 0 || rejectMutation.isPending}
         >
           {rejectMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-          Reject
+          {cancelRecord ? "Undo Reject" : "Reject"}
         </Button>
         <Button
           variant="success"
@@ -516,7 +516,7 @@ function PrReleasePage() {
           disabled={selected.size === 0 || releaseMutation.isPending}
         >
           {releaseMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-          Release
+          {cancelRecord ? "Undo Release" : "Release"}
         </Button>
       </div>
 
