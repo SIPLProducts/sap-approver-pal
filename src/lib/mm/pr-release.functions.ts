@@ -198,7 +198,7 @@ export type PrReleaseResult = {
 
 async function processPrAction(
   configName: string,
-  payloadKey: "RELEASE" | "REJECT" | "YCANCEL",
+  payloadKey: "RELEASE" | "REJECT" | "YCANCEL" | "CANCEL_REJ",
   data: {
     relgroup: string;
     relcode: string;
@@ -244,26 +244,34 @@ async function processPrAction(
 
   const results: PrReleaseResult[] = [];
 
-  for (const item of data.items) {
+  // Cancel-rejection only carries the PR number, so send one request per PR.
+  const actionItems =
+    payloadKey === "CANCEL_REJ"
+      ? Array.from(new Map(data.items.map((it) => [it.PREQ_NO, it])).values())
+      : data.items;
+
+  for (const item of actionItems) {
     const inputs =
-      payloadKey === "YCANCEL"
-        ? {
-            YCANCEL: {
-              BANFN: item.PREQ_NO,
-              BNFPO: item.PREQ_ITEM,
-              REL_CODE: data.relcode.trim(),
-              REL_GRP: "",
-            },
-          }
-        : {
-            [payloadKey]: {
-              BANFN: item.PREQ_NO,
-              BNFPO: item.PREQ_ITEM,
-              REL_CODE: data.relcode.trim(),
-              REL_GRP: data.relgroup.trim(),
-              REMARKS: item.REMARKS ?? "",
-            },
-          };
+      payloadKey === "CANCEL_REJ"
+        ? { CANCEL_REJ: { BANFN: item.PREQ_NO } }
+        : payloadKey === "YCANCEL"
+          ? {
+              YCANCEL: {
+                BANFN: item.PREQ_NO,
+                BNFPO: item.PREQ_ITEM,
+                REL_CODE: data.relcode.trim(),
+                REL_GRP: "",
+              },
+            }
+          : {
+              [payloadKey]: {
+                BANFN: item.PREQ_NO,
+                BNFPO: item.PREQ_ITEM,
+                REL_CODE: data.relcode.trim(),
+                REL_GRP: data.relgroup.trim(),
+                REMARKS: item.REMARKS ?? "",
+              },
+            };
 
     let target: string;
     let method: string = cfg.http_method ?? "POST";
@@ -442,4 +450,24 @@ export const undoPrRelease = createServerFn({ method: "POST" })
   .inputValidator((d) => prUndoInput.parse(d))
   .handler(async ({ data }) =>
     processPrAction(CANCEL_RELEASE_CONFIG_NAME, "YCANCEL", data, "undo-release"),
+  );
+
+const CANCEL_REJECT_CONFIG_NAME = "PR_CANCEL_REJECT";
+
+const prUndoRejectInput = z.object({
+  relgroup: z.string().trim().max(10).optional().default(""),
+  relcode: z.string().trim().max(10).optional().default(""),
+  items: z.array(z.object({
+    PREQ_NO: z.string().trim().min(1),
+    PREQ_ITEM: z.string().trim().optional().default(""),
+    REMARKS: z.string().optional().default(""),
+  })).min(1),
+});
+
+/** Undo (cancel) an existing rejection for the selected PRs. */
+export const undoPrReject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => prUndoRejectInput.parse(d))
+  .handler(async ({ data }) =>
+    processPrAction(CANCEL_REJECT_CONFIG_NAME, "CANCEL_REJ", data, "undo-reject"),
   );
