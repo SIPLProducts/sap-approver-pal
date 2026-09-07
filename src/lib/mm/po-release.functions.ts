@@ -180,7 +180,7 @@ export type PoReleaseResult = {
 
 async function processPoAction(
   configName: string,
-  payloadKey: "RELEASE" | "REJECT",
+  payloadKey: "RELEASE" | "REJECT" | "YCANCEL",
   data: {
     relgroup: string;
     relcode: string;
