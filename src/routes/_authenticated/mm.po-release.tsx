@@ -515,10 +515,16 @@ function PoReleasePage() {
         <Button
           variant="success"
           size="sm"
-          onClick={onRelease}
-          disabled={selected.size === 0 || releaseMutation.isPending}
+          onClick={cancelRecord ? onUndoRelease : onRelease}
+          disabled={
+            selected.size === 0 ||
+            releaseMutation.isPending ||
+            undoMutation.isPending
+          }
         >
-          {releaseMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {(releaseMutation.isPending || undoMutation.isPending) && (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          )}
           {cancelRecord ? "Undo Release" : "Release"}
         </Button>
       </div>
