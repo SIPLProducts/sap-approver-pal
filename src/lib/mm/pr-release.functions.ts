@@ -451,3 +451,23 @@ export const undoPrRelease = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     processPrAction(CANCEL_RELEASE_CONFIG_NAME, "YCANCEL", data, "undo-release"),
   );
+
+const CANCEL_REJECT_CONFIG_NAME = "PR_CANCEL_REJECT";
+
+const prUndoRejectInput = z.object({
+  relgroup: z.string().trim().max(10).optional().default(""),
+  relcode: z.string().trim().max(10).optional().default(""),
+  items: z.array(z.object({
+    PREQ_NO: z.string().trim().min(1),
+    PREQ_ITEM: z.string().trim().optional().default(""),
+    REMARKS: z.string().optional().default(""),
+  })).min(1),
+});
+
+/** Undo (cancel) an existing rejection for the selected PRs. */
+export const undoPrReject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => prUndoRejectInput.parse(d))
+  .handler(async ({ data }) =>
+    processPrAction(CANCEL_REJECT_CONFIG_NAME, "CANCEL_REJ", data, "undo-reject"),
+  );
