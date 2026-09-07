@@ -426,10 +426,20 @@ export const rejectPrItems = createServerFn({ method: "POST" })
 
 const CANCEL_RELEASE_CONFIG_NAME = "PR_CANCEL_RELEASE";
 
+const prUndoInput = z.object({
+  relgroup: z.string().trim().max(10).optional().default(""),
+  relcode: z.string().trim().min(1).max(10),
+  items: z.array(z.object({
+    PREQ_NO: z.string().trim().min(1),
+    PREQ_ITEM: z.string().trim().min(1),
+    REMARKS: z.string().optional().default(""),
+  })).min(1),
+});
+
 /** Undo (cancel) an existing release for the selected PR items. */
 export const undoPrRelease = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => prActionInput.parse(d))
+  .inputValidator((d) => prUndoInput.parse(d))
   .handler(async ({ data }) =>
     processPrAction(CANCEL_RELEASE_CONFIG_NAME, "YCANCEL", data, "undo-release"),
   );
