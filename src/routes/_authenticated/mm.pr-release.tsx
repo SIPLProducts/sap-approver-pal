@@ -147,6 +147,9 @@ function PrReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const [cancelRecord, setCancelRecord] = useState(false);
+  const sapProfile = useSapProfile();
+  const sapUserId = sapProfile?.user ?? "";
   const silentRefreshRef = useRef(false);
   const [responseDialog, setResponseDialog] = useState<
     | {
