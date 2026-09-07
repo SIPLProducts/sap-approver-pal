@@ -23,6 +23,7 @@ import { swalConfirm } from "@/lib/mm/swal";
 import { PlantSelect } from "@/components/sap/plant-select";
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
+import { useSapProfile } from "@/hooks/use-sap-profile";
 import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems } from "@/lib/mm/pr-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
@@ -57,7 +58,10 @@ const COLUMN_LABELS: Record<string, string> = {
   DELIV_DATE: "Delivery Date",
   REL_DATE: "Release Date",
   GR_PR_TIME: "GR Processing Time",
-  C_AMT_BAPI: "Unit Price",
+  C_AMT_BAPI: "Valuation Price",
+  RLWRT: "Total Value",
+  PR_REL_STAT: "Release Status",
+  STORAGE_LOC: "Storage Location",
   PRICE_UNIT: "Price Unit",
   ITEM_CAT: "Item Category",
   ACCTASSCAT: "Account Assignment Category",
@@ -144,6 +148,9 @@ function PrReleasePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const [cancelRecord, setCancelRecord] = useState(false);
+  const sapProfile = useSapProfile();
+  const sapUserId = sapProfile?.user ?? "";
   const silentRefreshRef = useRef(false);
   const [responseDialog, setResponseDialog] = useState<
     | {
@@ -171,7 +178,7 @@ function PrReleasePage() {
 
   const fetchFn = useServerFn(fetchPrReleaseMultiple);
   const mutation = useMutation({
-    mutationFn: (input: { relgroup: string; relcode: string; plants: string[] }) =>
+    mutationFn: (input: { relgroup: string; relcode: string; plants: string[]; cancel_record?: boolean; user_id?: string }) =>
       fetchFn({ data: input }),
     onSuccess: (res) => {
       const silent = silentRefreshRef.current;
@@ -232,13 +239,14 @@ function PrReleasePage() {
       toast.error("Release Group and Release Code are required.");
       return;
     }
-    mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
+    mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants, cancel_record: cancelRecord, user_id: sapUserId });
   }
 
   function reset() {
     setPlants(activePlants.slice(0, 1));
     setReleaseGroup("");
     setReleaseCode("");
+    setCancelRecord(false);
     setRows([]);
     setSelected(new Set());
     setRemarks({});
@@ -321,7 +329,7 @@ function PrReleasePage() {
       // Refresh the pending list so released rows disappear.
       if (releaseGroup.trim() && releaseCode.trim()) {
         silentRefreshRef.current = true;
-        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
+        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants, cancel_record: cancelRecord, user_id: sapUserId });
       }
     },
     onError: (e: any) => {
@@ -388,7 +396,7 @@ function PrReleasePage() {
       }
       if (releaseGroup.trim() && releaseCode.trim()) {
         silentRefreshRef.current = true;
-        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants });
+        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants, cancel_record: cancelRecord, user_id: sapUserId });
       }
     },
     onError: (e: any) => {
@@ -462,7 +470,17 @@ function PrReleasePage() {
             disabled={mutation.isPending}
           />
 
-          <div />
+          <div className="flex items-center gap-2 pb-1.5">
+            <Checkbox
+              id="pr-cancel-record"
+              checked={cancelRecord}
+              onCheckedChange={(v) => setCancelRecord(v === true)}
+              disabled={mutation.isPending}
+            />
+            <Label htmlFor="pr-cancel-record" className="text-xs cursor-pointer">
+              Cancel Record
+            </Label>
+          </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={mutation.isPending}>
               {mutation.isPending ? (
