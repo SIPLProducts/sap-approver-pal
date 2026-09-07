@@ -180,7 +180,7 @@ export type PoReleaseResult = {
 
 async function processPoAction(
   configName: string,
-  payloadKey: "RELEASE" | "REJECT" | "YCANCEL",
+  payloadKey: "RELEASE" | "REJECT" | "YCANCEL" | "CANCEL_REJ",
   data: {
     relgroup: string;
     relcode: string;
@@ -231,6 +231,7 @@ async function processPoAction(
   // rows against a single header result.
   const isRelease = payloadKey === "RELEASE";
   const isCancel = payloadKey === "YCANCEL";
+  const isCancelReject = payloadKey === "CANCEL_REJ";
   const groups = new Map<string, { ebelps: string[]; remarks: string }>();
   for (const it of data.items) {
     const g = groups.get(it.EBELN);
@@ -245,7 +246,13 @@ async function processPoAction(
   for (const [ebeln, grp] of groups) {
     const ebelp = "";
 
-    const inputs: Record<string, any> = isCancel
+    const inputs: Record<string, any> = isCancelReject
+      ? {
+          CANCEL_REJ: {
+            EBELN: ebeln,
+          },
+        }
+      : isCancel
       ? {
           YCANCEL: {
             EBELN: ebeln,
@@ -445,6 +452,18 @@ export const undoPoRelease = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     processPoAction(CANCEL_RELEASE_CONFIG_NAME, "YCANCEL", data, "undo-release"),
   );
+
+const CANCEL_REJECT_CONFIG_NAME = "PO_CANCEL_REJECT";
+
+/** Undo (cancel) an existing rejection for the selected purchase orders. */
+export const undoPoReject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => poActionInput.parse(d))
+  .handler(async ({ data }) =>
+    processPoAction(CANCEL_REJECT_CONFIG_NAME, "CANCEL_REJ", data, "undo-reject"),
+  );
+
+
 
 
 

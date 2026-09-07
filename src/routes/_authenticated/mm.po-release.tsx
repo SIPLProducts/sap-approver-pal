@@ -29,6 +29,7 @@ import {
   releasePoItems,
   rejectPoItems,
   undoPoRelease,
+  undoPoReject,
 } from "@/lib/mm/po-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
@@ -441,6 +442,85 @@ function PoReleasePage() {
     });
   }
 
+  const undoRejectFn = useServerFn(undoPoReject);
+  const undoRejectMutation = useMutation({
+    mutationFn: (input: {
+      relgroup: string;
+      relcode: string;
+      items: { EBELN: string; EBELP: string; REMARKS?: string }[];
+    }) => undoRejectFn({ data: input }),
+    onSuccess: (res) => {
+      const doneKeys = new Set<string>();
+      const seenPo = new Set<string>();
+      const dialogItems: NonNullable<typeof responseDialog>["results"] = [];
+      for (const r of res.results) {
+        if (r.ok) doneKeys.add(`${r.ebeln}-${r.ebelp}`);
+        if (!seenPo.has(r.ebeln)) {
+          seenPo.add(r.ebeln);
+          dialogItems.push({
+            ebeln: r.ebeln,
+            message: r.MSGTXT ?? r.msgtxt ?? r.error ?? (r.ok ? "Rejection cancelled" : "Failed"),
+            ok: r.ok,
+            response: r.response,
+          });
+        }
+      }
+      setResponseDialog({ open: true, title: "PO Undo Reject Response", results: dialogItems });
+      if (doneKeys.size > 0) {
+        setRows((prev) =>
+          prev.filter((r) => !doneKeys.has(`${String(r.EBELN ?? "")}-${String(r.EBELP ?? "")}`)),
+        );
+        setSelected(new Set());
+        setRemarks({});
+      }
+      if (plants.length > 0 && releaseGroup.trim() && releaseCode.trim()) {
+        mutation.mutate({
+          relgroup: releaseGroup.trim(),
+          relcode: releaseCode.trim(),
+          plants,
+          cancel_record: cancelRecord,
+          user_id: sapProfile?.user ?? "",
+        });
+      }
+    },
+    onError: (e: any) => {
+      toast.error(e?.message ?? "Undo Reject failed.");
+    },
+  });
+
+  function onUndoReject() {
+    if (selected.size === 0) return;
+    if (!releaseGroup.trim() || !releaseCode.trim()) {
+      toast.error("Release Group and Release Code are required.");
+      return;
+    }
+    const items = rows
+      .map((r, i) => ({ r, k: rowKey(r, i) }))
+      .filter(({ k }) => selected.has(k))
+      .map(({ r, k }) => ({
+        EBELN: String(r.EBELN ?? ""),
+        EBELP: String(r.EBELP ?? ""),
+        REMARKS: remarks[k] ?? (r.REMARKS == null ? "" : String(r.REMARKS)),
+      }))
+      .filter((it) => it.EBELN);
+    if (items.length === 0) return;
+    void (async () => {
+      const ok = await swalConfirm({
+        title: "Cancel rejection for selected POs?",
+        text: `${items.length} item${items.length === 1 ? "" : "s"} will have their rejection cancelled in SAP.`,
+        confirmLabel: "Undo Reject",
+      });
+      if (!ok) return;
+      undoRejectMutation.mutate({
+        relgroup: releaseGroup.trim(),
+        relcode: releaseCode.trim(),
+        items,
+      });
+    })();
+  }
+
+
+
 
   const showResults = mutation.isSuccess || rows.length > 0;
 
@@ -506,10 +586,14 @@ function PoReleasePage() {
         <Button
           variant="destructive"
           size="sm"
-          onClick={onReject}
-          disabled={selected.size === 0 || rejectMutation.isPending}
+          onClick={cancelRecord ? onUndoReject : onReject}
+          disabled={
+            selected.size === 0 || rejectMutation.isPending || undoRejectMutation.isPending
+          }
         >
-          {rejectMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {(rejectMutation.isPending || undoRejectMutation.isPending) && (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          )}
           {cancelRecord ? "Undo Reject" : "Reject"}
         </Button>
         <Button
