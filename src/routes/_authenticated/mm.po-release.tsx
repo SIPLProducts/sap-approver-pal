@@ -586,8 +586,10 @@ function PoReleasePage() {
         <Button
           variant="destructive"
           size="sm"
-          onClick={onReject}
-          disabled={selected.size === 0 || rejectMutation.isPending}
+          onClick={cancelRecord ? onUndoReject : onReject}
+          disabled={
+            selected.size === 0 || rejectMutation.isPending || undoRejectMutation.isPending
+          }
         >
           {rejectMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           {cancelRecord ? "Undo Reject" : "Reject"}
