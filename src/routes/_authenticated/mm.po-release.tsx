@@ -591,7 +591,9 @@ function PoReleasePage() {
             selected.size === 0 || rejectMutation.isPending || undoRejectMutation.isPending
           }
         >
-          {rejectMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {(rejectMutation.isPending || undoRejectMutation.isPending) && (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          )}
           {cancelRecord ? "Undo Reject" : "Reject"}
         </Button>
         <Button
