@@ -244,26 +244,34 @@ async function processPrAction(
 
   const results: PrReleaseResult[] = [];
 
-  for (const item of data.items) {
+  // Cancel-rejection only carries the PR number, so send one request per PR.
+  const actionItems =
+    payloadKey === "CANCEL_REJ"
+      ? Array.from(new Map(data.items.map((it) => [it.PREQ_NO, it])).values())
+      : data.items;
+
+  for (const item of actionItems) {
     const inputs =
-      payloadKey === "YCANCEL"
-        ? {
-            YCANCEL: {
-              BANFN: item.PREQ_NO,
-              BNFPO: item.PREQ_ITEM,
-              REL_CODE: data.relcode.trim(),
-              REL_GRP: "",
-            },
-          }
-        : {
-            [payloadKey]: {
-              BANFN: item.PREQ_NO,
-              BNFPO: item.PREQ_ITEM,
-              REL_CODE: data.relcode.trim(),
-              REL_GRP: data.relgroup.trim(),
-              REMARKS: item.REMARKS ?? "",
-            },
-          };
+      payloadKey === "CANCEL_REJ"
+        ? { CANCEL_REJ: { BANFN: item.PREQ_NO } }
+        : payloadKey === "YCANCEL"
+          ? {
+              YCANCEL: {
+                BANFN: item.PREQ_NO,
+                BNFPO: item.PREQ_ITEM,
+                REL_CODE: data.relcode.trim(),
+                REL_GRP: "",
+              },
+            }
+          : {
+              [payloadKey]: {
+                BANFN: item.PREQ_NO,
+                BNFPO: item.PREQ_ITEM,
+                REL_CODE: data.relcode.trim(),
+                REL_GRP: data.relgroup.trim(),
+                REMARKS: item.REMARKS ?? "",
+              },
+            };
 
     let target: string;
     let method: string = cfg.http_method ?? "POST";
