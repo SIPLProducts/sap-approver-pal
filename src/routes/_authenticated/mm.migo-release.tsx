@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { formatSapDateDMY, isSapDateKey } from "@/lib/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
+import { fetchMigo, saveMigo, checkMigo, postMigo, cancelMigo } from "@/lib/mm/migo-release.functions";
 
 import { PageHeader } from "@/components/exec/page-header";
 import { SapResponseDialog, type SapResponseDialogState } from "@/components/mm/sap-response-dialog";
