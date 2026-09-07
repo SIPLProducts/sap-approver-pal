@@ -214,6 +214,41 @@ function MigoReleasePage() {
     onError: (e: Error) => toast.error(e.message ?? "Failed to post"),
   });
 
+  const cancelFn = useServerFn(cancelMigo);
+
+  const cancelMutation = useMutation({
+    mutationFn: async (vars: { mblnr: string; mjahr: string }) => {
+      const v: any = await cancelFn({ data: vars });
+      return v as { ok: boolean; type: string; message: string; raw: any };
+    },
+    onSuccess: (res) => {
+      setResultDialog({
+        open: true,
+        title: res.ok ? "MIGO Cancel Response" : "MIGO Cancel Failed",
+        refLabel: "Material Doc",
+        results: [{ ref: matDocNo || "MIGO", message: res.message, ok: !!res.ok }],
+      });
+      if (res.ok) {
+        setMatDocNo("");
+        setMatDocYear("");
+        setHeader(null);
+        setRows([]);
+        setEdits(new Map());
+        setSelected(new Set());
+        setCustomFields(null);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Cancel failed"),
+  });
+
+  function onCancel() {
+    if (!matDocNo.trim()) {
+      toast.error("Material Document Number is required");
+      return;
+    }
+    cancelMutation.mutate({ mblnr: matDocNo.trim(), mjahr: matDocYear.trim() });
+  }
+
   function onPost() {
     if (selected.size === 0) {
       toast.error("Select at least one row");
