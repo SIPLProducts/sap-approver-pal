@@ -198,7 +198,7 @@ export type PrReleaseResult = {
 
 async function processPrAction(
   configName: string,
-  payloadKey: "RELEASE" | "REJECT" | "YCANCEL",
+  payloadKey: "RELEASE" | "REJECT" | "YCANCEL" | "CANCEL_REJ",
   data: {
     relgroup: string;
     relcode: string;
