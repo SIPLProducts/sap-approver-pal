@@ -198,7 +198,7 @@ export type PrReleaseResult = {
 
 async function processPrAction(
   configName: string,
-  payloadKey: "RELEASE" | "REJECT",
+  payloadKey: "RELEASE" | "REJECT" | "YCANCEL",
   data: {
     relgroup: string;
     relcode: string;
@@ -245,15 +245,25 @@ async function processPrAction(
   const results: PrReleaseResult[] = [];
 
   for (const item of data.items) {
-    const inputs = {
-      [payloadKey]: {
-        BANFN: item.PREQ_NO,
-        BNFPO: item.PREQ_ITEM,
-        REL_CODE: data.relcode.trim(),
-        REL_GRP: data.relgroup.trim(),
-        REMARKS: item.REMARKS ?? "",
-      },
-    };
+    const inputs =
+      payloadKey === "YCANCEL"
+        ? {
+            YCANCEL: {
+              BANFN: item.PREQ_NO,
+              BNFPO: item.PREQ_ITEM,
+              REL_CODE: data.relcode.trim(),
+              REL_GRP: "",
+            },
+          }
+        : {
+            [payloadKey]: {
+              BANFN: item.PREQ_NO,
+              BNFPO: item.PREQ_ITEM,
+              REL_CODE: data.relcode.trim(),
+              REL_GRP: data.relgroup.trim(),
+              REMARKS: item.REMARKS ?? "",
+            },
+          };
 
     let target: string;
     let method: string = cfg.http_method ?? "POST";
