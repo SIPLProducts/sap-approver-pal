@@ -423,3 +423,13 @@ export const rejectPrItems = createServerFn({ method: "POST" })
   .handler(async ({ data }) => processPrAction(REJECT_CONFIG_NAME, "REJECT", data, "reject"));
 
 
+
+const CANCEL_RELEASE_CONFIG_NAME = "PR_CANCEL_RELEASE";
+
+/** Undo (cancel) an existing release for the selected PR items. */
+export const undoPrRelease = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => prActionInput.parse(d))
+  .handler(async ({ data }) =>
+    processPrAction(CANCEL_RELEASE_CONFIG_NAME, "YCANCEL", data, "undo-release"),
+  );
