@@ -432,6 +432,66 @@ function PrReleasePage() {
     });
   }
 
+  const undoRejectFn = useServerFn(undoPrReject);
+  const undoRejectMutation = useMutation({
+    mutationFn: (input: {
+      relgroup: string;
+      relcode: string;
+      items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
+    }) => undoRejectFn({ data: input }),
+    onSuccess: (res) => {
+      const donePrs = new Set<string>();
+      for (const r of res.results) if (r.ok) donePrs.add(String(r.preq_no));
+
+      setResponseDialog({
+        open: true,
+        title: "PR Undo Reject — SAP Response",
+        results: res.results.map((r: any) => ({
+          preq: String(r.preq_no),
+          message: r.msgtxt || r.MSGTXT || r.error || (r.ok ? "Rejection cancelled" : "Failed"),
+          ok: !!r.ok,
+          response: r.response,
+        })),
+      });
+
+      if (donePrs.size > 0) {
+        setRows((prev) => prev.filter((r) => !donePrs.has(String(r.PREQ_NO ?? ""))));
+        setSelected(new Set());
+        setRemarks({});
+      }
+      if (releaseGroup.trim() && releaseCode.trim()) {
+        silentRefreshRef.current = true;
+        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants, cancel_record: cancelRecord, user_id: sapUserId });
+      }
+    },
+    onError: (e: any) => {
+      setResponseDialog({
+        open: true,
+        title: "PR Undo Reject — SAP Response",
+        results: [{ preq: "", message: e?.message ?? "Undo Reject failed.", ok: false }],
+      });
+    },
+  });
+
+  function onUndoReject() {
+    if (selected.size === 0) return;
+    const items = rows
+      .map((r, i) => ({ r, k: rowKey(r, i) }))
+      .filter(({ k }) => selected.has(k))
+      .map(({ r }) => ({
+        PREQ_NO: String(r.PREQ_NO ?? ""),
+        PREQ_ITEM: String(r.PREQ_ITEM ?? ""),
+        REMARKS: "",
+      }))
+      .filter((it) => it.PREQ_NO);
+    if (items.length === 0) return;
+    undoRejectMutation.mutate({
+      relgroup: releaseGroup.trim(),
+      relcode: releaseCode.trim(),
+      items,
+    });
+  }
+
   const rejectFn = useServerFn(rejectPrItems);
   const rejectMutation = useMutation({
     mutationFn: (input: {
