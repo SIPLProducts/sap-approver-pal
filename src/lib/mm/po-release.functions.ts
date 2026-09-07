@@ -180,7 +180,7 @@ export type PoReleaseResult = {
 
 async function processPoAction(
   configName: string,
-  payloadKey: "RELEASE" | "REJECT",
+  payloadKey: "RELEASE" | "REJECT" | "YCANCEL",
   data: {
     relgroup: string;
     relcode: string;
@@ -230,6 +230,7 @@ async function processPoAction(
   // EBELN and remember every selected EBELP so the UI can clear all matching
   // rows against a single header result.
   const isRelease = payloadKey === "RELEASE";
+  const isCancel = payloadKey === "YCANCEL";
   const groups = new Map<string, { ebelps: string[]; remarks: string }>();
   for (const it of data.items) {
     const g = groups.get(it.EBELN);
@@ -244,20 +245,27 @@ async function processPoAction(
   for (const [ebeln, grp] of groups) {
     const ebelp = "";
 
-    const inputs = isRelease
+    const inputs: Record<string, any> = isCancel
       ? {
-          RELEASE: {
+          YCANCEL: {
             EBELN: ebeln,
             FRGCO: data.relcode.trim(),
-            REMARKS: grp.remarks,
           },
         }
-      : {
-          REJECT: {
-            EBELN: ebeln,
-            REMARKS: grp.remarks,
-          },
-        };
+      : isRelease
+        ? {
+            RELEASE: {
+              EBELN: ebeln,
+              FRGCO: data.relcode.trim(),
+              REMARKS: grp.remarks,
+            },
+          }
+        : {
+            REJECT: {
+              EBELN: ebeln,
+              REMARKS: grp.remarks,
+            },
+          };
 
     let target: string;
     let method: string = cfg.http_method ?? "POST";
@@ -427,6 +435,18 @@ export const rejectPoItems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => poActionInput.parse(d))
   .handler(async ({ data }) => processPoAction(REJECT_CONFIG_NAME, "REJECT", data, "reject"));
+
+const CANCEL_RELEASE_CONFIG_NAME = "PO_CANCEL_RELEASE";
+
+/** Undo (cancel) an existing release for the selected purchase orders. */
+export const undoPoRelease = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => poActionInput.parse(d))
+  .handler(async ({ data }) =>
+    processPoAction(CANCEL_RELEASE_CONFIG_NAME, "YCANCEL", data, "undo-release"),
+  );
+
+
 
 const PO_GET_CONFIG_NAME = "PO_GET_API";
 
