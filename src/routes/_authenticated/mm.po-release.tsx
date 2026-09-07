@@ -382,8 +382,8 @@ function PoReleasePage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid min-w-0 items-end gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.2fr)_minmax(360px,1.6fr)_auto_auto]">
-          <div className="min-w-0 space-y-1.5">
+        <div className="flex flex-wrap lg:flex-nowrap items-end gap-3">
+          <div className="min-w-0 flex-1 space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
@@ -393,7 +393,7 @@ function PoReleasePage() {
               source="user-plant"
             />
           </div>
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <div className="min-w-0 flex-[1.5] grid gap-3 sm:grid-cols-2">
             <ReleaseKeySelect
               keys={poKeys}
               group={releaseGroup}
@@ -415,7 +415,7 @@ function PoReleasePage() {
               Cancel Record
             </Label>
           </div>
-          <div className="flex shrink-0 flex-nowrap gap-2 md:justify-end">
+          <div className="flex shrink-0 flex-nowrap gap-2">
             <Button size="sm" onClick={execute} disabled={mutation.isPending}>
               {mutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
