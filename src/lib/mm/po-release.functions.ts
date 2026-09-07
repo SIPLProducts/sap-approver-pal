@@ -245,20 +245,27 @@ async function processPoAction(
   for (const [ebeln, grp] of groups) {
     const ebelp = "";
 
-    const inputs = isRelease
+    const inputs: Record<string, any> = isCancel
       ? {
-          RELEASE: {
+          YCANCEL: {
             EBELN: ebeln,
             FRGCO: data.relcode.trim(),
-            REMARKS: grp.remarks,
           },
         }
-      : {
-          REJECT: {
-            EBELN: ebeln,
-            REMARKS: grp.remarks,
-          },
-        };
+      : isRelease
+        ? {
+            RELEASE: {
+              EBELN: ebeln,
+              FRGCO: data.relcode.trim(),
+              REMARKS: grp.remarks,
+            },
+          }
+        : {
+            REJECT: {
+              EBELN: ebeln,
+              REMARKS: grp.remarks,
+            },
+          };
 
     let target: string;
     let method: string = cfg.http_method ?? "POST";
