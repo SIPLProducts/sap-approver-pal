@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 import { formatSapDateDMY, isSapDateKey } from "@/lib/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { fetchMigo, saveMigo, checkMigo, postMigo } from "@/lib/mm/migo-release.functions";
+import { fetchMigo, saveMigo, checkMigo, postMigo, cancelMigo } from "@/lib/mm/migo-release.functions";
 
 import { PageHeader } from "@/components/exec/page-header";
 import { SapResponseDialog, type SapResponseDialogState } from "@/components/mm/sap-response-dialog";
@@ -213,6 +213,41 @@ function MigoReleasePage() {
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to post"),
   });
+
+  const cancelFn = useServerFn(cancelMigo);
+
+  const cancelMutation = useMutation({
+    mutationFn: async (vars: { mblnr: string; mjahr: string }) => {
+      const v: any = await cancelFn({ data: vars });
+      return v as { ok: boolean; type: string; message: string; raw: any };
+    },
+    onSuccess: (res) => {
+      setResultDialog({
+        open: true,
+        title: res.ok ? "MIGO Cancel Response" : "MIGO Cancel Failed",
+        refLabel: "Material Doc",
+        results: [{ ref: matDocNo || "MIGO", message: res.message, ok: !!res.ok }],
+      });
+      if (res.ok) {
+        setMatDocNo("");
+        setMatDocYear("");
+        setHeader(null);
+        setRows([]);
+        setEdits(new Map());
+        setSelected(new Set());
+        setCustomFields(null);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Cancel failed"),
+  });
+
+  function onCancel() {
+    if (!matDocNo.trim()) {
+      toast.error("Material Document Number is required");
+      return;
+    }
+    cancelMutation.mutate({ mblnr: matDocNo.trim(), mjahr: matDocYear.trim() });
+  }
 
   function onPost() {
     if (selected.size === 0) {
@@ -521,17 +556,31 @@ function MigoReleasePage() {
 
           {transactionType !== "display" && (
             <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant={transactionType === "cancel" ? "destructive" : "success"}
-                disabled={selected.size === 0 || postMutation.isPending}
-                onClick={onPost}
-              >
-                {postMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : null}
-                {transactionType === "cancel" ? "Cancel" : "Post"}
-              </Button>
+              {transactionType === "cancel" ? (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={cancelMutation.isPending}
+                  onClick={onCancel}
+                >
+                  {cancelMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : null}
+                  Cancel
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="success"
+                  disabled={selected.size === 0 || postMutation.isPending}
+                  onClick={onPost}
+                >
+                  {postMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : null}
+                  Post
+                </Button>
+              )}
             </div>
           )}
 
