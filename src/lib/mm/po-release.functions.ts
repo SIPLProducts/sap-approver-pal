@@ -231,6 +231,7 @@ async function processPoAction(
   // rows against a single header result.
   const isRelease = payloadKey === "RELEASE";
   const isCancel = payloadKey === "YCANCEL";
+  const isCancelReject = payloadKey === "CANCEL_REJ";
   const groups = new Map<string, { ebelps: string[]; remarks: string }>();
   for (const it of data.items) {
     const g = groups.get(it.EBELN);
