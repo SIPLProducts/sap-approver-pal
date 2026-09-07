@@ -24,7 +24,7 @@ import { PlantSelect } from "@/components/sap/plant-select";
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
-import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems } from "@/lib/mm/pr-release.functions";
+import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems, undoPrRelease } from "@/lib/mm/pr-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -363,6 +363,75 @@ function PrReleasePage() {
       items,
     });
   }
+
+  const undoFn = useServerFn(undoPrRelease);
+  const undoMutation = useMutation({
+    mutationFn: (input: {
+      relgroup: string;
+      relcode: string;
+      items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
+    }) => undoFn({ data: input }),
+    onSuccess: (res) => {
+      const doneKeys = new Set<string>();
+      for (const r of res.results) if (r.ok) doneKeys.add(`${r.preq_no}-${r.preq_item}`);
+
+      setResponseDialog({
+        open: true,
+        title: "PR Undo Release — SAP Response",
+        results: res.results.map((r: any) => ({
+          preq: `${r.preq_no}/${r.preq_item}`,
+          message: r.msgtxt || r.MSGTXT || r.error || (r.ok ? "Release cancelled" : "Failed"),
+          ok: !!r.ok,
+          response: r.response,
+        })),
+      });
+
+      if (doneKeys.size > 0) {
+        setRows((prev) =>
+          prev.filter(
+            (r) => !doneKeys.has(`${String(r.PREQ_NO ?? "")}-${String(r.PREQ_ITEM ?? "")}`),
+          ),
+        );
+        setSelected(new Set());
+        setRemarks({});
+      }
+      if (releaseGroup.trim() && releaseCode.trim()) {
+        silentRefreshRef.current = true;
+        mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants, cancel_record: cancelRecord, user_id: sapUserId });
+      }
+    },
+    onError: (e: any) => {
+      setResponseDialog({
+        open: true,
+        title: "PR Undo Release — SAP Response",
+        results: [{ preq: "", message: e?.message ?? "Undo Release failed.", ok: false }],
+      });
+    },
+  });
+
+  function onUndoRelease() {
+    if (selected.size === 0) return;
+    if (!releaseCode.trim()) {
+      toast.error("Release Code is required.");
+      return;
+    }
+    const items = rows
+      .map((r, i) => ({ r, k: rowKey(r, i) }))
+      .filter(({ k }) => selected.has(k))
+      .map(({ r }) => ({
+        PREQ_NO: String(r.PREQ_NO ?? ""),
+        PREQ_ITEM: String(r.PREQ_ITEM ?? ""),
+        REMARKS: "",
+      }))
+      .filter((it) => it.PREQ_NO && it.PREQ_ITEM);
+    if (items.length === 0) return;
+    undoMutation.mutate({
+      relgroup: releaseGroup.trim(),
+      relcode: releaseCode.trim(),
+      items,
+    });
+  }
+
   const rejectFn = useServerFn(rejectPrItems);
   const rejectMutation = useMutation({
     mutationFn: (input: {
@@ -512,10 +581,10 @@ function PrReleasePage() {
         <Button
           variant="success"
           size="sm"
-          onClick={onRelease}
-          disabled={selected.size === 0 || releaseMutation.isPending}
+          onClick={cancelRecord ? onUndoRelease : onRelease}
+          disabled={selected.size === 0 || releaseMutation.isPending || undoMutation.isPending}
         >
-          {releaseMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {(releaseMutation.isPending || undoMutation.isPending) && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           {cancelRecord ? "Undo Release" : "Release"}
         </Button>
       </div>

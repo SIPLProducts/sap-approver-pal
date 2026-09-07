@@ -198,7 +198,7 @@ export type PrReleaseResult = {
 
 async function processPrAction(
   configName: string,
-  payloadKey: "RELEASE" | "REJECT",
+  payloadKey: "RELEASE" | "REJECT" | "YCANCEL",
   data: {
     relgroup: string;
     relcode: string;
@@ -245,15 +245,25 @@ async function processPrAction(
   const results: PrReleaseResult[] = [];
 
   for (const item of data.items) {
-    const inputs = {
-      [payloadKey]: {
-        BANFN: item.PREQ_NO,
-        BNFPO: item.PREQ_ITEM,
-        REL_CODE: data.relcode.trim(),
-        REL_GRP: data.relgroup.trim(),
-        REMARKS: item.REMARKS ?? "",
-      },
-    };
+    const inputs =
+      payloadKey === "YCANCEL"
+        ? {
+            YCANCEL: {
+              BANFN: item.PREQ_NO,
+              BNFPO: item.PREQ_ITEM,
+              REL_CODE: data.relcode.trim(),
+              REL_GRP: "",
+            },
+          }
+        : {
+            [payloadKey]: {
+              BANFN: item.PREQ_NO,
+              BNFPO: item.PREQ_ITEM,
+              REL_CODE: data.relcode.trim(),
+              REL_GRP: data.relgroup.trim(),
+              REMARKS: item.REMARKS ?? "",
+            },
+          };
 
     let target: string;
     let method: string = cfg.http_method ?? "POST";
@@ -413,3 +423,23 @@ export const rejectPrItems = createServerFn({ method: "POST" })
   .handler(async ({ data }) => processPrAction(REJECT_CONFIG_NAME, "REJECT", data, "reject"));
 
 
+
+const CANCEL_RELEASE_CONFIG_NAME = "PR_CANCEL_RELEASE";
+
+const prUndoInput = z.object({
+  relgroup: z.string().trim().max(10).optional().default(""),
+  relcode: z.string().trim().min(1).max(10),
+  items: z.array(z.object({
+    PREQ_NO: z.string().trim().min(1),
+    PREQ_ITEM: z.string().trim().min(1),
+    REMARKS: z.string().optional().default(""),
+  })).min(1),
+});
+
+/** Undo (cancel) an existing release for the selected PR items. */
+export const undoPrRelease = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => prUndoInput.parse(d))
+  .handler(async ({ data }) =>
+    processPrAction(CANCEL_RELEASE_CONFIG_NAME, "YCANCEL", data, "undo-release"),
+  );
