@@ -246,7 +246,13 @@ async function processPoAction(
   for (const [ebeln, grp] of groups) {
     const ebelp = "";
 
-    const inputs: Record<string, any> = isCancel
+    const inputs: Record<string, any> = isCancelReject
+      ? {
+          CANCEL_REJ: {
+            EBELN: ebeln,
+          },
+        }
+      : isCancel
       ? {
           YCANCEL: {
             EBELN: ebeln,
