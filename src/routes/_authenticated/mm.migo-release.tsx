@@ -556,17 +556,31 @@ function MigoReleasePage() {
 
           {transactionType !== "display" && (
             <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant={transactionType === "cancel" ? "destructive" : "success"}
-                disabled={selected.size === 0 || postMutation.isPending}
-                onClick={onPost}
-              >
-                {postMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : null}
-                {transactionType === "cancel" ? "Cancel" : "Post"}
-              </Button>
+              {transactionType === "cancel" ? (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={cancelMutation.isPending}
+                  onClick={onCancel}
+                >
+                  {cancelMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : null}
+                  Cancel
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="success"
+                  disabled={selected.size === 0 || postMutation.isPending}
+                  onClick={onPost}
+                >
+                  {postMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : null}
+                  Post
+                </Button>
+              )}
             </div>
           )}
 
