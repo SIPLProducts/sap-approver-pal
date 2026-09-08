@@ -22,6 +22,7 @@ import {
 } from "@/components/aws/cloudscape-approval-table";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
+  approvePriceMasterApprovals,
   fetchPriceMasterApprovals,
   type PriceMasterApprovalRow,
 } from "@/lib/imw/price-master-approvals.functions";
