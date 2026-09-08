@@ -24,6 +24,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import {
   approvePriceMasterApprovals,
   fetchPriceMasterApprovals,
+  rejectPriceMasterApprovals,
   type PriceMasterApprovalRow,
 } from "@/lib/imw/price-master-approvals.functions";
 import { formatAmount, formatSapDateDMY } from "@/lib/format";
@@ -121,6 +122,7 @@ function PriceMasterApprovalsPage() {
   const [status, setStatus] = useState<Status>("pending");
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [edits, setEdits] = useState<Record<string, { PRICE_REMARKS?: string }>>({});
   const [sapDialog, setSapDialog] = useState<SapResponseDialogState | null>(null);
 
   const runFetch = useServerFn(fetchPriceMasterApprovals);
@@ -135,6 +137,7 @@ function PriceMasterApprovalsPage() {
     }) => runFetch({ data: vars }),
     onSuccess: (res) => {
       setSelected(new Set());
+      setEdits({});
       setRows(res.rows ?? []);
       const msg = res.error || res.sapMessage;
       if (msg) {
@@ -154,9 +157,31 @@ function PriceMasterApprovalsPage() {
   });
 
   const runApprove = useServerFn(approvePriceMasterApprovals);
+  const runReject = useServerFn(rejectPriceMasterApprovals);
+
+  /** Rows to send: keeps SAP fields verbatim, with typed Price Remarks merged in. */
+  function pickedRows(): { rows: Row[]; keys: string[] } {
+    const keys: string[] = [];
+    const picked: Row[] = [];
+    rows.forEach((r, i) => {
+      const k = String(i);
+      if (!selected.has(k)) return;
+      keys.push(k);
+      const remarks = edits[k]?.PRICE_REMARKS;
+      picked.push(remarks === undefined ? r : { ...r, PRICE_REMARKS: remarks });
+    });
+    return { rows: picked, keys };
+  }
+
+  function dropRows(keys: string[]) {
+    const drop = new Set(keys);
+    setRows((prev) => prev.filter((_r, i) => !drop.has(String(i))));
+    setSelected(new Set());
+    setEdits({});
+  }
 
   const approveMutation = useMutation({
-    mutationFn: (vars: { rows: Row[] }) => runApprove({ data: vars }),
+    mutationFn: (vars: { rows: Row[]; keys: string[] }) => runApprove({ data: { rows: vars.rows } }),
     onSuccess: (res, vars) => {
       setSapDialog({
         open: true,
@@ -164,11 +189,7 @@ function PriceMasterApprovalsPage() {
         refLabel: "Message",
         results: [{ ref: "", message: res.message ?? "-", ok: res.ok }],
       });
-      if (res.ok) {
-        const approved = new Set(vars.rows);
-        setRows((prev) => prev.filter((r) => !approved.has(r)));
-        setSelected(new Set());
-      }
+      if (res.ok) dropRows(vars.keys);
     },
     onError: (e: Error) => {
       setSapDialog({
@@ -180,13 +201,43 @@ function PriceMasterApprovalsPage() {
     },
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: (vars: { rows: Row[]; keys: string[] }) => runReject({ data: { rows: vars.rows } }),
+    onSuccess: (res, vars) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Reject Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: res.message ?? "-", ok: res.ok }],
+      });
+      if (res.ok) dropRows(vars.keys);
+    },
+    onError: (e: Error) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Reject Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Rejection failed", ok: false }],
+      });
+    },
+  });
+
   function onApprove() {
-    const picked = rows.filter((_r, i) => selected.has(String(i)));
-    if (picked.length === 0) {
+    const picked = pickedRows();
+    if (picked.rows.length === 0) {
       toast.error("Select at least one record");
       return;
     }
-    approveMutation.mutate({ rows: picked });
+    approveMutation.mutate(picked);
+  }
+
+  function onReject() {
+    const picked = pickedRows();
+    if (picked.rows.length === 0) {
+      toast.error("Select at least one record");
+      return;
+    }
+    rejectMutation.mutate(picked);
   }
 
   useEffect(() => {
@@ -199,20 +250,46 @@ function PriceMasterApprovalsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlants.join(",")]);
 
+  const remarksEditable = status === "pending";
+
   const columns = useMemo<CloudscapeColumn<Row>[]>(
     () =>
       COLUMN_DEFS.map((def) => ({
         id: def.key,
         header: def.label,
         align: def.kind === "amount" ? ("right" as const) : undefined,
-        cell: (r: Row) => renderCell(r, def),
+        cell: (r: Row) => {
+          if (remarksEditable && def.key === "PRICE_REMARKS") {
+            const k = String(rows.indexOf(r));
+            const raw = r?.[def.key];
+            const current =
+              edits[k]?.PRICE_REMARKS ??
+              (raw === null || raw === undefined ? "" : String(raw).trim());
+            return (
+              <Input
+                value={current}
+                onChange={(e) =>
+                  setEdits((prev) => ({
+                    ...prev,
+                    [k]: { ...prev[k], PRICE_REMARKS: e.target.value },
+                  }))
+                }
+                placeholder={def.label}
+                aria-label={def.label}
+                className="h-8 text-xs min-w-[180px]"
+              />
+            );
+          }
+          return renderCell(r, def);
+        },
       })),
-    [],
+    [remarksEditable, edits, rows],
   );
 
   function clearResults() {
     setRows([]);
     setSelected(new Set());
+    setEdits({});
   }
 
   function execute() {
@@ -374,12 +451,10 @@ function PriceMasterApprovalsPage() {
               <Button
                 size="sm"
                 variant="destructive"
-                disabled={selected.size === 0}
-                onClick={() =>
-                  toast.info("Reject will be enabled once the SAP approval API is configured.")
-                }
+                disabled={selected.size === 0 || rejectMutation.isPending}
+                onClick={onReject}
               >
-                Reject
+                {rejectMutation.isPending ? "Rejecting…" : "Reject"}
               </Button>
             </div>
           ) : undefined
