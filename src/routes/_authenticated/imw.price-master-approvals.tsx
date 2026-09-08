@@ -249,20 +249,46 @@ function PriceMasterApprovalsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlants.join(",")]);
 
+  const remarksEditable = status === "pending";
+
   const columns = useMemo<CloudscapeColumn<Row>[]>(
     () =>
       COLUMN_DEFS.map((def) => ({
         id: def.key,
         header: def.label,
         align: def.kind === "amount" ? ("right" as const) : undefined,
-        cell: (r: Row) => renderCell(r, def),
+        cell: (r: Row) => {
+          if (remarksEditable && def.key === "PRICE_REMARKS") {
+            const k = String(rows.indexOf(r));
+            const raw = r?.[def.key];
+            const current =
+              edits[k]?.PRICE_REMARKS ??
+              (raw === null || raw === undefined ? "" : String(raw).trim());
+            return (
+              <Input
+                value={current}
+                onChange={(e) =>
+                  setEdits((prev) => ({
+                    ...prev,
+                    [k]: { ...prev[k], PRICE_REMARKS: e.target.value },
+                  }))
+                }
+                placeholder={def.label}
+                aria-label={def.label}
+                className="h-8 text-xs min-w-[180px]"
+              />
+            );
+          }
+          return renderCell(r, def);
+        },
       })),
-    [],
+    [remarksEditable, edits, rows],
   );
 
   function clearResults() {
     setRows([]);
     setSelected(new Set());
+    setEdits({});
   }
 
   function execute() {
