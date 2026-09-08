@@ -161,6 +161,7 @@ function AuthenticatedLayout() {
     { to: "/mm/pr-release", label: "PR Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
     { to: "/mm/po-release", label: "PO Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
     { to: "/mm/material-reservation", label: "Material Reservation", icon: Package, screen: "approvals.inbox.mm" },
+    { to: "/mm/zmc-report", label: "ZMC Report", icon: FileText, screen: "approvals.inbox.mm" },
     { to: "/mm/gate-process", label: "ZTER Rating", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
     { to: "/mm/gate-pass", label: "Gate Pass", icon: Truck, screen: "approvals.inbox.mm" },
     { to: "/mm/zgp-report", label: "ZGP Report", icon: FileText, screen: "approvals.inbox.mm" },

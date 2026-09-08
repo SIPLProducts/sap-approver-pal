@@ -29,6 +29,7 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
       { key: "mm.pr_release",           label: "PR Release",           activity: "MM.PR_RELEASE" },
       { key: "mm.po_release",           label: "PO Release",           activity: "MM.PO_RELEASE" },
       { key: "mm.material_reservation", label: "Material Reservation", activity: "MM.MATERIAL_RESERVATION" },
+      { key: "mm.zmc_report",           label: "ZMC Report",           activity: "MM.ZMC_REPORT" },
       { key: "mm.gate_process",         label: "ZTER Rating",          activity: "MM.GATE_PROCESS" },
       { key: "mm.gate_pass",            label: "Gate Pass",            activity: "MM.GATE_PASS" },
       { key: "mm.zgp_report",           label: "ZGP Report",           activity: "MM.ZGP_REPORT" },
