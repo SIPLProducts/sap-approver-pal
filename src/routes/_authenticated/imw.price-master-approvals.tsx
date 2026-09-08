@@ -24,6 +24,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import {
   approvePriceMasterApprovals,
   fetchPriceMasterApprovals,
+  rejectPriceMasterApprovals,
   type PriceMasterApprovalRow,
 } from "@/lib/imw/price-master-approvals.functions";
 import { formatAmount, formatSapDateDMY } from "@/lib/format";
