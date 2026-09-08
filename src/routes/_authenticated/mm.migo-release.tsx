@@ -116,6 +116,11 @@ function isEditableTextKey(k: string) {
   return u === "STGE_LOC" || u === "STGELOC" || u === "LGORT";
 }
 
+function isEntryQtyKey(k: string) {
+  const u = k.toUpperCase();
+  return u === "ENTRY_QNT" || u === "ENTRYQNT" || u === "MENGE";
+}
+
 function isLineIdKey(k: string) {
   const u = k.toUpperCase();
   return u === "LINE_ID" || u === "LINEID";
