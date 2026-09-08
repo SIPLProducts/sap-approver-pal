@@ -59,6 +59,20 @@ function ToSeparator() {
   );
 }
 
+const calendarStyles = {
+  nav: "absolute inset-x-2 top-2 flex w-auto items-center justify-between gap-1",
+  button_previous:
+    "h-(--cell-size) w-(--cell-size) rounded-lg border border-border bg-background p-0 hover:bg-muted aria-disabled:opacity-50",
+  button_next:
+    "h-(--cell-size) w-(--cell-size) rounded-lg border border-border bg-background p-0 hover:bg-muted aria-disabled:opacity-50",
+  month_caption: "flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)",
+  caption_label: "text-sm font-medium select-none",
+  weekday:
+    "text-muted-foreground flex-1 select-none text-center text-[0.8rem] font-normal",
+  outside: "text-muted-foreground/40 pointer-events-none",
+  today: "border border-border rounded-md text-foreground bg-transparent",
+};
+
 function DateField({
   value,
   onChange,
@@ -90,7 +104,8 @@ function DateField({
           selected={value}
           onSelect={onChange}
           initialFocus
-          className={cn("p-3 pointer-events-auto")}
+          className={cn("p-3 pointer-events-auto [--cell-size:2rem]")}
+          classNames={calendarStyles}
         />
       </PopoverContent>
     </Popover>
