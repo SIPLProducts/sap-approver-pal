@@ -24,6 +24,7 @@ import { PlantSelect } from "@/components/sap/plant-select";
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
+import { useAuth } from "@/hooks/use-auth";
 import {
   fetchPoGet,
   releasePoItems,
@@ -85,6 +86,12 @@ function rowKey(r: Record<string, any>, idx: number) {
 function PoReleasePage() {
   const { plants: assignedPlants, activePlants } = useActiveContext();
   const sapProfile = useSapProfile();
+  const { user: authUser } = useAuth();
+  const sapUserId = (
+    sapProfile?.user ||
+    (authUser?.user_metadata as { sap_user_id?: string } | undefined)?.sap_user_id ||
+    ""
+  ).trim();
   const [plants, setPlants] = useState<string[]>(activePlants.slice(0, 1));
   const [releaseGroup, setReleaseGroup] = useState("");
   const [releaseCode, setReleaseCode] = useState("");
@@ -161,12 +168,16 @@ function PoReleasePage() {
       toast.error("Release Group and Release Code are required.");
       return;
     }
+    if (!sapUserId) {
+      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
+      return;
+    }
     mutation.mutate({
       relgroup: releaseGroup.trim(),
       relcode: releaseCode.trim(),
       plants,
       cancel_record: cancelRecord,
-      user_id: sapProfile?.user ?? "",
+      user_id: sapUserId,
     });
   }
 
@@ -262,7 +273,7 @@ function PoReleasePage() {
           relcode: releaseCode.trim(),
           plants,
           cancel_record: cancelRecord,
-          user_id: sapProfile?.user ?? "",
+          user_id: sapUserId,
         });
       }
     },
@@ -333,7 +344,7 @@ function PoReleasePage() {
           relcode: releaseCode.trim(),
           plants,
           cancel_record: cancelRecord,
-          user_id: sapProfile?.user ?? "",
+          user_id: sapUserId,
         });
       }
     },
@@ -410,7 +421,7 @@ function PoReleasePage() {
           relcode: releaseCode.trim(),
           plants,
           cancel_record: cancelRecord,
-          user_id: sapProfile?.user ?? "",
+          user_id: sapUserId,
         });
       }
     },
@@ -479,7 +490,7 @@ function PoReleasePage() {
           relcode: releaseCode.trim(),
           plants,
           cancel_record: cancelRecord,
-          user_id: sapProfile?.user ?? "",
+          user_id: sapUserId,
         });
       }
     },
