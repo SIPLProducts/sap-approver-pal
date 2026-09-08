@@ -450,12 +450,10 @@ function PriceMasterApprovalsPage() {
               <Button
                 size="sm"
                 variant="destructive"
-                disabled={selected.size === 0}
-                onClick={() =>
-                  toast.info("Reject will be enabled once the SAP approval API is configured.")
-                }
+                disabled={selected.size === 0 || rejectMutation.isPending}
+                onClick={onReject}
               >
-                Reject
+                {rejectMutation.isPending ? "Rejecting…" : "Reject"}
               </Button>
             </div>
           ) : undefined
