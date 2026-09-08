@@ -156,9 +156,31 @@ function PriceMasterApprovalsPage() {
   });
 
   const runApprove = useServerFn(approvePriceMasterApprovals);
+  const runReject = useServerFn(rejectPriceMasterApprovals);
+
+  /** Rows to send: keeps SAP fields verbatim, with typed Price Remarks merged in. */
+  function pickedRows(): { rows: Row[]; keys: string[] } {
+    const keys: string[] = [];
+    const picked: Row[] = [];
+    rows.forEach((r, i) => {
+      const k = String(i);
+      if (!selected.has(k)) return;
+      keys.push(k);
+      const remarks = edits[k]?.PRICE_REMARKS;
+      picked.push(remarks === undefined ? r : { ...r, PRICE_REMARKS: remarks });
+    });
+    return { rows: picked, keys };
+  }
+
+  function dropRows(keys: string[]) {
+    const drop = new Set(keys);
+    setRows((prev) => prev.filter((_r, i) => !drop.has(String(i))));
+    setSelected(new Set());
+    setEdits({});
+  }
 
   const approveMutation = useMutation({
-    mutationFn: (vars: { rows: Row[] }) => runApprove({ data: vars }),
+    mutationFn: (vars: { rows: Row[]; keys: string[] }) => runApprove({ data: { rows: vars.rows } }),
     onSuccess: (res, vars) => {
       setSapDialog({
         open: true,
@@ -166,11 +188,7 @@ function PriceMasterApprovalsPage() {
         refLabel: "Message",
         results: [{ ref: "", message: res.message ?? "-", ok: res.ok }],
       });
-      if (res.ok) {
-        const approved = new Set(vars.rows);
-        setRows((prev) => prev.filter((r) => !approved.has(r)));
-        setSelected(new Set());
-      }
+      if (res.ok) dropRows(vars.keys);
     },
     onError: (e: Error) => {
       setSapDialog({
@@ -182,13 +200,43 @@ function PriceMasterApprovalsPage() {
     },
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: (vars: { rows: Row[]; keys: string[] }) => runReject({ data: { rows: vars.rows } }),
+    onSuccess: (res, vars) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Reject Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: res.message ?? "-", ok: res.ok }],
+      });
+      if (res.ok) dropRows(vars.keys);
+    },
+    onError: (e: Error) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Reject Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Rejection failed", ok: false }],
+      });
+    },
+  });
+
   function onApprove() {
-    const picked = rows.filter((_r, i) => selected.has(String(i)));
-    if (picked.length === 0) {
+    const picked = pickedRows();
+    if (picked.rows.length === 0) {
       toast.error("Select at least one record");
       return;
     }
-    approveMutation.mutate({ rows: picked });
+    approveMutation.mutate(picked);
+  }
+
+  function onReject() {
+    const picked = pickedRows();
+    if (picked.rows.length === 0) {
+      toast.error("Select at least one record");
+      return;
+    }
+    rejectMutation.mutate(picked);
   }
 
   useEffect(() => {
