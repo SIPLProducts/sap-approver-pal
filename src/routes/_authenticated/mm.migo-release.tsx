@@ -217,7 +217,7 @@ function MigoReleasePage() {
   const cancelFn = useServerFn(cancelMigo);
 
   const cancelMutation = useMutation({
-    mutationFn: async (vars: { mblnr: string; mjahr: string }) => {
+    mutationFn: async (vars: { mblnr: string; mjahr: string; items: string[] }) => {
       const v: any = await cancelFn({ data: vars });
       return v as { ok: boolean; type: string; message: string; raw: any };
     },
@@ -246,7 +246,16 @@ function MigoReleasePage() {
       toast.error("Material Document Number is required");
       return;
     }
-    cancelMutation.mutate({ mblnr: matDocNo.trim(), mjahr: matDocYear.trim() });
+    const items = rows
+      .map((r, i) => ({ r, k: rowKey(r, i) }))
+      .filter(({ k }) => selected.has(k))
+      .map(({ r }) => String(r.MATDOC_ITM ?? "").trim())
+      .filter((v) => v.length > 0);
+    if (rows.length > 0 && selected.size === 0) {
+      toast.error("Select at least one row to cancel");
+      return;
+    }
+    cancelMutation.mutate({ mblnr: matDocNo.trim(), mjahr: matDocYear.trim(), items });
   }
 
   function onPost() {
