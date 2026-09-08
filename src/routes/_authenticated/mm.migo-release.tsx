@@ -217,7 +217,7 @@ function MigoReleasePage() {
   const cancelFn = useServerFn(cancelMigo);
 
   const cancelMutation = useMutation({
-    mutationFn: async (vars: { mblnr: string; mjahr: string }) => {
+    mutationFn: async (vars: { mblnr: string; mjahr: string; items: string[] }) => {
       const v: any = await cancelFn({ data: vars });
       return v as { ok: boolean; type: string; message: string; raw: any };
     },
