@@ -153,6 +153,42 @@ function PriceMasterApprovalsPage() {
     },
   });
 
+  const runApprove = useServerFn(approvePriceMasterApprovals);
+
+  const approveMutation = useMutation({
+    mutationFn: (vars: { rows: Row[] }) => runApprove({ data: vars }),
+    onSuccess: (res, vars) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Approve Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: res.message ?? "-", ok: res.ok }],
+      });
+      if (res.ok) {
+        const approved = new Set(vars.rows);
+        setRows((prev) => prev.filter((r) => !approved.has(r)));
+        setSelected(new Set());
+      }
+    },
+    onError: (e: Error) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Approve Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Approval failed", ok: false }],
+      });
+    },
+  });
+
+  function onApprove() {
+    const picked = rows.filter((_r, i) => selected.has(String(i)));
+    if (picked.length === 0) {
+      toast.error("Select at least one record");
+      return;
+    }
+    approveMutation.mutate({ rows: picked });
+  }
+
   useEffect(() => {
     setPlants((prev) => {
       if (activePlants.length === 0) return [];
