@@ -245,6 +245,10 @@ function PrReleasePage() {
       toast.error("Release Group and Release Code are required.");
       return;
     }
+    if (!sapUserId) {
+      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
+      return;
+    }
     mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants, cancel_record: cancelRecord, user_id: sapUserId });
   }
 
