@@ -615,6 +615,7 @@ export const cancelMigo = createServerFn({ method: "POST" })
     z.object({
       mblnr: z.string().trim().min(1, "Material Document Number is required").max(40),
       mjahr: z.string().trim().max(4).default(""),
+      items: z.array(z.string().trim().min(1)).default([]),
     }).parse(d),
   )
   .handler(async ({ data }) => {
