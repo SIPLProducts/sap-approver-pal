@@ -666,7 +666,7 @@ export const cancelMigo = createServerFn({ method: "POST" })
       bodyOut = JSON.stringify({ configId: cfg.id, inputs: payload, raw: true });
       proxied = true;
     } else {
-      target = cfg.endpoint_url;
+      target = String(cfg.endpoint_url ?? "").replace(/\s+/g, "");
       headers["Content-Type"] = "application/json";
       bodyOut = JSON.stringify(payload);
       if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {

@@ -6,8 +6,15 @@
  * - Otherwise, the endpoint is treated as a path/query suffix and joined to
  *   `baseUrl` (e.g. `http://10.150.150.155:8005`).
  */
+/** Remove stray whitespace and accidental duplicate slashes from a SAP URL/path. */
+function cleanSapUrl(value: string): string {
+  const noSpaces = value.replace(/\s+/g, "");
+  // Collapse `//` in the path while preserving the protocol separator.
+  return noSpaces.replace(/([^:])\/{2,}/g, "$1/");
+}
+
 export function resolveSapUrl(endpoint: string | null | undefined, baseUrl: string | null | undefined): string {
-  const ep = (endpoint ?? "").trim();
+  const ep = cleanSapUrl((endpoint ?? "").trim());
   if (!ep) throw new Error("Endpoint URL is empty");
   if (/^https?:\/\//i.test(ep)) return ep;
   const base = (baseUrl ?? "").trim().replace(/\/+$/, "");
