@@ -365,13 +365,11 @@ function PriceMasterApprovalsPage() {
             <div className="flex gap-2">
               <Button
                 size="sm"
-                disabled={selected.size === 0}
+                disabled={selected.size === 0 || approveMutation.isPending}
                 className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                onClick={() =>
-                  toast.info("Approve will be enabled once the SAP approval API is configured.")
-                }
+                onClick={onApprove}
               >
-                Approve
+                {approveMutation.isPending ? "Approving…" : "Approve"}
               </Button>
               <Button
                 size="sm"
