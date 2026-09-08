@@ -634,7 +634,13 @@ export const cancelMigo = createServerFn({ method: "POST" })
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
     ]);
 
-    const payload = { cancel: { mblnr: data.mblnr, mjahr: data.mjahr } };
+    const payload = {
+      cancel: {
+        mblnr: data.mblnr,
+        mjahr: data.mjahr,
+        item: data.items.map((it) => ({ item: it })),
+      },
+    };
 
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" && !!globalSettings?.middleware_url;
