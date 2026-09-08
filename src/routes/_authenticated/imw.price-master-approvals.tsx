@@ -137,6 +137,7 @@ function PriceMasterApprovalsPage() {
     }) => runFetch({ data: vars }),
     onSuccess: (res) => {
       setSelected(new Set());
+      setEdits({});
       setRows(res.rows ?? []);
       const msg = res.error || res.sapMessage;
       if (msg) {
