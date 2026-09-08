@@ -79,6 +79,7 @@ const FIELD_LABELS: Record<string, string> = {
   REF_DOC_IT: "Reference Document Item",
   CMMT_ITEM_LONG: "Commitment Item",
   LINE_ID: "Line",
+  UNLOAD_PT: "Unloading Point",
 };
 
 function fieldLabel(key: string) {

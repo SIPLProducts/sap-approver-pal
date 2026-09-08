@@ -69,6 +69,7 @@ export const MIGO_ITEM_KEYS = [
   "REF_DOC_IT",
   "CMMT_ITEM_LONG",
   "LINE_ID",
+  "UNLOAD_PT",
 ] as const;
 
 const MIGO_NUMERIC_ITEM_KEYS = new Set<string>([
