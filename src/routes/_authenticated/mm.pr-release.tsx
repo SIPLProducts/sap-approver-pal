@@ -24,6 +24,7 @@ import { PlantSelect } from "@/components/sap/plant-select";
 import { ReleaseKeySelect } from "@/components/mm/release-key-select";
 import { useActiveContext, releaseKeysFor } from "@/hooks/use-active-context";
 import { useSapProfile } from "@/hooks/use-sap-profile";
+import { useAuth } from "@/hooks/use-auth";
 import { fetchPrReleaseMultiple, releasePrItems, rejectPrItems, undoPrRelease, undoPrReject } from "@/lib/mm/pr-release.functions";
 import { PageHeader } from "@/components/exec/page-header";
 import { SkeletonRows } from "@/components/ui/skeleton-rows";
@@ -150,7 +151,12 @@ function PrReleasePage() {
   const [search, setSearch] = useState("");
   const [cancelRecord, setCancelRecord] = useState(false);
   const sapProfile = useSapProfile();
-  const sapUserId = sapProfile?.user ?? "";
+  const { user: authUser } = useAuth();
+  const sapUserId = (
+    sapProfile?.user ||
+    (authUser?.user_metadata as { sap_user_id?: string } | undefined)?.sap_user_id ||
+    ""
+  ).trim();
   const silentRefreshRef = useRef(false);
   const [responseDialog, setResponseDialog] = useState<
     | {
@@ -237,6 +243,10 @@ function PrReleasePage() {
     }
     if (!releaseGroup.trim() || !releaseCode.trim()) {
       toast.error("Release Group and Release Code are required.");
+      return;
+    }
+    if (!sapUserId) {
+      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
       return;
     }
     mutation.mutate({ relgroup: releaseGroup.trim(), relcode: releaseCode.trim(), plants, cancel_record: cancelRecord, user_id: sapUserId });
