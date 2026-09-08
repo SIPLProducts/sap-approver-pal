@@ -22,6 +22,7 @@ import {
 } from "@/components/aws/cloudscape-approval-table";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
+  approvePriceMasterApprovals,
   fetchPriceMasterApprovals,
   type PriceMasterApprovalRow,
 } from "@/lib/imw/price-master-approvals.functions";
@@ -151,6 +152,42 @@ function PriceMasterApprovalsPage() {
       toast.error(e.message || "Could not load approval records");
     },
   });
+
+  const runApprove = useServerFn(approvePriceMasterApprovals);
+
+  const approveMutation = useMutation({
+    mutationFn: (vars: { rows: Row[] }) => runApprove({ data: vars }),
+    onSuccess: (res, vars) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Approve Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: res.message ?? "-", ok: res.ok }],
+      });
+      if (res.ok) {
+        const approved = new Set(vars.rows);
+        setRows((prev) => prev.filter((r) => !approved.has(r)));
+        setSelected(new Set());
+      }
+    },
+    onError: (e: Error) => {
+      setSapDialog({
+        open: true,
+        title: "Price Master Approve Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Approval failed", ok: false }],
+      });
+    },
+  });
+
+  function onApprove() {
+    const picked = rows.filter((_r, i) => selected.has(String(i)));
+    if (picked.length === 0) {
+      toast.error("Select at least one record");
+      return;
+    }
+    approveMutation.mutate({ rows: picked });
+  }
 
   useEffect(() => {
     setPlants((prev) => {
@@ -328,13 +365,11 @@ function PriceMasterApprovalsPage() {
             <div className="flex gap-2">
               <Button
                 size="sm"
-                disabled={selected.size === 0}
+                disabled={selected.size === 0 || approveMutation.isPending}
                 className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                onClick={() =>
-                  toast.info("Approve will be enabled once the SAP approval API is configured.")
-                }
+                onClick={onApprove}
               >
-                Approve
+                {approveMutation.isPending ? "Approving…" : "Approve"}
               </Button>
               <Button
                 size="sm"
