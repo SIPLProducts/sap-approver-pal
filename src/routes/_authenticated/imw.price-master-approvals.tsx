@@ -122,6 +122,7 @@ function PriceMasterApprovalsPage() {
   const [status, setStatus] = useState<Status>("pending");
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [edits, setEdits] = useState<Record<string, { PRICE_REMARKS?: string }>>({});
   const [sapDialog, setSapDialog] = useState<SapResponseDialogState | null>(null);
 
   const runFetch = useServerFn(fetchPriceMasterApprovals);
