@@ -273,7 +273,7 @@ function PoReleasePage() {
           relcode: releaseCode.trim(),
           plants,
           cancel_record: cancelRecord,
-          user_id: sapProfile?.user ?? "",
+          user_id: sapUserId,
         });
       }
     },
@@ -344,7 +344,7 @@ function PoReleasePage() {
           relcode: releaseCode.trim(),
           plants,
           cancel_record: cancelRecord,
-          user_id: sapProfile?.user ?? "",
+          user_id: sapUserId,
         });
       }
     },
@@ -421,7 +421,7 @@ function PoReleasePage() {
           relcode: releaseCode.trim(),
           plants,
           cancel_record: cancelRecord,
-          user_id: sapProfile?.user ?? "",
+          user_id: sapUserId,
         });
       }
     },
@@ -490,7 +490,7 @@ function PoReleasePage() {
           relcode: releaseCode.trim(),
           plants,
           cancel_record: cancelRecord,
-          user_id: sapProfile?.user ?? "",
+          user_id: sapUserId,
         });
       }
     },
