@@ -116,6 +116,11 @@ function isEditableTextKey(k: string) {
   return u === "STGE_LOC" || u === "STGELOC" || u === "LGORT";
 }
 
+function isEntryQtyKey(k: string) {
+  const u = k.toUpperCase();
+  return u === "ENTRY_QNT" || u === "ENTRYQNT" || u === "MENGE";
+}
+
 function isLineIdKey(k: string) {
   const u = k.toUpperCase();
   return u === "LINE_ID" || u === "LINEID";
@@ -394,6 +399,31 @@ function MigoReleasePage() {
                 disabled={transactionType === "display"}
                 onChange={(e) => updateCell(k, key, e.target.value)}
                 className="h-8 text-xs"
+              />
+            );
+          },
+        } as CloudscapeColumn<DataRow>;
+      }
+      if (isEntryQtyKey(key)) {
+        return {
+          id: key,
+          header: fieldLabel(key),
+          minWidth: 140,
+          align: "right" as const,
+          cell: (item: DataRow) => {
+            const idx = rows.indexOf(item);
+            const k = rowKey(item, idx);
+            const cur = edits.get(k) ?? item;
+            return (
+              <Input
+                value={toStr(cur?.[key])}
+                disabled={transactionType !== "release"}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+                  updateCell(k, key, v);
+                }}
+                inputMode="decimal"
+                className="h-8 text-xs text-right"
               />
             );
           },
