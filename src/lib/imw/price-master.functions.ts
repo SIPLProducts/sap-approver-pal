@@ -387,7 +387,7 @@ export const updatePriceMaster = createServerFn({ method: "POST" })
 
     for (const row of data.rows) {
       const payloadData = buildUpdateData(row as Record<string, unknown>);
-      const inputs = { update: { data: { update: { data: payloadData } } } };
+      const inputs = { update: { data: payloadData } };
       const ref =
         [payloadData.KUNNR, payloadData.MATNR].filter((v) => String(v).trim()).join(" / ") ||
         String(payloadData.WERKS ?? "—");
