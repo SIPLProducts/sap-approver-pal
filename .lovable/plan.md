@@ -1,29 +1,26 @@
-# ZMC Report: Plain-Text Date Pickers
+# ZMC Report: Simpler Date Picker
 
 ## Goal
 
-Replace the calendar popover date pickers on the ZMC Report screen with simple, user-friendly DD-MM-YYYY text inputs. All existing functionality, filters, state, reset/execute behavior, and business logic remain unchanged.
+Keep the date picker on the ZMC Report screen but make it compact, clean, and easy to use. All existing functionality, filters, state, reset/execute behavior, and business logic remain unchanged.
 
 ## What changes
 
-1. **Replace the `DateField` component** in `src/routes/_authenticated/mm.zmc-report.tsx`.
-   - Remove the `Calendar`/`Popover` imports and the `calendarStyles` object.
-   - Render a plain `Input` for each date field with placeholder `DD-MM-YYYY`.
-   - Keep the existing `value: Date | undefined` prop and `onChange` contract so the parent state (`dateFrom`, `dateTo`) is unaffected.
+1. **Compact the calendar popover** in `src/routes/_authenticated/mm.zmc-report.tsx`.
+   - Reduce the calendar cell size from `2rem` to a smaller value (e.g., `1.75rem`) so the popover is less bulky.
+   - Tighten the calendar wrapper padding from `p-3` to `p-2`.
+   - Keep the centered month caption, rounded navigation buttons, centered weekday row, muted outside days, and rounded selected-day styling already in place.
 
-2. **Add lightweight date parsing/validation**.
-   - Accept user input in `DD-MM-YYYY` format.
-   - On change/blur, parse the string into a `Date` only when it matches `dd-MM-yyyy` exactly.
-   - If the input is empty, set the value to `undefined`.
-   - If the input is invalid, show a subtle error state on the field (e.g., red border) but do not block other filters or Execute/Reset.
+2. **Simplify the date trigger button**.
+   - Keep the `Button` trigger but make it less prominent: remove the calendar icon or keep only a small one, and ensure the text remains left-aligned and readable.
+   - Keep the `DD-MM-YYYY` display format and placeholder text.
 
-3. **Preserve layout and styling**.
-   - Keep the From/To grouping, separator, responsive grid, and field label placement.
-   - Match the existing input height, font, and shadow-none styling used by the other From/To inputs.
-   - Remove the calendar icon since the field is no longer a date picker.
+3. **Preserve layout and behavior**.
+   - Leave the From/To grouping, separator, responsive grid, and field label placement exactly as today.
+   - Keep `dateFrom`/`dateTo` state, reset/execute, and all filter logic untouched.
 
 4. **No changes outside this file**.
-   - Do not touch route config, sidebar, permissions, SAP wiring, table columns, Execute/Reset logic, or any other MM screen.
+   - Do not touch route config, sidebar, permissions, SAP wiring, table columns, or any other MM screen.
 
 ## File touched
 
@@ -33,8 +30,7 @@ Replace the calendar popover date pickers on the ZMC Report screen with simple, 
 
 - Run `bunx tsgo --noEmit -p tsconfig.json`.
 - Open the ZMC Report screen and confirm:
-  - Both date fields render as plain inputs with the `DD-MM-YYYY` placeholder.
-  - Typing a valid date updates the field and the underlying state.
-  - Reset clears both date fields.
-  - Execute still reveals the empty results card as before.
-  - Other filters (Plant, Document Number, Movement Type) are unaffected.
+  - The From/To date pickers still open a calendar popover.
+  - The calendar is visibly smaller and cleaner.
+  - Date selection, Reset, and Execute behave exactly as before.
+  - Other filters are unaffected.
