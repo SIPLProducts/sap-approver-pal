@@ -19,6 +19,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const CONFIG_NAME = "ZMC_FETCH_REPORT";
+const CANCEL_CONFIG_NAME = "ZMC_Cancel_Report";
 
 export type ZmcReportRow = Record<string, string | number | null>;
 
