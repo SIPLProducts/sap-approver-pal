@@ -125,7 +125,13 @@ function ZmcReportPage() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const [executed, setExecuted] = useState(false);
-  const [rows] = useState<DataRow[]>([]);
+  const [rows, setRows] = useState<DataRow[]>([]);
+  const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
+
+  const runFetch = useServerFn(fetchZmcReport);
+  const report = useMutation({
+    mutationFn: (vars: Parameters<typeof fetchZmcReport>[0]["data"]) => runFetch({ data: vars }),
+  });
 
   function reset() {
     setPlant(EMPTY);
@@ -134,26 +140,50 @@ function ZmcReportPage() {
     setDateFrom(undefined);
     setDateTo(undefined);
     setExecuted(false);
+    setRows([]);
   }
 
-  const columns = useMemo<CloudscapeColumn<DataRow>[]>(
-    () => [
-      { id: "PLANT", header: "Plant", minWidth: 100, cell: (r) => r.PLANT ?? "—" },
-      { id: "DATE", header: "Date", minWidth: 120, cell: (r) => r.DATE ?? "—" },
-      {
-        id: "DOCUMENT_NUMBER",
-        header: "Document Number",
-        minWidth: 160,
-        cell: (r) => r.DOCUMENT_NUMBER ?? "—",
-      },
-      {
-        id: "MOVEMENT_TYPE",
-        header: "Movement Type",
-        minWidth: 140,
-        cell: (r) => r.MOVEMENT_TYPE ?? "—",
-      },
-    ],
-    [],
+  function showMessage(message: string) {
+    setDialog({
+      open: true,
+      title: "ZMC Report",
+      refLabel: "Report",
+      results: [{ ref: "ZMC Report", message, ok: false }],
+    });
+  }
+
+  async function execute() {
+    setExecuted(true);
+    setRows([]);
+    try {
+      const res = await report.mutateAsync({
+        plant_from: plant.from.trim(),
+        plant_to: plant.to.trim(),
+        date_from: dateFrom ? format(dateFrom, "yyyy-MM-dd") : "",
+        date_to: dateTo ? format(dateTo, "yyyy-MM-dd") : "",
+        doc_from: docNumber.from.trim(),
+        doc_to: docNumber.to.trim(),
+        type_from: movementType.from.trim(),
+        type_to: movementType.to.trim(),
+      });
+      if (res.error || res.sapMessage) {
+        showMessage(res.sapMessage ?? res.error ?? "No records returned by SAP.");
+        return;
+      }
+      setRows(res.rows as DataRow[]);
+    } catch (e) {
+      showMessage((e as Error).message || "Could not fetch the ZMC report.");
+    }
+  }
+
+  const columns = useMemo(
+    () =>
+      buildDynamicColumns<DataRow>(rows, {
+        headerLabels: HEADER_LABELS,
+        textKeys: TEXT_KEYS,
+        numericKeys: NUMERIC_KEYS,
+      }),
+    [rows],
   );
 
   return (
