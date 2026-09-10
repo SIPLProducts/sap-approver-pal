@@ -114,6 +114,18 @@ const TEXT_KEYS = [
 
 const NUMERIC_KEYS = ["REQUESTED_QUANTITY", "APPROVED_QUANTITY", "ISSUED_QUANTITY", "VALUE"];
 
+/** SAP placeholder values ("0000-00-00", "00:00:00") display as a dash. */
+const PLACEHOLDERS = new Set(["0000-00-00", "00000000", "00:00:00", "0000-00:00"]);
+
+function normalizeRow(row: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(row ?? {})) {
+    const s = typeof v === "string" ? v.trim() : v;
+    out[k] = typeof s === "string" && PLACEHOLDERS.has(s) ? "" : s;
+  }
+  return out;
+}
+
 function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0 space-y-2">
