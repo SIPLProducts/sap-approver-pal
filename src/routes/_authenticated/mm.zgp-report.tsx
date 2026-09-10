@@ -52,6 +52,124 @@ type RangeState = { from: string; to: string };
 
 const EMPTY: RangeState = { from: "", to: "" };
 
+type ZgpFilters = {
+  type_from: string;
+  type_to: string;
+  number_from: string;
+  number_to: string;
+  material_from: string;
+  material_to: string;
+  date_from: string;
+  date_to: string;
+  plant_from: string;
+  plant_to: string;
+  vendor_from: string;
+  vendor_to: string;
+};
+
+/** Readable headers for the documented ZGP report keys. */
+const HEADER_LABELS: Record<string, string> = {
+  TYPE: "Type",
+  UNIQUE_NO: "Gate Pass Number",
+  GATEPASSDATE: "Gate Pass Date",
+  MATERIAL: "Material",
+  DESCRIPTION: "Description",
+  MEINS: "Unit of measure",
+  QUANTITY: "Requested Quantity",
+  VALUE: "Net Value",
+  PLANT: "Plant",
+  NAME: "Plant Name",
+  COMPANY_CODE: "Company Code",
+  VEHICLE_NO: "Vehicle No",
+  VENDOR: "Vendor",
+  ZNAME1: "Vendor Name",
+  EXPECTED_DATE_OF_RETURN: "Expected Return Date",
+  USER_REMARKS: "User Remarks",
+  ZPURPOSE: "Purpose",
+  USER_ID: "User",
+  USER_DATE: "User Date",
+  HOD_USER: "HOD User",
+  HOD_APPROVAL: "HOD Approval",
+  HOD_REJECTION: "HOD Rejection",
+  HOD_APP_DATE: "HOD Date",
+  HOD_REMARKS: "HOD Remarks",
+  HOD_APP_TIME: "HOD Time",
+  ISSUED_QUANTITY: "Issued Qty",
+  STORE_APPROVAL: "Store Approval",
+  JUSTIFICATION: "Justification",
+  SCM_HEAD: "SCM Head",
+  SCM_APPROVAL_DATE: "SCM Date",
+  SCM_USER: "SCM User",
+  SCM_HEAD_TIME: "SCM Time",
+  ACTUAL_RETURN_DATE: "Actual Return Date",
+  STORE_USER: "Store User",
+  STORE_APP_DATE: "Store Date",
+  PH_APPROVAL: "PH Approval",
+  PH_REJECTION: "PH Rejection",
+  RECEIPT_BUTTON: "Receipt Button",
+  RETURNED_QUANTITY: "Returned Quantity",
+  RETURN_STATUS: "Return Status",
+  RETURN_RECEIPT_USER: "Return User",
+  RETURN_RECEIPT_DATE: "Return Date",
+  RETURN_RECEIPT_TIME: "Return Time",
+  PLANT_HEAD_USER: "Plant Head User",
+  PLANT_APP_DATE: "Plant Date",
+  PALNT_HEAD_TIME: "Plant Time",
+  REMARKS: "Remarks",
+  CANCEL: "Cancel Status",
+  CANCELED_BY: "Canceled by",
+  CANCELED_ON: "Canceled on",
+  CANCELED_TIME: "Canceled time",
+};
+
+const TEXT_KEYS = [
+  "TYPE",
+  "UNIQUE_NO",
+  "MATERIAL",
+  "MEINS",
+  "PLANT",
+  "NAME",
+  "COMPANY_CODE",
+  "VEHICLE_NO",
+  "VENDOR",
+  "ZNAME1",
+  "USER_ID",
+  "HOD_USER",
+  "HOD_APPROVAL",
+  "HOD_REJECTION",
+  "HOD_APP_TIME",
+  "STORE_APPROVAL",
+  "SCM_HEAD",
+  "SCM_USER",
+  "SCM_HEAD_TIME",
+  "STORE_USER",
+  "PH_APPROVAL",
+  "PH_REJECTION",
+  "RECEIPT_BUTTON",
+  "RETURN_STATUS",
+  "RETURN_RECEIPT_USER",
+  "RETURN_RECEIPT_TIME",
+  "PLANT_HEAD_USER",
+  "PALNT_HEAD_TIME",
+  "CANCEL",
+  "CANCELED_BY",
+  "CANCELED_TIME",
+];
+
+const NUMERIC_KEYS = ["QUANTITY", "VALUE", "ISSUED_QUANTITY", "RETURNED_QUANTITY"];
+
+/** SAP placeholder values ("0000-00-00", "00:00:00") display as a dash. */
+const PLACEHOLDERS = new Set(["0000-00-00", "00000000", "00:00:00", "0000-00:00", "00.00.0000"]);
+
+function normalizeRow(row: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(row ?? {})) {
+    const s = typeof v === "string" ? v.trim() : v;
+    out[k] = typeof s === "string" && PLACEHOLDERS.has(s) ? "" : s;
+  }
+  return out;
+}
+
 /** Label + From/To pair, aligned on wide screens and stacked on mobile. */
 function FilterRow({
   label,
@@ -126,7 +244,13 @@ function ZgpReportPage() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const [executed, setExecuted] = useState(false);
-  const [rows] = useState<DataRow[]>([]);
+  const [rows, setRows] = useState<DataRow[]>([]);
+  const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
+
+  const runFetch = useServerFn(fetchZgpReport);
+  const report = useMutation({
+    mutationFn: (vars: ZgpFilters) => runFetch({ data: vars }),
+  });
 
   function reset() {
     setDocType(EMPTY);
@@ -137,23 +261,54 @@ function ZgpReportPage() {
     setDateFrom(undefined);
     setDateTo(undefined);
     setExecuted(false);
+    setRows([]);
   }
 
-  const columns = useMemo<CloudscapeColumn<DataRow>[]>(
-    () => [
-      { id: "RGP_NRGP", header: "RGP/NRGP", minWidth: 120, cell: (r) => r.RGP_NRGP ?? "—" },
-      {
-        id: "GATE_PASS_NUMBER",
-        header: "Gate Pass Number",
-        minWidth: 160,
-        cell: (r) => r.GATE_PASS_NUMBER ?? "—",
-      },
-      { id: "PLANT", header: "Plant", minWidth: 100, cell: (r) => r.PLANT ?? "—" },
-      { id: "MATERIAL", header: "Material", minWidth: 140, cell: (r) => r.MATERIAL ?? "—" },
-      { id: "DATE", header: "Date", minWidth: 120, cell: (r) => r.DATE ?? "—" },
-      { id: "VENDOR", header: "Vendor", minWidth: 140, cell: (r) => r.VENDOR ?? "—" },
-    ],
-    [],
+  function showMessage(message: string) {
+    setDialog({
+      open: true,
+      title: "ZGP Report",
+      refLabel: "Report",
+      results: [{ ref: "ZGP Report", message, ok: false }],
+    });
+  }
+
+  async function execute() {
+    setExecuted(true);
+    setRows([]);
+    try {
+      const res = await report.mutateAsync({
+        type_from: docType.from.trim(),
+        type_to: docType.to.trim(),
+        number_from: gatePass.from.trim(),
+        number_to: gatePass.to.trim(),
+        material_from: material.from.trim(),
+        material_to: material.to.trim(),
+        date_from: dateFrom ? format(dateFrom, "yyyy-MM-dd") : "",
+        date_to: dateTo ? format(dateTo, "yyyy-MM-dd") : "",
+        plant_from: plant.from.trim(),
+        plant_to: plant.to.trim(),
+        vendor_from: vendor.from.trim(),
+        vendor_to: vendor.to.trim(),
+      });
+      if (res.error || res.sapMessage) {
+        showMessage(res.sapMessage ?? res.error ?? "No records returned by SAP.");
+        return;
+      }
+      setRows((res.rows as DataRow[]).map(normalizeRow));
+    } catch (e) {
+      showMessage((e as Error).message || "Could not fetch the ZGP report.");
+    }
+  }
+
+  const columns = useMemo(
+    () =>
+      buildDynamicColumns<DataRow>(rows, {
+        headerLabels: HEADER_LABELS,
+        textKeys: TEXT_KEYS,
+        numericKeys: NUMERIC_KEYS,
+      }),
+    [rows],
   );
 
   return (
