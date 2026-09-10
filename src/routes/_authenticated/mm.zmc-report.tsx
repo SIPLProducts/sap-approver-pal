@@ -238,6 +238,7 @@ function ZmcReportPage() {
   async function execute() {
     setExecuted(true);
     setRows([]);
+    setSelected(new Set());
     try {
       const res = await report.mutateAsync({
         plant_from: plant.from.trim(),
