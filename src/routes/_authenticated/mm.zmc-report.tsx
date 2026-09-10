@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarIcon, Filter, Play, RotateCcw } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
+import { CalendarIcon, Filter, Loader2, Play, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 
 import { Card } from "@/components/ui/card";
@@ -9,11 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
 import {
-  CloudscapeApprovalTable,
-  type CloudscapeColumn,
-} from "@/components/aws/cloudscape-approval-table";
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
 import { PageHeader } from "@/components/exec/page-header";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
+import { fetchZmcReport } from "@/lib/mm/zmc-report.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/zmc-report")({
@@ -39,6 +44,87 @@ type DataRow = Record<string, any>;
 type RangeState = { from: string; to: string };
 
 const EMPTY: RangeState = { from: "", to: "" };
+
+type ZmcFilters = {
+  plant_from: string;
+  plant_to: string;
+  date_from: string;
+  date_to: string;
+  doc_from: string;
+  doc_to: string;
+  type_from: string;
+  type_to: string;
+};
+
+/** Readable headers for the documented ZMC report keys. */
+const HEADER_LABELS: Record<string, string> = {
+  DOCUMENT_NO: "Document Number",
+  PLANT: "Plant",
+  MATERIAL: "Material Number",
+  MATERIAL_DESCRIPTION: "Material Description",
+  REQUESTED_QUANTITY: "Requested Quantity",
+  UOM: "Unit",
+  CREATED_ON: "Created On",
+  STORAGE_LOCATION: "Storage Location",
+  ORDER_NUMBER: "Order Number",
+  HOD_APRROVAL: "HOD Approval",
+  HOD_APPROVAL: "HOD Approval",
+  HOD_REJECTION: "HOD Rejection",
+  HOD_APPROVAL_DATE: "HOD Approval Date",
+  GL_ACCOUNT: "GL Account",
+  MOVEMENT_TYPE: "Movement Type",
+  COST_CENTER: "Cost Center",
+  APPROVED_QUANTITY: "Approved Quantity",
+  ISSUED_QUANTITY: "Issued Quantity",
+  SAP_REVERVATION_NO: "Reservation Number",
+  SAP_MATERIAL_DOCUMENT: "Material Document",
+  ZEILE: "Material Document Item",
+  REVERSAL_NO: "Reversal No",
+  POSTED_BY: "Posted By",
+  POSTED_ON: "Posted On",
+  VALUE: "Net Value",
+  CANCEL: "Cancel Status",
+  CANCELED_BY: "Canceled By",
+  CANCELED_ON: "Canceled On",
+  CANCELED_TIME: "Canceled Time",
+};
+
+const TEXT_KEYS = [
+  "DOCUMENT_NO",
+  "PLANT",
+  "MATERIAL",
+  "MOVEMENT_TYPE",
+  "COST_CENTER",
+  "GL_ACCOUNT",
+  "STORAGE_LOCATION",
+  "ORDER_NUMBER",
+  "SAP_MATERIAL_DOCUMENT",
+  "SAP_REVERVATION_NO",
+  "ZEILE",
+  "REVERSAL_NO",
+  "UOM",
+  "HOD_APRROVAL",
+  "HOD_APPROVAL",
+  "HOD_REJECTION",
+  "CANCEL",
+  "CANCELED_TIME",
+  "POSTED_BY",
+  "CANCELED_BY",
+];
+
+const NUMERIC_KEYS = ["REQUESTED_QUANTITY", "APPROVED_QUANTITY", "ISSUED_QUANTITY", "VALUE"];
+
+/** SAP placeholder values ("0000-00-00", "00:00:00") display as a dash. */
+const PLACEHOLDERS = new Set(["0000-00-00", "00000000", "00:00:00", "0000-00:00"]);
+
+function normalizeRow(row: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(row ?? {})) {
+    const s = typeof v === "string" ? v.trim() : v;
+    out[k] = typeof s === "string" && PLACEHOLDERS.has(s) ? "" : s;
+  }
+  return out;
+}
 
 function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -120,7 +206,13 @@ function ZmcReportPage() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const [executed, setExecuted] = useState(false);
-  const [rows] = useState<DataRow[]>([]);
+  const [rows, setRows] = useState<DataRow[]>([]);
+  const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
+
+  const runFetch = useServerFn(fetchZmcReport);
+  const report = useMutation({
+    mutationFn: (vars: ZmcFilters) => runFetch({ data: vars }),
+  });
 
   function reset() {
     setPlant(EMPTY);
@@ -129,26 +221,50 @@ function ZmcReportPage() {
     setDateFrom(undefined);
     setDateTo(undefined);
     setExecuted(false);
+    setRows([]);
   }
 
-  const columns = useMemo<CloudscapeColumn<DataRow>[]>(
-    () => [
-      { id: "PLANT", header: "Plant", minWidth: 100, cell: (r) => r.PLANT ?? "—" },
-      { id: "DATE", header: "Date", minWidth: 120, cell: (r) => r.DATE ?? "—" },
-      {
-        id: "DOCUMENT_NUMBER",
-        header: "Document Number",
-        minWidth: 160,
-        cell: (r) => r.DOCUMENT_NUMBER ?? "—",
-      },
-      {
-        id: "MOVEMENT_TYPE",
-        header: "Movement Type",
-        minWidth: 140,
-        cell: (r) => r.MOVEMENT_TYPE ?? "—",
-      },
-    ],
-    [],
+  function showMessage(message: string) {
+    setDialog({
+      open: true,
+      title: "ZMC Report",
+      refLabel: "Report",
+      results: [{ ref: "ZMC Report", message, ok: false }],
+    });
+  }
+
+  async function execute() {
+    setExecuted(true);
+    setRows([]);
+    try {
+      const res = await report.mutateAsync({
+        plant_from: plant.from.trim(),
+        plant_to: plant.to.trim(),
+        date_from: dateFrom ? format(dateFrom, "yyyy-MM-dd") : "",
+        date_to: dateTo ? format(dateTo, "yyyy-MM-dd") : "",
+        doc_from: docNumber.from.trim(),
+        doc_to: docNumber.to.trim(),
+        type_from: movementType.from.trim(),
+        type_to: movementType.to.trim(),
+      });
+      if (res.error || res.sapMessage) {
+        showMessage(res.sapMessage ?? res.error ?? "No records returned by SAP.");
+        return;
+      }
+      setRows((res.rows as DataRow[]).map(normalizeRow));
+    } catch (e) {
+      showMessage((e as Error).message || "Could not fetch the ZMC report.");
+    }
+  }
+
+  const columns = useMemo(
+    () =>
+      buildDynamicColumns<DataRow>(rows, {
+        headerLabels: HEADER_LABELS,
+        textKeys: TEXT_KEYS,
+        numericKeys: NUMERIC_KEYS,
+      }),
+    [rows],
   );
 
   return (
@@ -232,11 +348,25 @@ function ZmcReportPage() {
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t bg-muted/20 px-4 py-3 sm:px-5">
-          <Button variant="outline" onClick={reset} className="h-9 gap-2 shadow-none">
+          <Button
+            variant="outline"
+            onClick={reset}
+            disabled={report.isPending}
+            className="h-9 gap-2 shadow-none"
+          >
             <RotateCcw className="h-3.5 w-3.5" /> Reset
           </Button>
-          <Button onClick={() => setExecuted(true)} className="h-9 gap-2 px-5 shadow-sm">
-            <Play className="h-3.5 w-3.5" /> Execute
+          <Button
+            onClick={() => void execute()}
+            disabled={report.isPending}
+            className="h-9 gap-2 px-5 shadow-sm"
+          >
+            {report.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            {report.isPending ? "Executing…" : "Execute"}
           </Button>
         </div>
       </Card>
@@ -247,11 +377,18 @@ function ZmcReportPage() {
           countLabel={`${rows.length} record${rows.length === 1 ? "" : "s"}`}
           rows={rows}
           columns={columns}
-          rowKey={(r, i) => String(r.DOCUMENT_NUMBER ?? i)}
-          emptyMessage="The ZMC report service is not connected yet — no records can be fetched from SAP for these filters."
+          loading={report.isPending}
+          rowKey={(r, i) => `${r.DOCUMENT_NO ?? r.DOCUMENT_NUMBER ?? "row"}-${i}`}
+          emptyMessage="No records found for the selected filters."
           pageSize={20}
         />
       )}
+
+      <SapResponseDialog
+        dialog={dialog}
+        onOpenChange={(open) => setDialog((d) => (d ? { ...d, open } : d))}
+        defaultTitle="ZMC Report"
+      />
     </div>
   );
 }
