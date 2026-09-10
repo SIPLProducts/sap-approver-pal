@@ -463,7 +463,7 @@ function GateProcessPage() {
 
   return (
     <div className="page-shell page-stack">
-      <PageHeader eyebrow="MM Approvals" title="ZTER Rating" subtitle="Rate, change and review ZTER tender records." />
+      <PageHeader eyebrow="MM Approvals" title="TER Rating" subtitle="Rate, change and review ZTER tender records." />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
