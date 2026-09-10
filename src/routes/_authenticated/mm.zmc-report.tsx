@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { CalendarIcon, Filter, Loader2, Play, RotateCcw } from "lucide-react";
+import { CalendarIcon, Filter, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 import { Card } from "@/components/ui/card";
@@ -207,6 +207,7 @@ function ZmcReportPage() {
 
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<DataRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
 
   const runFetch = useServerFn(fetchZmcReport);
@@ -222,6 +223,7 @@ function ZmcReportPage() {
     setDateTo(undefined);
     setExecuted(false);
     setRows([]);
+    setSelected(new Set());
   }
 
   function showMessage(message: string) {
@@ -236,6 +238,7 @@ function ZmcReportPage() {
   async function execute() {
     setExecuted(true);
     setRows([]);
+    setSelected(new Set());
     try {
       const res = await report.mutateAsync({
         plant_from: plant.from.trim(),
@@ -381,6 +384,22 @@ function ZmcReportPage() {
           rowKey={(r, i) => `${r.DOCUMENT_NO ?? r.DOCUMENT_NUMBER ?? "row"}-${i}`}
           emptyMessage="No records found for the selected filters."
           pageSize={20}
+          showSelect
+          selectedKeys={selected}
+          onSelectionChange={setSelected}
+          headerExtras={
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={selected.size === 0}
+              onClick={() => {
+                /* Cancel service wiring pending */
+              }}
+            >
+              <XCircle className="mr-1.5 h-3.5 w-3.5" />
+              Cancel{selected.size > 0 ? ` (${selected.size})` : ""}
+            </Button>
+          }
         />
       )}
 
