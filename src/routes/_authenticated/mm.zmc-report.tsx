@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { CalendarIcon, Filter, Loader2, Play, RotateCcw } from "lucide-react";
+import { CalendarIcon, Filter, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 import { Card } from "@/components/ui/card";
