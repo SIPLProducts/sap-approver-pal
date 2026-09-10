@@ -88,11 +88,11 @@ function DateField({
         <Button
           variant="outline"
           className={cn(
-            "h-10 w-full min-w-0 justify-start gap-2 text-left font-normal shadow-none",
+            "h-10 w-full min-w-0 justify-start gap-1.5 text-left font-normal shadow-none",
             !value && "text-muted-foreground",
           )}
         >
-          <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+          <CalendarIcon className="h-3 w-3 shrink-0 opacity-60" />
           <span className="truncate text-xs">
             {value ? format(value, "dd-MM-yyyy") : placeholder}
           </span>
@@ -104,7 +104,7 @@ function DateField({
           selected={value}
           onSelect={onChange}
           initialFocus
-          className={cn("p-3 pointer-events-auto [--cell-size:2rem]")}
+          className={cn("p-2 pointer-events-auto [--cell-size:1.75rem]")}
           classNames={calendarStyles}
         />
       </PopoverContent>
