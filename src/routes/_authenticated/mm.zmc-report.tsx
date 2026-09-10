@@ -455,13 +455,17 @@ function ZmcReportPage() {
             <Button
               variant="destructive"
               size="sm"
-              disabled={selected.size === 0}
-              onClick={() => {
-                /* Cancel service wiring pending */
-              }}
+              disabled={selected.size === 0 || cancelMut.isPending || report.isPending}
+              onClick={() => void cancelSelected()}
             >
-              <XCircle className="mr-1.5 h-3.5 w-3.5" />
-              Cancel{selected.size > 0 ? ` (${selected.size})` : ""}
+              {cancelMut.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {cancelMut.isPending
+                ? "Cancelling…"
+                : `Cancel${selected.size > 0 ? ` (${selected.size})` : ""}`}
             </Button>
           }
         />
