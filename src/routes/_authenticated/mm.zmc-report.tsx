@@ -239,7 +239,7 @@ function ZmcReportPage() {
         showMessage(res.sapMessage ?? res.error ?? "No records returned by SAP.");
         return;
       }
-      setRows(res.rows as DataRow[]);
+      setRows((res.rows as DataRow[]).map(normalizeRow));
     } catch (e) {
       showMessage((e as Error).message || "Could not fetch the ZMC report.");
     }
