@@ -207,6 +207,7 @@ function ZmcReportPage() {
 
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<DataRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
 
   const runFetch = useServerFn(fetchZmcReport);
