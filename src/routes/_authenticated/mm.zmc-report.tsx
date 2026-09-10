@@ -223,6 +223,7 @@ function ZmcReportPage() {
     setDateTo(undefined);
     setExecuted(false);
     setRows([]);
+    setSelected(new Set());
   }
 
   function showMessage(message: string) {
