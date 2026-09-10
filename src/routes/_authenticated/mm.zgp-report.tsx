@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarIcon, Filter, Play, RotateCcw } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
+import { CalendarIcon, Filter, Loader2, Play, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 
 import { Card } from "@/components/ui/card";
@@ -16,11 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
 import {
-  CloudscapeApprovalTable,
-  type CloudscapeColumn,
-} from "@/components/aws/cloudscape-approval-table";
+  SapResponseDialog,
+  type SapResponseDialogState,
+} from "@/components/mm/sap-response-dialog";
 import { PageHeader } from "@/components/exec/page-header";
+import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
+import { fetchZgpReport } from "@/lib/mm/zgp-report.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/zgp-report")({
