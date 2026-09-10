@@ -130,7 +130,7 @@ function ZmcReportPage() {
 
   const runFetch = useServerFn(fetchZmcReport);
   const report = useMutation({
-    mutationFn: (vars: Parameters<typeof fetchZmcReport>[0]["data"]) => runFetch({ data: vars }),
+    mutationFn: (vars: ZmcFilters) => runFetch({ data: vars }),
   });
 
   function reset() {
