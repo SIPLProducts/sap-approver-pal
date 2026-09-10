@@ -45,6 +45,75 @@ type RangeState = { from: string; to: string };
 
 const EMPTY: RangeState = { from: "", to: "" };
 
+type ZmcFilters = {
+  plant_from: string;
+  plant_to: string;
+  date_from: string;
+  date_to: string;
+  doc_from: string;
+  doc_to: string;
+  type_from: string;
+  type_to: string;
+};
+
+/** Readable headers for the documented ZMC report keys. */
+const HEADER_LABELS: Record<string, string> = {
+  DOCUMENT_NO: "Document Number",
+  PLANT: "Plant",
+  MATERIAL: "Material Number",
+  MATERIAL_DESCRIPTION: "Material Description",
+  REQUESTED_QUANTITY: "Requested Quantity",
+  UOM: "Unit",
+  CREATED_ON: "Created On",
+  STORAGE_LOCATION: "Storage Location",
+  ORDER_NUMBER: "Order Number",
+  HOD_APRROVAL: "HOD Approval",
+  HOD_APPROVAL: "HOD Approval",
+  HOD_REJECTION: "HOD Rejection",
+  HOD_APPROVAL_DATE: "HOD Approval Date",
+  GL_ACCOUNT: "GL Account",
+  MOVEMENT_TYPE: "Movement Type",
+  COST_CENTER: "Cost Center",
+  APPROVED_QUANTITY: "Approved Quantity",
+  ISSUED_QUANTITY: "Issued Quantity",
+  SAP_REVERVATION_NO: "Reservation Number",
+  SAP_MATERIAL_DOCUMENT: "Material Document",
+  ZEILE: "Material Document Item",
+  REVERSAL_NO: "Reversal No",
+  POSTED_BY: "Posted By",
+  POSTED_ON: "Posted On",
+  VALUE: "Net Value",
+  CANCEL: "Cancel Status",
+  CANCELED_BY: "Canceled By",
+  CANCELED_ON: "Canceled On",
+  CANCELED_TIME: "Canceled Time",
+};
+
+const TEXT_KEYS = [
+  "DOCUMENT_NO",
+  "PLANT",
+  "MATERIAL",
+  "MOVEMENT_TYPE",
+  "COST_CENTER",
+  "GL_ACCOUNT",
+  "STORAGE_LOCATION",
+  "ORDER_NUMBER",
+  "SAP_MATERIAL_DOCUMENT",
+  "SAP_REVERVATION_NO",
+  "ZEILE",
+  "REVERSAL_NO",
+  "UOM",
+  "HOD_APRROVAL",
+  "HOD_APPROVAL",
+  "HOD_REJECTION",
+  "CANCEL",
+  "CANCELED_TIME",
+  "POSTED_BY",
+  "CANCELED_BY",
+];
+
+const NUMERIC_KEYS = ["REQUESTED_QUANTITY", "APPROVED_QUANTITY", "ISSUED_QUANTITY", "VALUE"];
+
 function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0 space-y-2">
