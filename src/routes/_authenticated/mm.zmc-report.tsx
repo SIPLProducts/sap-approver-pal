@@ -336,11 +336,25 @@ function ZmcReportPage() {
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t bg-muted/20 px-4 py-3 sm:px-5">
-          <Button variant="outline" onClick={reset} className="h-9 gap-2 shadow-none">
+          <Button
+            variant="outline"
+            onClick={reset}
+            disabled={report.isPending}
+            className="h-9 gap-2 shadow-none"
+          >
             <RotateCcw className="h-3.5 w-3.5" /> Reset
           </Button>
-          <Button onClick={() => setExecuted(true)} className="h-9 gap-2 px-5 shadow-sm">
-            <Play className="h-3.5 w-3.5" /> Execute
+          <Button
+            onClick={() => void execute()}
+            disabled={report.isPending}
+            className="h-9 gap-2 px-5 shadow-sm"
+          >
+            {report.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            {report.isPending ? "Executing…" : "Execute"}
           </Button>
         </div>
       </Card>
@@ -351,11 +365,18 @@ function ZmcReportPage() {
           countLabel={`${rows.length} record${rows.length === 1 ? "" : "s"}`}
           rows={rows}
           columns={columns}
-          rowKey={(r, i) => String(r.DOCUMENT_NUMBER ?? i)}
-          emptyMessage="The ZMC report service is not connected yet — no records can be fetched from SAP for these filters."
+          loading={report.isPending}
+          rowKey={(r, i) => `${r.DOCUMENT_NO ?? r.DOCUMENT_NUMBER ?? "row"}-${i}`}
+          emptyMessage="No records found for the selected filters."
           pageSize={20}
         />
       )}
+
+      <SapResponseDialog
+        dialog={dialog}
+        onOpenChange={(open) => setDialog((d) => (d ? { ...d, open } : d))}
+        defaultTitle="ZMC Report"
+      />
     </div>
   );
 }
