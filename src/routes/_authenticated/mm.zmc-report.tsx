@@ -208,12 +208,19 @@ function ZmcReportPage() {
 
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<DataRow[]>([]);
+  const [rawRows, setRawRows] = useState<DataRow[]>([]);
+  const [lastFilters, setLastFilters] = useState<ZmcFilters | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
 
   const runFetch = useServerFn(fetchZmcReport);
   const report = useMutation({
     mutationFn: (vars: ZmcFilters) => runFetch({ data: vars }),
+  });
+
+  const runCancel = useServerFn(cancelZmcRecords);
+  const cancelMut = useMutation({
+    mutationFn: (vars: { filters: ZmcFilters; rows: DataRow[] }) => runCancel({ data: vars }),
   });
 
   function reset() {
@@ -224,6 +231,8 @@ function ZmcReportPage() {
     setDateTo(undefined);
     setExecuted(false);
     setRows([]);
+    setRawRows([]);
+    setLastFilters(null);
     setSelected(new Set());
   }
 
@@ -236,28 +245,82 @@ function ZmcReportPage() {
     });
   }
 
-  async function execute() {
-    setExecuted(true);
+  async function runReport(vars: ZmcFilters) {
+    setLastFilters(vars);
     setRows([]);
+    setRawRows([]);
     setSelected(new Set());
     try {
-      const res = await report.mutateAsync({
-        plant_from: plant.from.trim(),
-        plant_to: plant.to.trim(),
-        date_from: dateFrom ? format(dateFrom, "yyyy-MM-dd") : "",
-        date_to: dateTo ? format(dateTo, "yyyy-MM-dd") : "",
-        doc_from: docNumber.from.trim(),
-        doc_to: docNumber.to.trim(),
-        type_from: movementType.from.trim(),
-        type_to: movementType.to.trim(),
-      });
+      const res = await report.mutateAsync(vars);
       if (res.error || res.sapMessage) {
         showMessage(res.sapMessage ?? res.error ?? "No records returned by SAP.");
         return;
       }
-      setRows((res.rows as DataRow[]).map(normalizeRow));
+      const fetched = res.rows as DataRow[];
+      setRawRows(fetched);
+      setRows(fetched.map(normalizeRow));
     } catch (e) {
       showMessage((e as Error).message || "Could not fetch the ZMC report.");
+    }
+  }
+
+  function currentFilters(): ZmcFilters {
+    return {
+      plant_from: plant.from.trim(),
+      plant_to: plant.to.trim(),
+      date_from: dateFrom ? format(dateFrom, "yyyy-MM-dd") : "",
+      date_to: dateTo ? format(dateTo, "yyyy-MM-dd") : "",
+      doc_from: docNumber.from.trim(),
+      doc_to: docNumber.to.trim(),
+      type_from: movementType.from.trim(),
+      type_to: movementType.to.trim(),
+    };
+  }
+
+  async function execute() {
+    setExecuted(true);
+    await runReport(currentFilters());
+  }
+
+  function selectedRawRows(): DataRow[] {
+    const out: DataRow[] = [];
+    for (const key of selected) {
+      const idx = Number(key.slice(key.lastIndexOf("-") + 1));
+      const raw = Number.isInteger(idx) ? rawRows[idx] : undefined;
+      if (raw) out.push(raw);
+    }
+    return out;
+  }
+
+  async function cancelSelected() {
+    const picked = selectedRawRows();
+    if (picked.length === 0) return;
+
+    const confirmed = await swalConfirm({
+      title: "Cancel selected records?",
+      text: `${picked.length} record${picked.length === 1 ? "" : "s"} will be sent to SAP for cancellation.`,
+      confirmLabel: "Cancel Records",
+      cancelLabel: "Close",
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await cancelMut.mutateAsync({
+        filters: lastFilters ?? currentFilters(),
+        rows: picked,
+      });
+      setDialog({
+        open: true,
+        title: "ZMC Cancel",
+        refLabel: "Document Number",
+        results: res.results,
+      });
+      setSelected(new Set());
+      if (res.results.some((r) => r.ok)) {
+        await runReport(lastFilters ?? currentFilters());
+      }
+    } catch (e) {
+      showMessage((e as Error).message || "Could not cancel the selected records.");
     }
   }
 
