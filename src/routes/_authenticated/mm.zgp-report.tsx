@@ -25,7 +25,8 @@ import {
 } from "@/components/mm/sap-response-dialog";
 import { PageHeader } from "@/components/exec/page-header";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
-import { fetchZgpReport } from "@/lib/mm/zgp-report.functions";
+import { cancelZgpRecords, fetchZgpReport } from "@/lib/mm/zgp-report.functions";
+import { swalConfirm } from "@/lib/mm/swal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/zgp-report")({
@@ -245,12 +246,18 @@ function ZgpReportPage() {
 
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<DataRow[]>([]);
+  const [rawRows, setRawRows] = useState<DataRow[]>([]);
+  const [lastFilters, setLastFilters] = useState<ZgpFilters | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
 
   const runFetch = useServerFn(fetchZgpReport);
+  const runCancel = useServerFn(cancelZgpRecords);
   const report = useMutation({
     mutationFn: (vars: ZgpFilters) => runFetch({ data: vars }),
+  });
+  const cancelMut = useMutation({
+    mutationFn: (vars: { filters: ZgpFilters; rows: DataRow[] }) => runCancel({ data: vars }),
   });
 
   function reset() {
