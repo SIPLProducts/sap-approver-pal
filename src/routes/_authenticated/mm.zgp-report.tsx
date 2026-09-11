@@ -270,6 +270,8 @@ function ZgpReportPage() {
     setDateTo(undefined);
     setExecuted(false);
     setRows([]);
+    setRawRows([]);
+    setLastFilters(null);
     setSelected(new Set());
   }
 
