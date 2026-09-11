@@ -534,15 +534,17 @@ function ZgpReportPage() {
             <Button
               variant="destructive"
               size="sm"
-              disabled={selected.size === 0 || report.isPending}
-              onClick={() =>
-                showMessage(
-                  "The cancel service is not connected yet. Share the ZGP cancel API details to enable this action.",
-                )
-              }
+              disabled={selected.size === 0 || cancelMut.isPending || report.isPending}
+              onClick={() => void cancelSelected()}
             >
-              <XCircle className="mr-1.5 h-3.5 w-3.5" />
-              {`Cancel${selected.size > 0 ? ` (${selected.size})` : ""}`}
+              {cancelMut.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {cancelMut.isPending
+                ? "Cancelling…"
+                : `Cancel${selected.size > 0 ? ` (${selected.size})` : ""}`}
             </Button>
           }
         />
