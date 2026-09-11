@@ -17,6 +17,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { extractSapMessage, findFirstDeep } from "@/lib/mm/sap-message";
 
 const CONFIG_NAME = "ZMC_FETCH_REPORT";
 const CANCEL_CONFIG_NAME = "ZMC_Cancel_Report";
@@ -38,17 +39,13 @@ function extractSapMsg(text: string): string | null {
   if (!text || !text.trim()) return null;
   try {
     const parsed = JSON.parse(text);
-    const node = Array.isArray(parsed) ? parsed[0] : parsed;
-    const msg =
-      node?.MESSAGE ??
-      node?.MSG ??
-      node?.MSGTXT ??
-      node?.data?.MESSAGE ??
-      node?.data?.MSG ??
-      node?.data?.MSGTXT ??
-      node?.message ??
-      node?.error;
-    return typeof msg === "string" && msg.trim() ? msg.trim() : null;
+    // Deep lookup: the middleware proxy wraps the SAP payload in an envelope
+    // (e.g. { data: [...] }), so MESSAGE can sit several levels down.
+    const deep = extractSapMessage(parsed);
+    if (deep) return deep;
+    const msg = findFirstDeep(parsed, ["MSG", "message", "error"]);
+    if (typeof msg === "string" && msg.trim()) return msg.trim();
+    return null;
   } catch {
     const match = text.match(/"(?:MESSAGE|MSG|MSGTXT)"\s*:\s*"([^"]*)"/i);
     return match?.[1] ? match[1] : null;
