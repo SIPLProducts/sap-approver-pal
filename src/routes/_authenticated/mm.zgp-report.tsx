@@ -25,7 +25,8 @@ import {
 } from "@/components/mm/sap-response-dialog";
 import { PageHeader } from "@/components/exec/page-header";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
-import { fetchZgpReport } from "@/lib/mm/zgp-report.functions";
+import { cancelZgpRecords, fetchZgpReport } from "@/lib/mm/zgp-report.functions";
+import { swalConfirm } from "@/lib/mm/swal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/zgp-report")({
@@ -245,12 +246,18 @@ function ZgpReportPage() {
 
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<DataRow[]>([]);
+  const [rawRows, setRawRows] = useState<DataRow[]>([]);
+  const [lastFilters, setLastFilters] = useState<ZgpFilters | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
 
   const runFetch = useServerFn(fetchZgpReport);
+  const runCancel = useServerFn(cancelZgpRecords);
   const report = useMutation({
     mutationFn: (vars: ZgpFilters) => runFetch({ data: vars }),
+  });
+  const cancelMut = useMutation({
+    mutationFn: (vars: { filters: ZgpFilters; rows: DataRow[] }) => runCancel({ data: vars }),
   });
 
   function reset() {
@@ -263,6 +270,8 @@ function ZgpReportPage() {
     setDateTo(undefined);
     setExecuted(false);
     setRows([]);
+    setRawRows([]);
+    setLastFilters(null);
     setSelected(new Set());
   }
 
@@ -275,32 +284,83 @@ function ZgpReportPage() {
     });
   }
 
+  function currentFilters(): ZgpFilters {
+    return {
+      type_from: docType.from.trim(),
+      type_to: docType.to.trim(),
+      number_from: gatePass.from.trim(),
+      number_to: gatePass.to.trim(),
+      material_from: material.from.trim(),
+      material_to: material.to.trim(),
+      date_from: dateFrom ? format(dateFrom, "yyyy-MM-dd") : "",
+      date_to: dateTo ? format(dateTo, "yyyy-MM-dd") : "",
+      plant_from: plant.from.trim(),
+      plant_to: plant.to.trim(),
+      vendor_from: vendor.from.trim(),
+      vendor_to: vendor.to.trim(),
+    };
+  }
+
+  async function runReport(filters: ZgpFilters) {
+    const res = await report.mutateAsync(filters);
+    if (res.error || res.sapMessage) {
+      showMessage(res.sapMessage ?? res.error ?? "No records returned by SAP.");
+      return;
+    }
+    setRawRows(res.rows as DataRow[]);
+    setRows((res.rows as DataRow[]).map(normalizeRow));
+  }
+
   async function execute() {
     setExecuted(true);
     setRows([]);
+    setRawRows([]);
     setSelected(new Set());
+    const filters = currentFilters();
+    setLastFilters(filters);
     try {
-      const res = await report.mutateAsync({
-        type_from: docType.from.trim(),
-        type_to: docType.to.trim(),
-        number_from: gatePass.from.trim(),
-        number_to: gatePass.to.trim(),
-        material_from: material.from.trim(),
-        material_to: material.to.trim(),
-        date_from: dateFrom ? format(dateFrom, "yyyy-MM-dd") : "",
-        date_to: dateTo ? format(dateTo, "yyyy-MM-dd") : "",
-        plant_from: plant.from.trim(),
-        plant_to: plant.to.trim(),
-        vendor_from: vendor.from.trim(),
-        vendor_to: vendor.to.trim(),
-      });
-      if (res.error || res.sapMessage) {
-        showMessage(res.sapMessage ?? res.error ?? "No records returned by SAP.");
-        return;
-      }
-      setRows((res.rows as DataRow[]).map(normalizeRow));
+      await runReport(filters);
     } catch (e) {
       showMessage((e as Error).message || "Could not fetch the ZGP report.");
+    }
+  }
+
+  async function cancelSelected() {
+    const picked: DataRow[] = [];
+    for (const key of selected) {
+      const idx = Number(key.slice(key.lastIndexOf("-") + 1));
+      const raw = Number.isInteger(idx) ? rawRows[idx] : undefined;
+      if (raw) picked.push(raw);
+    }
+    if (picked.length === 0) return;
+
+    const confirmed = await swalConfirm({
+      title: "Cancel records?",
+      text: `${picked.length} record${picked.length === 1 ? "" : "s"} will be sent to SAP for cancellation.`,
+      confirmLabel: "Cancel Records",
+      cancelLabel: "Close",
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await cancelMut.mutateAsync({
+        filters: lastFilters ?? currentFilters(),
+        rows: picked,
+      });
+      setDialog({
+        open: true,
+        title: "ZGP Report — Cancel",
+        refLabel: "Gate Pass Number",
+        results: res.results,
+      });
+      if (res.results.some((r) => r.ok)) {
+        setSelected(new Set());
+        setRows([]);
+        setRawRows([]);
+        await runReport(lastFilters ?? currentFilters());
+      }
+    } catch (e) {
+      showMessage((e as Error).message || "Could not cancel the selected records.");
     }
   }
 
@@ -474,15 +534,17 @@ function ZgpReportPage() {
             <Button
               variant="destructive"
               size="sm"
-              disabled={selected.size === 0 || report.isPending}
-              onClick={() =>
-                showMessage(
-                  "The cancel service is not connected yet. Share the ZGP cancel API details to enable this action.",
-                )
-              }
+              disabled={selected.size === 0 || cancelMut.isPending || report.isPending}
+              onClick={() => void cancelSelected()}
             >
-              <XCircle className="mr-1.5 h-3.5 w-3.5" />
-              {`Cancel${selected.size > 0 ? ` (${selected.size})` : ""}`}
+              {cancelMut.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {cancelMut.isPending
+                ? "Cancelling…"
+                : `Cancel${selected.size > 0 ? ` (${selected.size})` : ""}`}
             </Button>
           }
         />

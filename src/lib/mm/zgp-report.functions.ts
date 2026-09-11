@@ -235,3 +235,205 @@ export const fetchZgpReport = createServerFn({ method: "POST" })
       fetched_at: new Date().toISOString(),
     };
   });
+
+/* ------------------------------------------------------------------ */
+/* Cancel (ZGP_Cancel_Report)                                          */
+/* ------------------------------------------------------------------ */
+
+const CANCEL_CONFIG_NAME = "ZGP_Cancel_Report";
+
+export type ZgpCancelResult = { ref: string; message: string; ok: boolean };
+
+export type ZgpCancelResponse = { results: ZgpCancelResult[] };
+
+const zgpFilterSchema = z.object({
+  type_from: str,
+  type_to: str,
+  number_from: str,
+  number_to: str,
+  material_from: str,
+  material_to: str,
+  date_from: str,
+  date_to: str,
+  plant_from: str,
+  plant_to: str,
+  vendor_from: str,
+  vendor_to: str,
+});
+
+export const cancelZgpRecords = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        filters: zgpFilterSchema,
+        rows: z.array(z.record(z.string(), z.any())).min(1).max(200),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }): Promise<ZgpCancelResponse> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("*")
+      .eq("name", CANCEL_CONFIG_NAME)
+      .maybeSingle();
+    if (!cfg)
+      throw new Error(
+        `SAP API config "${CANCEL_CONFIG_NAME}" not found. Configure it in Admin → SAP API.`,
+      );
+    if (!cfg.is_active) throw new Error(`SAP API config "${CANCEL_CONFIG_NAME}" is disabled.`);
+
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+      supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
+      supabaseAdmin
+        .from("sap_global_settings")
+        .select("connection_mode, middleware_url, sap_base_url")
+        .eq("id", "default")
+        .maybeSingle(),
+      supabaseAdmin
+        .from("sap_global_secrets")
+        .select("proxy_secret")
+        .eq("id", "default")
+        .maybeSingle(),
+    ]);
+
+    const f = data.filters;
+    const filterData = {
+      type_from: (f.type_from ?? "").trim(),
+      type_to: (f.type_to ?? "").trim(),
+      number_from: (f.number_from ?? "").trim(),
+      number_to: (f.number_to ?? "").trim(),
+      material_from: (f.material_from ?? "").trim(),
+      material_to: (f.material_to ?? "").trim(),
+      date_from: (f.date_from ?? "").trim(),
+      date_to: (f.date_to ?? "").trim(),
+      plant_from: (f.plant_from ?? "").trim(),
+      plant_to: (f.plant_to ?? "").trim(),
+      vendor_from: (f.vendor_from ?? "").trim(),
+      vendor_to: (f.vendor_to ?? "").trim(),
+    };
+
+    const globalProxy =
+      globalSettings?.connection_mode === "via_proxy" && !!globalSettings?.middleware_url;
+    const useProxy = cfg.auth_type === "proxy" || globalProxy;
+    const middlewareUrl = globalSettings?.middleware_url?.trim() || null;
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    };
+
+    let target: string;
+    let method = cfg.http_method ?? "PUT";
+    let proxied = false;
+
+    if (useProxy) {
+      if (!middlewareUrl) throw new Error("Proxy mode is on but no middleware URL is configured.");
+      target = `${middlewareUrl.replace(/\/$/, "")}/sap/raw-invoke`;
+      method = "POST";
+      const secret =
+        (cfg.proxy_secret_ref ? process.env[cfg.proxy_secret_ref] : undefined) ||
+        globalSecret?.proxy_secret ||
+        process.env.MIDDLEWARE_SHARED_SECRET;
+      if (secret) headers["x-shared-secret"] = secret;
+      proxied = true;
+    } else {
+      const { resolveSapUrl } = await import("@/lib/sap/url");
+      target = resolveSapUrl(cfg.endpoint_url, (globalSettings as any)?.sap_base_url ?? null);
+      if (cfg.auth_type === "basic" && creds?.username && creds?.password_encrypted) {
+        headers.Authorization =
+          "Basic " + Buffer.from(`${creds.username}:${creds.password_encrypted}`).toString("base64");
+      }
+    }
+
+    for (const [k, v] of Object.entries((creds?.extra_headers ?? {}) as Record<string, string>)) {
+      headers[k] = v;
+    }
+
+    const results: ZgpCancelResult[] = [];
+
+    for (const row of data.rows) {
+      const ref = String(row.UNIQUE_NO ?? "").trim() || "Record";
+      const inputs = {
+        cancel: {
+          ...filterData,
+          type: row.TYPE ?? "",
+          unique: row.UNIQUE_NO ?? "",
+          material: row.MATERIAL ?? "",
+          DESCRIPTION: row.DESCRIPTION ?? "",
+        },
+      };
+      const bodyOut = proxied
+        ? JSON.stringify({ configId: cfg.id, inputs, raw: true })
+        : JSON.stringify(inputs);
+
+      const t0 = Date.now();
+      let res: Response;
+      try {
+        res = await fetch(target, { method, headers, body: bodyOut });
+      } catch (e) {
+        const errMsg = (e as Error).message || "fetch failed";
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          latency_ms: Date.now() - t0,
+          message: `zgp-cancel network: ${errMsg}`,
+        });
+        results.push({ ref, message: `Could not reach SAP. ${errMsg}.`, ok: false });
+        continue;
+      }
+
+      const text = await res.text().catch(() => "");
+      const latency_ms = Date.now() - t0;
+
+      if (!res.ok) {
+        await supabaseAdmin.from("sap_api_sync_log").insert({
+          config_id: cfg.id,
+          status: "error",
+          latency_ms,
+          message: `zgp-cancel: ${res.status} ${text.slice(0, 500)}`,
+        });
+        results.push({
+          ref,
+          message: extractSapMsg(text) ?? `SAP returned ${res.status} ${res.statusText}`,
+          ok: false,
+        });
+        continue;
+      }
+
+      let json: any = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        results.push({
+          ref,
+          message: extractSapMsg(text) ?? "Invalid response from SAP",
+          ok: false,
+        });
+        continue;
+      }
+
+      const sapJson: any = proxied ? (json?.data ?? json) : json;
+      const first = Array.isArray(sapJson) ? sapJson[0] : sapJson;
+      const type = String(first?.TYPE ?? "").toUpperCase();
+      const statusFalse = String(first?.STATUS ?? "").trim().toUpperCase() === "FALSE";
+      const ok = !(type === "E" || type === "A" || statusFalse);
+
+      await supabaseAdmin.from("sap_api_sync_log").insert({
+        config_id: cfg.id,
+        status: ok ? "ok" : "error",
+        latency_ms,
+        message: `zgp-cancel ${ref}: ${res.status} ${res.statusText}`,
+      });
+
+      results.push({
+        ref,
+        message: extractSapMsg(text) ?? (ok ? "Cancelled successfully" : "SAP returned an error"),
+        ok,
+      });
+    }
+
+    return { results };
+  });
