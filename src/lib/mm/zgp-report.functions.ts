@@ -277,7 +277,7 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
       .select("*")
-      .eq("name", CANCEL_CONFIG_NAME)
+      .ilike("name", CANCEL_CONFIG_NAME)
       .maybeSingle();
     if (!cfg)
       throw new Error(
