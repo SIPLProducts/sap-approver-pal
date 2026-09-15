@@ -530,6 +530,7 @@ function PoReleasePage() {
       undoRejectMutation.mutate({
         relgroup: releaseGroup.trim(),
         relcode: releaseCode.trim(),
+        user_id: sapUserId,
         items,
       });
     })();
