@@ -239,6 +239,7 @@ function PoReleasePage() {
     mutationFn: (input: {
       relgroup: string;
       relcode: string;
+      user_id: string;
       items: { EBELN: string; EBELP: string; REMARKS?: string }[];
     }) => releaseFn({ data: input }),
     onSuccess: (res) => {
@@ -288,6 +289,10 @@ function PoReleasePage() {
       toast.error("Release Group and Release Code are required.");
       return;
     }
+    if (!sapUserId) {
+      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
+      return;
+    }
     const items = rows
       .map((r, i) => ({ r, k: rowKey(r, i) }))
       .filter(({ k }) => selected.has(k))
@@ -301,6 +306,7 @@ function PoReleasePage() {
     releaseMutation.mutate({
       relgroup: releaseGroup.trim(),
       relcode: releaseCode.trim(),
+      user_id: sapUserId,
       items,
     });
   }

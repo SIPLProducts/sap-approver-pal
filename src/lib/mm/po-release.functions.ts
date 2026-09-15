@@ -268,6 +268,7 @@ async function processPoAction(
               EBELN: ebeln,
               FRGCO: data.relcode.trim(),
               REMARKS: grp.remarks,
+              USER_ID: (data.user_id ?? "").trim(),
             },
           }
         : {
