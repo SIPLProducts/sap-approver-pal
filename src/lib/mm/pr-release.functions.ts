@@ -262,6 +262,7 @@ async function processPrAction(
                 BNFPO: item.PREQ_ITEM,
                 REL_CODE: data.relcode.trim(),
                 REL_GRP: "",
+                USER_ID: (data.user_id ?? "").trim(),
               },
             }
           : {
