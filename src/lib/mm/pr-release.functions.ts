@@ -272,6 +272,9 @@ async function processPrAction(
                 REL_CODE: data.relcode.trim(),
                 REL_GRP: data.relgroup.trim(),
                 REMARKS: item.REMARKS ?? "",
+                ...(payloadKey === "REJECT"
+                  ? { USER_ID: (data.user_id ?? "").trim() }
+                  : {}),
               },
             };
 
@@ -415,6 +418,7 @@ const prActionInput = z.object({
 const prRejectInput = z.object({
   relgroup: z.string().trim().min(1).max(10),
   relcode: z.string().trim().min(1).max(10),
+  user_id: z.string().trim().optional().default(""),
   items: z.array(z.object({
     PREQ_NO: z.string().trim().min(1),
     PREQ_ITEM: z.string().trim().default(""),
