@@ -259,6 +259,7 @@ async function processPoAction(
           YCANCEL: {
             EBELN: ebeln,
             FRGCO: data.relcode.trim(),
+            USER_ID: (data.user_id ?? "").trim(),
           },
         }
       : isRelease
