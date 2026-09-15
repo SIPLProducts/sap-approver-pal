@@ -458,6 +458,7 @@ function PoReleasePage() {
     mutationFn: (input: {
       relgroup: string;
       relcode: string;
+      user_id: string;
       items: { EBELN: string; EBELP: string; REMARKS?: string }[];
     }) => undoRejectFn({ data: input }),
     onSuccess: (res) => {
@@ -503,6 +504,10 @@ function PoReleasePage() {
     if (selected.size === 0) return;
     if (!releaseGroup.trim() || !releaseCode.trim()) {
       toast.error("Release Group and Release Code are required.");
+      return;
+    }
+    if (!sapUserId) {
+      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
       return;
     }
     const items = rows

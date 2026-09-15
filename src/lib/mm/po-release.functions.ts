@@ -184,6 +184,7 @@ async function processPoAction(
   data: {
     relgroup: string;
     relcode: string;
+    user_id?: string;
     items: { EBELN: string; EBELP: string; REMARKS?: string }[];
   },
   logTag: string,
@@ -250,6 +251,7 @@ async function processPoAction(
       ? {
           CANCEL_REJ: {
             EBELN: ebeln,
+            USER_ID: (data.user_id ?? "").trim(),
           },
         }
       : isCancel
@@ -426,6 +428,7 @@ async function processPoAction(
 const poActionInput = z.object({
   relgroup: z.string().trim().min(1).max(10),
   relcode: z.string().trim().min(1).max(10),
+  user_id: z.string().trim().optional().default(""),
   items: z.array(z.object({
     EBELN: z.string().trim().min(1),
     EBELP: z.string().trim().default(""),
