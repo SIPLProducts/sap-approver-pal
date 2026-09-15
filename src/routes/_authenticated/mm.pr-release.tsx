@@ -310,6 +310,7 @@ function PrReleasePage() {
     mutationFn: (input: {
       relgroup: string;
       relcode: string;
+      user_id?: string;
       items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
     }) => releaseFn({ data: input }),
     onSuccess: (res) => {
@@ -357,6 +358,14 @@ function PrReleasePage() {
       toast.error("Release Group and Release Code are required.");
       return;
     }
+    if (!sapUserId) {
+      setResponseDialog({
+        open: true,
+        title: "PR Release — SAP Response",
+        results: [{ preq: "", message: "Could not determine the signed-in SAP user. Please sign in again.", ok: false }],
+      });
+      return;
+    }
     const items = rows
       .map((r, i) => ({ r, k: rowKey(r, i) }))
       .filter(({ k }) => selected.has(k))
@@ -370,6 +379,7 @@ function PrReleasePage() {
     releaseMutation.mutate({
       relgroup: releaseGroup.trim(),
       relcode: releaseCode.trim(),
+      user_id: sapUserId,
       items,
     });
   }
