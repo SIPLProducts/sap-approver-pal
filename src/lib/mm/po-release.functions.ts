@@ -274,6 +274,7 @@ async function processPoAction(
             REJECT: {
               EBELN: ebeln,
               REMARKS: grp.remarks,
+              USER_ID: (data.user_id ?? "").trim(),
             },
           };
 
