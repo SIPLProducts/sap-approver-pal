@@ -262,6 +262,7 @@ async function processPrAction(
                 BNFPO: item.PREQ_ITEM,
                 REL_CODE: data.relcode.trim(),
                 REL_GRP: "",
+                USER_ID: (data.user_id ?? "").trim(),
               },
             }
           : {
@@ -438,6 +439,7 @@ const CANCEL_RELEASE_CONFIG_NAME = "PR_CANCEL_RELEASE";
 const prUndoInput = z.object({
   relgroup: z.string().trim().max(10).optional().default(""),
   relcode: z.string().trim().min(1).max(10),
+  user_id: z.string().trim().optional().default(""),
   items: z.array(z.object({
     PREQ_NO: z.string().trim().min(1),
     PREQ_ITEM: z.string().trim().min(1),
