@@ -448,6 +448,7 @@ function PrReleasePage() {
       relgroup: string;
       relcode: string;
       items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
+      user_id?: string;
     }) => undoRejectFn({ data: input }),
     onSuccess: (res) => {
       const donePrs = new Set<string>();
