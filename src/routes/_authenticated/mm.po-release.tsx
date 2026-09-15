@@ -389,6 +389,7 @@ function PoReleasePage() {
     mutationFn: (input: {
       relgroup: string;
       relcode: string;
+      user_id: string;
       items: { EBELN: string; EBELP: string; REMARKS?: string }[];
     }) => undoFn({ data: input }),
     onSuccess: (res) => {
