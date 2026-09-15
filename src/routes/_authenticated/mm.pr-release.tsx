@@ -527,6 +527,7 @@ function PrReleasePage() {
     mutationFn: (input: {
       relgroup: string;
       relcode: string;
+      user_id?: string;
       items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
     }) => rejectFn({ data: input }),
     onSuccess: (res) => {
