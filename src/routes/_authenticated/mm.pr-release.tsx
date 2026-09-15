@@ -448,6 +448,7 @@ function PrReleasePage() {
       relgroup: string;
       relcode: string;
       items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
+      user_id?: string;
     }) => undoRejectFn({ data: input }),
     onSuccess: (res) => {
       const donePrs = new Set<string>();
@@ -485,6 +486,14 @@ function PrReleasePage() {
 
   function onUndoReject() {
     if (selected.size === 0) return;
+    if (!sapUserId) {
+      setResponseDialog({
+        open: true,
+        title: "PR Undo Reject — SAP Response",
+        results: [{ preq: "", message: "Could not determine the signed-in SAP user. Please sign in again.", ok: false }],
+      });
+      return;
+    }
     const items = rows
       .map((r, i) => ({ r, k: rowKey(r, i) }))
       .filter(({ k }) => selected.has(k))
@@ -499,6 +508,7 @@ function PrReleasePage() {
       relgroup: releaseGroup.trim(),
       relcode: releaseCode.trim(),
       items,
+      user_id: sapUserId,
     });
   }
 

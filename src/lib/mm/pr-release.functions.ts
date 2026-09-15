@@ -203,6 +203,7 @@ async function processPrAction(
     relgroup: string;
     relcode: string;
     items: { PREQ_NO: string; PREQ_ITEM: string; REMARKS?: string }[];
+    user_id?: string;
   },
   logTag: string,
 ): Promise<{ results: PrReleaseResult[]; error: string | null }> {
@@ -253,7 +254,7 @@ async function processPrAction(
   for (const item of actionItems) {
     const inputs =
       payloadKey === "CANCEL_REJ"
-        ? { CANCEL_REJ: { BANFN: item.PREQ_NO } }
+        ? { CANCEL_REJ: { BANFN: item.PREQ_NO, USER_ID: (data.user_id ?? "").trim() } }
         : payloadKey === "YCANCEL"
           ? {
               YCANCEL: {
@@ -457,6 +458,7 @@ const CANCEL_REJECT_CONFIG_NAME = "PR_CANCEL_REJECT";
 const prUndoRejectInput = z.object({
   relgroup: z.string().trim().max(10).optional().default(""),
   relcode: z.string().trim().max(10).optional().default(""),
+  user_id: z.string().trim().optional().default(""),
   items: z.array(z.object({
     PREQ_NO: z.string().trim().min(1),
     PREQ_ITEM: z.string().trim().optional().default(""),
