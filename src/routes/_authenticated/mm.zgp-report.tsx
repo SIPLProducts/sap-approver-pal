@@ -258,7 +258,18 @@ function ZgpReportPage() {
   const { user: authUser } = useAuth();
   const sapUserId = (
     sapProfile?.user ||
-    (authUser?.user_metadata as { sap_user_id?: string } | undefined)?.sap_user_id ||
+    (authUser?.user_metadata as
+      | { sap_user_id?: string; USER_ID?: string; user_id?: string; user_name?: string }
+      | undefined)?.sap_user_id ||
+    (authUser?.user_metadata as
+      | { sap_user_id?: string; USER_ID?: string; user_id?: string; user_name?: string }
+      | undefined)?.USER_ID ||
+    (authUser?.user_metadata as
+      | { sap_user_id?: string; USER_ID?: string; user_id?: string; user_name?: string }
+      | undefined)?.user_id ||
+    (authUser?.user_metadata as
+      | { sap_user_id?: string; USER_ID?: string; user_id?: string; user_name?: string }
+      | undefined)?.user_name ||
     ""
   ).trim();
 

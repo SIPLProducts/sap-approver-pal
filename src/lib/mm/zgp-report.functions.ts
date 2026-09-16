@@ -263,7 +263,7 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        user_name: z.string().trim().max(40).optional(),
+        user_name: z.string().trim().min(1).max(40),
         filters: zgpFilterSchema,
         rows: z.array(z.record(z.string(), z.any())).min(1).max(200),
       })
@@ -298,6 +298,7 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
     ]);
 
     const f = data.filters;
+    const userName = data.user_name.trim();
     const filterData = {
       type_from: (f.type_from ?? "").trim(),
       type_to: (f.type_to ?? "").trim(),
@@ -356,7 +357,7 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
       const ref = String(row.UNIQUE_NO ?? "").trim() || "Record";
       const inputs = {
         cancel: {
-          user_name: (data.user_name ?? "").trim(),
+          user_name: userName,
           ...filterData,
           type: row.TYPE ?? "",
           unique: row.UNIQUE_NO ?? "",
