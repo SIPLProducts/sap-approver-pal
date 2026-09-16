@@ -263,7 +263,7 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        user_name: z.string().trim().min(1).max(40),
+        user_name: z.string().trim().max(40).optional(),
         filters: zgpFilterSchema,
         rows: z.array(z.record(z.string(), z.any())).min(1).max(200),
       })
@@ -272,12 +272,12 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<ZgpCancelResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: profile } = await context.supabase
+    const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("sap_user_id")
       .eq("id", context.userId)
       .maybeSingle();
-    const userName = (profile?.sap_user_id ?? "").trim();
+    const userName = (profile?.sap_user_id ?? data.user_name ?? "").trim();
     if (!userName) throw new Error("Could not determine the signed-in SAP user.");
 
     const { data: cfg } = await supabaseAdmin

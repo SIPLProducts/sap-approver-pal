@@ -258,18 +258,7 @@ function ZgpReportPage() {
   const { user: authUser } = useAuth();
   const sapUserId = (
     sapProfile?.user ||
-    (authUser?.user_metadata as
-      | { sap_user_id?: string; USER_ID?: string; user_id?: string; user_name?: string }
-      | undefined)?.sap_user_id ||
-    (authUser?.user_metadata as
-      | { sap_user_id?: string; USER_ID?: string; user_id?: string; user_name?: string }
-      | undefined)?.USER_ID ||
-    (authUser?.user_metadata as
-      | { sap_user_id?: string; USER_ID?: string; user_id?: string; user_name?: string }
-      | undefined)?.user_id ||
-    (authUser?.user_metadata as
-      | { sap_user_id?: string; USER_ID?: string; user_id?: string; user_name?: string }
-      | undefined)?.user_name ||
+    (authUser?.user_metadata as { sap_user_id?: string } | undefined)?.sap_user_id ||
     ""
   ).trim();
 
@@ -356,11 +345,6 @@ function ZgpReportPage() {
       if (raw) picked.push(raw);
     }
     if (picked.length === 0) return;
-
-    if (!sapUserId) {
-      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
-      return;
-    }
 
     const confirmed = await swalConfirm({
       title: "Cancel records?",
