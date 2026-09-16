@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { CalendarIcon, Filter, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
+import { Filter, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -10,8 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
 import {
   SapResponseDialog,
@@ -23,7 +21,6 @@ import { cancelZmcRecords, fetchZmcReport } from "@/lib/mm/zmc-report.functions"
 import { useSapProfile } from "@/hooks/use-sap-profile";
 import { useAuth } from "@/hooks/use-auth";
 import { swalConfirm } from "@/lib/mm/swal";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/zmc-report")({
   head: () => ({
@@ -149,56 +146,26 @@ function ToSeparator() {
   );
 }
 
-const calendarStyles = {
-  nav: "absolute inset-x-2 top-2 flex w-auto items-center justify-between gap-1",
-  button_previous:
-    "h-(--cell-size) w-(--cell-size) rounded-lg border border-border bg-background p-0 hover:bg-muted aria-disabled:opacity-50",
-  button_next:
-    "h-(--cell-size) w-(--cell-size) rounded-lg border border-border bg-background p-0 hover:bg-muted aria-disabled:opacity-50",
-  month_caption: "flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)",
-  caption_label: "text-sm font-medium select-none",
-  weekday:
-    "text-muted-foreground flex-1 select-none text-center text-[0.8rem] font-normal",
-  outside: "text-muted-foreground/40 pointer-events-none",
-  today: "border border-border rounded-md text-foreground bg-transparent",
-};
-
 function DateField({
   value,
   onChange,
-  placeholder,
+  label,
 }: {
   value: Date | undefined;
   onChange: (d: Date | undefined) => void;
-  placeholder: string;
+  label: string;
 }) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            "h-10 w-full min-w-0 justify-start gap-1.5 text-left font-normal shadow-none",
-            !value && "text-muted-foreground",
-          )}
-        >
-          <CalendarIcon className="h-3 w-3 shrink-0 opacity-60" />
-          <span className="truncate text-xs">
-            {value ? format(value, "dd-MM-yyyy") : placeholder}
-          </span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={onChange}
-          initialFocus
-          className={cn("p-2 pointer-events-auto [--cell-size:1.75rem]")}
-          classNames={calendarStyles}
-        />
-      </PopoverContent>
-    </Popover>
+    <Input
+      type="date"
+      value={value ? format(value, "yyyy-MM-dd") : ""}
+      onChange={(event) => {
+        const [year, month, day] = event.target.value.split("-").map(Number);
+        onChange(year && month && day ? new Date(year, month - 1, day) : undefined);
+      }}
+      className="h-9 min-w-0 text-sm"
+      aria-label={label}
+    />
   );
 }
 
@@ -370,9 +337,6 @@ function ZmcReportPage() {
               <p className="truncate text-xs text-muted-foreground">Selection screen</p>
             </div>
           </div>
-          <span className="hidden text-[11px] font-semibold uppercase text-muted-foreground sm:block">
-            From / To
-          </span>
         </div>
 
         <div className="grid gap-x-6 gap-y-4 px-4 py-5 sm:px-5 lg:grid-cols-2 lg:gap-y-5">
@@ -393,9 +357,9 @@ function ZmcReportPage() {
           </FilterRow>
 
           <FilterRow label="Date">
-            <DateField value={dateFrom} onChange={setDateFrom} placeholder="From date" />
+            <DateField value={dateFrom} onChange={setDateFrom} label="Date from" />
             <ToSeparator />
-            <DateField value={dateTo} onChange={setDateTo} placeholder="To date" />
+            <DateField value={dateTo} onChange={setDateTo} label="Date to" />
           </FilterRow>
 
           <FilterRow label="Document Number">

@@ -3,15 +3,13 @@ import { toast } from "sonner";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { CalendarIcon, Filter, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
+import { Filter, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -30,7 +28,6 @@ import { cancelZgpRecords, fetchZgpReport } from "@/lib/mm/zgp-report.functions"
 import { swalConfirm } from "@/lib/mm/swal";
 import { useSapProfile } from "@/hooks/use-sap-profile";
 import { useAuth } from "@/hooks/use-auth";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/zgp-report")({
   head: () => ({
@@ -203,38 +200,23 @@ function ToSeparator() {
 function DateField({
   value,
   onChange,
-  placeholder,
+  label,
 }: {
   value: Date | undefined;
   onChange: (d: Date | undefined) => void;
-  placeholder: string;
+  label: string;
 }) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            "h-10 w-full min-w-0 justify-start gap-2 text-left font-normal shadow-none",
-            !value && "text-muted-foreground",
-          )}
-        >
-          <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate text-xs">
-            {value ? format(value, "dd-MM-yyyy") : placeholder}
-          </span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={onChange}
-          initialFocus
-          className={cn("p-3 pointer-events-auto")}
-        />
-      </PopoverContent>
-    </Popover>
+    <Input
+      type="date"
+      value={value ? format(value, "yyyy-MM-dd") : ""}
+      onChange={(event) => {
+        const [year, month, day] = event.target.value.split("-").map(Number);
+        onChange(year && month && day ? new Date(year, month - 1, day) : undefined);
+      }}
+      className="h-9 min-w-0 text-sm"
+      aria-label={label}
+    />
   );
 }
 
@@ -406,9 +388,6 @@ function ZgpReportPage() {
               <p className="truncate text-xs text-muted-foreground">Selection screen</p>
             </div>
           </div>
-          <span className="hidden text-[11px] font-semibold uppercase text-muted-foreground sm:block">
-            From / To
-          </span>
         </div>
 
         <div className="grid gap-x-6 gap-y-4 px-4 py-5 sm:px-5 lg:grid-cols-2 lg:gap-y-5">
@@ -484,9 +463,9 @@ function ZgpReportPage() {
           </FilterRow>
 
           <FilterRow label="Date">
-            <DateField value={dateFrom} onChange={setDateFrom} placeholder="From date" />
+            <DateField value={dateFrom} onChange={setDateFrom} label="Date from" />
             <ToSeparator />
-            <DateField value={dateTo} onChange={setDateTo} placeholder="To date" />
+            <DateField value={dateTo} onChange={setDateTo} label="Date to" />
           </FilterRow>
 
           <FilterRow label="Vendor">
