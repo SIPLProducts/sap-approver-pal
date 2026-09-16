@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { CalendarIcon, Filter, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { format } from "date-fns";
 
 import { Card } from "@/components/ui/card";
@@ -19,6 +20,8 @@ import {
 import { PageHeader } from "@/components/exec/page-header";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { cancelZmcRecords, fetchZmcReport } from "@/lib/mm/zmc-report.functions";
+import { useSapProfile } from "@/hooks/use-sap-profile";
+import { useAuth } from "@/hooks/use-auth";
 import { swalConfirm } from "@/lib/mm/swal";
 import { cn } from "@/lib/utils";
 
@@ -213,6 +216,14 @@ function ZmcReportPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
 
+  const sapProfile = useSapProfile();
+  const { user: authUser } = useAuth();
+  const sapUserId = (
+    sapProfile?.user ||
+    (authUser?.user_metadata as { sap_user_id?: string } | undefined)?.sap_user_id ||
+    ""
+  ).trim();
+
   const runFetch = useServerFn(fetchZmcReport);
   const report = useMutation({
     mutationFn: (vars: ZmcFilters) => runFetch({ data: vars }),
@@ -295,6 +306,10 @@ function ZmcReportPage() {
   async function cancelSelected() {
     const picked = selectedRawRows();
     if (picked.length === 0) return;
+    if (!sapUserId) {
+      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
+      return;
+    }
 
     const confirmed = await swalConfirm({
       title: "Cancel selected records?",
@@ -306,6 +321,7 @@ function ZmcReportPage() {
 
     try {
       const res = await cancelMut.mutateAsync({
+        user_name: sapUserId,
         filters: lastFilters ?? currentFilters(),
         rows: picked,
       });
