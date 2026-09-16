@@ -20,6 +20,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { extractSapMessage, findFirstDeep } from "@/lib/mm/sap-message";
+import { buildZgpCancelPayload } from "@/lib/mm/zgp-cancel-payload";
 
 const CONFIG_NAME = "ZGP_FETCH_REPORT";
 
@@ -305,22 +306,6 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
         .maybeSingle(),
     ]);
 
-    const f = data.filters;
-    const filterData = {
-      type_from: (f.type_from ?? "").trim(),
-      type_to: (f.type_to ?? "").trim(),
-      number_from: (f.number_from ?? "").trim(),
-      number_to: (f.number_to ?? "").trim(),
-      material_from: (f.material_from ?? "").trim(),
-      material_to: (f.material_to ?? "").trim(),
-      date_from: (f.date_from ?? "").trim(),
-      date_to: (f.date_to ?? "").trim(),
-      plant_from: (f.plant_from ?? "").trim(),
-      plant_to: (f.plant_to ?? "").trim(),
-      vendor_from: (f.vendor_from ?? "").trim(),
-      vendor_to: (f.vendor_to ?? "").trim(),
-    };
-
     const globalProxy =
       globalSettings?.connection_mode === "via_proxy" && !!globalSettings?.middleware_url;
     const useProxy = cfg.auth_type === "proxy" || globalProxy;
@@ -362,16 +347,7 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
 
     for (const row of data.rows) {
       const ref = String(row.UNIQUE_NO ?? "").trim() || "Record";
-      const inputs = {
-        cancel: {
-          user_name: userName,
-          ...filterData,
-          type: row.TYPE ?? "",
-          unique: row.UNIQUE_NO ?? "",
-          material: row.MATERIAL ?? "",
-          DESCRIPTION: row.DESCRIPTION ?? "",
-        },
-      };
+      const inputs = buildZgpCancelPayload(userName, data.filters, row);
       const bodyOut = proxied
         ? JSON.stringify({ configId: cfg.id, inputs, raw: true })
         : JSON.stringify(inputs);
@@ -400,7 +376,7 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
           config_id: cfg.id,
           status: "error",
           latency_ms,
-          message: `zgp-cancel: ${res.status} ${text.slice(0, 500)}`,
+          message: `zgp-cancel user_name_present=true: ${res.status} ${text.slice(0, 450)}`,
         });
         results.push({
           ref,
@@ -432,7 +408,7 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
         config_id: cfg.id,
         status: ok ? "ok" : "error",
         latency_ms,
-        message: `zgp-cancel ${ref}: ${res.status} ${res.statusText}`,
+        message: `zgp-cancel ${ref} user_name_present=true: ${res.status} ${res.statusText}`,
       });
 
       results.push({
