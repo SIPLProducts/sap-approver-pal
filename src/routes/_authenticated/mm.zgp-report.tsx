@@ -363,6 +363,7 @@ function ZgpReportPage() {
       const res = await cancelMut.mutateAsync({
         filters: lastFilters ?? currentFilters(),
         rows: picked,
+        user_name: sapUserId,
       });
       setDialog({
         open: true,
