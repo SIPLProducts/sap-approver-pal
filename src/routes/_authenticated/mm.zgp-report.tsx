@@ -254,13 +254,22 @@ function ZgpReportPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
 
+  const sapProfile = useSapProfile();
+  const { user: authUser } = useAuth();
+  const sapUserId = (
+    sapProfile?.user ||
+    (authUser?.user_metadata as { sap_user_id?: string } | undefined)?.sap_user_id ||
+    ""
+  ).trim();
+
   const runFetch = useServerFn(fetchZgpReport);
   const runCancel = useServerFn(cancelZgpRecords);
   const report = useMutation({
     mutationFn: (vars: ZgpFilters) => runFetch({ data: vars }),
   });
   const cancelMut = useMutation({
-    mutationFn: (vars: { filters: ZgpFilters; rows: DataRow[] }) => runCancel({ data: vars }),
+    mutationFn: (vars: { filters: ZgpFilters; rows: DataRow[]; user_name: string }) =>
+      runCancel({ data: vars }),
   });
 
   function reset() {
@@ -336,6 +345,11 @@ function ZgpReportPage() {
       if (raw) picked.push(raw);
     }
     if (picked.length === 0) return;
+
+    if (!sapUserId) {
+      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
+      return;
+    }
 
     const confirmed = await swalConfirm({
       title: "Cancel records?",
