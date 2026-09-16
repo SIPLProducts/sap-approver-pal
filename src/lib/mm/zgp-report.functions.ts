@@ -272,12 +272,12 @@ export const cancelZgpRecords = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<ZgpCancelResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await context.supabase
       .from("profiles")
       .select("sap_user_id")
       .eq("id", context.userId)
       .maybeSingle();
-    const userName = (profile?.sap_user_id ?? data.user_name ?? "").trim();
+    const userName = (profile?.sap_user_id ?? "").trim();
     if (!userName) throw new Error("Could not determine the signed-in SAP user.");
 
     const { data: cfg } = await supabaseAdmin
