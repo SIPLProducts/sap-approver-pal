@@ -346,11 +346,6 @@ function ZgpReportPage() {
     }
     if (picked.length === 0) return;
 
-    if (!sapUserId) {
-      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
-      return;
-    }
-
     const confirmed = await swalConfirm({
       title: "Cancel records?",
       text: `${picked.length} record${picked.length === 1 ? "" : "s"} will be sent to SAP for cancellation.`,
