@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
@@ -27,6 +28,8 @@ import { PageHeader } from "@/components/exec/page-header";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { cancelZgpRecords, fetchZgpReport } from "@/lib/mm/zgp-report.functions";
 import { swalConfirm } from "@/lib/mm/swal";
+import { useSapProfile } from "@/hooks/use-sap-profile";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/mm/zgp-report")({
@@ -251,13 +254,22 @@ function ZgpReportPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<SapResponseDialogState | null>(null);
 
+  const sapProfile = useSapProfile();
+  const { user: authUser } = useAuth();
+  const sapUserId = (
+    sapProfile?.user ||
+    (authUser?.user_metadata as { sap_user_id?: string } | undefined)?.sap_user_id ||
+    ""
+  ).trim();
+
   const runFetch = useServerFn(fetchZgpReport);
   const runCancel = useServerFn(cancelZgpRecords);
   const report = useMutation({
     mutationFn: (vars: ZgpFilters) => runFetch({ data: vars }),
   });
   const cancelMut = useMutation({
-    mutationFn: (vars: { filters: ZgpFilters; rows: DataRow[] }) => runCancel({ data: vars }),
+    mutationFn: (vars: { filters: ZgpFilters; rows: DataRow[]; user_name: string }) =>
+      runCancel({ data: vars }),
   });
 
   function reset() {
@@ -334,6 +346,11 @@ function ZgpReportPage() {
     }
     if (picked.length === 0) return;
 
+    if (!sapUserId) {
+      toast.error("Could not determine the signed-in SAP user. Please sign in again.");
+      return;
+    }
+
     const confirmed = await swalConfirm({
       title: "Cancel records?",
       text: `${picked.length} record${picked.length === 1 ? "" : "s"} will be sent to SAP for cancellation.`,
@@ -346,6 +363,7 @@ function ZgpReportPage() {
       const res = await cancelMut.mutateAsync({
         filters: lastFilters ?? currentFilters(),
         rows: picked,
+        user_name: sapUserId,
       });
       setDialog({
         open: true,
