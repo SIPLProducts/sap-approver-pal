@@ -231,7 +231,8 @@ function ZmcReportPage() {
 
   const runCancel = useServerFn(cancelZmcRecords);
   const cancelMut = useMutation({
-    mutationFn: (vars: { filters: ZmcFilters; rows: DataRow[] }) => runCancel({ data: vars }),
+    mutationFn: (vars: { user_name: string; filters: ZmcFilters; rows: DataRow[] }) =>
+      runCancel({ data: vars }),
   });
 
   function reset() {
