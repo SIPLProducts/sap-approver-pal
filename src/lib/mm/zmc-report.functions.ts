@@ -232,21 +232,22 @@ export type ZmcCancelResponse = { results: ZmcCancelResult[] };
 export const cancelZmcRecords = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z
-      .object({
-        filters: z.object({
-          plant_from: str,
-          plant_to: str,
-          date_from: str,
-          date_to: str,
-          doc_from: str,
-          doc_to: str,
-          type_from: str,
-          type_to: str,
-        }),
-        rows: z.array(z.record(z.string(), z.any())).min(1).max(200),
-      })
-      .parse(d),
+      z
+        .object({
+          user_name: z.string().trim().max(40).optional().default(""),
+          filters: z.object({
+            plant_from: str,
+            plant_to: str,
+            date_from: str,
+            date_to: str,
+            doc_from: str,
+            doc_to: str,
+            type_from: str,
+            type_to: str,
+          }),
+          rows: z.array(z.record(z.string(), z.any())).min(1).max(200),
+        })
+        .parse(d),
   )
   .handler(async ({ data }): Promise<ZmcCancelResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -278,6 +279,7 @@ export const cancelZmcRecords = createServerFn({ method: "POST" })
 
     const f = data.filters;
     const inputData = {
+      USER_NAME: (data.user_name ?? "").trim(),
       PLANT_FROM: (f.plant_from ?? "").trim(),
       PLANT_TO: (f.plant_to ?? "").trim(),
       DATE_FROM: (f.date_from ?? "").trim(),
