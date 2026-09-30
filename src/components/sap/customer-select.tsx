@@ -29,6 +29,14 @@ interface Props {
   disabled?: boolean;
   className?: string;
   onEnter?: () => void;
+  /** Override the default Customer_Fetch_API config id (e.g. 90%_CUST_API). */
+  configId?: string | null;
+  /** Override the request payload sent to the configured API. */
+  inputs?: Record<string, unknown>;
+  /** Response field that holds the option code (default KUNNR). */
+  codeField?: string;
+  /** Response field that holds the option text (default NAME1). */
+  textField?: string;
 }
 
 export interface CustomerOption {
