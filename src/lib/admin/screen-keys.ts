@@ -55,6 +55,7 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
       { key: "approvals.inbox.imw", label: "IWM Approvals Inbox", activity: "APPROVALS.INBOX_IMW" },
       { key: "imw.price_master",    label: "Price Master Update", activity: "IMW.PRICE_MASTER" },
       { key: "imw.price_master_approvals", label: "Price Master Update Approvals", activity: "IMW.PRICE_MASTER_APPROVALS" },
+      { key: "imw.transport_exception_billing", label: "Transportation (90%) Exception Billing", activity: "IMW.TRANSPORT_EXCEPTION_BILLING" },
 
     ],
   },
