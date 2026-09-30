@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Filter, RotateCcw } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/exec/page-header";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CustomerSelect } from "@/components/sap/customer-select";
+import {
+  getTransportCustConfig,
+  getTransportCustNameConfig,
+} from "@/lib/sap/customer.functions";
 import {
   CloudscapeApprovalTable,
   type CloudscapeColumn,
@@ -40,6 +45,20 @@ function TransportationExceptionBillingPage() {
   const [customerName, setCustomerName] = useState("");
   const [executed, setExecuted] = useState(false);
 
+  const getCustCfg = useServerFn(getTransportCustConfig);
+  const getCustNameCfg = useServerFn(getTransportCustNameConfig);
+
+  const custCfgQuery = useQuery({
+    queryKey: ["transport-cust-config"],
+    queryFn: () => getCustCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+  const custNameCfgQuery = useQuery({
+    queryKey: ["transport-custname-config"],
+    queryFn: () => getCustNameCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+
   function execute() {
     setExecuted(true);
   }
@@ -70,17 +89,27 @@ function TransportationExceptionBillingPage() {
               value={customer}
               onChange={setCustomer}
               onEnter={() => execute()}
+              configId={custCfgQuery.data?.configId ?? null}
+              inputs={{ kunnr: "" }}
+              codeField="KUNNR"
+              textField="KUNNR"
+              placeholder="Select customer…"
+              disabled={custCfgQuery.isLoading}
             />
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs">Customer Name</Label>
-            <Input
+            <CustomerSelect
               value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="Customer name"
-              className="h-9"
+              onChange={setCustomerName}
+              onEnter={() => execute()}
+              configId={custNameCfgQuery.data?.configId ?? null}
+              inputs={{ name1: "" }}
+              codeField="NAME1"
+              textField="NAME1"
+              placeholder="Select customer name…"
+              disabled={custNameCfgQuery.isLoading}
             />
           </div>
 

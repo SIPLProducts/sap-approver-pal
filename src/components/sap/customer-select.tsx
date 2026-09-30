@@ -29,6 +29,14 @@ interface Props {
   disabled?: boolean;
   className?: string;
   onEnter?: () => void;
+  /** Override the default Customer_Fetch_API config id (e.g. 90%_CUST_API). */
+  configId?: string | null;
+  /** Override the request payload sent to the configured API. */
+  inputs?: Record<string, unknown>;
+  /** Response field that holds the option code (default KUNNR). */
+  codeField?: string;
+  /** Response field that holds the option text (default NAME1). */
+  textField?: string;
 }
 
 export interface CustomerOption {
@@ -39,7 +47,11 @@ export interface CustomerOption {
 const CODE_KEYS = ["KUNNR", "CUSTOMER", "Customer", "customer", "KUNAG", "CUST_CODE"];
 const TEXT_KEYS = ["NAME1", "NAME", "CUSTOMER_NAME", "Name", "name", "DESCRIPTION"];
 
-export function extractCustomerOptions(resp: unknown): CustomerOption[] {
+export function extractCustomerOptions(
+  resp: unknown,
+  codeKeys: string[] = CODE_KEYS,
+  textKeys: string[] = TEXT_KEYS,
+): CustomerOption[] {
   const r: any = resp;
   let rows: any[] = [];
   if (Array.isArray(r)) rows = r;
@@ -61,13 +73,13 @@ export function extractCustomerOptions(resp: unknown): CustomerOption[] {
       continue;
     }
     let code = "";
-    for (const k of CODE_KEYS) {
+    for (const k of codeKeys) {
       const v = row?.[k];
       if (v != null && String(v).trim()) { code = String(v).trim(); break; }
     }
     if (!code) continue;
     let text = "";
-    for (const k of TEXT_KEYS) {
+    for (const k of textKeys) {
       const v = row?.[k];
       if (v != null && String(v).trim()) { text = String(v).trim(); break; }
     }
@@ -86,6 +98,10 @@ export function CustomerSelect({
   disabled,
   className,
   onEnter: _onEnter,
+  configId: configIdOverride,
+  inputs: inputsOverride,
+  codeField,
+  textField,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -109,28 +125,35 @@ export function CustomerSelect({
     }
   }, [open]);
 
+  const hasOverride = configIdOverride !== undefined;
   const cfgQuery = useQuery({
     queryKey: ["sap-customer-config"],
     queryFn: () => getCfg(),
     staleTime: 10 * 60 * 1000,
+    enabled: !hasOverride,
   });
 
-  const configId = cfgQuery.data?.configId ?? null;
+  const configId = hasOverride ? configIdOverride : (cfgQuery.data?.configId ?? null);
   const plantKey = (plants ?? []).join(",");
+  const inputsKey = JSON.stringify(inputsOverride ?? null);
 
   const custQuery = useQuery({
-    queryKey: ["sap-customers", configId, plantKey],
+    queryKey: ["sap-customers", configId, plantKey, inputsKey],
     enabled: !!configId && open,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const inputs: Record<string, unknown> = {};
-      if (plants && plants.length > 0) {
+      const inputs: Record<string, unknown> = { ...(inputsOverride ?? {}) };
+      if (!inputsOverride && plants && plants.length > 0) {
         inputs.PLANT = plants[0];
         inputs.PLANTS = plants;
         inputs.VKORG = plants[0];
       }
       const resp: any = await runApi({ data: { configId: configId!, inputs } });
-      return extractCustomerOptions(resp?.data ?? resp);
+      return extractCustomerOptions(
+        resp?.data ?? resp,
+        codeField ? [codeField, ...CODE_KEYS] : CODE_KEYS,
+        textField ? [textField, ...TEXT_KEYS] : TEXT_KEYS,
+      );
     },
   });
 
