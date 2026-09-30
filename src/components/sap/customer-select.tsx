@@ -98,6 +98,10 @@ export function CustomerSelect({
   disabled,
   className,
   onEnter: _onEnter,
+  configId: configIdOverride,
+  inputs: inputsOverride,
+  codeField,
+  textField,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
