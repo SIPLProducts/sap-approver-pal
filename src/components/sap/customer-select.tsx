@@ -125,28 +125,35 @@ export function CustomerSelect({
     }
   }, [open]);
 
+  const hasOverride = configIdOverride !== undefined;
   const cfgQuery = useQuery({
     queryKey: ["sap-customer-config"],
     queryFn: () => getCfg(),
     staleTime: 10 * 60 * 1000,
+    enabled: !hasOverride,
   });
 
-  const configId = cfgQuery.data?.configId ?? null;
+  const configId = hasOverride ? configIdOverride : (cfgQuery.data?.configId ?? null);
   const plantKey = (plants ?? []).join(",");
+  const inputsKey = JSON.stringify(inputsOverride ?? null);
 
   const custQuery = useQuery({
-    queryKey: ["sap-customers", configId, plantKey],
+    queryKey: ["sap-customers", configId, plantKey, inputsKey],
     enabled: !!configId && open,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const inputs: Record<string, unknown> = {};
-      if (plants && plants.length > 0) {
+      const inputs: Record<string, unknown> = { ...(inputsOverride ?? {}) };
+      if (!inputsOverride && plants && plants.length > 0) {
         inputs.PLANT = plants[0];
         inputs.PLANTS = plants;
         inputs.VKORG = plants[0];
       }
       const resp: any = await runApi({ data: { configId: configId!, inputs } });
-      return extractCustomerOptions(resp?.data ?? resp);
+      return extractCustomerOptions(
+        resp?.data ?? resp,
+        codeField ? [codeField, ...CODE_KEYS] : CODE_KEYS,
+        textField ? [textField, ...TEXT_KEYS] : TEXT_KEYS,
+      );
     },
   });
 
