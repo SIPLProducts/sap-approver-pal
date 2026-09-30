@@ -65,11 +65,12 @@ export function extractCustomerOptions(
     }
   }
   const map = new Map<string, string>();
+  const isValidCode = (c: string) => /[a-z0-9]/i.test(c);
   for (const row of rows) {
     if (row == null) continue;
     if (typeof row === "string" || typeof row === "number") {
       const c = String(row).trim();
-      if (c && !map.has(c)) map.set(c, "");
+      if (c && isValidCode(c) && !map.has(c)) map.set(c, "");
       continue;
     }
     let code = "";
@@ -77,7 +78,7 @@ export function extractCustomerOptions(
       const v = row?.[k];
       if (v != null && String(v).trim()) { code = String(v).trim(); break; }
     }
-    if (!code) continue;
+    if (!code || !isValidCode(code)) continue;
     let text = "";
     for (const k of textKeys) {
       const v = row?.[k];
