@@ -163,7 +163,7 @@ export function CustomerSelect({
     [customers, value],
   );
   const triggerLabel = value
-    ? selectedOption && selectedOption.text
+    ? selectedOption && selectedOption.text && selectedOption.text !== selectedOption.code
       ? `${selectedOption.code} - ${selectedOption.text}`
       : value
     : "";
@@ -291,7 +291,7 @@ export function CustomerSelect({
                         )}
                       />
                       <span className="font-mono">{c.code}</span>
-                      {c.text && (
+                      {c.text && c.text !== c.code && (
                         <span className="ml-2 text-muted-foreground truncate">— {c.text}</span>
                       )}
                     </CommandItem>
