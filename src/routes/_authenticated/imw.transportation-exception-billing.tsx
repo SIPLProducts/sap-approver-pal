@@ -89,17 +89,27 @@ function TransportationExceptionBillingPage() {
               value={customer}
               onChange={setCustomer}
               onEnter={() => execute()}
+              configId={custCfgQuery.data?.configId ?? null}
+              inputs={{ kunnr: "" }}
+              codeField="KUNNR"
+              textField="KUNNR"
+              placeholder="Select customer…"
+              disabled={custCfgQuery.isLoading}
             />
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs">Customer Name</Label>
-            <Input
+            <CustomerSelect
               value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && execute()}
-              placeholder="Customer name"
-              className="h-9"
+              onChange={setCustomerName}
+              onEnter={() => execute()}
+              configId={custNameCfgQuery.data?.configId ?? null}
+              inputs={{ name1: "" }}
+              codeField="NAME1"
+              textField="NAME1"
+              placeholder="Select customer name…"
+              disabled={custNameCfgQuery.isLoading}
             />
           </div>
 
