@@ -47,7 +47,11 @@ export interface CustomerOption {
 const CODE_KEYS = ["KUNNR", "CUSTOMER", "Customer", "customer", "KUNAG", "CUST_CODE"];
 const TEXT_KEYS = ["NAME1", "NAME", "CUSTOMER_NAME", "Name", "name", "DESCRIPTION"];
 
-export function extractCustomerOptions(resp: unknown): CustomerOption[] {
+export function extractCustomerOptions(
+  resp: unknown,
+  codeKeys: string[] = CODE_KEYS,
+  textKeys: string[] = TEXT_KEYS,
+): CustomerOption[] {
   const r: any = resp;
   let rows: any[] = [];
   if (Array.isArray(r)) rows = r;
