@@ -45,6 +45,20 @@ function TransportationExceptionBillingPage() {
   const [customerName, setCustomerName] = useState("");
   const [executed, setExecuted] = useState(false);
 
+  const getCustCfg = useServerFn(getTransportCustConfig);
+  const getCustNameCfg = useServerFn(getTransportCustNameConfig);
+
+  const custCfgQuery = useQuery({
+    queryKey: ["transport-cust-config"],
+    queryFn: () => getCustCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+  const custNameCfgQuery = useQuery({
+    queryKey: ["transport-custname-config"],
+    queryFn: () => getCustNameCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+
   function execute() {
     setExecuted(true);
   }
