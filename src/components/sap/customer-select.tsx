@@ -79,7 +79,7 @@ export function extractCustomerOptions(
     }
     if (!code) continue;
     let text = "";
-    for (const k of TEXT_KEYS) {
+    for (const k of textKeys) {
       const v = row?.[k];
       if (v != null && String(v).trim()) { text = String(v).trim(); break; }
     }
