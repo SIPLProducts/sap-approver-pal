@@ -99,7 +99,13 @@ function ApisTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-3">
+        {!isLoading && (
+          <Badge variant="secondary" className="text-xs">
+            {data?.configs.length ?? 0} API{(data?.configs.length ?? 0) === 1 ? "" : "s"}
+          </Badge>
+        )}
+        <div className="flex-1" />
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New endpoint</Button></DialogTrigger>
           <DialogContent>
