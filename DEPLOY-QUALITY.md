@@ -251,11 +251,56 @@ That duplicate-permission case is handled by this script version.
 The script ends with two checks: row counts, then a list of endpoints that are
 still `MISSING` or `INACTIVE`. An empty second result means nothing is missing.
 
-Regenerate it from the reference environment (where the APIs are correct):
+### Step-by-step: get all 71 APIs into Quality
+
+Run from the Quality project root (`/data/webapplication/resl_approval/Quality`).
+
+1. **Confirm the server has the new sync file** (must print `71`):
+   ```bash
+   grep -c "^update public.sap_api_configs" scripts/sync-sap-config.sql
+   ```
+   Lower number → copy the latest `scripts/sync-sap-config.sql` and
+   `scripts/check-sap-config.sql` from the repo to the server first.
+
+2. **Confirm it is the right database.** The `supabase-db` container must belong
+   to the backend the Quality app uses — the address in the Quality frontend's
+   `VITE_SUPABASE_URL` (`http://10.150.150.130:8000`). If several Supabase stacks
+   run on the server, check with `docker ps` and use that stack's db container.
+
+3. **Check before** (read-only, changes nothing):
+   ```bash
+   docker exec -i supabase-db psql -U postgres -d postgres < scripts/check-sap-config.sql
+   ```
+   Section 3 must be empty. Any row there means Quality's database is older and
+   rejects a value the sync needs (e.g. module `COMMON`) — apply the missing
+   schema migration first, otherwise the whole sync rolls back.
+
+4. **Run the sync and keep the log:**
+   ```bash
+   docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+     < scripts/sync-sap-config.sql 2>&1 | tee sync.log
+   grep -m1 "ERROR:" sync.log     # no output = success
+   ```
+
+   | First `ERROR:` line contains | Meaning / fix |
+   |---|---|
+   | `violates check constraint` | Quality schema is older — apply the missing migration, rerun. |
+   | `relation ... does not exist` / `column ... does not exist` | Quality schema is older — apply the missing migration, rerun. |
+   | `role_permissions_custom_uq` / `_builtin_uq` | Old sync file — copy the latest one, rerun. |
+   | `violates foreign key constraint` | Send the line to the developer; the sync file will be adjusted. |
+
+   Because the sync runs as one transaction, **any** error means nothing was saved.
+
+5. **Check after** — rerun step 3. Done when section 1 shows `71 / 71 / 71` and
+   sections 2, 3 and 4 are empty. Refresh **SAP API Settings**: the badge shows
+   **71 APIs**.
+
+Regenerate both files from the reference environment (where the APIs are correct):
 
 ```bash
-python3 scripts/generate-sap-sync.py     # writes scripts/sync-sap-config.sql
+python3 scripts/generate-sap-sync.py     # writes sync-sap-config.sql AND check-sap-config.sql
 ```
+
 
 ## 4. App URLs
 
