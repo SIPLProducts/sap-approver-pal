@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import {
   Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts,
 } from "@tanstack/react-router";
+import type { ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,7 +20,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
