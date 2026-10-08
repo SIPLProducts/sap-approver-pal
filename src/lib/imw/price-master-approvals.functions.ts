@@ -4,6 +4,7 @@
  * Payload (sent verbatim):
  * {
  *   "get_data": {
+ *     "user_name": "<login user id>",
  *     "plant": [{ "plant": "3601" }],
  *     "kunnr": [],
  *     "date_from": "",
@@ -83,8 +84,16 @@ export const fetchPriceMasterApprovals = createServerFn({ method: "POST" })
       })
       .parse(d),
   )
-  .handler(async ({ data }): Promise<PriceMasterApprovalsResponse> => {
+  .handler(async ({ data, context }): Promise<PriceMasterApprovalsResponse> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("sap_user_id")
+      .eq("id", context.userId)
+      .maybeSingle();
+    const userName = (profile?.sap_user_id ?? "").trim();
+    if (!userName) throw new Error("Could not determine the signed-in SAP user.");
 
     const { data: cfg } = await supabaseAdmin
       .from("sap_api_configs")
@@ -113,6 +122,7 @@ export const fetchPriceMasterApprovals = createServerFn({ method: "POST" })
 
     const inputs = {
       get_data: {
+        user_name: userName,
         plant: data.plants.map((p) => ({ plant: p })),
         kunnr: customer ? [{ kunnr: customer }] : [],
         date_from: (data.date_from ?? "").trim(),
