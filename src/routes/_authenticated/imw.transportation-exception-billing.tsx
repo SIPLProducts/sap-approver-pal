@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/exec/page-header";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { CustomerSelect } from "@/components/sap/customer-select";
+import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import {
   getTransportCustConfig,
   getTransportCustNameConfig,
@@ -43,6 +43,7 @@ const columns: CloudscapeColumn<Row>[] = [];
 function TransportationExceptionBillingPage() {
   const [customer, setCustomer] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [plants, setPlants] = useState<string[]>([]);
   const [executed, setExecuted] = useState(false);
 
   const getCustCfg = useServerFn(getTransportCustConfig);
@@ -59,6 +60,13 @@ function TransportationExceptionBillingPage() {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Keep the existing customer selections and F4 configuration queries intact
+  // while their input fields are temporarily hidden.
+  void customer;
+  void customerName;
+  void custCfgQuery;
+  void custNameCfgQuery;
+
   function execute() {
     setExecuted(true);
   }
@@ -66,6 +74,7 @@ function TransportationExceptionBillingPage() {
   function reset() {
     setCustomer("");
     setCustomerName("");
+    setPlants([]);
     setExecuted(false);
   }
 
@@ -74,7 +83,7 @@ function TransportationExceptionBillingPage() {
       <PageHeader
         eyebrow="IWM Approvals"
         title="Transportation (90%) Exception Billing"
-        subtitle="Review transportation 90% exception billing records for the selected customer."
+        subtitle="Review transportation 90% exception billing records for the selected plant."
       />
 
       <Card className="p-4">
@@ -82,7 +91,13 @@ function TransportationExceptionBillingPage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_220px_1fr_auto]">
+        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_1fr_auto]">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Plant</Label>
+            <PlantMultiSelect value={plants} onChange={setPlants} />
+          </div>
+
+          {/* Customer and Customer Name selectors are temporarily hidden.
           <div className="space-y-1.5">
             <Label className="text-xs">Customer</Label>
             <CustomerSelect
@@ -111,9 +126,7 @@ function TransportationExceptionBillingPage() {
               placeholder="Select customer name…"
               disabled={custNameCfgQuery.isLoading}
             />
-          </div>
-
-          <div />
+          </div> */}
 
           <div className="flex gap-2">
             <Button size="sm" onClick={() => execute()}>
