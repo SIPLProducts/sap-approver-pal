@@ -58,3 +58,22 @@ export const getTransportCustNameConfig = createServerFn({ method: "GET" })
     }
     return { configId: data.id as string };
   });
+
+/**
+ * Returns the id of the SAP API config named "90%_Get_API".
+ * Used to load Transportation (90%) Exception Billing records.
+ */
+export const getTransportBillingConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("id, is_active")
+      .ilike("name", "90%_Get_API")
+      .maybeSingle();
+    if (!data || !data.is_active) {
+      return { configId: null as string | null };
+    }
+    return { configId: data.id as string };
+  });
