@@ -249,13 +249,26 @@ function TransportationExceptionBillingPage() {
 
   const noSelection = selectedRowKeys.size === 0;
 
-  async function save() {
-    if (noSelection || saving) return;
-    setSaving(true);
+  const [changing, setChanging] = useState(false);
+  const busy = saving || changing;
+
+  function save() {
+    return submit("save");
+  }
+  function change() {
+    return submit("modify");
+  }
+
+  async function submit(mode: "save" | "modify") {
+    if (noSelection || busy) return;
+    const setBusy = mode === "save" ? setSaving : setChanging;
+    const apiName = mode === "save" ? "90%_Save_API" : "90%_Change_API";
+    const unchecked = mode === "save" ? "" : " ";
+    setBusy(true);
     try {
-      const cfg = await getSaveCfg();
+      const cfg = mode === "save" ? await getSaveCfg() : await getChangeCfg();
       if (!cfg.configId) {
-        toast.error("SAP API config 90%_Save_API is not configured or active.");
+        toast.error(`SAP API config ${apiName} is not configured or active.`);
         return;
       }
       const selected = rows.filter((r) => selectedRowKeys.has(r.__transportRowKey));
@@ -264,12 +277,12 @@ function TransportationExceptionBillingPage() {
         data: {
           configId: cfg.configId,
           inputs: {
-            save: selected.map((r) => ({
+            [mode]: selected.map((r) => ({
               user_name: cfg.userName,
               werks: str(r.WERKS),
               KUNNR: str(r.KUNNR),
               NAME1: str(r.NAME1),
-              CHK_VALUE: str(r.CHK_VALUE).trim().toUpperCase() === "X" ? "X" : "",
+              CHK_VALUE: str(r.CHK_VALUE).trim().toUpperCase() === "X" ? "X" : unchecked,
               remark: str(r.REMARK),
             })),
           },
