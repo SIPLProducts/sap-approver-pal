@@ -268,7 +268,7 @@ function TransportationExceptionBillingPage() {
             <Label className="text-xs">Plant</Label>
             <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex justify-self-end gap-2">
             <Button size="sm" onClick={execute} disabled={billingCfgQuery.isLoading || fetchMutation.isPending}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
               Execute
