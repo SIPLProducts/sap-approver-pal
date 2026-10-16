@@ -104,7 +104,7 @@ function TransportationExceptionBillingPage() {
   });
 
   const fetchMutation = useMutation({
-    mutationFn: async (input: { configId: string; plantValues: string[] }) =>
+    mutationFn: async (input: { configId: string; plantValues: string[]; check: string }) =>
       runApi({
         data: {
           configId: input.configId,
