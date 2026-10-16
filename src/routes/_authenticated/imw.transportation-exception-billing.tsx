@@ -356,7 +356,17 @@ function TransportationExceptionBillingPage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_1fr_auto]">
+        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[auto_220px_auto]">
+          <div className="flex items-center gap-2 pb-1.5">
+            <Checkbox
+              id="transport-new-record"
+              checked={newRecord}
+              onCheckedChange={(checked) => setNewRecord(checked === true)}
+            />
+            <Label htmlFor="transport-new-record" className="text-xs">
+              New Record
+            </Label>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Plant</Label>
             <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
