@@ -170,14 +170,7 @@ export function PlantMultiSelect({
                 }
               }}
             >
-              {value
-                .map((code) => {
-                  const option = plants.find((plant) => plant.code === code);
-                  return source === "iwm-plant" && option?.text
-                    ? `${option.code}_${option.text}`
-                    : code;
-                })
-                .join(", ")}
+              {value.join(", ")}
             </div>
           )}
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
