@@ -401,12 +401,16 @@ function TransportationExceptionBillingPage() {
                   {saving ? "Saving…" : "Save"}
                 </Button>
               )}
-              <Button size="sm" variant="success" onClick={change} disabled={noSelection || busy}>
-                {changing ? "Changing…" : "Change"}
-              </Button>
-              <Button size="sm" variant="destructive" disabled={noSelection || busy}>
-                Delete
-              </Button>
+              {checkFlag !== "X" && (
+                <>
+                  <Button size="sm" variant="success" onClick={change} disabled={noSelection || busy}>
+                    {changing ? "Changing…" : "Change"}
+                  </Button>
+                  <Button size="sm" variant="destructive" disabled={noSelection || busy}>
+                    Delete
+                  </Button>
+                </>
+              )}
             </>
           }
           emptyMessage="No exception billing records were returned."
