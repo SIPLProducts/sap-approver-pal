@@ -17,8 +17,11 @@ import {
   getTransportBillingConfig,
   getTransportCustConfig,
   getTransportCustNameConfig,
+  getTransportSaveConfig,
 } from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
+import { swalSapResponse } from "@/lib/mm/swal";
+import { extractSapMessage } from "@/lib/mm/sap-message";
 import {
   CloudscapeApprovalTable,
   type CloudscapeColumn,
@@ -71,10 +74,12 @@ function TransportationExceptionBillingPage() {
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(() => new Set());
+  const [saving, setSaving] = useState(false);
 
   const getBillingCfg = useServerFn(getTransportBillingConfig);
   const getCustCfg = useServerFn(getTransportCustConfig);
   const getCustNameCfg = useServerFn(getTransportCustNameConfig);
+  const getSaveCfg = useServerFn(getTransportSaveConfig);
   const runApi = useServerFn(runSapApi);
 
   const billingCfgQuery = useQuery({
@@ -242,6 +247,72 @@ function TransportationExceptionBillingPage() {
     fetchMutation.mutate({ configId, plantValues: plants.length > 0 ? plants : [""] });
   }
 
+  const noSelection = selectedRowKeys.size === 0;
+
+  async function save() {
+    if (noSelection || saving) return;
+    setSaving(true);
+    try {
+      const cfg = await getSaveCfg();
+      if (!cfg.configId) {
+        toast.error("SAP API config 90%_Save_API is not configured or active.");
+        return;
+      }
+      const selected = rows.filter((r) => selectedRowKeys.has(r.__transportRowKey));
+      const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      const response: any = await runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            save: selected.map((r) => ({
+              user_name: cfg.userName,
+              werks: str(r.WERKS),
+              KUNNR: str(r.KUNNR),
+              NAME1: str(r.NAME1),
+              CHK_VALUE: str(r.CHK_VALUE).trim().toUpperCase() === "X" ? "X" : "",
+              remark: str(r.REMARK),
+            })),
+          },
+        },
+      });
+      const payload = response?.data ?? response;
+      const list: any[] = Array.isArray(payload)
+        ? payload
+        : payload && typeof payload === "object"
+          ? Array.isArray(payload.DATA)
+            ? payload.DATA
+            : [payload]
+          : [];
+      const results = list
+        .filter((x) => x && typeof x === "object" && (x.MESSAGE !== undefined || x.TYPE !== undefined))
+        .map((x) => ({
+          ref: "",
+          message: str(x.MESSAGE),
+          ok: str(x.TYPE).trim().toUpperCase() === "S",
+        }));
+      if (results.length === 0) {
+        const msg =
+          (response?.ok === false && response?.error) ||
+          extractSapMessage(response) ||
+          "No response returned by SAP.";
+        results.push({ ref: "", message: String(msg), ok: false });
+      }
+      const allOk = response?.ok !== false && results.every((r) => r.ok);
+      await swalSapResponse({
+        title: allOk ? "Saved" : "SAP Response",
+        results: results.length === 1 ? results : results.map((r, i) => ({ ...r, ref: String(i + 1) })),
+        refLabel: "#",
+      });
+      if (allOk) execute();
+    } catch (error) {
+      await swalSapResponse({
+        results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function reset() {
     setPlants([]);
     setRows([]);
@@ -292,11 +363,13 @@ function TransportationExceptionBillingPage() {
           onSelectionChange={setSelectedRowKeys}
           headerExtras={
             <>
-              <Button size="sm">Save</Button>
-              <Button size="sm" variant="success">
+              <Button size="sm" onClick={save} disabled={noSelection || saving}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
+              <Button size="sm" variant="success" disabled={noSelection || saving}>
                 Change
               </Button>
-              <Button size="sm" variant="destructive">
+              <Button size="sm" variant="destructive" disabled={noSelection || saving}>
                 Delete
               </Button>
             </>
