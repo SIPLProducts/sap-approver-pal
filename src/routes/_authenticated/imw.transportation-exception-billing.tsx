@@ -18,6 +18,7 @@ import {
   getTransportCustConfig,
   getTransportCustNameConfig,
   getTransportSaveConfig,
+  getTransportChangeConfig,
 } from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { swalSapResponse } from "@/lib/mm/swal";
@@ -80,6 +81,7 @@ function TransportationExceptionBillingPage() {
   const getCustCfg = useServerFn(getTransportCustConfig);
   const getCustNameCfg = useServerFn(getTransportCustNameConfig);
   const getSaveCfg = useServerFn(getTransportSaveConfig);
+  const getChangeCfg = useServerFn(getTransportChangeConfig);
   const runApi = useServerFn(runSapApi);
 
   const billingCfgQuery = useQuery({
@@ -312,7 +314,7 @@ function TransportationExceptionBillingPage() {
       }
       const allOk = response?.ok !== false && results.every((r) => r.ok);
       await swalSapResponse({
-        title: allOk ? "Saved" : "SAP Response",
+        title: allOk ? (mode === "save" ? "Saved" : "Changed") : "SAP Response",
         results: results.length === 1 ? results : results.map((r, i) => ({ ...r, ref: String(i + 1) })),
         refLabel: "#",
       });
@@ -322,7 +324,7 @@ function TransportationExceptionBillingPage() {
         results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
       });
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
@@ -376,13 +378,13 @@ function TransportationExceptionBillingPage() {
           onSelectionChange={setSelectedRowKeys}
           headerExtras={
             <>
-              <Button size="sm" onClick={save} disabled={noSelection || saving}>
+              <Button size="sm" onClick={save} disabled={noSelection || busy}>
                 {saving ? "Saving…" : "Save"}
               </Button>
-              <Button size="sm" variant="success" disabled={noSelection || saving}>
-                Change
+              <Button size="sm" variant="success" onClick={change} disabled={noSelection || busy}>
+                {changing ? "Changing…" : "Change"}
               </Button>
-              <Button size="sm" variant="destructive" disabled={noSelection || saving}>
+              <Button size="sm" variant="destructive" disabled={noSelection || busy}>
                 Delete
               </Button>
             </>
