@@ -315,7 +315,7 @@ function PriceMasterUpdatePage() {
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
             </Label>
-            <PlantMultiSelect value={plants} onChange={setPlants} />
+            <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
           </div>
 
           <div className="space-y-1.5">
