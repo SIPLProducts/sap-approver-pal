@@ -127,54 +127,106 @@ function TransportationExceptionBillingPage() {
   });
 
   const columns = useMemo<CloudscapeColumn<Row>[]>(() => {
-    const fields = Array.from(
-      new Set(rows.flatMap((row) => Object.keys(row).filter((key) => key !== "MANDT" && key !== "__transportRowKey"))),
-    );
-    return fields.map((field) => ({
-      id: field,
-      header: field === "REMARK" ? "Remarks" : field,
-      minWidth: field === "REMARK" ? 200 : 120,
-      cell: (row) => {
-        if (field === "CHK_VALUE") {
-          return (
-            <Checkbox
-              aria-label={`Checked for row ${row.__transportRowKey}`}
-              checked={String(row.CHK_VALUE ?? "").trim().toUpperCase() === "X"}
-              onCheckedChange={(checked) =>
-                setRows((current) =>
-                  current.map((item) =>
-                    item.__transportRowKey === row.__transportRowKey
-                      ? { ...item, CHK_VALUE: checked === true ? "X" : "" }
-                      : item,
-                  ),
-                )
-              }
-            />
-          );
-        }
-        if (field === "REMARK") {
-          return (
-            <Input
-              value={String(row.REMARK ?? "")}
-              onChange={(event) =>
-                setRows((current) =>
-                  current.map((item) =>
-                    item.__transportRowKey === row.__transportRowKey
-                      ? { ...item, REMARK: event.target.value }
-                      : item,
-                  ),
-                )
-              }
-              placeholder="Remarks"
-              className="h-8 min-w-[180px] text-xs"
-            />
-          );
-        }
-        const value = row[field];
-        return value === null || value === undefined || value === "" ? "—" : String(value);
+    const updateRow = (row: Row, field: string, value: unknown) =>
+      setRows((current) =>
+        current.map((item) =>
+          item.__transportRowKey === row.__transportRowKey
+            ? { ...item, [field]: value }
+            : item,
+        ),
+      );
+
+    const displayValue = (row: Row, field: string) => {
+      const value = row[field];
+      return value === null || value === undefined || value === "" ? "—" : String(value);
+    };
+
+    return [
+      {
+        id: "WERKS",
+        header: "Plant",
+        minWidth: 120,
+        cell: (row) => displayValue(row, "WERKS"),
       },
-    }));
-  }, [rows]);
+      {
+        id: "KUNNR",
+        header: "Customer",
+        minWidth: 200,
+        cell: (row) => (
+          <CustomerSelect
+            value={String(row.KUNNR ?? "")}
+            onChange={(value) => updateRow(row, "KUNNR", value)}
+            configId={custCfgQuery.data?.configId ?? null}
+            inputs={{ kunnr: "" }}
+            codeField="KUNNR"
+            textField="KUNNR"
+            placeholder="Select customer…"
+          />
+        ),
+      },
+      {
+        id: "NAME1",
+        header: "Customer Name",
+        minWidth: 220,
+        cell: (row) => (
+          <CustomerSelect
+            value={String(row.NAME1 ?? "")}
+            onChange={(value) => updateRow(row, "NAME1", value)}
+            configId={custNameCfgQuery.data?.configId ?? null}
+            inputs={{ name1: "" }}
+            codeField="NAME1"
+            textField="NAME1"
+            placeholder="Select customer name…"
+          />
+        ),
+      },
+      {
+        id: "CHK_VALUE",
+        header: "Check Value",
+        minWidth: 120,
+        cell: (row) => (
+          <Checkbox
+            aria-label={`Checked for row ${row.__transportRowKey}`}
+            checked={String(row.CHK_VALUE ?? "").trim().toUpperCase() === "X"}
+            onCheckedChange={(checked) =>
+              updateRow(row, "CHK_VALUE", checked === true ? "X" : "")
+            }
+          />
+        ),
+      },
+      {
+        id: "REMARK",
+        header: "Remarks",
+        minWidth: 200,
+        cell: (row) => (
+          <Input
+            value={String(row.REMARK ?? "")}
+            onChange={(event) => updateRow(row, "REMARK", event.target.value)}
+            placeholder="Remarks"
+            className="h-8 min-w-[180px] text-xs"
+          />
+        ),
+      },
+      {
+        id: "APPROV_BY",
+        header: "Approved By",
+        minWidth: 140,
+        cell: (row) => displayValue(row, "APPROV_BY"),
+      },
+      {
+        id: "UPDATE_BY",
+        header: "Update By",
+        minWidth: 140,
+        cell: (row) => displayValue(row, "UPDATE_BY"),
+      },
+      {
+        id: "STATUS",
+        header: "Status",
+        minWidth: 120,
+        cell: (row) => displayValue(row, "STATUS"),
+      },
+    ];
+  }, [custCfgQuery.data?.configId, custNameCfgQuery.data?.configId]);
 
   function execute() {
     const configId = billingCfgQuery.data?.configId;
