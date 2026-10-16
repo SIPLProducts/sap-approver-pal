@@ -395,9 +395,11 @@ function TransportationExceptionBillingPage() {
           onSelectionChange={setSelectedRowKeys}
           headerExtras={
             <>
-              <Button size="sm" onClick={save} disabled={noSelection || busy}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
+              {checkFlag === "X" && (
+                <Button size="sm" onClick={save} disabled={noSelection || busy}>
+                  {saving ? "Saving…" : "Save"}
+                </Button>
+              )}
               <Button size="sm" variant="success" onClick={change} disabled={noSelection || busy}>
                 {changing ? "Changing…" : "Change"}
               </Button>
