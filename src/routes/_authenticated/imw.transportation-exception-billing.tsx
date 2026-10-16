@@ -246,10 +246,12 @@ function TransportationExceptionBillingPage() {
       toast.error("SAP API config 90%_Get_API is not configured or active.");
       return;
     }
+    const check = newRecord ? "X" : "";
+    setCheckFlag(check);
     setExecuted(true);
     setRows([]);
     setSelectedRowKeys(new Set());
-    fetchMutation.mutate({ configId, plantValues: plants.length > 0 ? plants : [""] });
+    fetchMutation.mutate({ configId, plantValues: plants.length > 0 ? plants : [""], check });
   }
 
   const noSelection = selectedRowKeys.size === 0;
@@ -333,6 +335,8 @@ function TransportationExceptionBillingPage() {
 
   function reset() {
     setPlants([]);
+    setNewRecord(false);
+    setCheckFlag("");
     setRows([]);
     setSelectedRowKeys(new Set());
     setExecuted(false);
