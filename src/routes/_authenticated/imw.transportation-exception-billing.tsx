@@ -290,7 +290,17 @@ function TransportationExceptionBillingPage() {
           showSelect
           selectedKeys={selectedRowKeys}
           onSelectionChange={setSelectedRowKeys}
-          headerLeading={<Button size="sm">Save</Button>}
+          headerExtras={
+            <>
+              <Button size="sm">Save</Button>
+              <Button size="sm" variant="success">
+                Change
+              </Button>
+              <Button size="sm" variant="destructive">
+                Delete
+              </Button>
+            </>
+          }
           emptyMessage="No exception billing records were returned."
           columns={columns}
         />
