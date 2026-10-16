@@ -263,12 +263,12 @@ function TransportationExceptionBillingPage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[minmax(200px,1fr)_auto]">
+        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_1fr_auto]">
           <div className="space-y-1.5">
             <Label className="text-xs">Plant</Label>
             <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex justify-self-end gap-2">
             <Button size="sm" onClick={execute} disabled={billingCfgQuery.isLoading || fetchMutation.isPending}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
               Execute
