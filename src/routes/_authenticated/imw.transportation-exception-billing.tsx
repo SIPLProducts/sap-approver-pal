@@ -72,6 +72,8 @@ function extractRows(payload: unknown): Record<string, unknown>[] {
 
 function TransportationExceptionBillingPage() {
   const [plants, setPlants] = useState<string[]>([]);
+  const [newRecord, setNewRecord] = useState(false);
+  const [checkFlag, setCheckFlag] = useState("");
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(() => new Set());
@@ -106,9 +108,10 @@ function TransportationExceptionBillingPage() {
       runApi({
         data: {
           configId: input.configId,
-          inputs: {
+        inputs: {
             get_data: {
               plant: input.plantValues.map((plant) => ({ plant })),
+              check: input.check,
             },
           },
         },
