@@ -58,6 +58,7 @@ export interface CloudscapeApprovalTableProps<T> {
   readonlyReason?: (r: T) => string | null;
   emptyMessage?: ReactNode;
   pageSize?: number;
+  headerLeading?: ReactNode;
   headerExtras?: ReactNode;
 }
 
@@ -98,6 +99,7 @@ export function CloudscapeApprovalTable<T>({
   readonlyReason,
   emptyMessage,
   pageSize = 25,
+  headerLeading,
   headerExtras,
 }: CloudscapeApprovalTableProps<T>) {
   const [search, setSearch] = useState("");
@@ -192,17 +194,20 @@ export function CloudscapeApprovalTable<T>({
           </div>
         </div>
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search..."
-              className="h-9 text-sm pl-8"
-            />
+          <div className="flex items-center gap-2">
+            {headerLeading}
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search..."
+                className="h-9 text-sm pl-8"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {headerExtras}

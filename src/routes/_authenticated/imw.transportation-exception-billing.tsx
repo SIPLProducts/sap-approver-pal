@@ -67,11 +67,10 @@ function extractRows(payload: unknown): Record<string, unknown>[] {
 }
 
 function TransportationExceptionBillingPage() {
-  const [customer, setCustomer] = useState("");
-  const [customerName, setCustomerName] = useState("");
   const [plants, setPlants] = useState<string[]>([]);
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(() => new Set());
 
   const getBillingCfg = useServerFn(getTransportBillingConfig);
   const getCustCfg = useServerFn(getTransportCustConfig);
@@ -110,6 +109,7 @@ function TransportationExceptionBillingPage() {
     onSuccess: (response) => {
       if (response?.ok === false) {
         setRows([]);
+        setSelectedRowKeys(new Set());
         toast.error(response.error || "Could not load exception billing records.");
         return;
       }
@@ -118,10 +118,12 @@ function TransportationExceptionBillingPage() {
         __transportRowKey: String(index),
       }));
       setRows(fetched);
+      setSelectedRowKeys(new Set());
       if (fetched.length === 0) toast.info("No records returned for the selected plant.");
     },
     onError: (error) => {
       setRows([]);
+      setSelectedRowKeys(new Set());
       toast.error(error instanceof Error ? error.message : "Could not load exception billing records.");
     },
   });
@@ -236,14 +238,14 @@ function TransportationExceptionBillingPage() {
     }
     setExecuted(true);
     setRows([]);
+    setSelectedRowKeys(new Set());
     fetchMutation.mutate({ configId, plantValues: plants.length > 0 ? plants : [""] });
   }
 
   function reset() {
-    setCustomer("");
-    setCustomerName("");
     setPlants([]);
     setRows([]);
+    setSelectedRowKeys(new Set());
     setExecuted(false);
     fetchMutation.reset();
   }
@@ -261,42 +263,11 @@ function TransportationExceptionBillingPage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[minmax(160px,1fr)_minmax(180px,1fr)_minmax(200px,1.2fr)_auto]">
+        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[minmax(200px,1fr)_auto]">
           <div className="space-y-1.5">
             <Label className="text-xs">Plant</Label>
             <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
           </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Customer</Label>
-            <CustomerSelect
-              value={customer}
-              onChange={setCustomer}
-              onEnter={() => execute()}
-              configId={custCfgQuery.data?.configId ?? null}
-              inputs={{ kunnr: "" }}
-              codeField="KUNNR"
-              textField="KUNNR"
-              placeholder="Select customer…"
-              disabled={custCfgQuery.isLoading || fetchMutation.isPending}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Customer Name</Label>
-            <CustomerSelect
-              value={customerName}
-              onChange={setCustomerName}
-              onEnter={() => execute()}
-              configId={custNameCfgQuery.data?.configId ?? null}
-              inputs={{ name1: "" }}
-              codeField="NAME1"
-              textField="NAME1"
-              placeholder="Select customer name…"
-              disabled={custNameCfgQuery.isLoading || fetchMutation.isPending}
-            />
-          </div>
-
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={billingCfgQuery.isLoading || fetchMutation.isPending}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
@@ -316,6 +287,10 @@ function TransportationExceptionBillingPage() {
           rows={rows}
           loading={fetchMutation.isPending}
           rowKey={(row) => row.__transportRowKey}
+          showSelect
+          selectedKeys={selectedRowKeys}
+          onSelectionChange={setSelectedRowKeys}
+          headerLeading={<Button size="sm">Save</Button>}
           emptyMessage="No exception billing records were returned."
           columns={columns}
         />
