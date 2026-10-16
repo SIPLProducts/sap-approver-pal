@@ -98,3 +98,24 @@ export const getTransportSaveConfig = createServerFn({ method: "GET" })
     if (!data || !data.is_active) return { configId: null as string | null, userName };
     return { configId: data.id as string, userName };
   });
+
+/**
+ * Returns the id of the SAP API config named "90%_Change_API" and the signed-in
+ * user's SAP ID (sent as user_name in the modify payload).
+ */
+export const getTransportChangeConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [{ data }, { data: profile }] = await Promise.all([
+      supabaseAdmin
+        .from("sap_api_configs")
+        .select("id, is_active")
+        .ilike("name", "90%_Change_API")
+        .maybeSingle(),
+      supabaseAdmin.from("profiles").select("sap_user_id").eq("id", context.userId).maybeSingle(),
+    ]);
+    const userName = (profile?.sap_user_id ?? "").trim();
+    if (!data || !data.is_active) return { configId: null as string | null, userName };
+    return { configId: data.id as string, userName };
+  });
