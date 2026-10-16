@@ -335,6 +335,7 @@ function PriceMasterApprovalsPage() {
             </Label>
             <PlantMultiSelect
               value={plants}
+              source="iwm-plant"
               onChange={(v) => {
                 setPlants(v);
                 clearResults();

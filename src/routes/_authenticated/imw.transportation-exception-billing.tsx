@@ -212,7 +212,7 @@ function TransportationExceptionBillingPage() {
         <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[minmax(160px,1fr)_minmax(180px,1fr)_minmax(200px,1.2fr)_auto]">
           <div className="space-y-1.5">
             <Label className="text-xs">Plant</Label>
-            <PlantMultiSelect value={plants} onChange={setPlants} />
+            <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
           </div>
 
           <div className="space-y-1.5">

@@ -19,7 +19,11 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { getPlantConfig, getUserPlantConfig } from "@/lib/sap/plant.functions";
+import {
+  getIwmPlantConfig,
+  getPlantConfig,
+  getUserPlantConfig,
+} from "@/lib/sap/plant.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractPlantOptions } from "@/components/sap/plant-select";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -33,7 +37,7 @@ interface Props {
   /** When true (default), restrict the option list to the plants selected in the top bar. */
   restrictToActive?: boolean;
   /** Which SAP API config supplies the F4 list. "user-plant" uses GET_USER_PLANT. */
-  source?: "default" | "user-plant";
+  source?: "default" | "user-plant" | "iwm-plant";
 
 }
 
@@ -49,19 +53,24 @@ export function PlantMultiSelect({
   const [open, setOpen] = useState(false);
   const getDefaultCfg = useServerFn(getPlantConfig);
   const getUserCfg = useServerFn(getUserPlantConfig);
+  const getIwmCfg = useServerFn(getIwmPlantConfig);
   const runApi = useServerFn(runSapApi);
   const { activePlants } = useActiveContext();
 
   const cfgQuery = useQuery({
     queryKey: ["sap-plant-config", source],
-    queryFn: async (): Promise<{ configId: string | null; plantField: string }> =>
-      source === "user-plant" ? await getUserCfg() : await getDefaultCfg(),
+    queryFn: async (): Promise<{ configId: string | null; plantField: string }> => {
+      if (source === "user-plant") return await getUserCfg();
+      if (source === "iwm-plant") return await getIwmCfg();
+      return await getDefaultCfg();
+    },
     staleTime: 10 * 60 * 1000,
   });
 
 
   const configId = cfgQuery.data?.configId ?? null;
-  const plantField = cfgQuery.data?.plantField ?? (source === "user-plant" ? "WERKS" : "VKORG");
+  const plantField =
+    cfgQuery.data?.plantField ?? (source === "default" ? "VKORG" : "WERKS");
 
 
   const plantsQuery = useQuery({
@@ -69,7 +78,12 @@ export function PlantMultiSelect({
     enabled: !!configId,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const resp: any = await runApi({ data: { configId: configId!, inputs: {} } });
+      const resp: any = await runApi({
+        data: {
+          configId: configId!,
+          inputs: source === "iwm-plant" ? { werks: "" } : {},
+        },
+      });
       return extractPlantOptions(resp?.data ?? resp, plantField);
     },
   });
@@ -156,7 +170,14 @@ export function PlantMultiSelect({
                 }
               }}
             >
-              {value.join(", ")}
+              {value
+                .map((code) => {
+                  const option = plants.find((plant) => plant.code === code);
+                  return source === "iwm-plant" && option?.text
+                    ? `${option.code}_${option.text}`
+                    : code;
+                })
+                .join(", ")}
             </div>
           )}
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
@@ -225,9 +246,17 @@ export function PlantMultiSelect({
                           tabIndex={-1}
                           className="pointer-events-none mr-2"
                         />
-                        <span className="font-mono">{p.code}</span>
-                        {p.text && (
-                          <span className="ml-2 text-muted-foreground truncate">— {p.text}</span>
+                        {source === "iwm-plant" ? (
+                          <span className="font-mono truncate">
+                            {p.text ? `${p.code}_${p.text}` : p.code}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="font-mono">{p.code}</span>
+                            {p.text && (
+                              <span className="ml-2 text-muted-foreground truncate">— {p.text}</span>
+                            )}
+                          </>
                         )}
                       </CommandItem>
                     );
