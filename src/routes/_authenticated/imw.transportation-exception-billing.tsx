@@ -72,6 +72,8 @@ function extractRows(payload: unknown): Record<string, unknown>[] {
 
 function TransportationExceptionBillingPage() {
   const [plants, setPlants] = useState<string[]>([]);
+  const [newRecord, setNewRecord] = useState(false);
+  const [checkFlag, setCheckFlag] = useState("");
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(() => new Set());
@@ -102,13 +104,14 @@ function TransportationExceptionBillingPage() {
   });
 
   const fetchMutation = useMutation({
-    mutationFn: async (input: { configId: string; plantValues: string[] }) =>
+    mutationFn: async (input: { configId: string; plantValues: string[]; check: string }) =>
       runApi({
         data: {
           configId: input.configId,
-          inputs: {
+        inputs: {
             get_data: {
               plant: input.plantValues.map((plant) => ({ plant })),
+              check: input.check,
             },
           },
         },
@@ -243,10 +246,12 @@ function TransportationExceptionBillingPage() {
       toast.error("SAP API config 90%_Get_API is not configured or active.");
       return;
     }
+    const check = newRecord ? "X" : "";
+    setCheckFlag(check);
     setExecuted(true);
     setRows([]);
     setSelectedRowKeys(new Set());
-    fetchMutation.mutate({ configId, plantValues: plants.length > 0 ? plants : [""] });
+    fetchMutation.mutate({ configId, plantValues: plants.length > 0 ? plants : [""], check });
   }
 
   const noSelection = selectedRowKeys.size === 0;
@@ -330,6 +335,8 @@ function TransportationExceptionBillingPage() {
 
   function reset() {
     setPlants([]);
+    setNewRecord(false);
+    setCheckFlag("");
     setRows([]);
     setSelectedRowKeys(new Set());
     setExecuted(false);
@@ -349,7 +356,17 @@ function TransportationExceptionBillingPage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_1fr_auto]">
+        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[auto_220px_auto]">
+          <div className="flex items-center gap-2 pb-1.5">
+            <Checkbox
+              id="transport-new-record"
+              checked={newRecord}
+              onCheckedChange={(checked) => setNewRecord(checked === true)}
+            />
+            <Label htmlFor="transport-new-record" className="text-xs">
+              New Record
+            </Label>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Plant</Label>
             <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
@@ -378,9 +395,11 @@ function TransportationExceptionBillingPage() {
           onSelectionChange={setSelectedRowKeys}
           headerExtras={
             <>
-              <Button size="sm" onClick={save} disabled={noSelection || busy}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
+              {checkFlag === "X" && (
+                <Button size="sm" onClick={save} disabled={noSelection || busy}>
+                  {saving ? "Saving…" : "Save"}
+                </Button>
+              )}
               <Button size="sm" variant="success" onClick={change} disabled={noSelection || busy}>
                 {changing ? "Changing…" : "Change"}
               </Button>
