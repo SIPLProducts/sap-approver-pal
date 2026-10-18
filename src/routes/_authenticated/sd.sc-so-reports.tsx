@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CloudscapeApprovalTable } from "@/components/aws/cloudscape-approval-table";
+import { PageHeader } from "@/components/exec/page-header";
 import { buildDynamicColumns } from "@/lib/sd/dynamic-columns";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { CustomerSelect } from "@/components/sap/customer-select";
@@ -149,12 +150,16 @@ function ScSoReportsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={() => navigate({ to: "/sd/sc-so" })} aria-label="Back to Service Certificate & SO Approvals">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Service Certificate & SO Approval Reports</h1>
-      </div>
+      <PageHeader
+        eyebrow="BMW Reports"
+        title="Service Certificate & SO Approval Reports"
+        className="mb-0"
+        actions={
+          <Button variant="outline" size="icon" onClick={() => navigate({ to: "/sd/sc-so" })} aria-label="Back to Service Certificate & SO Approvals">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        }
+      />
 
       <Card className="p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
