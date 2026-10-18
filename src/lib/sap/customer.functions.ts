@@ -51,7 +51,7 @@ export const getTransportPlantCustConfig = createServerFn({ method: "GET" })
     const { data } = await supabaseAdmin
       .from("sap_api_configs")
       .select("id, is_active")
-      .ilike("name", "90\\%_Plant_Base_Cust_F4")
+      .ilike("name", "90%_Plant_Base_Cust_F4")
       .maybeSingle();
     if (!data || !data.is_active) {
       return { configId: null as string | null };
