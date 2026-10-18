@@ -18,6 +18,7 @@ import {
   getTransportCustConfig,
   getTransportPlantCustConfig,
   getTransportCustNameConfig,
+  getTransportCustBasedNameConfig,
   getTransportSaveConfig,
   getTransportChangeConfig,
 } from "@/lib/sap/customer.functions";
@@ -84,6 +85,7 @@ function TransportationExceptionBillingPage() {
   const getCustCfg = useServerFn(getTransportCustConfig);
   const getPlantCustCfg = useServerFn(getTransportPlantCustConfig);
   const getCustNameCfg = useServerFn(getTransportCustNameConfig);
+  const getCustBasedNameCfg = useServerFn(getTransportCustBasedNameConfig);
   const getSaveCfg = useServerFn(getTransportSaveConfig);
   const getChangeCfg = useServerFn(getTransportChangeConfig);
   const runApi = useServerFn(runSapApi);
@@ -107,6 +109,11 @@ function TransportationExceptionBillingPage() {
   const custNameCfgQuery = useQuery({
     queryKey: ["transport-custname-config"],
     queryFn: () => getCustNameCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+  const custBasedNameCfgQuery = useQuery({
+    queryKey: ["transport-cust-based-name-config"],
+    queryFn: () => getCustBasedNameCfg(),
     staleTime: 10 * 60 * 1000,
   });
 
@@ -191,8 +198,8 @@ function TransportationExceptionBillingPage() {
           <CustomerSelect
             value={String(row.NAME1 ?? "")}
             onChange={(value) => updateRow(row, "NAME1", value)}
-            configId={custNameCfgQuery.data?.configId ?? null}
-            inputs={{ name1: "" }}
+            configId={custBasedNameCfgQuery.data?.configId ?? null}
+            inputs={{ CUST_NAM: String(row.KUNNR ?? "") }}
             codeField="NAME1"
             textField="NAME1"
             placeholder="Select customer name…"
@@ -245,7 +252,7 @@ function TransportationExceptionBillingPage() {
         cell: (row) => displayValue(row, "STATUS"),
       },
     ];
-  }, [custCfgQuery.data?.configId, custNameCfgQuery.data?.configId]);
+  }, [custCfgQuery.data?.configId, custNameCfgQuery.data?.configId, plantCustCfgQuery.data?.configId, custBasedNameCfgQuery.data?.configId]);
 
   function execute() {
     const configId = billingCfgQuery.data?.configId;
