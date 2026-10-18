@@ -16,6 +16,7 @@ import { CustomerSelect } from "@/components/sap/customer-select";
 import {
   getTransportBillingConfig,
   getTransportCustConfig,
+  getTransportPlantCustConfig,
   getTransportCustNameConfig,
   getTransportSaveConfig,
   getTransportChangeConfig,
@@ -81,6 +82,7 @@ function TransportationExceptionBillingPage() {
 
   const getBillingCfg = useServerFn(getTransportBillingConfig);
   const getCustCfg = useServerFn(getTransportCustConfig);
+  const getPlantCustCfg = useServerFn(getTransportPlantCustConfig);
   const getCustNameCfg = useServerFn(getTransportCustNameConfig);
   const getSaveCfg = useServerFn(getTransportSaveConfig);
   const getChangeCfg = useServerFn(getTransportChangeConfig);
@@ -95,6 +97,11 @@ function TransportationExceptionBillingPage() {
   const custCfgQuery = useQuery({
     queryKey: ["transport-cust-config"],
     queryFn: () => getCustCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+  const plantCustCfgQuery = useQuery({
+    queryKey: ["transport-plant-cust-config"],
+    queryFn: () => getPlantCustCfg(),
     staleTime: 10 * 60 * 1000,
   });
   const custNameCfgQuery = useQuery({
@@ -168,8 +175,8 @@ function TransportationExceptionBillingPage() {
           <CustomerSelect
             value={String(row.KUNNR ?? "")}
             onChange={(value) => updateRow(row, "KUNNR", value)}
-            configId={custCfgQuery.data?.configId ?? null}
-            inputs={{ kunnr: "" }}
+            configId={plantCustCfgQuery.data?.configId ?? null}
+            inputs={{ kunnr: [{ plant: String(row.WERKS ?? "") }] }}
             codeField="KUNNR"
             textField="KUNNR"
             placeholder="Select customer…"

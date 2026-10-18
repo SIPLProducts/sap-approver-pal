@@ -41,6 +41,25 @@ export const getTransportCustConfig = createServerFn({ method: "GET" })
   });
 
 /**
+ * Returns the id of the SAP API config named "90%_Plant_Base_Cust_F4".
+ * Used by the row-level Customer F4 in the Transportation results table.
+ */
+export const getTransportPlantCustConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("id, is_active")
+      .ilike("name", "90%_Plant_Base_Cust_F4")
+      .maybeSingle();
+    if (!data || !data.is_active) {
+      return { configId: null as string | null };
+    }
+    return { configId: data.id as string };
+  });
+
+/**
  * Returns the id of the SAP API config named "90%_CUSTNAME_API".
  * Used by the Customer Name F4 on the Transportation (90%) Exception Billing screen.
  */
