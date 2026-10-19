@@ -31,7 +31,7 @@ export function PageHeader({ eyebrow, title, subtitle, meta, actions, className 
       </nav>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">{title}</h1>
+          <h1 className="text-[30px] leading-tight font-bold text-foreground tracking-tight">{title}</h1>
           {subtitle && <p className="text-muted-foreground mt-1">{subtitle}</p>}
           {meta && <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">{meta}</div>}
         </div>
