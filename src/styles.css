@@ -237,12 +237,9 @@
   }
   /* Consistent page rhythm */
   .page-shell {
-    padding: 0.75rem;
+    padding: 0;
   }
-  @media (min-width: 640px) { .page-shell { padding: 1rem; } }
-  @media (min-width: 1024px) { .page-shell { padding: 1.25rem; } }
-  .page-stack > * + * { margin-top: 1rem; }
-  @media (min-width: 640px) { .page-stack > * + * { margin-top: 1.25rem; } }
+  .page-stack > * + * { margin-top: 24px; }
   .card-surface {
     background: var(--card);
     border: 1px solid var(--border);
