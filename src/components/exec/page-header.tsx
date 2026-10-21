@@ -16,7 +16,7 @@ export function PageHeader({ eyebrow, title, subtitle, meta, actions, className 
   const crumbs = eyebrow ? eyebrow.split(" · ").map((s) => s.trim()).filter(Boolean) : [];
   return (
     <header className={cn("mb-[24px] animate-slide-up", className)}>
-      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-[4px] text-[14px] leading-[20px] text-muted-foreground mb-[12px]">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-[4px] text-[14px] leading-[20px] text-muted-foreground mb-[12px]">
         <Link to="/" aria-label="Home" className="hover:text-foreground transition-colors">
           <Home className="size-[16px]" />
         </Link>
