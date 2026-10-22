@@ -258,6 +258,7 @@ export const releaseServiceEntrySheets = createServerFn({ method: "POST" })
           )
           .min(1)
           .max(200),
+        user_id: z.string().trim().max(50).optional().default(""),
       })
       .parse(d),
   )
@@ -324,6 +325,7 @@ export const releaseServiceEntrySheets = createServerFn({ method: "POST" })
         ACTION: "RELEASE",
         ENTRY_SHEET: item.entrySheet,
         RELEASE_CODE: item.releaseCode,
+        USER_ID: data.user_id ?? "",
       };
       const body = useProxy
         ? JSON.stringify({ configId: cfg.id, inputs })
@@ -422,6 +424,7 @@ export const rejectServiceEntrySheets = createServerFn({ method: "POST" })
           )
           .min(1)
           .max(200),
+        user_id: z.string().trim().max(50).optional().default(""),
       })
       .parse(d),
   )
@@ -488,6 +491,7 @@ export const rejectServiceEntrySheets = createServerFn({ method: "POST" })
         ACTION: "UNRELEASE",
         ENTRY_SHEET: item.entrySheet,
         RELEASE_CODE: item.releaseCode,
+        USER_ID: data.user_id ?? "",
       };
       const body = useProxy
         ? JSON.stringify({ configId: cfg.id, inputs })
@@ -586,6 +590,7 @@ export const deleteServiceEntrySheets = createServerFn({ method: "POST" })
           )
           .min(1)
           .max(200),
+        user_id: z.string().trim().max(50).optional().default(""),
       })
       .parse(d),
   )
