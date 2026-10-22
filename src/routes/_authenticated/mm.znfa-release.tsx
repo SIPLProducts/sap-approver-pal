@@ -1002,11 +1002,12 @@ function ZnfaReleasePage() {
   const approveMutation = useMutation({
     mutationFn: (vars: { znfaNum: string; user: string; relCode: string }) =>
       approveFn({ data: { ...vars, reject: false, reason: "" } }),
-    onSuccess: (res) => {
+    onSuccess: (res, vars) => {
+      const nfaRef = vars?.znfaNum?.trim() || res.number || undefined;
       const msg = res.sapMessage ?? res.error;
       if (!res.ok) {
         setDisplayError(msg ?? "SAP rejected the request.");
-        showSapError("ZNFA Release Response", msg ?? "SAP rejected the request.", res.number ?? undefined);
+        showSapError("ZNFA Release Response", msg ?? "SAP rejected the request.", nfaRef);
         return;
       }
       setDisplayError(null);
@@ -1014,7 +1015,7 @@ function ZnfaReleasePage() {
       showSapResponse(
         "ZNFA Release Response",
         msg ? msg : `NFA released${res.number ? ` (${res.number})` : ""}`,
-        res.number ?? undefined,
+        nfaRef,
         true,
       );
       onDocBack();
@@ -1051,11 +1052,12 @@ function ZnfaReleasePage() {
           reason: vars.reason,
         },
       }),
-    onSuccess: (res) => {
+    onSuccess: (res, vars) => {
+      const nfaRef = vars?.znfaNum?.trim() || res.number || undefined;
       const msg = res.sapMessage ?? res.error;
       if (!res.ok) {
         setRejectError(msg ?? "SAP rejected the request.");
-        showSapError("ZNFA Reject Response", msg ?? "SAP rejected the request.", res.number ?? undefined);
+        showSapError("ZNFA Reject Response", msg ?? "SAP rejected the request.", nfaRef);
         return;
       }
       setRejectError(null);
@@ -1066,7 +1068,7 @@ function ZnfaReleasePage() {
       showSapResponse(
         "ZNFA Reject Response",
         msg ? msg : `NFA rejected${res.number ? ` (${res.number})` : ""}`,
-        res.number ?? undefined,
+        nfaRef,
         true,
       );
       onDocBack();
