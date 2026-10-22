@@ -209,14 +209,14 @@ function AuthenticatedLayout() {
     <div className="h-screen overflow-hidden bg-background flex">
       {/* Sidebar */}
       <aside className={`fixed lg:sticky lg:top-0 lg:h-screen z-40 inset-y-0 left-0 ${collapsed ? "w-16" : "w-64"} bg-sidebar text-sidebar-foreground flex flex-col transition-all ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className={`px-4 py-4 flex items-center gap-3 border-b border-sidebar-border ${collapsed ? "justify-center px-2" : ""}`}>
-          <div className="rounded-lg bg-white px-2 py-1.5 shadow-card flex items-center">
-            <BrandLogo className="h-7" />
+        <div className={`px-4 py-4 flex items-center gap-[12px] border-b border-sidebar-border ${collapsed ? "justify-center px-2" : ""}`}>
+          <div className={`${collapsed ? "h-11 w-11" : "h-14 w-14"} shrink-0 rounded-xl bg-white shadow-card flex items-center justify-center p-1.5`}>
+            <BrandLogo className="h-full w-full" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <div className="font-display font-semibold leading-tight text-[13px] tracking-tight">Re Sustainability</div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/55">Executive Approvals</div>
+              <div className="font-display font-bold leading-tight text-[18px] tracking-tight whitespace-nowrap text-sidebar-foreground">RE Sustainability</div>
+              <div className="text-[12px] leading-[18px] mt-[2px] whitespace-nowrap text-sidebar-foreground/65">Executive Approvals</div>
             </div>
           )}
         </div>
