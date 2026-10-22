@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Filter, KeyRound, ListChecks, Loader2, RotateCcw, Search } from "lucide-react";
@@ -243,6 +243,11 @@ function ServiceEntrySheetPage() {
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement | null>(null);
+  const [scrollToken, setScrollToken] = useState(0);
+  useEffect(() => {
+    if (scrollToken === 0) return;
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [scrollToken]);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
   const runRelease = useServerFn(releaseServiceEntrySheets);
   const sapProfile = useSapProfile();
@@ -418,9 +423,7 @@ function ServiceEntrySheetPage() {
         });
       }
       if (!opts?.silent) {
-        requestAnimationFrame(() => {
-          resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
+        setScrollToken((t) => t + 1);
       }
     } catch (e) {
       setRows([]);
