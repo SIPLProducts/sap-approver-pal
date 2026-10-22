@@ -19,6 +19,8 @@ import {
 
 
 
+import { useSapProfile } from "@/hooks/use-sap-profile";
+import { useAuth } from "@/hooks/use-auth";
 import { PageHeader } from "@/components/exec/page-header";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -243,6 +245,13 @@ function ServiceEntrySheetPage() {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const runFetch = useServerFn(fetchServiceEntrySheetPending);
   const runRelease = useServerFn(releaseServiceEntrySheets);
+  const sapProfile = useSapProfile();
+  const { user: authUser } = useAuth();
+  const sapUserId = (
+    sapProfile?.user ||
+    (authUser?.user_metadata as { sap_user_id?: string } | undefined)?.sap_user_id ||
+    ""
+  ).trim();
   const runReject = useServerFn(rejectServiceEntrySheets);
   const runDelete = useServerFn(deleteServiceEntrySheets);
 
@@ -462,9 +471,19 @@ function ServiceEntrySheetPage() {
       return;
     }
 
+    if (!sapUserId) {
+      setMessageDialog({
+        open: true,
+        title: "Release",
+        refLabel: "Entry Sheet",
+        results: [{ ref: "", message: "Could not determine the signed-in SAP user. Please sign in again.", ok: false }],
+      });
+      return;
+    }
+
     setReleasing(true);
     try {
-      const res = await runRelease({ data: { items } });
+      const res = await runRelease({ data: { items, user_id: sapUserId } });
       if (res.error) {
         setMessageDialog({
           open: true,
@@ -536,9 +555,19 @@ function ServiceEntrySheetPage() {
       return;
     }
 
+    if (!sapUserId) {
+      setMessageDialog({
+        open: true,
+        title: "UnRelease",
+        refLabel: "Entry Sheet",
+        results: [{ ref: "", message: "Could not determine the signed-in SAP user. Please sign in again.", ok: false }],
+      });
+      return;
+    }
+
     setRejecting(true);
     try {
-      const res = await runReject({ data: { items } });
+      const res = await runReject({ data: { items, user_id: sapUserId } });
       if (res.error) {
         setMessageDialog({
           open: true,
