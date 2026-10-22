@@ -216,7 +216,7 @@ function AuthenticatedLayout() {
           {!collapsed && (
             <div className="min-w-0">
               <div className="font-display font-semibold leading-tight text-[13px] tracking-tight">Re Sustainability</div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/55">Executive Approvals</div>
+              <div className="whitespace-nowrap text-[10px] uppercase tracking-[0.08em] text-sidebar-foreground/55">Executive Approvals</div>
             </div>
           )}
         </div>
