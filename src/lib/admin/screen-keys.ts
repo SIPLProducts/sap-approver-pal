@@ -113,3 +113,78 @@ export function activityToScreenKey(activity: string): string | null {
 export function screenKeyToActivity(screenKey: string): string {
   return KEY_TO_ACTIVITY.get(screenKey) ?? screenKey.trim().toUpperCase();
 }
+
+// ===== Flexible SAP permission resolution =====
+
+/** Normalise an activity code: upper-case, spaces/hyphens → "_", collapse repeats. */
+export function normalizeActivity(a: string): string {
+  return (a ?? "").trim().toUpperCase().replace(/[\s\-]+/g, "_").replace(/_+/g, "_").replace(/_?\._?/g, ".");
+}
+
+const ACTIVITY_ALIASES: Record<string, string> = {
+  "BMW.DASHBOARD": "sd.dashboard",
+  "BMW.PRICE": "sd.price",
+  "BMW.PRICE_APPROVAL": "sd.price",
+  "BMW.PRICE_APPROVALS": "sd.price",
+  "BMW.CONTRACT": "sd.contract",
+  "BMW.CONTRACT_APPROVAL": "sd.contract",
+  "BMW.CONTRACT_APPROVALS": "sd.contract",
+  "BMW.SC_SO": "sd.sc_so",
+  "BMW.SERVICE_CERTIFICATE": "sd.sc_so",
+  "BMW.SALES_ORDER": "sd.sales_order",
+  "BMW.SALES_ORDER_APPROVAL": "sd.sales_order",
+  "BMW.SO_APPROVAL": "sd.sales_order",
+  "BMW.STATUS_REPORT": "sd.bmw_status",
+  "BMW.BMW_STATUS": "sd.bmw_status",
+  "SD.STATUS_REPORT": "sd.bmw_status",
+  "SD.PRICE_APPROVAL": "sd.price",
+  "SD.CONTRACT_APPROVAL": "sd.contract",
+  "SD.SALES_ORDER_APPROVAL": "sd.sales_order",
+};
+
+const NORM_TO_KEY = new Map<string, string>(
+  ALL_SCREENS.map((s) => [normalizeActivity(s.activity), s.key]),
+);
+
+/** Tolerant activity → screen key (case, spaces, -/_ and known aliases). */
+export function resolveActivityKey(activity: string): string | null {
+  const n = normalizeActivity(activity);
+  if (!n) return null;
+  return NORM_TO_KEY.get(n) ?? ACTIVITY_ALIASES[n] ?? null;
+}
+
+export const SD_SCREEN_KEYS = ["sd.dashboard", "sd.price", "sd.contract", "sd.sc_so", "sd.sales_order", "sd.bmw_status"];
+export const MM_SCREEN_KEYS = SCREEN_GROUPS.find((g) => g.module === "MM Approvals")!.screens.map((s) => s.key);
+export const IMW_SCREEN_KEYS = ["imw.price_master", "imw.price_master_approvals", "imw.transport_exception_billing"];
+const ADMIN_SCREEN_KEYS = [
+  ...SCREEN_GROUPS.filter((g) => ["Admin", "SAP", "Settings"].includes(g.module)).flatMap((g) => g.screens.map((s) => s.key)),
+  "approvals.history",
+];
+
+/** Module inbox key that implicitly grants every screen of that module. */
+export function moduleInboxFor(screenKey: string): string | null {
+  if (screenKey.startsWith("sd.")) return "approvals.inbox.sd";
+  if (screenKey.startsWith("mm.")) return "approvals.inbox.mm";
+  if (screenKey.startsWith("imw.")) return "approvals.inbox.imw";
+  return null;
+}
+
+/** Fallback: infer screens from a SAP role name (used only when activities map to nothing). */
+export function roleNameToScreenKeys(roleName: string): string[] {
+  const r = ` ${(roleName ?? "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim()} `;
+  if (!r.trim()) return [];
+  const out = new Set<string>();
+  if (/\bADMIN\b/.test(r)) ADMIN_SCREEN_KEYS.forEach((k) => out.add(k));
+  if (/\bBMW ALL\b|\bSD ALL\b/.test(r)) SD_SCREEN_KEYS.forEach((k) => out.add(k));
+  if (/\bMM ALL\b/.test(r)) MM_SCREEN_KEYS.forEach((k) => out.add(k));
+  if (/\b(IWM|IMW) ALL\b/.test(r)) IMW_SCREEN_KEYS.forEach((k) => out.add(k));
+  if (/\b(BMW|SD)\b/.test(r)) {
+    if (/\bPRICE\b/.test(r)) out.add("sd.price");
+    if (/\bCONTRACT\b/.test(r)) out.add("sd.contract");
+    if (/\bSERVICE\b|\bSC\b|\bCERT/.test(r)) out.add("sd.sc_so");
+    if (/\bSO\b|\bSALES\b/.test(r)) out.add("sd.sales_order");
+    if (/\bSTATUS\b/.test(r)) out.add("sd.bmw_status");
+    if (/\bDASHBOARD\b/.test(r)) out.add("sd.dashboard");
+  }
+  return [...out];
+}
