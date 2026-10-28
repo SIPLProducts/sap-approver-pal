@@ -148,26 +148,26 @@ function AuthenticatedLayout() {
 
   const can = perms.can;
   const sdChildren = [
-    { to: "/sd/dashboard", label: "BMW Dashboard", icon: BarChart3, screen: "approvals.inbox.sd" },
-    { to: "/sd/price", label: "Price Approvals", icon: Tag, screen: "approvals.inbox.sd" },
-    { to: "/sd/contract", label: "Contract Approvals", icon: FileText, screen: "approvals.inbox.sd" },
-    { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2, screen: "approvals.inbox.sd" },
-    { to: "/sd/sales-order", label: "Sales Order Approvals", icon: ShoppingCart, screen: "approvals.inbox.sd" },
-    { to: "/sd/bmw-status", label: "BMW Status Report", icon: BarChart3, screen: "approvals.inbox.sd" },
+    { to: "/sd/dashboard", label: "BMW Dashboard", icon: BarChart3, screen: "sd.dashboard" },
+    { to: "/sd/price", label: "Price Approvals", icon: Tag, screen: "sd.price" },
+    { to: "/sd/contract", label: "Contract Approvals", icon: FileText, screen: "sd.contract" },
+    { to: "/sd/sc-so", label: "Service Cert & SO", icon: FileCheck2, screen: "sd.sc_so" },
+    { to: "/sd/sales-order", label: "Sales Order Approvals", icon: ShoppingCart, screen: "sd.sales_order" },
+    { to: "/sd/bmw-status", label: "BMW Status Report", icon: BarChart3, screen: "sd.bmw_status" },
   ].filter((it) => can(it.screen));
 
   const mmChildren = [
-    { to: "/mm/dashboard", label: "MM Dashboard", icon: BarChart3, screen: "approvals.inbox.mm" },
-    { to: "/mm/pr-release", label: "PR Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
-    { to: "/mm/po-release", label: "PO Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
-    { to: "/mm/material-reservation", label: "Material Reservation", icon: Package, screen: "approvals.inbox.mm" },
-    { to: "/mm/zmc-report", label: "ZMC Report", icon: FileText, screen: "approvals.inbox.mm" },
-    { to: "/mm/gate-process", label: "TER Rating", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
-    { to: "/mm/gate-pass", label: "Gate Pass", icon: Truck, screen: "approvals.inbox.mm" },
-    { to: "/mm/zgp-report", label: "ZGP Report", icon: FileText, screen: "approvals.inbox.mm" },
-    { to: "/mm/migo-release", label: "MIGO Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
-    { to: "/mm/znfa-release", label: "ZNFA Release", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
-    { to: "/mm/service-entry-sheet", label: "Service Entry Sheet", icon: ClipboardCheck, screen: "approvals.inbox.mm" },
+    { to: "/mm/dashboard", label: "MM Dashboard", icon: BarChart3, screen: "mm.dashboard" },
+    { to: "/mm/pr-release", label: "PR Release", icon: ClipboardCheck, screen: "mm.pr_release" },
+    { to: "/mm/po-release", label: "PO Release", icon: ClipboardCheck, screen: "mm.po_release" },
+    { to: "/mm/material-reservation", label: "Material Reservation", icon: Package, screen: "mm.material_reservation" },
+    { to: "/mm/zmc-report", label: "ZMC Report", icon: FileText, screen: "mm.zmc_report" },
+    { to: "/mm/gate-process", label: "TER Rating", icon: ClipboardCheck, screen: "mm.gate_process" },
+    { to: "/mm/gate-pass", label: "Gate Pass", icon: Truck, screen: "mm.gate_pass" },
+    { to: "/mm/zgp-report", label: "ZGP Report", icon: FileText, screen: "mm.zgp_report" },
+    { to: "/mm/migo-release", label: "MIGO Release", icon: ClipboardCheck, screen: "mm.migo_release" },
+    { to: "/mm/znfa-release", label: "ZNFA Release", icon: ClipboardCheck, screen: "mm.znfa_release" },
+    { to: "/mm/service-entry-sheet", label: "Service Entry Sheet", icon: ClipboardCheck, screen: "mm.service_entry_sheet" },
   ].filter((it) => can(it.screen));
 
   const imwChildren: { to: string; label: React.ReactNode; icon: React.ElementType; screen: string }[] = [
