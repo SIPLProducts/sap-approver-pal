@@ -150,7 +150,12 @@ const NORM_TO_KEY = new Map<string, string>(
 export function resolveActivityKey(activity: string): string | null {
   const n = normalizeActivity(activity);
   if (!n) return null;
-  return NORM_TO_KEY.get(n) ?? ACTIVITY_ALIASES[n] ?? null;
+  const hit = NORM_TO_KEY.get(n) ?? ACTIVITY_ALIASES[n];
+  if (hit) return hit;
+  const flat = n.replace(/\./g, "_");
+  for (const [k, v] of NORM_TO_KEY) if (k.replace(/\./g, "_") === flat) return v;
+  for (const [k, v] of Object.entries(ACTIVITY_ALIASES)) if (k.replace(/\./g, "_") === flat) return v;
+  return null;
 }
 
 export const SD_SCREEN_KEYS = ["sd.dashboard", "sd.price", "sd.contract", "sd.sc_so", "sd.sales_order", "sd.bmw_status"];

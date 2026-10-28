@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { activityToScreenKey, type PermissionAction } from "@/lib/admin/screen-keys";
+import { resolveActivityKey, roleNameToScreenKeys, moduleInboxFor, type PermissionAction } from "@/lib/admin/screen-keys";
 
 export type UsePermissions = {
   loading: boolean;
@@ -19,11 +19,15 @@ export function usePermissions(): UsePermissions {
   const allowedScreens = useMemo(() => {
     const s = new Set<string>();
     for (const a of activeActivities) {
-      const key = activityToScreenKey(a);
+      const key = resolveActivityKey(a);
       if (key) s.add(key);
     }
+    // Fallback: SAP sent a role but no recognisable activities.
+    if (s.size === 0 && activeRole) {
+      for (const k of [...roleNameToScreenKeys(activeRole.value), ...roleNameToScreenKeys(activeRole.label)]) s.add(k);
+    }
     return s;
-  }, [activeActivities]);
+  }, [activeActivities, activeRole]);
 
   // Cosmetic flag only — derived from any ADMIN.* activity granted by the
   // active role. Never use this as a gate; use `can(screen, action)` instead.
@@ -39,7 +43,9 @@ export function usePermissions(): UsePermissions {
   // view/edit/delete activity. If the active role grants the screen, every
   // action on that screen is allowed.
   function can(screen: string, _action: PermissionAction = "view") {
-    return allowedScreens.has(screen);
+    if (allowedScreens.has(screen)) return true;
+    const inbox = moduleInboxFor(screen);
+    return !!inbox && allowedScreens.has(inbox);
   }
 
   return {
