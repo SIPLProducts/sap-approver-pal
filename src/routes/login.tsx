@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
+import { markSessionActive } from "@/lib/auth/session-guard";
 import { supabase } from "@/integrations/supabase/client";
 import { sapLogin } from "@/lib/auth/sap-login.functions";
 import { sapForgot } from "@/lib/auth/sap-forgot.functions";
@@ -72,8 +73,11 @@ function LoginPage() {
   const [forgotBusy, setForgotBusy] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) nav({ to: "/inbox" });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const { hasSessionMarker, forceSignOut } = await import("@/lib/auth/session-guard");
+      if (hasSessionMarker()) nav({ to: "/inbox" });
+      else await forceSignOut();
     });
   }, [nav]);
 
@@ -87,6 +91,7 @@ function LoginPage() {
         if (looksLikeEmail) {
           const { error } = await supabase.auth.signInWithPassword({ email: userId, password });
           if (!error) {
+            markSessionActive();
             toast.success("Welcome");
             nav({ to: "/inbox" });
             return;
@@ -111,6 +116,7 @@ function LoginPage() {
           const { setSapProfile } = await import("@/hooks/use-sap-profile");
           setSapProfile(result.profile);
         }
+        markSessionActive();
         toast.success("Welcome");
         nav({ to: "/inbox" });
       }

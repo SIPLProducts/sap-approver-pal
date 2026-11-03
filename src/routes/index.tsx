@@ -12,7 +12,12 @@ export const Route = createFileRoute("/")({
   beforeLoad: async () => {
     const { redirect } = await import("@tanstack/react-router");
     const { data } = await supabase.auth.getSession();
-    if (data.session) throw redirect({ to: "/inbox" });
+    if (data.session) {
+      const { hasSessionMarker, forceSignOut } = await import("@/lib/auth/session-guard");
+      if (hasSessionMarker()) throw redirect({ to: "/inbox" });
+      await forceSignOut();
+      throw redirect({ to: "/login" });
+    }
     throw redirect({ to: "/login" });
   },
   component: LandingPage,

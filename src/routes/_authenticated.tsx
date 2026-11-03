@@ -17,6 +17,7 @@ import { syncFromSAP } from "@/lib/sap/sap.functions";
 import { fetchBmwStatusReport } from "@/lib/sd/bmw-status-report.functions";
 import { usePermissions } from "@/hooks/use-permissions";
 import { ActiveContextProvider, useActiveContext, type AssignedPlant } from "@/hooks/use-active-context";
+import { forceSignOut, hasSessionMarker, touchActivity, isIdleExpired, readLastActivity, clearSessionMarker, LAST_ACTIVITY_KEY } from "@/lib/auth/session-guard";
 
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthenticatedRoot });
@@ -59,6 +60,39 @@ function AuthenticatedLayout() {
   useEffect(() => { if (mmOpen) setMmExpanded(true); }, [mmOpen]);
 
   useEffect(() => { if (!loading && !user) nav({ to: "/login" }); }, [loading, user, nav]);
+
+  // Session marker check + 30-minute idle timeout (shared across tabs via localStorage).
+  useEffect(() => {
+    if (loading || !user) return;
+    let cancelled = false;
+    const expire = async () => {
+      if (cancelled) return;
+      cancelled = true;
+      await forceSignOut();
+      nav({ to: "/login", replace: true });
+    };
+    if (!hasSessionMarker()) { void expire(); return; }
+    touchActivity();
+    let lastWrite = Date.now();
+    const onActivity = () => {
+      const now = Date.now();
+      if (now - lastWrite >= 5000) { lastWrite = now; touchActivity(); }
+    };
+    const check = () => { if (isIdleExpired(readLastActivity(), Date.now())) void expire(); };
+    const onStorage = (e: StorageEvent) => { if (e.key === LAST_ACTIVITY_KEY) lastWrite = Date.now(); };
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"] as const;
+    events.forEach((ev) => window.addEventListener(ev, onActivity, { passive: true }));
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", check);
+    const id = window.setInterval(check, 30000);
+    return () => {
+      cancelled = true;
+      events.forEach((ev) => window.removeEventListener(ev, onActivity));
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", check);
+      window.clearInterval(id);
+    };
+  }, [loading, user, nav]);
 
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
@@ -139,6 +173,7 @@ function AuthenticatedLayout() {
     setSapProfile(null);
     try { localStorage.removeItem("app.activePlants"); localStorage.removeItem("app.activePlant"); localStorage.removeItem("app.activeRole"); } catch {}
     await supabase.auth.signOut();
+    clearSessionMarker();
     nav({ to: "/login" });
   }
 
