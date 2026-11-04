@@ -153,6 +153,7 @@ function ScSoReportsPage() {
       <PageHeader
         eyebrow="BMW Reports"
         title="Service Certificate & SO Approval Reports"
+        subtitle="Read-only view of pending service certificate and sales order approval records for reporting and export."
         className="mb-0"
         actions={
           <Button variant="outline" size="icon" onClick={() => navigate({ to: "/sd/sc-so" })} aria-label="Back to Service Certificate & SO Approvals">
