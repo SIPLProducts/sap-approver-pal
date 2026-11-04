@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, Filter, RotateCcw } from "lucide-react";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { PageHeader } from "@/components/exec/page-header";
 import type { Database } from "@/integrations/supabase/types";
 
 type DocType = Database["public"]["Enums"]["document_type"];
