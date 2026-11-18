@@ -1,6 +1,6 @@
 # Task roadmap
 
-- [x] Add Financial Year Base Rate screen with IWM Plant F4 and Execute control.
+- [x] Add Transportation (90%) Exception Billing Approvals screen with Plant F4, status options, and Execute control.
 - [x] Add its IWM navigation entry and unique SAP screen permission mapping.
-- [x] Verify permission mapping and inspect the latest preview build status.
-- [blocked] Connect Execute to SAP; waiting for the SAP API name and request contract.
+- [x] Verify the permission test and preview build.
+- [blocked] SAP functionality is intentionally not connected; user requested UI-only.

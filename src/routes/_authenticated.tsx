@@ -211,6 +211,7 @@ function AuthenticatedLayout() {
     { to: "/imw/average-selling-rate", label: "Average Selling Rate", icon: BarChart3, screen: "imw.average_selling_rate" },
     { to: "/imw/financial-year-base-rate", label: "Financial Year Base Rate", icon: BarChart3, screen: "imw.financial_year_base_rate" },
     { to: "/imw/transportation-exception-billing", label: <span className="leading-tight">Transportation (90%)<br />Exception Billing</span>, icon: Tag, screen: "imw.transport_exception_billing" },
+    { to: "/imw/transportation-exception-billing-approvals", label: <span className="leading-tight">Transportation (90%) Exception<br />Billing Approvals</span>, icon: Tag, screen: "imw.transport_exception_billing_approvals" },
   ].filter((it) => can("approvals.inbox.imw") || can(it.screen));
 
   const showMm = mmChildren.length > 0;

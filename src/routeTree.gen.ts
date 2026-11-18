@@ -30,6 +30,7 @@ import { Route as AuthenticatedImwFinancialYearBaseRateRouteImport } from './rou
 import { Route as AuthenticatedImwPriceMasterRouteImport } from './routes/_authenticated/imw.price-master'
 import { Route as AuthenticatedImwPriceMasterApprovalsRouteImport } from './routes/_authenticated/imw.price-master-approvals'
 import { Route as AuthenticatedImwTransportationExceptionBillingRouteImport } from './routes/_authenticated/imw.transportation-exception-billing'
+import { Route as AuthenticatedImwTransportationExceptionBillingApprovalsRouteImport } from './routes/_authenticated/imw.transportation-exception-billing-approvals'
 import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
 import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
 import { Route as AuthenticatedMmDashboardRouteImport } from './routes/_authenticated/mm.dashboard'
@@ -173,6 +174,12 @@ const AuthenticatedImwTransportationExceptionBillingRoute =
   AuthenticatedImwTransportationExceptionBillingRouteImport.update({
     id: '/imw/transportation-exception-billing',
     path: '/imw/transportation-exception-billing',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedImwTransportationExceptionBillingApprovalsRoute =
+  AuthenticatedImwTransportationExceptionBillingApprovalsRouteImport.update({
+    id: '/imw/transportation-exception-billing-approvals',
+    path: '/imw/transportation-exception-billing-approvals',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedInboxIndexRoute = AuthenticatedInboxIndexRouteImport.update({
@@ -358,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
+  '/imw/transportation-exception-billing-approvals': typeof AuthenticatedImwTransportationExceptionBillingApprovalsRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -408,6 +416,7 @@ export interface FileRoutesByTo {
   '/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
+  '/imw/transportation-exception-billing-approvals': typeof AuthenticatedImwTransportationExceptionBillingApprovalsRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -460,6 +469,7 @@ export interface FileRoutesById {
   '/_authenticated/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/_authenticated/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/_authenticated/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
+  '/_authenticated/imw/transportation-exception-billing-approvals': typeof AuthenticatedImwTransportationExceptionBillingApprovalsRoute
   '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/_authenticated/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/_authenticated/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -512,6 +522,7 @@ export interface FileRouteTypes {
     | '/imw/price-master'
     | '/imw/price-master-approvals'
     | '/imw/transportation-exception-billing'
+    | '/imw/transportation-exception-billing-approvals'
     | '/inbox/$module'
     | '/mm/dashboard'
     | '/mm/gate-pass'
@@ -562,6 +573,7 @@ export interface FileRouteTypes {
     | '/imw/price-master'
     | '/imw/price-master-approvals'
     | '/imw/transportation-exception-billing'
+    | '/imw/transportation-exception-billing-approvals'
     | '/inbox/$module'
     | '/mm/dashboard'
     | '/mm/gate-pass'
@@ -613,6 +625,7 @@ export interface FileRouteTypes {
     | '/_authenticated/imw/price-master'
     | '/_authenticated/imw/price-master-approvals'
     | '/_authenticated/imw/transportation-exception-billing'
+    | '/_authenticated/imw/transportation-exception-billing-approvals'
     | '/_authenticated/inbox/$module'
     | '/_authenticated/mm/dashboard'
     | '/_authenticated/mm/gate-pass'
@@ -804,6 +817,13 @@ declare module '@tanstack/react-router' {
       path: '/imw/transportation-exception-billing'
       fullPath: '/imw/transportation-exception-billing'
       preLoaderRoute: typeof AuthenticatedImwTransportationExceptionBillingRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/imw/transportation-exception-billing-approvals': {
+      id: '/_authenticated/imw/transportation-exception-billing-approvals'
+      path: '/imw/transportation-exception-billing-approvals'
+      fullPath: '/imw/transportation-exception-billing-approvals'
+      preLoaderRoute: typeof AuthenticatedImwTransportationExceptionBillingApprovalsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/inbox/': {
@@ -1019,6 +1039,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedImwPriceMasterRoute: typeof AuthenticatedImwPriceMasterRoute
   AuthenticatedImwPriceMasterApprovalsRoute: typeof AuthenticatedImwPriceMasterApprovalsRoute
   AuthenticatedImwTransportationExceptionBillingRoute: typeof AuthenticatedImwTransportationExceptionBillingRoute
+  AuthenticatedImwTransportationExceptionBillingApprovalsRoute: typeof AuthenticatedImwTransportationExceptionBillingApprovalsRoute
   AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
   AuthenticatedMmDashboardRoute: typeof AuthenticatedMmDashboardRoute
   AuthenticatedMmGatePassRoute: typeof AuthenticatedMmGatePassRoute
@@ -1064,6 +1085,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedImwPriceMasterApprovalsRoute,
   AuthenticatedImwTransportationExceptionBillingRoute:
     AuthenticatedImwTransportationExceptionBillingRoute,
+  AuthenticatedImwTransportationExceptionBillingApprovalsRoute:
+    AuthenticatedImwTransportationExceptionBillingApprovalsRoute,
   AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
   AuthenticatedMmDashboardRoute: AuthenticatedMmDashboardRoute,
   AuthenticatedMmGatePassRoute: AuthenticatedMmGatePassRoute,
