@@ -39,4 +39,9 @@ describe("SAP permission mapping", () => {
     expect(screenKeyToActivity("imw.distance_master")).toBe("IMW.DISTANCE_MASTER");
     expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.distance_master");
   });
+  it("maps Vehicle Master to its dedicated IWM permission", () => {
+    expect(resolveActivityKey("IMW.VEHICLE_MASTER")).toBe("imw.vehicle_master");
+    expect(screenKeyToActivity("imw.vehicle_master")).toBe("IMW.VEHICLE_MASTER");
+    expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.vehicle_master");
+  });
 });
