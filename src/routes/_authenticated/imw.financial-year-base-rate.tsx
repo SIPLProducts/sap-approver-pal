@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { BarChart3, Filter } from "lucide-react";
+import { Filter, RotateCcw } from "lucide-react";
 
 import { PageHeader } from "@/components/exec/page-header";
 import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
@@ -75,7 +75,7 @@ function FinancialYearBaseRatePage() {
 
           <div className="flex gap-2">
             <Button size="sm" onClick={execute} disabled={plants.length === 0}>
-              <BarChart3 className="mr-1.5 h-3.5 w-3.5" /> Execute
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Execute
             </Button>
           </div>
         </div>
