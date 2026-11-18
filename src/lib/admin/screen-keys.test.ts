@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveActivityKey, roleNameToScreenKeys } from "./screen-keys";
+import { resolveActivityKey, roleNameToScreenKeys, screenKeyToActivity } from "./screen-keys";
 
 describe("SAP permission mapping", () => {
   it("matches activity codes regardless of case/spaces/dashes", () => {
@@ -18,5 +18,10 @@ describe("SAP permission mapping", () => {
   });
   it("BMW_ALL grants all six BMW screens", () => {
     expect(roleNameToScreenKeys("BMW_ALL")).toHaveLength(6);
+  });
+  it("maps Average Selling Rate to its dedicated IWM screen permission", () => {
+    expect(resolveActivityKey("IMW.AVERAGE_SELLING_RATE")).toBe("imw.average_selling_rate");
+    expect(screenKeyToActivity("imw.average_selling_rate")).toBe("IMW.AVERAGE_SELLING_RATE");
+    expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.average_selling_rate");
   });
 });

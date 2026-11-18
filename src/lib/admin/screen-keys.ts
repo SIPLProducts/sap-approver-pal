@@ -55,6 +55,7 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
       { key: "approvals.inbox.imw", label: "IWM Approvals Inbox", activity: "APPROVALS.INBOX_IMW" },
       { key: "imw.price_master",    label: "Price Master Update", activity: "IMW.PRICE_MASTER" },
       { key: "imw.price_master_approvals", label: "Price Master Update Approvals", activity: "IMW.PRICE_MASTER_APPROVALS" },
+      { key: "imw.average_selling_rate", label: "Average Selling Rate", activity: "IMW.AVERAGE_SELLING_RATE" },
       { key: "imw.transport_exception_billing", label: "Transportation (90%) Exception Billing", activity: "IMW.TRANSPORT_EXCEPTION_BILLING" },
 
     ],
@@ -160,7 +161,7 @@ export function resolveActivityKey(activity: string): string | null {
 
 export const SD_SCREEN_KEYS = ["sd.dashboard", "sd.price", "sd.contract", "sd.sc_so", "sd.sales_order", "sd.bmw_status"];
 export const MM_SCREEN_KEYS = SCREEN_GROUPS.find((g) => g.module === "MM Approvals")!.screens.map((s) => s.key);
-export const IMW_SCREEN_KEYS = ["imw.price_master", "imw.price_master_approvals", "imw.transport_exception_billing"];
+export const IMW_SCREEN_KEYS = ["imw.price_master", "imw.price_master_approvals", "imw.average_selling_rate", "imw.transport_exception_billing"];
 const ADMIN_SCREEN_KEYS = [
   ...SCREEN_GROUPS.filter((g) => ["Admin", "SAP", "Settings"].includes(g.module)).flatMap((g) => g.screens.map((s) => s.key)),
   "approvals.history",

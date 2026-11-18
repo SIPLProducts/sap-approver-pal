@@ -25,6 +25,7 @@ import { Route as AuthenticatedAdminIntegrationsRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminStrategiesRouteImport } from './routes/_authenticated/admin.strategies'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authenticated/approval.$id'
+import { Route as AuthenticatedImwAverageSellingRateRouteImport } from './routes/_authenticated/imw.average-selling-rate'
 import { Route as AuthenticatedImwPriceMasterRouteImport } from './routes/_authenticated/imw.price-master'
 import { Route as AuthenticatedImwPriceMasterApprovalsRouteImport } from './routes/_authenticated/imw.price-master-approvals'
 import { Route as AuthenticatedImwTransportationExceptionBillingRouteImport } from './routes/_authenticated/imw.transportation-exception-billing'
@@ -143,6 +144,12 @@ const AuthenticatedApprovalIdRoute = AuthenticatedApprovalIdRouteImport.update({
   path: '/approval/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedImwAverageSellingRateRoute =
+  AuthenticatedImwAverageSellingRateRouteImport.update({
+    id: '/imw/average-selling-rate',
+    path: '/imw/average-selling-rate',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedImwPriceMasterRoute =
   AuthenticatedImwPriceMasterRouteImport.update({
     id: '/imw/price-master',
@@ -339,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/imw/average-selling-rate': typeof AuthenticatedImwAverageSellingRateRoute
   '/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
@@ -387,6 +395,7 @@ export interface FileRoutesByTo {
   '/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/imw/average-selling-rate': typeof AuthenticatedImwAverageSellingRateRoute
   '/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
@@ -437,6 +446,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/strategies': typeof AuthenticatedAdminStrategiesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/approval/$id': typeof AuthenticatedApprovalIdRoute
+  '/_authenticated/imw/average-selling-rate': typeof AuthenticatedImwAverageSellingRateRoute
   '/_authenticated/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/_authenticated/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/_authenticated/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
@@ -487,6 +497,7 @@ export interface FileRouteTypes {
     | '/admin/strategies'
     | '/admin/users'
     | '/approval/$id'
+    | '/imw/average-selling-rate'
     | '/imw/price-master'
     | '/imw/price-master-approvals'
     | '/imw/transportation-exception-billing'
@@ -535,6 +546,7 @@ export interface FileRouteTypes {
     | '/admin/strategies'
     | '/admin/users'
     | '/approval/$id'
+    | '/imw/average-selling-rate'
     | '/imw/price-master'
     | '/imw/price-master-approvals'
     | '/imw/transportation-exception-billing'
@@ -584,6 +596,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/strategies'
     | '/_authenticated/admin/users'
     | '/_authenticated/approval/$id'
+    | '/_authenticated/imw/average-selling-rate'
     | '/_authenticated/imw/price-master'
     | '/_authenticated/imw/price-master-approvals'
     | '/_authenticated/imw/transportation-exception-billing'
@@ -743,6 +756,13 @@ declare module '@tanstack/react-router' {
       path: '/approval/$id'
       fullPath: '/approval/$id'
       preLoaderRoute: typeof AuthenticatedApprovalIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/imw/average-selling-rate': {
+      id: '/_authenticated/imw/average-selling-rate'
+      path: '/imw/average-selling-rate'
+      fullPath: '/imw/average-selling-rate'
+      preLoaderRoute: typeof AuthenticatedImwAverageSellingRateRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/imw/price-master': {
@@ -974,6 +994,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminStrategiesRoute: typeof AuthenticatedAdminStrategiesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedApprovalIdRoute: typeof AuthenticatedApprovalIdRoute
+  AuthenticatedImwAverageSellingRateRoute: typeof AuthenticatedImwAverageSellingRateRoute
   AuthenticatedImwPriceMasterRoute: typeof AuthenticatedImwPriceMasterRoute
   AuthenticatedImwPriceMasterApprovalsRoute: typeof AuthenticatedImwPriceMasterApprovalsRoute
   AuthenticatedImwTransportationExceptionBillingRoute: typeof AuthenticatedImwTransportationExceptionBillingRoute
@@ -1013,6 +1034,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminStrategiesRoute: AuthenticatedAdminStrategiesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedApprovalIdRoute: AuthenticatedApprovalIdRoute,
+  AuthenticatedImwAverageSellingRateRoute:
+    AuthenticatedImwAverageSellingRateRoute,
   AuthenticatedImwPriceMasterRoute: AuthenticatedImwPriceMasterRoute,
   AuthenticatedImwPriceMasterApprovalsRoute:
     AuthenticatedImwPriceMasterApprovalsRoute,
