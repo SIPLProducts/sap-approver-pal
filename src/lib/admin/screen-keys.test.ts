@@ -34,4 +34,9 @@ describe("SAP permission mapping", () => {
     expect(screenKeyToActivity("imw.transport_exception_billing_approvals")).toBe("IMW.TRANSPORT_EXCEPTION_BILLING_APPROVALS");
     expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.transport_exception_billing_approvals");
   });
+  it("maps Distance Master Screen to its dedicated IWM permission", () => {
+    expect(resolveActivityKey("IMW.DISTANCE_MASTER")).toBe("imw.distance_master");
+    expect(screenKeyToActivity("imw.distance_master")).toBe("IMW.DISTANCE_MASTER");
+    expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.distance_master");
+  });
 });
