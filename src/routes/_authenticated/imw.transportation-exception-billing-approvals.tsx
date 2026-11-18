@@ -72,7 +72,7 @@ function TransportationExceptionBillingApprovalsPage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_1fr_auto]">
+        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_auto]">
           <div className="space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
@@ -80,7 +80,15 @@ function TransportationExceptionBillingApprovalsPage() {
             <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 pb-1.5">
+          <div className="flex gap-2">
+            <Button size="sm" onClick={execute} disabled={plants.length === 0}>
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Execute
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 -mx-4 border-t px-4 pt-3">
+          <div className="flex flex-wrap items-center gap-6">
             <Label className="text-xs text-muted-foreground">
               Status <span className="text-destructive">*</span>
             </Label>
@@ -103,10 +111,6 @@ function TransportationExceptionBillingApprovalsPage() {
               </label>
             </RadioGroup>
           </div>
-
-          <Button size="sm" onClick={execute} disabled={plants.length === 0}>
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Execute
-          </Button>
         </div>
       </Card>
     </div>
