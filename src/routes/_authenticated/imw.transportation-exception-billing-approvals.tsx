@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { createFileRoute } from "@tanstack/react-router";
 import { Filter, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +12,28 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { Checkbox } from "@/components/ui/checkbox";
+import { getTransportApprovalsGetConfig } from "@/lib/sap/customer.functions";
+import { runSapApi } from "@/lib/sap/sap.functions";
+import { extractSapMessage } from "@/lib/mm/sap-message";
+import {
+  CloudscapeApprovalTable,
+  type CloudscapeColumn,
+} from "@/components/aws/cloudscape-approval-table";
+
+type Row = Record<string, unknown> & { __rowKey: string };
+
+const RESPONSE_FIELDS = ["WERKS", "KUNNR", "NAME1", "CHK_VALUE", "REMARK", "APPROV_BY", "UPDATE_BY", "STATUS"];
+
+function extractRows(payload: unknown): Record<string, unknown>[] {
+  const isObj = (r: unknown): r is Record<string, unknown> => !!r && typeof r === "object";
+  if (Array.isArray(payload)) return payload.filter(isObj);
+  if (!isObj(payload)) return [];
+  for (const value of Object.values(payload)) {
+    if (Array.isArray(value)) return value.filter(isObj);
+  }
+  return [];
+}
 
 type Status = "pending" | "completed" | "rejected";
 
@@ -41,12 +65,86 @@ function TransportationExceptionBillingApprovalsPage() {
   const [plants, setPlants] = useState<string[]>(activePlants);
   const [status, setStatus] = useState<Status>("pending");
 
+  const [executed, setExecuted] = useState(false);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
+  const getCfg = useServerFn(getTransportApprovalsGetConfig);
+  const runApi = useServerFn(runSapApi);
+
+  const fetchMutation = useMutation({
+    mutationFn: async (input: { plants: string[]; status: Status }) => {
+      const cfg = await getCfg();
+      if (!cfg.configId) throw new Error("SAP API config 90%_Approvals_Get_Data is not configured or active.");
+      return runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            get_data: {
+              user_name: cfg.userName,
+              plant: input.plants.map((plant) => ({ plant })),
+              R_pen: input.status === "pending" ? "X" : " ",
+              R_APPR: input.status === "completed" ? "X" : " ",
+              R_REJ: input.status === "rejected" ? "X" : " ",
+            },
+          },
+        },
+      });
+    },
+    onSuccess: (response: any) => {
+      setSelectedKeys(new Set());
+      if (response?.ok === false) {
+        setRows([]);
+        toast.error(response.error || extractSapMessage(response) || "Could not load records.");
+        return;
+      }
+      const fetched = extractRows(response?.data ?? response)
+        .filter((r) => r.WERKS !== undefined || r.KUNNR !== undefined)
+        .map((row, index) => ({ ...row, __rowKey: String(index) }));
+      setRows(fetched);
+      if (fetched.length === 0) {
+        const msg = extractSapMessage(response);
+        toast.info(msg || "No records returned for the selected plant.");
+      }
+    },
+    onError: (error) => {
+      setRows([]);
+      setSelectedKeys(new Set());
+      toast.error(error instanceof Error ? error.message : "Could not load records.");
+    },
+  });
+
+  const columns = useMemo<CloudscapeColumn<Row>[]>(
+    () =>
+      RESPONSE_FIELDS.map((field) => ({
+        id: field,
+        header: field,
+        minWidth: field === "NAME1" || field === "REMARK" ? 200 : 120,
+        cell: (row: Row) => {
+          if (field === "CHK_VALUE") {
+            return (
+              <Checkbox
+                aria-label={`CHK_VALUE row ${row.__rowKey}`}
+                checked={String(row.CHK_VALUE ?? "").trim().toUpperCase() === "X"}
+                disabled
+              />
+            );
+          }
+          const v = row[field];
+          return v === null || v === undefined || String(v).trim() === "" ? "—" : String(v);
+        },
+      })),
+    [],
+  );
+
   function execute() {
     if (plants.length === 0) {
       toast.error("Select at least one plant");
       return;
     }
-    toast.info("This screen is UI-only; SAP execution is not connected.");
+    setExecuted(true);
+    setRows([]);
+    setSelectedKeys(new Set());
+    fetchMutation.mutate({ plants, status });
   }
 
   useEffect(() => {
@@ -81,7 +179,7 @@ function TransportationExceptionBillingApprovalsPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button size="sm" onClick={execute} disabled={plants.length === 0}>
+            <Button size="sm" onClick={execute} disabled={plants.length === 0 || fetchMutation.isPending}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Execute
             </Button>
           </div>
@@ -113,6 +211,21 @@ function TransportationExceptionBillingApprovalsPage() {
           </div>
         </div>
       </Card>
+
+      {executed && (
+        <CloudscapeApprovalTable
+          title="Transportation (90%) Exception Billing Approvals"
+          countLabel={fetchMutation.isPending ? "Loading…" : `(${rows.length})`}
+          rows={rows}
+          loading={fetchMutation.isPending}
+          rowKey={(row) => row.__rowKey}
+          showSelect
+          selectedKeys={selectedKeys}
+          onSelectionChange={setSelectedKeys}
+          emptyMessage="No records"
+          columns={columns}
+        />
+      )}
     </div>
   );
 }
