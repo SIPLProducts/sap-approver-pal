@@ -254,6 +254,11 @@ function TransportationExceptionBillingPage() {
     ];
   }, [custCfgQuery.data?.configId, custNameCfgQuery.data?.configId, plantCustCfgQuery.data?.configId, custBasedNameCfgQuery.data?.configId]);
 
+  const visibleColumns = useMemo(
+    () => newRecord ? columns.filter((column) => !["APPROV_BY", "UPDATE_BY", "STATUS"].includes(column.id)) : columns,
+    [columns, newRecord],
+  );
+
   function execute() {
     const configId = billingCfgQuery.data?.configId;
     if (!configId) {
@@ -428,7 +433,7 @@ function TransportationExceptionBillingPage() {
             </>
           }
           emptyMessage="No exception billing records were returned."
-          columns={columns}
+          columns={visibleColumns}
         />
       )}
     </div>
