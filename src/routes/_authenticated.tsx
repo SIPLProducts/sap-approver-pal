@@ -246,7 +246,7 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <div className={`h-screen overflow-hidden bg-background flex ${pathname.startsWith("/imw/transportation-exception-billing-approvals") ? "theme-exec" : ""}`}>
+    <div className="h-screen overflow-hidden bg-background flex">
       {/* Sidebar */}
       <aside className={`fixed lg:sticky lg:top-0 lg:h-screen z-40 inset-y-0 left-0 ${collapsed ? "w-16" : "w-64"} bg-sidebar text-sidebar-foreground flex flex-col transition-all ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className={`px-4 py-4 flex items-center gap-3 border-b border-sidebar-border ${collapsed ? "justify-center px-2" : ""}`}>
