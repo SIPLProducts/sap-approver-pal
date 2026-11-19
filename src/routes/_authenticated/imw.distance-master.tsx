@@ -13,7 +13,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 export const Route = createFileRoute("/_authenticated/imw/distance-master")({
   head: () => ({
     meta: [
-      { title: "Distance Master Screen — IWM Approvals" },
+      { title: "Distance Master— IWM Approvals" },
       {
         name: "description",
         content: "View distance master information for a selected IWM plant.",
@@ -60,7 +60,7 @@ function DistanceMasterPage() {
     <div className="page-shell page-stack">
       <PageHeader
         eyebrow="IWM Approvals"
-        title="Distance Master Screen"
+        title="Distance Master"
         subtitle="View distance master information for the selected plant."
       />
 
