@@ -13,8 +13,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getTransportApprovalsApproveConfig, getTransportApprovalsGetConfig } from "@/lib/sap/customer.functions";
-import { swalSapResponse } from "@/lib/mm/swal";
+import { getTransportApprovalsApproveConfig, getTransportApprovalsGetConfig, getTransportApprovalsRejectConfig } from "@/lib/sap/customer.functions";
+import { swalConfirm, swalSapResponse } from "@/lib/mm/swal";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractSapMessage } from "@/lib/mm/sap-message";
 import {
@@ -84,6 +84,7 @@ function TransportationExceptionBillingApprovalsPage() {
   const getCfg = useServerFn(getTransportApprovalsGetConfig);
   const runApi = useServerFn(runSapApi);
   const getApproveCfg = useServerFn(getTransportApprovalsApproveConfig);
+  const getRejectCfg = useServerFn(getTransportApprovalsRejectConfig);
 
   const fetchMutation = useMutation({
     mutationFn: async (input: { plants: string[]; status: Status }) => {
@@ -224,12 +225,73 @@ function TransportationExceptionBillingApprovalsPage() {
     approveMutation.mutate(picked);
   }
 
-  function onApproveReject() {
-    if (selectedKeys.size === 0) {
+  const rejectMutation = useMutation({
+    mutationFn: async (picked: Row[]) => {
+      const cfg = await getRejectCfg();
+      if (!cfg.configId) throw new Error("SAP API 90%_Reject_API is not configured or active.");
+      const results: { key: string; message: string; ok: boolean }[] = [];
+      for (const row of picked) {
+        try {
+          const response = await runApi({
+            data: {
+              configId: cfg.configId,
+              inputs: {
+                reject: {
+                  MANDT: row.MANDT ?? "",
+                  WERKS: row.WERKS ?? "",
+                  KUNNR: row.KUNNR ?? "",
+                  NAME1: row.NAME1 ?? "",
+                  CHK_VALUE: row.CHK_VALUE ?? "",
+                  REMARK: row.REMARK ?? "",
+                  APPROV_BY: cfg.userName,
+                  UPDATE_BY: cfg.userName,
+                  STATUS: row.STATUS ?? "",
+                },
+              },
+            },
+          });
+          const r = pickSapMessage(response);
+          results.push({ key: row.__rowKey, message: r.message === "Approval failed" ? "Rejection failed" : r.message, ok: r.ok });
+        } catch (e) {
+          results.push({ key: row.__rowKey, message: e instanceof Error ? e.message : "Rejection failed", ok: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      const done = new Set(results.filter((r) => r.ok).map((r) => r.key));
+      if (done.size > 0) {
+        setRows((prev) => prev.filter((r) => !done.has(r.__rowKey)));
+        setSelectedKeys((prev) => new Set([...prev].filter((k) => !done.has(k))));
+      }
+      await swalSapResponse({
+        title: "Reject Response",
+        refLabel: "Message",
+        results: results.map((r) => ({ ref: "", message: r.message, ok: r.ok })),
+      });
+    },
+    onError: async (e: Error) => {
+      await swalSapResponse({
+        title: "Reject Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Rejection failed", ok: false }],
+      });
+    },
+  });
+
+  async function onReject() {
+    const picked = rows.filter((r) => selectedKeys.has(r.__rowKey));
+    if (picked.length === 0) {
       toast.error("Select at least one record");
       return;
     }
-    toast.info("Approve/Reject will be connected once the SAP API is set up.");
+    const ok = await swalConfirm({
+      title: "Reject selected records?",
+      text: `${picked.length} record(s) will be rejected.`,
+      confirmLabel: "Reject",
+    });
+    if (!ok) return;
+    rejectMutation.mutate(picked);
   }
 
   function execute() {
@@ -347,10 +409,10 @@ function TransportationExceptionBillingApprovalsPage() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  disabled={selectedKeys.size === 0}
-                  onClick={onApproveReject}
+                  disabled={selectedKeys.size === 0 || rejectMutation.isPending}
+                  onClick={onReject}
                 >
-                  Reject
+                  {rejectMutation.isPending ? "Rejecting…" : "Reject"}
                 </Button>
               </div>
             ) : undefined
