@@ -178,6 +178,16 @@ function TransportationExceptionBillingApprovalsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlants.join(",")]);
 
+  function reset() {
+    setPlants([]);
+    setStatus("pending");
+    setRows([]);
+    setSelectedKeys(new Set());
+    setExecuted(false);
+    setExecutedStatus(null);
+    fetchMutation.reset();
+  }
+
   return (
     <div className="page-shell page-stack">
       <PageHeader
@@ -191,7 +201,7 @@ function TransportationExceptionBillingApprovalsPage() {
           <Filter className="h-3.5 w-3.5" /> SELECTION SCREEN
         </div>
 
-        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_auto]">
+        <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[220px_1fr]">
           <div className="space-y-1.5">
             <Label className="text-xs">
               Plant <span className="text-destructive">*</span>
@@ -199,9 +209,12 @@ function TransportationExceptionBillingApprovalsPage() {
             <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex justify-self-end gap-2">
             <Button size="sm" onClick={execute} disabled={plants.length === 0 || fetchMutation.isPending}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Execute
+            </Button>
+            <Button variant="ghost" size="sm" onClick={reset} disabled={fetchMutation.isPending}>
+              Reset
             </Button>
           </div>
         </div>

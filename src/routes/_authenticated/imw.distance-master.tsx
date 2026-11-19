@@ -52,6 +52,10 @@ function DistanceMasterPage() {
     toast.info("SAP connection will be enabled after the API details are provided.");
   }
 
+  function reset() {
+    setPlants([]);
+  }
+
   return (
     <div className="page-shell page-stack">
       <PageHeader
@@ -73,9 +77,12 @@ function DistanceMasterPage() {
             <PlantMultiSelect value={plants} onChange={setPlants} source="iwm-plant" />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex justify-self-end gap-2">
             <Button size="sm" onClick={execute} disabled={plants.length === 0}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Execute
+            </Button>
+            <Button variant="ghost" size="sm" onClick={reset}>
+              Reset
             </Button>
           </div>
         </div>
