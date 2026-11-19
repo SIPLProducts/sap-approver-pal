@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getTransportApprovalsGetConfig } from "@/lib/sap/customer.functions";
+import { getTransportApprovalsApproveConfig, getTransportApprovalsGetConfig } from "@/lib/sap/customer.functions";
+import { swalSapResponse } from "@/lib/mm/swal";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractSapMessage } from "@/lib/mm/sap-message";
 import {
@@ -82,6 +83,7 @@ function TransportationExceptionBillingApprovalsPage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const getCfg = useServerFn(getTransportApprovalsGetConfig);
   const runApi = useServerFn(runSapApi);
+  const getApproveCfg = useServerFn(getTransportApprovalsApproveConfig);
 
   const fetchMutation = useMutation({
     mutationFn: async (input: { plants: string[]; status: Status }) => {
@@ -147,6 +149,80 @@ function TransportationExceptionBillingApprovalsPage() {
       })),
     [],
   );
+
+  function pickSapMessage(response: any): { message: string; ok: boolean } {
+    const data = response?.data ?? response;
+    const list = Array.isArray(data) ? data : data ? [data] : [];
+    const entry = list.find((x: any) => x && typeof x === "object" && ("MESSAGE" in x || "message" in x));
+    const message = String(entry?.MESSAGE ?? entry?.message ?? "").trim();
+    const type = String(entry?.TYPE ?? entry?.type ?? "").trim().toUpperCase();
+    if (response?.ok === false) {
+      return { message: message || response.error || extractSapMessage(response) || "Approval failed", ok: false };
+    }
+    return { message: message || extractSapMessage(response) || "-", ok: type ? type === "S" : true };
+  }
+
+  const approveMutation = useMutation({
+    mutationFn: async (picked: Row[]) => {
+      const cfg = await getApproveCfg();
+      if (!cfg.configId) throw new Error("SAP API 90%_Approvals_API is not configured or active.");
+      const results: { key: string; message: string; ok: boolean }[] = [];
+      for (const row of picked) {
+        try {
+          const response = await runApi({
+            data: {
+              configId: cfg.configId,
+              inputs: {
+                approve: {
+                  MANDT: row.MANDT ?? "",
+                  WERKS: row.WERKS ?? "",
+                  KUNNR: row.KUNNR ?? "",
+                  NAME1: row.NAME1 ?? "",
+                  CHK_VALUE: row.CHK_VALUE ?? "",
+                  REMARK: row.REMARK ?? "",
+                  APPROV_BY: cfg.userName,
+                  UPDATE_BY: cfg.userName,
+                  STATUS: row.STATUS ?? "",
+                },
+              },
+            },
+          });
+          results.push({ key: row.__rowKey, ...pickSapMessage(response) });
+        } catch (e) {
+          results.push({ key: row.__rowKey, message: e instanceof Error ? e.message : "Approval failed", ok: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      const done = new Set(results.filter((r) => r.ok).map((r) => r.key));
+      if (done.size > 0) {
+        setRows((prev) => prev.filter((r) => !done.has(r.__rowKey)));
+        setSelectedKeys((prev) => new Set([...prev].filter((k) => !done.has(k))));
+      }
+      await swalSapResponse({
+        title: "Approve Response",
+        refLabel: "Message",
+        results: results.map((r) => ({ ref: "", message: r.message, ok: r.ok })),
+      });
+    },
+    onError: async (e: Error) => {
+      await swalSapResponse({
+        title: "Approve Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Approval failed", ok: false }],
+      });
+    },
+  });
+
+  function onApprove() {
+    const picked = rows.filter((r) => selectedKeys.has(r.__rowKey));
+    if (picked.length === 0) {
+      toast.error("Select at least one record");
+      return;
+    }
+    approveMutation.mutate(picked);
+  }
 
   function onApproveReject() {
     if (selectedKeys.size === 0) {
@@ -262,11 +338,11 @@ function TransportationExceptionBillingApprovalsPage() {
               <div className="flex gap-2">
                 <Button
                   size="sm"
-                  disabled={selectedKeys.size === 0}
+                  disabled={selectedKeys.size === 0 || approveMutation.isPending}
                   className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                  onClick={onApproveReject}
+                  onClick={onApprove}
                 >
-                  Approve
+                  {approveMutation.isPending ? "Approving…" : "Approve"}
                 </Button>
                 <Button
                   size="sm"
