@@ -25,6 +25,17 @@ type Row = Record<string, unknown> & { __rowKey: string };
 
 const RESPONSE_FIELDS = ["WERKS", "KUNNR", "NAME1", "CHK_VALUE", "REMARK", "APPROV_BY", "UPDATE_BY", "STATUS"];
 
+const HEADER_LABELS: Record<string, string> = {
+  WERKS: "Plant",
+  KUNNR: "Customer",
+  NAME1: "Customer Name",
+  CHK_VALUE: "Check Value",
+  REMARK: "Remarks",
+  APPROV_BY: "Approved By",
+  UPDATE_BY: "Update By",
+  STATUS: "Status",
+};
+
 function extractRows(payload: unknown): Record<string, unknown>[] {
   const isObj = (r: unknown): r is Record<string, unknown> => !!r && typeof r === "object";
   if (Array.isArray(payload)) return payload.filter(isObj);
@@ -66,6 +77,7 @@ function TransportationExceptionBillingApprovalsPage() {
   const [status, setStatus] = useState<Status>("pending");
 
   const [executed, setExecuted] = useState(false);
+  const [executedStatus, setExecutedStatus] = useState<Status | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const getCfg = useServerFn(getTransportApprovalsGetConfig);
@@ -117,7 +129,7 @@ function TransportationExceptionBillingApprovalsPage() {
     () =>
       RESPONSE_FIELDS.map((field) => ({
         id: field,
-        header: field,
+        header: HEADER_LABELS[field] ?? field,
         minWidth: field === "NAME1" || field === "REMARK" ? 200 : 120,
         cell: (row: Row) => {
           if (field === "CHK_VALUE") {
@@ -136,12 +148,21 @@ function TransportationExceptionBillingApprovalsPage() {
     [],
   );
 
+  function onApproveReject() {
+    if (selectedKeys.size === 0) {
+      toast.error("Select at least one record");
+      return;
+    }
+    toast.info("Approve/Reject will be connected once the SAP API is set up.");
+  }
+
   function execute() {
     if (plants.length === 0) {
       toast.error("Select at least one plant");
       return;
     }
     setExecuted(true);
+    setExecutedStatus(status);
     setRows([]);
     setSelectedKeys(new Set());
     fetchMutation.mutate({ plants, status });
@@ -223,6 +244,28 @@ function TransportationExceptionBillingApprovalsPage() {
           selectedKeys={selectedKeys}
           onSelectionChange={setSelectedKeys}
           emptyMessage="No records"
+          headerExtras={
+            executedStatus === "pending" && rows.length > 0 ? (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={selectedKeys.size === 0}
+                  className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                  onClick={onApproveReject}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={selectedKeys.size === 0}
+                  onClick={onApproveReject}
+                >
+                  Reject
+                </Button>
+              </div>
+            ) : undefined
+          }
           columns={columns}
         />
       )}
