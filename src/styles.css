@@ -605,3 +605,51 @@ td.tabular-nums {
 @media (prefers-reduced-motion: reduce) {
   .animate-slide-up { animation: none; }
 }
+
+/* Executive design preview (scoped). Promote to :root for global rollout. */
+.theme-exec {
+  --background: #F4F5F8;
+  --card: #FFFFFF;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --primary: #D01F25;
+  --primary-foreground: #FFFFFF;
+  --primary-glow: #E5484D;
+  --primary-deep: #A3171C;
+  --ring: #D01F25;
+  --accent: #FDECEC;
+  --accent-foreground: #A3171C;
+  --destructive: #C8323A;
+  --success: #15935F;
+  --warning: #D9930D;
+  --warning-foreground: #7A4E05;
+  --sidebar: #16181D;
+  --sidebar-foreground: #E6E7EA;
+  --sidebar-primary: #D01F25;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #23262D;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #2A2D34;
+  --sidebar-ring: #D01F25;
+  --table-header-bg: #F8F9FB;
+  --table-header-text: #374151;
+  --table-header-border: #E5E7EB;
+  --table-row-hover: #FDF4F4;
+}
+.dark .theme-exec, .dark.theme-exec {
+  --background: #0F1115;
+  --card: #16181D;
+  --border: #2A2D34;
+  --input: #2A2D34;
+  --primary: #E5484D;
+  --ring: #E5484D;
+  --accent: #2A1517;
+  --accent-foreground: #F5B5B7;
+  --warning-foreground: #F3C46B;
+  --table-header-bg: #1B1E24;
+  --table-header-text: #D1D5DB;
+  --table-header-border: #2A2D34;
+  --table-row-hover: #1F2228;
+}
+.theme-exec [data-slot="card"], .theme-exec .bg-card { box-shadow: 0 1px 2px rgb(16 24 40 / 0.04); }
+.theme-exec header { background-color: var(--card); }

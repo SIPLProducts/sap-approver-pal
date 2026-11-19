@@ -145,6 +145,10 @@ function TransportationExceptionBillingApprovalsPage() {
             );
           }
           const v = row[field];
+          if (field === "STATUS") return <StatusBadge value={v} />;
+          if (field === "WERKS" || field === "KUNNR") {
+            return <span className="tabular-nums">{v === null || v === undefined || String(v).trim() === "" ? "—" : String(v)}</span>;
+          }
           return v === null || v === undefined || String(v).trim() === "" ? "—" : String(v);
         },
       })),
@@ -401,7 +405,7 @@ function TransportationExceptionBillingApprovalsPage() {
                 <Button
                   size="sm"
                   disabled={selectedKeys.size === 0 || approveMutation.isPending}
-                  className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                  className="bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50"
                   onClick={onApprove}
                 >
                   {approveMutation.isPending ? "Approving…" : "Approve"}
@@ -421,5 +425,22 @@ function TransportationExceptionBillingApprovalsPage() {
         />
       )}
     </div>
+  );
+}
+function StatusBadge({ value }: { value: unknown }) {
+  const text = value === null || value === undefined || String(value).trim() === "" ? "" : String(value);
+  if (!text) return <>—</>;
+  const t = text.toLowerCase();
+  const tone = /reject/.test(t)
+    ? "bg-destructive/10 text-destructive ring-destructive/20"
+    : /approv|complet/.test(t)
+      ? "bg-success/10 text-success ring-success/20"
+      : /pend|process|review/.test(t)
+        ? "bg-warning/15 text-warning-foreground ring-warning/30"
+        : "bg-muted text-muted-foreground ring-border";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ring-inset ${tone}`}>
+      {text}
+    </span>
   );
 }
