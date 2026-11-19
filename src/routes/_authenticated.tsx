@@ -209,10 +209,10 @@ function AuthenticatedLayout() {
     { to: "/imw/price-master", label: "Price Master Update", icon: Tag, screen: "imw.price_master" },
     { to: "/imw/price-master-approvals", label: <span className="leading-tight">Price Master Update<br />Approvals</span>, icon: Tag, screen: "imw.price_master_approvals" },
     { to: "/imw/average-selling-rate", label: "Average Selling Rate", icon: BarChart3, screen: "imw.average_selling_rate" },
-    { to: "/imw/financial-year-base-rate", label: "Financial Year Base Rate", icon: BarChart3, screen: "imw.financial_year_base_rate" },
+    { to: "/imw/financial-year-base-rate", label: <span className="leading-tight">Financial Year<br />Base Rate</span>, icon: BarChart3, screen: "imw.financial_year_base_rate" },
     { to: "/imw/transportation-exception-billing", label: <span className="leading-tight">Transportation (90%)<br />Exception Billing</span>, icon: Tag, screen: "imw.transport_exception_billing" },
     { to: "/imw/transportation-exception-billing-approvals", label: <span className="leading-tight">Transportation (90%) Exception<br />Billing Approvals</span>, icon: Tag, screen: "imw.transport_exception_billing_approvals" },
-    { to: "/imw/distance-master", label: "Distance Master Screen", icon: Factory, screen: "imw.distance_master" },
+    { to: "/imw/distance-master", label: "Distance Master", icon: Factory, screen: "imw.distance_master" },
     { to: "/imw/vehicle-master", label: "Vehicle Master", icon: Factory, screen: "imw.vehicle_master" },
   ].filter((it) => can("approvals.inbox.imw") || can(it.screen));
 
