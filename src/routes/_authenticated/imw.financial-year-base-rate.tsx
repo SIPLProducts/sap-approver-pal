@@ -18,6 +18,7 @@ import {
   getFinanceSaveConfig,
   getFinanceCreateConfig,
   getFinanceChangeConfig,
+  getFinanceDeleteConfig,
   getTransportPlantCustConfig,
   getTransportCustBasedNameConfig,
 } from "@/lib/sap/customer.functions";
@@ -91,6 +92,8 @@ function FinancialYearBaseRatePage() {
   const [saving, setSaving] = useState(false);
   const getChangeCfg = useServerFn(getFinanceChangeConfig);
   const [changing, setChanging] = useState(false);
+  const getDeleteCfg = useServerFn(getFinanceDeleteConfig);
+  const [deleting, setDeleting] = useState(false);
 
   const financeCfgQuery = useQuery({
     queryKey: ["finance-save-config"],
@@ -352,8 +355,48 @@ function FinancialYearBaseRatePage() {
       setSaving(false);
     }
   }
-  function remove() {
-    toast.info("Delete will be connected once the SAP API details are provided.");
+  async function remove() {
+    if (selectedRowKeys.size === 0 || deleting) return;
+    setDeleting(true);
+    try {
+      const cfg = await getDeleteCfg();
+      if (!cfg.configId) {
+        await swalSapResponse({
+          results: [{ ref: "", message: "Finace_Delete_API is not configured or active.", ok: false }],
+        });
+        return;
+      }
+      const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      const selected = rows.filter((r) => selectedRowKeys.has(r.__finRowKey));
+      const response: any = await runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            user_name: cfg.userName,
+            delete: selected.map((r) => ({
+              MANDT: str(r.MANDT),
+              WERKS: str(r.WERKS),
+              KUNNR: str(r.KUNNR),
+              MATERIAL: str(r.MATERIAL),
+              NAME1: str(r.NAME1),
+              FIN_RATE: str(r.FIN_RATE),
+              UPDATED_BY: str(r.UPDATED_BY),
+              UPDATED_ON: str(r.UPDATED_ON),
+              APPROV_BY: str(r.APPROV_BY),
+              STATUS: str(r.STATUS),
+            })),
+          },
+        },
+      });
+      const allOk = await showSapResult(response, "Deleted");
+      if (allOk) execute();
+    } catch (error) {
+      await swalSapResponse({
+        results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
+      });
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function reset() {
@@ -428,8 +471,8 @@ function FinancialYearBaseRatePage() {
                 <Button size="sm" variant="success" onClick={change} disabled={selectedRowKeys.size === 0 || changing}>
                   {changing ? "Changing…" : "Change"}
                 </Button>
-                <Button size="sm" variant="destructive" onClick={remove} disabled={selectedRowKeys.size === 0}>
-                  Delete
+                <Button size="sm" variant="destructive" onClick={remove} disabled={selectedRowKeys.size === 0 || deleting}>
+                  {deleting ? "Deleting…" : "Delete"}
                 </Button>
               </>
             )
