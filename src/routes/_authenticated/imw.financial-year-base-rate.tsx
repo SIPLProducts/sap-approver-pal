@@ -15,10 +15,13 @@ import { CustomerSelect } from "@/components/sap/customer-select";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   getFinanceSaveConfig,
+  getFinanceCreateConfig,
   getTransportPlantCustConfig,
   getTransportCustBasedNameConfig,
 } from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
+import { swalSapResponse } from "@/lib/mm/swal";
+import { extractSapMessage } from "@/lib/mm/sap-message";
 import {
   CloudscapeApprovalTable,
   type CloudscapeColumn,
@@ -81,7 +84,9 @@ function FinancialYearBaseRatePage() {
   const getFinanceCfg = useServerFn(getFinanceSaveConfig);
   const getPlantCustCfg = useServerFn(getTransportPlantCustConfig);
   const getCustBasedNameCfg = useServerFn(getTransportCustBasedNameConfig);
+  const getCreateCfg = useServerFn(getFinanceCreateConfig);
   const runApi = useServerFn(runSapApi);
+  const [saving, setSaving] = useState(false);
 
   const financeCfgQuery = useQuery({
     queryKey: ["finance-save-config"],
@@ -221,8 +226,64 @@ function FinancialYearBaseRatePage() {
     });
   }
 
-  function save() {
-    toast.info("Save will be connected once the SAP API details are provided.");
+  async function save() {
+    if (selectedRowKeys.size === 0 || saving) return;
+    setSaving(true);
+    try {
+      const cfg = await getCreateCfg();
+      if (!cfg.configId) {
+        await swalSapResponse({
+          results: [{ ref: "", message: "Finace_create_API is not configured or active.", ok: false }],
+        });
+        return;
+      }
+      const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      const selected = rows.filter((r) => selectedRowKeys.has(r.__finRowKey));
+      const response: any = await runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            SAVE: selected.map((r) => ({
+              user_name: cfg.userName,
+              WERKS: str(r.WERKS),
+              KUNNR: str(r.KUNNR),
+              NAME1: str(r.NAME1),
+              material: str(r.MATERIAL),
+              FIN_RATE: str(r.FIN_RATE),
+            })),
+          },
+        },
+      });
+      const payload = response?.data ?? response;
+      const list: any[] = Array.isArray(payload)
+        ? payload
+        : payload && typeof payload === "object"
+          ? Array.isArray(payload.DATA)
+            ? payload.DATA
+            : [payload]
+          : [];
+      const results = list
+        .filter((x) => x && typeof x === "object" && (x.MESSAGE !== undefined || x.TYPE !== undefined))
+        .map((x) => ({ ref: "", message: str(x.MESSAGE), ok: str(x.TYPE).trim().toUpperCase() === "S" }));
+      if (results.length === 0) {
+        const msg =
+          (response?.ok === false && response?.error) || extractSapMessage(response) || "No response returned by SAP.";
+        results.push({ ref: "", message: String(msg), ok: false });
+      }
+      const allOk = response?.ok !== false && results.every((r) => r.ok);
+      await swalSapResponse({
+        title: allOk ? "Saved" : "SAP Response",
+        results: results.length === 1 ? results : results.map((r, i) => ({ ...r, ref: String(i + 1) })),
+        refLabel: "#",
+      });
+      if (allOk) execute();
+    } catch (error) {
+      await swalSapResponse({
+        results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
+      });
+    } finally {
+      setSaving(false);
+    }
   }
   function change() {
     toast.info("Change will be connected once the SAP API details are provided.");
@@ -295,8 +356,8 @@ function FinancialYearBaseRatePage() {
           onSelectionChange={setSelectedRowKeys}
           headerExtras={
             executedCheck === "X" ? (
-              <Button size="sm" onClick={save} disabled={selectedRowKeys.size === 0}>
-                Save
+              <Button size="sm" onClick={save} disabled={selectedRowKeys.size === 0 || saving}>
+                {saving ? "Saving…" : "Save"}
               </Button>
             ) : (
               <>
