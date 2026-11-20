@@ -17,9 +17,9 @@ Only `imw.financial-year-base-rate.tsx` (plus one small lookup in the existing S
 
 ## Save button
 - Top-right of the table, same design and position as Transportation's Save.
-- Sends the ticked rows (with edited Customer / Customer Name) and shows only SAP's message in the popup. The exact Save API name and payload need your confirmation; until then it uses the pattern below.
+- UI only for now: clicking it shows a note that Save will be connected once the SAP API is provided. Nothing is sent to SAP.
 
 ## Technical details
 - Add `getFinanceSaveConfig` (case-insensitive lookup of `Finance_Save_API`, returns configId + sap_user_id), mirroring `getTransportSaveConfig`.
 - Reuse existing `getTransportPlantCustConfig`, `getTransportCustBasedNameConfig`, `CustomerSelect`, `CloudscapeApprovalTable`, `runSapApi`, `swalSapResponse`.
-- Save posts `{ save: { ...row, UPDATED_BY: userId } }` per ticked row to the configured Save API.
+- Save button shows a toast only; no SAP call.
