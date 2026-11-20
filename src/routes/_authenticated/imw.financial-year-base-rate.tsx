@@ -58,8 +58,6 @@ function extractRows(payload: unknown): Record<string, unknown>[] {
   return [];
 }
 
-const WEB_USER_KEYS = ["WEB_USER", "WEBUSER", "WEB_USR", "USER_NAME"];
-
 function FinancialYearBaseRatePage() {
   const { activePlants } = useActiveContext();
   const [plants, setPlants] = useState<string[]>(activePlants);
@@ -76,6 +74,7 @@ function FinancialYearBaseRatePage() {
 
   const [newRecord, setNewRecord] = useState(false);
   const [executed, setExecuted] = useState(false);
+  const [executedCheck, setExecutedCheck] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(() => new Set());
 
@@ -189,14 +188,16 @@ function FinancialYearBaseRatePage() {
       text("UPDATED_ON", "Updated Date"),
       text("APPROV_BY", "Approver"),
       text("STATUS", "Status", 120),
-      {
-        id: "WEB_USER",
-        header: "Web User",
-        minWidth: 140,
-        cell: (row) => show(WEB_USER_KEYS.map((k) => row[k]).find((v) => v !== undefined && v !== "")),
-      },
     ];
   }, [plantCustCfgQuery.data?.configId, custBasedNameCfgQuery.data?.configId]);
+
+  const visibleColumns = useMemo(
+    () =>
+      executedCheck === "X"
+        ? columns.filter((column) => !["UPDATED_BY", "UPDATED_ON", "APPROV_BY", "STATUS"].includes(column.id))
+        : columns,
+    [columns, executedCheck],
+  );
 
   function execute() {
     if (plants.length === 0) {
@@ -209,6 +210,7 @@ function FinancialYearBaseRatePage() {
       return;
     }
     setExecuted(true);
+    setExecutedCheck(newRecord ? "X" : "");
     setRows([]);
     setSelectedRowKeys(new Set());
     fetchMutation.mutate({
@@ -222,6 +224,12 @@ function FinancialYearBaseRatePage() {
   function save() {
     toast.info("Save will be connected once the SAP API details are provided.");
   }
+  function change() {
+    toast.info("Change will be connected once the SAP API details are provided.");
+  }
+  function remove() {
+    toast.info("Delete will be connected once the SAP API details are provided.");
+  }
 
   function reset() {
     setPlants([]);
@@ -229,6 +237,7 @@ function FinancialYearBaseRatePage() {
     setRows([]);
     setSelectedRowKeys(new Set());
     setExecuted(false);
+    setExecutedCheck("");
     fetchMutation.reset();
   }
 
@@ -285,12 +294,23 @@ function FinancialYearBaseRatePage() {
           selectedKeys={selectedRowKeys}
           onSelectionChange={setSelectedRowKeys}
           headerExtras={
-            <Button size="sm" onClick={save} disabled={selectedRowKeys.size === 0}>
-              Save
-            </Button>
+            executedCheck === "X" ? (
+              <Button size="sm" onClick={save} disabled={selectedRowKeys.size === 0}>
+                Save
+              </Button>
+            ) : (
+              <>
+                <Button size="sm" variant="success" onClick={change} disabled={selectedRowKeys.size === 0}>
+                  Change
+                </Button>
+                <Button size="sm" variant="destructive" onClick={remove} disabled={selectedRowKeys.size === 0}>
+                  Delete
+                </Button>
+              </>
+            )
           }
           emptyMessage="No financial year base rate records were returned for the selected plant."
-          columns={columns}
+          columns={visibleColumns}
         />
       )}
     </div>
