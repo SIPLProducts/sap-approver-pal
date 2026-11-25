@@ -54,7 +54,12 @@ export function extractCustomerOptions(
   codeKeys: string[] = CODE_KEYS,
   textKeys: string[] = TEXT_KEYS,
 ): CustomerOption[] {
-  const r: any = resp;
+  let r: any = resp;
+  for (let i = 0; i < 2 && typeof r === "string"; i++) {
+    const t = r.trim();
+    if (!t || !/^[\[{"]/.test(t)) break;
+    try { r = JSON.parse(t); } catch { break; }
+  }
   let rows: any[] = [];
   if (Array.isArray(r)) rows = r;
   else if (r && typeof r === "object") {
@@ -65,6 +70,7 @@ export function extractCustomerOptions(
         if (Array.isArray(v)) { rows = v; break; }
       }
     }
+    if (!rows.length && codeKeys.some((k) => r[k] != null)) rows = [r];
   }
   const map = new Map<string, string>();
   const isValidCode = (c: string) => /[a-z0-9]/i.test(c);
@@ -153,11 +159,20 @@ export function CustomerSelect({
         inputs.VKORG = plants[0];
       }
       const resp: any = await runApi({ data: { configId: configId!, inputs } });
-      return extractCustomerOptions(
-        resp?.data ?? resp,
+      const payload = resp?.data ?? resp;
+      console.debug("[F4]", configId, typeof payload, Array.isArray(payload) ? payload.length : "");
+      const opts = extractCustomerOptions(
+        payload,
         codeField ? [codeField, ...CODE_KEYS] : CODE_KEYS,
         textField ? [textField, ...TEXT_KEYS] : TEXT_KEYS,
       );
+      if (!opts.length) {
+        const msg = typeof payload === "string" && payload.trim() && !/^[\[{]/.test(payload.trim())
+          ? payload.trim()
+          : (payload?.MESSAGE ?? payload?.message ?? resp?.error);
+        if (msg && typeof msg === "string") throw new Error(msg);
+      }
+      return opts;
     },
   });
 
