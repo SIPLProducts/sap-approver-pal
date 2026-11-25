@@ -12,7 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getFinanceApprovalsGetConfig } from "@/lib/sap/customer.functions";
+import { getFinanceApprovalsGetConfig, getFinanceApproveConfig } from "@/lib/sap/customer.functions";
+import { swalSapResponse } from "@/lib/mm/swal";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractSapMessage } from "@/lib/mm/sap-message";
 import {
@@ -73,6 +74,74 @@ function FinancialYearBaseRateApprovalsPage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const getCfg = useServerFn(getFinanceApprovalsGetConfig);
   const runApi = useServerFn(runSapApi);
+  const getApproveCfg = useServerFn(getFinanceApproveConfig);
+
+  function pickSapMessage(response: any): { message: string; ok: boolean } {
+    const data = response?.data ?? response;
+    const list = Array.isArray(data) ? data : data ? [data] : [];
+    const entry = list.find((x: any) => x && typeof x === "object" && ("MESSAGE" in x || "message" in x));
+    const message = String(entry?.MESSAGE ?? entry?.message ?? "").trim();
+    const type = String(entry?.TYPE ?? entry?.type ?? "").trim().toUpperCase();
+    if (response?.ok === false) {
+      return { message: message || response.error || extractSapMessage(response) || "Approval failed", ok: false };
+    }
+    return { message: message || extractSapMessage(response) || "-", ok: type ? type === "S" : true };
+  }
+
+  const approveMutation = useMutation({
+    mutationFn: async (picked: Row[]) => {
+      const cfg = await getApproveCfg();
+      if (!cfg.configId) throw new Error("SAP API Finace_Approve_API is not configured or active.");
+      const results: { key: string; message: string; ok: boolean }[] = [];
+      for (const row of picked) {
+        try {
+          const rate = Number(String(row.FIN_RATE ?? "").replace(/,/g, "").trim());
+          const response = await runApi({
+            data: {
+              configId: cfg.configId,
+              inputs: {
+                approve: {
+                  MANDT: row.MANDT ?? "",
+                  WERKS: row.WERKS ?? "",
+                  KUNNR: row.KUNNR ?? "",
+                  MATERIAL: row.MATERIAL ?? "",
+                  NAME1: row.NAME1 ?? "",
+                  FIN_RATE: Number.isFinite(rate) ? rate : 0,
+                  UPDATED_BY: row.UPDATED_BY ?? "",
+                  UPDATED_ON: row.UPDATED_ON ?? "",
+                  APPROV_BY: row.APPROV_BY ?? "",
+                  STATUS: row.STATUS ?? "",
+                },
+              },
+            },
+          });
+          results.push({ key: row.__rowKey, ...pickSapMessage(response) });
+        } catch (e) {
+          results.push({ key: row.__rowKey, message: e instanceof Error ? e.message : "Approval failed", ok: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      const done = new Set(results.filter((r) => r.ok).map((r) => r.key));
+      if (done.size > 0) {
+        setRows((prev) => prev.filter((r) => !done.has(r.__rowKey)));
+        setSelectedKeys((prev) => new Set([...prev].filter((k) => !done.has(k))));
+      }
+      await swalSapResponse({
+        title: "Approve Response",
+        refLabel: "Message",
+        results: results.map((r) => ({ ref: "", message: r.message, ok: r.ok })),
+      });
+    },
+    onError: async (e: Error) => {
+      await swalSapResponse({
+        title: "Approve Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Approval failed", ok: false }],
+      });
+    },
+  });
 
   const fetchMutation = useMutation({
     mutationFn: async (input: { plants: string[]; status: Status }) => {
@@ -240,9 +309,9 @@ function FinancialYearBaseRateApprovalsPage() {
               <div className="flex gap-2">
                 <Button
                   size="sm"
-                  disabled={selectedKeys.size === 0}
+                  disabled={selectedKeys.size === 0 || approveMutation.isPending}
                   className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                  onClick={notConfigured}
+                  onClick={() => approveMutation.mutate(rows.filter((r) => selectedKeys.has(r.__rowKey)))}
                 >
                   Approve
                 </Button>

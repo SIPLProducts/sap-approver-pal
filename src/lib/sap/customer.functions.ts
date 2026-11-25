@@ -330,3 +330,16 @@ export const getFinanceApprovalsGetConfig = createServerFn({ method: "GET" })
     if (!data || !data.is_active) return { configId: null as string | null, userName };
     return { configId: data.id as string, userName };
   });
+
+export const getFinanceApproveConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("id, is_active")
+      .ilike("name", "Finace\\_Approve\\_API")
+      .maybeSingle();
+    if (!data || !data.is_active) return { configId: null as string | null };
+    return { configId: data.id as string };
+  });
