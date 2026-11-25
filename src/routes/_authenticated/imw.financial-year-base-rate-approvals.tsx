@@ -12,8 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getFinanceApprovalsGetConfig, getFinanceApproveConfig } from "@/lib/sap/customer.functions";
-import { swalSapResponse } from "@/lib/mm/swal";
+import { getFinanceApprovalsGetConfig, getFinanceApproveConfig, getFinanceRejectConfig } from "@/lib/sap/customer.functions";
+import { swalConfirm, swalSapResponse } from "@/lib/mm/swal";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractSapMessage } from "@/lib/mm/sap-message";
 import {
@@ -75,6 +75,7 @@ function FinancialYearBaseRateApprovalsPage() {
   const getCfg = useServerFn(getFinanceApprovalsGetConfig);
   const runApi = useServerFn(runSapApi);
   const getApproveCfg = useServerFn(getFinanceApproveConfig);
+  const getRejectCfg = useServerFn(getFinanceRejectConfig);
 
   function pickSapMessage(response: any): { message: string; ok: boolean } {
     const data = response?.data ?? response;
@@ -143,6 +144,61 @@ function FinancialYearBaseRateApprovalsPage() {
     },
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: async (picked: Row[]) => {
+      const cfg = await getRejectCfg();
+      if (!cfg.configId) throw new Error("SAP API Finace_Reject_API is not configured or active.");
+      const results: { key: string; message: string; ok: boolean }[] = [];
+      for (const row of picked) {
+        try {
+          const rate = Number(String(row.FIN_RATE ?? "").replace(/,/g, "").trim());
+          const response = await runApi({
+            data: {
+              configId: cfg.configId,
+              inputs: {
+                reject: {
+                  MANDT: row.MANDT ?? "",
+                  WERKS: row.WERKS ?? "",
+                  KUNNR: row.KUNNR ?? "",
+                  MATERIAL: row.MATERIAL ?? "",
+                  NAME1: row.NAME1 ?? "",
+                  FIN_RATE: Number.isFinite(rate) ? rate : 0,
+                  UPDATED_BY: row.UPDATED_BY ?? "",
+                  UPDATED_ON: row.UPDATED_ON ?? "",
+                  APPROV_BY: row.APPROV_BY ?? "",
+                  STATUS: row.STATUS ?? "",
+                },
+              },
+            },
+          });
+          results.push({ key: row.__rowKey, ...pickSapMessage(response) });
+        } catch (e) {
+          results.push({ key: row.__rowKey, message: e instanceof Error ? e.message : "Reject failed", ok: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      const done = new Set(results.filter((r) => r.ok).map((r) => r.key));
+      if (done.size > 0) {
+        setRows((prev) => prev.filter((r) => !done.has(r.__rowKey)));
+        setSelectedKeys((prev) => new Set([...prev].filter((k) => !done.has(k))));
+      }
+      await swalSapResponse({
+        title: "Reject Response",
+        refLabel: "Message",
+        results: results.map((r) => ({ ref: "", message: r.message, ok: r.ok })),
+      });
+    },
+    onError: async (e: Error) => {
+      await swalSapResponse({
+        title: "Reject Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Reject failed", ok: false }],
+      });
+    },
+  });
+
   const fetchMutation = useMutation({
     mutationFn: async (input: { plants: string[]; status: Status }) => {
       const cfg = await getCfg();
@@ -199,8 +255,15 @@ function FinancialYearBaseRateApprovalsPage() {
     [],
   );
 
-  function notConfigured() {
-    toast.info("SAP API for Approve/Reject is not configured yet.");
+  async function confirmReject() {
+    const picked = rows.filter((r) => selectedKeys.has(r.__rowKey));
+    if (picked.length === 0) return;
+    const ok = await swalConfirm({
+      title: "Reject selected records?",
+      text: `${picked.length} record(s) will be rejected.`,
+      confirmLabel: "Reject",
+    });
+    if (ok) rejectMutation.mutate(picked);
   }
 
   function execute() {
@@ -318,8 +381,8 @@ function FinancialYearBaseRateApprovalsPage() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  disabled={selectedKeys.size === 0}
-                  onClick={notConfigured}
+                  disabled={selectedKeys.size === 0 || rejectMutation.isPending}
+                  onClick={confirmReject}
                 >
                   Reject
                 </Button>
