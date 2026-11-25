@@ -316,8 +316,9 @@ function FinancialYearBaseRatePage() {
             modify: selected.map((r) => ({
               MANDT: str(r.MANDT),
               WERKS: str(r.WERKS),
-              MATERIAL: str(r.MATERIAL),
+              KUNNR: str(r.KUNNR),
               NAME1: str(r.NAME1),
+              MATERIAL: str(r.MATERIAL),
               FIN_RATE: str(r.FIN_RATE),
               UPDATED_BY: str(r.UPDATED_BY),
               UPDATED_ON: str(r.UPDATED_ON),
