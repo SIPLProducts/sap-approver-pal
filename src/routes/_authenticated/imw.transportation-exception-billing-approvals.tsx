@@ -152,15 +152,37 @@ function TransportationExceptionBillingApprovalsPage() {
   );
 
   function pickSapMessage(response: any): { message: string; ok: boolean } {
-    const data = response?.data ?? response;
-    const list = Array.isArray(data) ? data : data ? [data] : [];
-    const entry = list.find((x: any) => x && typeof x === "object" && ("MESSAGE" in x || "message" in x));
-    const message = String(entry?.MESSAGE ?? entry?.message ?? "").trim();
-    const type = String(entry?.TYPE ?? entry?.type ?? "").trim().toUpperCase();
+    const parse = (v: any): any => {
+      if (typeof v !== "string") return v;
+      const t = v.trim();
+      if (!t.startsWith("{") && !t.startsWith("[")) return v;
+      try { return JSON.parse(t); } catch { return v; }
+    };
+    const find = (v: any, depth = 0): any => {
+      v = parse(v);
+      if (!v || typeof v !== "object" || depth > 6) return null;
+      if (!Array.isArray(v) && Object.keys(v).some((k) => k.toUpperCase() === "MESSAGE")) return v;
+      for (const child of Array.isArray(v) ? v : Object.values(v)) {
+        const hit = find(child, depth + 1);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const get = (o: any, key: string) => {
+      const k = o ? Object.keys(o).find((x) => x.toUpperCase() === key) : undefined;
+      return k ? String(o[k] ?? "").trim() : "";
+    };
+    const data = parse(response?.data ?? response);
+    const entry = find(data);
+    let message = get(entry, "MESSAGE");
+    const type = get(entry, "TYPE").toUpperCase();
+    if (!message && typeof data === "string") message = data.trim();
     if (response?.ok === false) {
-      return { message: message || response.error || extractSapMessage(response) || "Approval failed", ok: false };
+      return { message: message || response.error || extractSapMessage(response) || "Request failed", ok: false };
     }
-    return { message: message || extractSapMessage(response) || "-", ok: type ? type === "S" : true };
+    if (!message) return { message: "No message returned by SAP", ok: false };
+    if (type) return { message, ok: type === "S" };
+    return { message, ok: !!entry || /succ?ess?f?u?l?|sucess/i.test(message) };
   }
 
   const approveMutation = useMutation({
