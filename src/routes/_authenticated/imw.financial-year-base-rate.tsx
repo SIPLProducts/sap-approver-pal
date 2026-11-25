@@ -173,7 +173,7 @@ function FinancialYearBaseRatePage() {
         id: "KUNNR",
         header: "Customer",
         minWidth: 200,
-        cell: (row) => (
+        cell: (row) => executedCheck !== "X" ? show(row.KUNNR) : (
           <CustomerSelect
             value={String(row.KUNNR ?? "")}
             onChange={(value) => updateRow(row, "KUNNR", value)}
@@ -189,7 +189,7 @@ function FinancialYearBaseRatePage() {
         id: "NAME1",
         header: "Customer Name",
         minWidth: 220,
-        cell: (row) => (
+        cell: (row) => executedCheck !== "X" ? show(row.NAME1) : (
           <CustomerSelect
             value={String(row.NAME1 ?? "")}
             onChange={(value) => updateRow(row, "NAME1", value)}
@@ -205,7 +205,7 @@ function FinancialYearBaseRatePage() {
         id: "MATERIAL",
         header: "Material",
         minWidth: 200,
-        cell: (row) => (
+        cell: (row) => executedCheck !== "X" ? show(row.MATERIAL) : (
           <CustomerSelect
             value={String(row.MATERIAL ?? "")}
             onChange={(value) => updateRow(row, "MATERIAL", value)}
