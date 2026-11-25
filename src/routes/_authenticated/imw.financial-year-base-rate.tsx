@@ -211,6 +211,7 @@ function FinancialYearBaseRatePage() {
             onChange={(value) => updateRow(row, "MATERIAL", value)}
             configId={materialF4CfgQuery.data?.configId ?? null}
             inputs={{ material: "" }}
+            entityLabel="material"
             codeField="MATNR"
             textField="MATNR"
             placeholder="Select material…"

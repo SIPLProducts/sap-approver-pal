@@ -26,6 +26,8 @@ interface Props {
   onChange: (v: string) => void;
   plants?: string[];
   placeholder?: string;
+  /** Noun used in UI texts (default "customer"). */
+  entityLabel?: string;
   disabled?: boolean;
   className?: string;
   onEnter?: () => void;
@@ -95,7 +97,8 @@ export function CustomerSelect({
   value,
   onChange,
   plants,
-  placeholder = "Select customer…",
+  entityLabel = "customer",
+  placeholder,
   disabled,
   className,
   onEnter: _onEnter,
@@ -233,7 +236,7 @@ export function CustomerSelect({
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
             </span>
           ) : (
-            <span className="truncate text-left">{triggerLabel || placeholder}</span>
+            <span className="truncate text-left">{triggerLabel || placeholder || `Select ${entityLabel}…`}</span>
           )}
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
@@ -247,7 +250,7 @@ export function CustomerSelect({
       >
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search customer…"
+            placeholder={`Search ${entityLabel}…`}
             className="h-9"
             value={search}
             onValueChange={setSearch}
@@ -255,11 +258,11 @@ export function CustomerSelect({
           <CommandList className="max-h-[calc(60vh-3rem)]">
             {custQuery.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching customers…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching {entityLabel}s…
               </div>
             ) : custQuery.isError ? (
               <div className="px-3 py-4 text-xs text-destructive space-y-1">
-                <div className="font-medium">Failed to load customers.</div>
+                <div className="font-medium">Failed to load {entityLabel}s.</div>
                 <div className="text-[11px] opacity-80 break-words">
                   {(custQuery.error as Error)?.message ?? "Unknown error"}
                 </div>
@@ -269,10 +272,10 @@ export function CustomerSelect({
               </div>
             ) : customers.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">
-                No customers returned by Customer_Fetch_API.
+                No {entityLabel}s returned by SAP.
               </div>
             ) : filtered.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground">No customer found.</div>
+              <div className="px-3 py-4 text-xs text-muted-foreground">No {entityLabel} found.</div>
             ) : (
               <>
                 <CommandGroup>
