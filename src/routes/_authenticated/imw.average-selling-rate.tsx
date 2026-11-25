@@ -18,6 +18,7 @@ import {
   getAverageSellingGetConfig,
   getAverageSellingSaveConfig,
   getAverageSellingChangeConfig,
+  getAverageSellingDeleteConfig,
   getTransportPlantCustConfig,
   getTransportCustBasedNameConfig,
   getFinanceMaterialF4Config,
@@ -225,9 +226,6 @@ function AverageSellingRatePage() {
   const getSaveCfg = useServerFn(getAverageSellingSaveConfig);
   const [saving, setSaving] = useState(false);
 
-  function notConfigured() {
-    toast.info("SAP API not configured yet");
-  }
 
   async function showSapResult(response: any, successTitle: string) {
     const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -304,6 +302,57 @@ function AverageSellingRatePage() {
       });
     } finally {
       setChanging(false);
+    }
+  }
+
+  const getDeleteCfg = useServerFn(getAverageSellingDeleteConfig);
+  const [deleting, setDeleting] = useState(false);
+
+  async function remove() {
+    if (selectedRowKeys.size === 0 || deleting) return;
+    setDeleting(true);
+    try {
+      const cfg = await getDeleteCfg();
+      if (!cfg.configId) {
+        await swalSapResponse({
+          results: [{ ref: "", message: "Average_Selling_Delete_API is not configured or active.", ok: false }],
+        });
+        return;
+      }
+      const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      const num = (v: unknown) => {
+        const n = Number(String(v ?? "").replace(/,/g, "").trim());
+        return Number.isFinite(n) ? n : 0;
+      };
+      const selected = rows.filter((r) => selectedRowKeys.has(r.__asrRowKey));
+      const response: any = await runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            user_name: cfg.userName,
+            delete: selected.map((r) => ({
+              MANDT: str(r.MANDT),
+              WERKS: str(r.WERKS),
+              KUNNR: str(r.KUNNR),
+              MATERIAL: str(r.MATERIAL),
+              NAME1: str(r.NAME1),
+              AVG_RATE: num(r.AVG_RATE),
+              UPDATED_BY: str(r.UPDATED_BY),
+              UPDATED_ON: str(r.UPDATED_ON),
+              APPROV_BY: str(r.APPROV_BY),
+              STATUS: str(r.STATUS),
+            })),
+          },
+        },
+      });
+      const allOk = await showSapResult(response, "Deleted");
+      if (allOk) execute();
+    } catch (error) {
+      await swalSapResponse({
+        results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
+      });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -449,8 +498,8 @@ function AverageSellingRatePage() {
                 <Button size="sm" variant="success" onClick={change} disabled={selectedRowKeys.size === 0 || changing}>
                   {changing ? "Changing…" : "Change"}
                 </Button>
-                <Button size="sm" variant="destructive" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
-                  Delete
+                <Button size="sm" variant="destructive" onClick={remove} disabled={selectedRowKeys.size === 0 || deleting}>
+                  {deleting ? "Deleting…" : "Delete"}
                 </Button>
               </>
             )
