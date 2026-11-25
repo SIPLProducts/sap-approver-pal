@@ -12,7 +12,14 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getAverageSellingGetConfig } from "@/lib/sap/customer.functions";
+import { Input } from "@/components/ui/input";
+import { CustomerSelect } from "@/components/sap/customer-select";
+import {
+  getAverageSellingGetConfig,
+  getTransportPlantCustConfig,
+  getTransportCustBasedNameConfig,
+  getFinanceMaterialF4Config,
+} from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import {
   CloudscapeApprovalTable,
@@ -70,6 +77,25 @@ function AverageSellingRatePage() {
     staleTime: 10 * 60 * 1000,
   });
 
+  const getPlantCustCfg = useServerFn(getTransportPlantCustConfig);
+  const getCustBasedNameCfg = useServerFn(getTransportCustBasedNameConfig);
+  const getMaterialF4Cfg = useServerFn(getFinanceMaterialF4Config);
+  const plantCustCfgQuery = useQuery({
+    queryKey: ["transport-plant-cust-config"],
+    queryFn: () => getPlantCustCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+  const custBasedNameCfgQuery = useQuery({
+    queryKey: ["transport-cust-based-name-config"],
+    queryFn: () => getCustBasedNameCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+  const materialF4CfgQuery = useQuery({
+    queryKey: ["finance-material-f4-config"],
+    queryFn: () => getMaterialF4Cfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+
   const fetchMutation = useMutation({
     mutationFn: async (input: { configId: string; userName: string; plantValues: string[]; check: string }) =>
       runApi({
@@ -105,6 +131,10 @@ function AverageSellingRatePage() {
   });
 
   const columns = useMemo<CloudscapeColumn<Row>[]>(() => {
+    const updateRow = (row: Row, field: string, value: unknown) =>
+      setRows((current) =>
+        current.map((item) => (item.__asrRowKey === row.__asrRowKey ? { ...item, [field]: value } : item)),
+      );
     const show = (value: unknown) =>
       value === null || value === undefined || String(value).trim() === "" ? "—" : String(value);
     const text = (id: string, header: string, minWidth = 140): CloudscapeColumn<Row> => ({
@@ -115,16 +145,74 @@ function AverageSellingRatePage() {
     });
     return [
       text("WERKS", "Plant", 120),
-      text("KUNNR", "Customer"),
-      text("NAME1", "Customer Name", 220),
-      text("MATERIAL", "Material"),
-      text("AVG_RATE", "Average Selling Rate", 170),
+      {
+        id: "KUNNR",
+        header: "Customer",
+        minWidth: 200,
+        cell: (row) => executedCheck !== "X" ? show(row.KUNNR) : (
+          <CustomerSelect
+            value={String(row.KUNNR ?? "")}
+            onChange={(value) => updateRow(row, "KUNNR", value)}
+            configId={plantCustCfgQuery.data?.configId ?? null}
+            inputs={{ kunnr: [{ plant: String(row.WERKS ?? "") }] }}
+            codeField="KUNNR"
+            textField="KUNNR"
+            placeholder="Select customer…"
+          />
+        ),
+      },
+      {
+        id: "NAME1",
+        header: "Customer Name",
+        minWidth: 220,
+        cell: (row) => executedCheck !== "X" ? show(row.NAME1) : (
+          <CustomerSelect
+            value={String(row.NAME1 ?? "")}
+            onChange={(value) => updateRow(row, "NAME1", value)}
+            configId={custBasedNameCfgQuery.data?.configId ?? null}
+            inputs={{ CUST_NAM: String(row.KUNNR ?? "") }}
+            codeField="NAME1"
+            textField="NAME1"
+            placeholder="Select customer name…"
+          />
+        ),
+      },
+      {
+        id: "MATERIAL",
+        header: "Material",
+        minWidth: 200,
+        cell: (row) => executedCheck !== "X" ? show(row.MATERIAL) : (
+          <CustomerSelect
+            value={String(row.MATERIAL ?? "")}
+            onChange={(value) => updateRow(row, "MATERIAL", value)}
+            configId={materialF4CfgQuery.data?.configId ?? null}
+            inputs={{ material: "" }}
+            entityLabel="material"
+            codeField="MATNR"
+            textField="MATNR"
+            placeholder="Select material…"
+          />
+        ),
+      },
+      {
+        id: "AVG_RATE",
+        header: "Average Selling Rate",
+        minWidth: 170,
+        cell: (row) => (
+          <Input
+            value={String(row.AVG_RATE ?? "")}
+            onChange={(event) => updateRow(row, "AVG_RATE", event.target.value)}
+            inputMode="decimal"
+            className="h-8 min-w-[120px] text-xs"
+          />
+        ),
+      },
       text("UPDATED_BY", "Updated Person"),
       text("UPDATED_ON", "Updated Date"),
       text("APPROV_BY", "Approver"),
       text("STATUS", "Status", 120),
     ];
-  }, []);
+  }, [plantCustCfgQuery.data?.configId, custBasedNameCfgQuery.data?.configId, materialF4CfgQuery.data?.configId, executedCheck]);
 
   const hiddenInNewRecord = new Set(["UPDATED_BY", "UPDATED_ON", "APPROV_BY", "STATUS"]);
   const visibleColumns =
@@ -224,7 +312,7 @@ function AverageSellingRatePage() {
           rows={rows}
           loading={fetchMutation.isPending}
           rowKey={(row) => row.__asrRowKey}
-          showSelect={executedCheck === "X"}
+          showSelect
           selectedKeys={selectedRowKeys}
           onSelectionChange={setSelectedRowKeys}
           headerExtras={
@@ -232,7 +320,16 @@ function AverageSellingRatePage() {
               <Button size="sm" onClick={save} disabled={selectedRowKeys.size === 0}>
                 Save
               </Button>
-            ) : undefined
+            ) : (
+              <>
+                <Button size="sm" variant="success" onClick={save} disabled={selectedRowKeys.size === 0}>
+                  Change
+                </Button>
+                <Button size="sm" variant="destructive" onClick={save} disabled={selectedRowKeys.size === 0}>
+                  Delete
+                </Button>
+              </>
+            )
           }
           emptyMessage="No average selling rate records were returned for the selected plant."
           columns={visibleColumns}
