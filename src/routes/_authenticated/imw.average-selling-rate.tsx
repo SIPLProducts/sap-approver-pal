@@ -17,6 +17,7 @@ import { CustomerSelect } from "@/components/sap/customer-select";
 import {
   getAverageSellingGetConfig,
   getAverageSellingSaveConfig,
+  getAverageSellingChangeConfig,
   getTransportPlantCustConfig,
   getTransportCustBasedNameConfig,
   getFinanceMaterialF4Config,
@@ -255,6 +256,57 @@ function AverageSellingRatePage() {
     return allOk;
   }
 
+  const getChangeCfg = useServerFn(getAverageSellingChangeConfig);
+  const [changing, setChanging] = useState(false);
+
+  async function change() {
+    if (selectedRowKeys.size === 0 || changing) return;
+    setChanging(true);
+    try {
+      const cfg = await getChangeCfg();
+      if (!cfg.configId) {
+        await swalSapResponse({
+          results: [{ ref: "", message: "Average_Selling_Change_API is not configured or active.", ok: false }],
+        });
+        return;
+      }
+      const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      const num = (v: unknown) => {
+        const n = Number(String(v ?? "").replace(/,/g, "").trim());
+        return Number.isFinite(n) ? n : 0;
+      };
+      const selected = rows.filter((r) => selectedRowKeys.has(r.__asrRowKey));
+      const response: any = await runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            user_name: cfg.userName,
+            modify: selected.map((r) => ({
+              MANDT: str(r.MANDT),
+              WERKS: str(r.WERKS),
+              KUNNR: str(r.KUNNR),
+              MATERIAL: str(r.MATERIAL),
+              NAME1: str(r.NAME1),
+              AVG_RATE: num(r.AVG_RATE),
+              UPDATED_BY: str(r.UPDATED_BY),
+              UPDATED_ON: str(r.UPDATED_ON),
+              APPROV_BY: str(r.APPROV_BY),
+              STATUS: str(r.STATUS),
+            })),
+          },
+        },
+      });
+      const allOk = await showSapResult(response, "Changed");
+      if (allOk) execute();
+    } catch (error) {
+      await swalSapResponse({
+        results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
+      });
+    } finally {
+      setChanging(false);
+    }
+  }
+
   async function save() {
     if (selectedRowKeys.size === 0 || saving) return;
     setSaving(true);
@@ -394,8 +446,8 @@ function AverageSellingRatePage() {
               </Button>
             ) : (
               <>
-                <Button size="sm" variant="success" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
-                  Change
+                <Button size="sm" variant="success" onClick={change} disabled={selectedRowKeys.size === 0 || changing}>
+                  {changing ? "Changing…" : "Change"}
                 </Button>
                 <Button size="sm" variant="destructive" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
                   Delete
