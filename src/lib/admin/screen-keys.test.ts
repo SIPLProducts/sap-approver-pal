@@ -29,6 +29,10 @@ describe("SAP permission mapping", () => {
     expect(screenKeyToActivity("imw.financial_year_base_rate")).toBe("IMW.FINANCIAL_YEAR_BASE_RATE");
     expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.financial_year_base_rate");
   });
+  it("maps Financial Year Base Rate Approvals to its own IWM permission", () => {
+    expect(resolveActivityKey("IMW.FINANCIAL_YEAR_BASE_RATE_APPROVALS")).toBe("imw.financial_year_base_rate_approvals");
+    expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.financial_year_base_rate_approvals");
+  });
   it("maps Transportation Exception Billing Approvals to its dedicated IWM permission", () => {
     expect(resolveActivityKey("IMW.TRANSPORT_EXCEPTION_BILLING_APPROVALS")).toBe("imw.transport_exception_billing_approvals");
     expect(screenKeyToActivity("imw.transport_exception_billing_approvals")).toBe("IMW.TRANSPORT_EXCEPTION_BILLING_APPROVALS");

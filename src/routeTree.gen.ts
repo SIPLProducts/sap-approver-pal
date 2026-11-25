@@ -28,6 +28,7 @@ import { Route as AuthenticatedApprovalIdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedImwAverageSellingRateRouteImport } from './routes/_authenticated/imw.average-selling-rate'
 import { Route as AuthenticatedImwDistanceMasterRouteImport } from './routes/_authenticated/imw.distance-master'
 import { Route as AuthenticatedImwFinancialYearBaseRateRouteImport } from './routes/_authenticated/imw.financial-year-base-rate'
+import { Route as AuthenticatedImwFinancialYearBaseRateApprovalsRouteImport } from './routes/_authenticated/imw.financial-year-base-rate-approvals'
 import { Route as AuthenticatedImwPriceMasterRouteImport } from './routes/_authenticated/imw.price-master'
 import { Route as AuthenticatedImwPriceMasterApprovalsRouteImport } from './routes/_authenticated/imw.price-master-approvals'
 import { Route as AuthenticatedImwTransportationExceptionBillingRouteImport } from './routes/_authenticated/imw.transportation-exception-billing'
@@ -164,6 +165,12 @@ const AuthenticatedImwFinancialYearBaseRateRoute =
   AuthenticatedImwFinancialYearBaseRateRouteImport.update({
     id: '/imw/financial-year-base-rate',
     path: '/imw/financial-year-base-rate',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedImwFinancialYearBaseRateApprovalsRoute =
+  AuthenticatedImwFinancialYearBaseRateApprovalsRouteImport.update({
+    id: '/imw/financial-year-base-rate-approvals',
+    path: '/imw/financial-year-base-rate-approvals',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedImwPriceMasterRoute =
@@ -377,6 +384,7 @@ export interface FileRoutesByFullPath {
   '/imw/average-selling-rate': typeof AuthenticatedImwAverageSellingRateRoute
   '/imw/distance-master': typeof AuthenticatedImwDistanceMasterRoute
   '/imw/financial-year-base-rate': typeof AuthenticatedImwFinancialYearBaseRateRoute
+  '/imw/financial-year-base-rate-approvals': typeof AuthenticatedImwFinancialYearBaseRateApprovalsRoute
   '/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
@@ -430,6 +438,7 @@ export interface FileRoutesByTo {
   '/imw/average-selling-rate': typeof AuthenticatedImwAverageSellingRateRoute
   '/imw/distance-master': typeof AuthenticatedImwDistanceMasterRoute
   '/imw/financial-year-base-rate': typeof AuthenticatedImwFinancialYearBaseRateRoute
+  '/imw/financial-year-base-rate-approvals': typeof AuthenticatedImwFinancialYearBaseRateApprovalsRoute
   '/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
@@ -485,6 +494,7 @@ export interface FileRoutesById {
   '/_authenticated/imw/average-selling-rate': typeof AuthenticatedImwAverageSellingRateRoute
   '/_authenticated/imw/distance-master': typeof AuthenticatedImwDistanceMasterRoute
   '/_authenticated/imw/financial-year-base-rate': typeof AuthenticatedImwFinancialYearBaseRateRoute
+  '/_authenticated/imw/financial-year-base-rate-approvals': typeof AuthenticatedImwFinancialYearBaseRateApprovalsRoute
   '/_authenticated/imw/price-master': typeof AuthenticatedImwPriceMasterRoute
   '/_authenticated/imw/price-master-approvals': typeof AuthenticatedImwPriceMasterApprovalsRoute
   '/_authenticated/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
@@ -540,6 +550,7 @@ export interface FileRouteTypes {
     | '/imw/average-selling-rate'
     | '/imw/distance-master'
     | '/imw/financial-year-base-rate'
+    | '/imw/financial-year-base-rate-approvals'
     | '/imw/price-master'
     | '/imw/price-master-approvals'
     | '/imw/transportation-exception-billing'
@@ -593,6 +604,7 @@ export interface FileRouteTypes {
     | '/imw/average-selling-rate'
     | '/imw/distance-master'
     | '/imw/financial-year-base-rate'
+    | '/imw/financial-year-base-rate-approvals'
     | '/imw/price-master'
     | '/imw/price-master-approvals'
     | '/imw/transportation-exception-billing'
@@ -647,6 +659,7 @@ export interface FileRouteTypes {
     | '/_authenticated/imw/average-selling-rate'
     | '/_authenticated/imw/distance-master'
     | '/_authenticated/imw/financial-year-base-rate'
+    | '/_authenticated/imw/financial-year-base-rate-approvals'
     | '/_authenticated/imw/price-master'
     | '/_authenticated/imw/price-master-approvals'
     | '/_authenticated/imw/transportation-exception-billing'
@@ -829,6 +842,13 @@ declare module '@tanstack/react-router' {
       path: '/imw/financial-year-base-rate'
       fullPath: '/imw/financial-year-base-rate'
       preLoaderRoute: typeof AuthenticatedImwFinancialYearBaseRateRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/imw/financial-year-base-rate-approvals': {
+      id: '/_authenticated/imw/financial-year-base-rate-approvals'
+      path: '/imw/financial-year-base-rate-approvals'
+      fullPath: '/imw/financial-year-base-rate-approvals'
+      preLoaderRoute: typeof AuthenticatedImwFinancialYearBaseRateApprovalsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/imw/price-master': {
@@ -1077,6 +1097,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedImwAverageSellingRateRoute: typeof AuthenticatedImwAverageSellingRateRoute
   AuthenticatedImwDistanceMasterRoute: typeof AuthenticatedImwDistanceMasterRoute
   AuthenticatedImwFinancialYearBaseRateRoute: typeof AuthenticatedImwFinancialYearBaseRateRoute
+  AuthenticatedImwFinancialYearBaseRateApprovalsRoute: typeof AuthenticatedImwFinancialYearBaseRateApprovalsRoute
   AuthenticatedImwPriceMasterRoute: typeof AuthenticatedImwPriceMasterRoute
   AuthenticatedImwPriceMasterApprovalsRoute: typeof AuthenticatedImwPriceMasterApprovalsRoute
   AuthenticatedImwTransportationExceptionBillingRoute: typeof AuthenticatedImwTransportationExceptionBillingRoute
@@ -1123,6 +1144,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedImwDistanceMasterRoute: AuthenticatedImwDistanceMasterRoute,
   AuthenticatedImwFinancialYearBaseRateRoute:
     AuthenticatedImwFinancialYearBaseRateRoute,
+  AuthenticatedImwFinancialYearBaseRateApprovalsRoute:
+    AuthenticatedImwFinancialYearBaseRateApprovalsRoute,
   AuthenticatedImwPriceMasterRoute: AuthenticatedImwPriceMasterRoute,
   AuthenticatedImwPriceMasterApprovalsRoute:
     AuthenticatedImwPriceMasterApprovalsRoute,

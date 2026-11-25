@@ -57,6 +57,7 @@ export const SCREEN_GROUPS: { module: string; screens: ScreenDef[] }[] = [
       { key: "imw.price_master_approvals", label: "Price Master Update Approvals", activity: "IMW.PRICE_MASTER_APPROVALS" },
       { key: "imw.average_selling_rate", label: "Average Selling Rate", activity: "IMW.AVERAGE_SELLING_RATE" },
       { key: "imw.financial_year_base_rate", label: "Financial Year Base Rate", activity: "IMW.FINANCIAL_YEAR_BASE_RATE" },
+      { key: "imw.financial_year_base_rate_approvals", label: "Financial Year Base Rate Approvals", activity: "IMW.FINANCIAL_YEAR_BASE_RATE_APPROVALS" },
       { key: "imw.transport_exception_billing", label: "Transportation (90%) Exception Billing", activity: "IMW.TRANSPORT_EXCEPTION_BILLING" },
       { key: "imw.transport_exception_billing_approvals", label: "Transportation (90%) Exception Billing Approvals", activity: "IMW.TRANSPORT_EXCEPTION_BILLING_APPROVALS" },
       { key: "imw.distance_master", label: "Distance Master Screen", activity: "IMW.DISTANCE_MASTER" },
@@ -165,7 +166,7 @@ export function resolveActivityKey(activity: string): string | null {
 
 export const SD_SCREEN_KEYS = ["sd.dashboard", "sd.price", "sd.contract", "sd.sc_so", "sd.sales_order", "sd.bmw_status"];
 export const MM_SCREEN_KEYS = SCREEN_GROUPS.find((g) => g.module === "MM Approvals")!.screens.map((s) => s.key);
-export const IMW_SCREEN_KEYS = ["imw.price_master", "imw.price_master_approvals", "imw.average_selling_rate", "imw.financial_year_base_rate", "imw.transport_exception_billing", "imw.transport_exception_billing_approvals", "imw.distance_master", "imw.vehicle_master"];
+export const IMW_SCREEN_KEYS = ["imw.price_master", "imw.price_master_approvals", "imw.average_selling_rate", "imw.financial_year_base_rate", "imw.financial_year_base_rate_approvals", "imw.transport_exception_billing", "imw.transport_exception_billing_approvals", "imw.distance_master", "imw.vehicle_master"];
 const ADMIN_SCREEN_KEYS = [
   ...SCREEN_GROUPS.filter((g) => ["Admin", "SAP", "Settings"].includes(g.module)).flatMap((g) => g.screens.map((s) => s.key)),
   "approvals.history",
