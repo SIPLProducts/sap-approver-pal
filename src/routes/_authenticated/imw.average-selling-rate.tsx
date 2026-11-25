@@ -59,6 +59,8 @@ function AverageSellingRatePage() {
   const [newRecord, setNewRecord] = useState(false);
   const [executed, setExecuted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
+  const [executedCheck, setExecutedCheck] = useState("");
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(() => new Set());
 
   const getCfg = useServerFn(getAverageSellingGetConfig);
   const runApi = useServerFn(runSapApi);
@@ -93,6 +95,7 @@ function AverageSellingRatePage() {
         __asrRowKey: String(index),
       }));
       setRows(fetched);
+      setSelectedRowKeys(new Set());
       if (fetched.length === 0) toast.info("No records returned for the selected plant.");
     },
     onError: (error) => {
@@ -123,6 +126,14 @@ function AverageSellingRatePage() {
     ];
   }, []);
 
+  const hiddenInNewRecord = new Set(["UPDATED_BY", "UPDATED_ON", "APPROV_BY", "STATUS"]);
+  const visibleColumns =
+    executedCheck === "X" ? columns.filter((col) => !hiddenInNewRecord.has(col.id)) : columns;
+
+  function save() {
+    toast.info("SAP API not configured yet");
+  }
+
   useEffect(() => {
     setPlants((current) => {
       if (activePlants.length === 0) return [];
@@ -144,7 +155,9 @@ function AverageSellingRatePage() {
       return;
     }
     setExecuted(true);
+    setExecutedCheck(newRecord ? "X" : "");
     setRows([]);
+    setSelectedRowKeys(new Set());
     fetchMutation.mutate({
       configId,
       userName: cfgQuery.data?.userName ?? "",
@@ -157,7 +170,9 @@ function AverageSellingRatePage() {
     setPlants([]);
     setNewRecord(false);
     setExecuted(false);
+    setExecutedCheck("");
     setRows([]);
+    setSelectedRowKeys(new Set());
   }
 
   return (
@@ -209,8 +224,18 @@ function AverageSellingRatePage() {
           rows={rows}
           loading={fetchMutation.isPending}
           rowKey={(row) => row.__asrRowKey}
+          showSelect={executedCheck === "X"}
+          selectedKeys={selectedRowKeys}
+          onSelectionChange={setSelectedRowKeys}
+          headerExtras={
+            executedCheck === "X" ? (
+              <Button size="sm" onClick={save} disabled={selectedRowKeys.size === 0}>
+                Save
+              </Button>
+            ) : undefined
+          }
           emptyMessage="No average selling rate records were returned for the selected plant."
-          columns={columns}
+          columns={visibleColumns}
         />
       )}
     </div>
