@@ -53,7 +53,7 @@ export const fetchServiceEntrySheetPending = createServerFn({ method: "POST" })
       })
       .parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const empty = (error: string | null, message = "") => ({
@@ -75,7 +75,7 @@ export const fetchServiceEntrySheetPending = createServerFn({ method: "POST" })
       );
     if (!cfg.is_active) return empty(`SAP API config "${CONFIG_NAME}" is disabled.`);
 
-    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }] = await Promise.all([
+    const [{ data: creds }, { data: globalSettings }, { data: globalSecret }, { data: prof }] = await Promise.all([
       supabaseAdmin.from("sap_api_credentials").select("*").eq("config_id", cfg.id).maybeSingle(),
       supabaseAdmin
         .from("sap_global_settings")
@@ -83,6 +83,7 @@ export const fetchServiceEntrySheetPending = createServerFn({ method: "POST" })
         .eq("id", "default")
         .maybeSingle(),
       supabaseAdmin.from("sap_global_secrets").select("proxy_secret").eq("id", "default").maybeSingle(),
+      supabaseAdmin.from("profiles").select("sap_user_id").eq("id", context.userId).maybeSingle(),
     ]);
 
     const toSapDate = (v: string) => {
@@ -115,6 +116,7 @@ export const fetchServiceEntrySheetPending = createServerFn({ method: "POST" })
       BLOCKED_FILTER: data.blockedFilter,
       ACCEPTED_FILTER: data.acceptedFilter,
       SCOPE_OF_LIST: data.scopeOfList,
+      USER_ID: (prof?.sap_user_id ?? "").trim(),
     };
 
     const globalProxy =
