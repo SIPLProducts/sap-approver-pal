@@ -16,11 +16,14 @@ import { Input } from "@/components/ui/input";
 import { CustomerSelect } from "@/components/sap/customer-select";
 import {
   getAverageSellingGetConfig,
+  getAverageSellingSaveConfig,
   getTransportPlantCustConfig,
   getTransportCustBasedNameConfig,
   getFinanceMaterialF4Config,
 } from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
+import { swalSapResponse } from "@/lib/mm/swal";
+import { extractSapMessage } from "@/lib/mm/sap-message";
 import {
   CloudscapeApprovalTable,
   type CloudscapeColumn,
@@ -218,8 +221,77 @@ function AverageSellingRatePage() {
   const visibleColumns =
     executedCheck === "X" ? columns.filter((col) => !hiddenInNewRecord.has(col.id)) : columns;
 
-  function save() {
+  const getSaveCfg = useServerFn(getAverageSellingSaveConfig);
+  const [saving, setSaving] = useState(false);
+
+  function notConfigured() {
     toast.info("SAP API not configured yet");
+  }
+
+  async function showSapResult(response: any, successTitle: string) {
+    const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+    const payload = response?.data ?? response;
+    const list: any[] = Array.isArray(payload)
+      ? payload
+      : payload && typeof payload === "object"
+        ? Array.isArray(payload.DATA)
+          ? payload.DATA
+          : [payload]
+        : [];
+    const results = list
+      .filter((x) => x && typeof x === "object" && (x.MESSAGE !== undefined || x.TYPE !== undefined))
+      .map((x) => ({ ref: "", message: str(x.MESSAGE), ok: str(x.TYPE).trim().toUpperCase() === "S" }));
+    if (results.length === 0) {
+      const msg =
+        (response?.ok === false && response?.error) || extractSapMessage(response) || "No response returned by SAP.";
+      results.push({ ref: "", message: String(msg), ok: false });
+    }
+    const allOk = response?.ok !== false && results.every((r) => r.ok);
+    await swalSapResponse({
+      title: allOk ? successTitle : "SAP Response",
+      results: results.length === 1 ? results : results.map((r, i) => ({ ...r, ref: String(i + 1) })),
+      refLabel: "#",
+    });
+    return allOk;
+  }
+
+  async function save() {
+    if (selectedRowKeys.size === 0 || saving) return;
+    setSaving(true);
+    try {
+      const cfg = await getSaveCfg();
+      if (!cfg.configId) {
+        await swalSapResponse({
+          results: [{ ref: "", message: "Average_Selling_Save_API is not configured or active.", ok: false }],
+        });
+        return;
+      }
+      const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      const selected = rows.filter((r) => selectedRowKeys.has(r.__asrRowKey));
+      const response: any = await runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            SAVE: selected.map((r) => ({
+              user_name: cfg.userName,
+              WERKS: str(r.WERKS),
+              KUNNR: str(r.KUNNR),
+              NAME1: str(r.NAME1),
+              material: str(r.MATERIAL),
+              AVG_RATE: str(r.AVG_RATE),
+            })),
+          },
+        },
+      });
+      const allOk = await showSapResult(response, "Saved");
+      if (allOk) execute();
+    } catch (error) {
+      await swalSapResponse({
+        results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   useEffect(() => {
@@ -317,15 +389,15 @@ function AverageSellingRatePage() {
           onSelectionChange={setSelectedRowKeys}
           headerExtras={
             executedCheck === "X" ? (
-              <Button size="sm" onClick={save} disabled={selectedRowKeys.size === 0}>
-                Save
+              <Button size="sm" onClick={save} disabled={selectedRowKeys.size === 0 || saving}>
+                {saving ? "Saving…" : "Save"}
               </Button>
             ) : (
               <>
-                <Button size="sm" variant="success" onClick={save} disabled={selectedRowKeys.size === 0}>
+                <Button size="sm" variant="success" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
                   Change
                 </Button>
-                <Button size="sm" variant="destructive" onClick={save} disabled={selectedRowKeys.size === 0}>
+                <Button size="sm" variant="destructive" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
                   Delete
                 </Button>
               </>
