@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getAvgApprovalsGetConfig, getAvgApprovalsApproveConfig } from "@/lib/sap/customer.functions";
+import { getAvgApprovalsGetConfig, getAvgApprovalsApproveConfig, getAvgApprovalsRejectConfig } from "@/lib/sap/customer.functions";
 import { swalConfirm, swalSapResponse } from "@/lib/mm/swal";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractSapMessage } from "@/lib/mm/sap-message";
@@ -75,6 +75,7 @@ function AverageSellingRateApprovalsPage() {
   const getCfg = useServerFn(getAvgApprovalsGetConfig);
   const runApi = useServerFn(runSapApi);
   const getApproveCfg = useServerFn(getAvgApprovalsApproveConfig);
+  const getRejectCfg = useServerFn(getAvgApprovalsRejectConfig);
   function pickSapMessage(response: any): { message: string; ok: boolean } {
     const parse = (v: any): any => {
       if (typeof v !== "string") return v;
@@ -207,6 +208,60 @@ function AverageSellingRateApprovalsPage() {
     },
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: async (picked: Row[]) => {
+      const cfg = await getRejectCfg();
+      if (!cfg.configId) throw new Error("SAP API AVG_Approvals_Reject_API is not configured or active.");
+      const results: { key: string; message: string; ok: boolean }[] = [];
+      for (const row of picked) {
+        try {
+          const rate = Number(String(row.AVG_RATE ?? "").replace(/,/g, "").trim());
+          const response = await runApi({
+            data: {
+              configId: cfg.configId,
+              inputs: {
+                reject: {
+                  MANDT: row.MANDT ?? "",
+                  WERKS: row.WERKS ?? "",
+                  KUNNR: row.KUNNR ?? "",
+                  MATERIAL: row.MATERIAL ?? "",
+                  NAME1: row.NAME1 ?? "",
+                  AVG_RATE: Number.isFinite(rate) ? rate : 0,
+                  UPDATED_BY: row.UPDATED_BY ?? "",
+                  UPDATED_ON: row.UPDATED_ON ?? "",
+                  APPROV_BY: cfg.userName,
+                  STATUS: row.STATUS ?? "",
+                },
+              },
+            },
+          });
+          results.push({ key: row.__rowKey, ...pickSapMessage(response) });
+        } catch (e) {
+          results.push({ key: row.__rowKey, message: e instanceof Error ? e.message : "Rejection failed", ok: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      await swalSapResponse({
+        title: "Reject Response",
+        refLabel: "Message",
+        results: results.map((r) => ({ ref: "", message: r.message, ok: r.ok })),
+      });
+      if (results.some((r) => r.ok) && executedStatus && plants.length > 0) {
+        setSelectedKeys(new Set());
+        fetchMutation.mutate({ plants, status: executedStatus });
+      }
+    },
+    onError: async (e: Error) => {
+      await swalSapResponse({
+        title: "Reject Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Rejection failed", ok: false }],
+      });
+    },
+  });
+
   const columns = useMemo<CloudscapeColumn<Row>[]>(
     () =>
       RESPONSE_FIELDS.map((field) => ({
@@ -229,7 +284,7 @@ function AverageSellingRateApprovalsPage() {
       text: `${picked.length} record(s) will be rejected.`,
       confirmLabel: "Reject",
     });
-    if (ok) toast.info("SAP API not configured yet");
+    if (ok) rejectMutation.mutate(picked);
   }
 
   function execute() {
@@ -347,7 +402,7 @@ function AverageSellingRateApprovalsPage() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  disabled={selectedKeys.size === 0}
+                  disabled={selectedKeys.size === 0 || rejectMutation.isPending}
                   onClick={confirmReject}
                 >
                   Reject
