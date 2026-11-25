@@ -12,8 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getAvgApprovalsGetConfig } from "@/lib/sap/customer.functions";
-import { swalConfirm } from "@/lib/mm/swal";
+import { getAvgApprovalsGetConfig, getAvgApprovalsApproveConfig } from "@/lib/sap/customer.functions";
+import { swalConfirm, swalSapResponse } from "@/lib/mm/swal";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractSapMessage } from "@/lib/mm/sap-message";
 import {
@@ -74,6 +74,41 @@ function AverageSellingRateApprovalsPage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const getCfg = useServerFn(getAvgApprovalsGetConfig);
   const runApi = useServerFn(runSapApi);
+  const getApproveCfg = useServerFn(getAvgApprovalsApproveConfig);
+  function pickSapMessage(response: any): { message: string; ok: boolean } {
+    const parse = (v: any): any => {
+      if (typeof v !== "string") return v;
+      const t = v.trim();
+      if (!t.startsWith("{") && !t.startsWith("[")) return v;
+      try { return JSON.parse(t); } catch { return v; }
+    };
+    const find = (v: any, depth = 0): any => {
+      v = parse(v);
+      if (!v || typeof v !== "object" || depth > 6) return null;
+      if (!Array.isArray(v) && Object.keys(v).some((k) => k.toUpperCase() === "MESSAGE")) return v;
+      for (const child of Array.isArray(v) ? v : Object.values(v)) {
+        const hit = find(child, depth + 1);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const get = (o: any, key: string) => {
+      const k = o ? Object.keys(o).find((x) => x.toUpperCase() === key) : undefined;
+      return k ? String(o[k] ?? "").trim() : "";
+    };
+    const data = parse(response?.data ?? response);
+    const entry = find(data);
+    let message = get(entry, "MESSAGE");
+    const type = get(entry, "TYPE").toUpperCase();
+    if (!message && typeof data === "string") message = data.trim();
+    if (response?.ok === false) {
+      return { message: message || response.error || extractSapMessage(response) || "Request failed", ok: false };
+    }
+    if (!message) return { message: "No message returned by SAP", ok: false };
+    if (type) return { message, ok: type === "S" };
+    return { message, ok: !!entry || /succ?ess?f?u?l?|sucess/i.test(message) };
+  }
+
 
 
   const fetchMutation = useMutation({
@@ -115,6 +150,60 @@ function AverageSellingRateApprovalsPage() {
       setRows([]);
       setSelectedKeys(new Set());
       toast.error(error instanceof Error ? error.message : "Could not load records.");
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (picked: Row[]) => {
+      const cfg = await getApproveCfg();
+      if (!cfg.configId) throw new Error("SAP API AVG_Approvals_Approve_API is not configured or active.");
+      const results: { key: string; message: string; ok: boolean }[] = [];
+      for (const row of picked) {
+        try {
+          const rate = Number(String(row.AVG_RATE ?? "").replace(/,/g, "").trim());
+          const response = await runApi({
+            data: {
+              configId: cfg.configId,
+              inputs: {
+                approve: {
+                  MANDT: row.MANDT ?? "",
+                  WERKS: row.WERKS ?? "",
+                  KUNNR: row.KUNNR ?? "",
+                  MATERIAL: row.MATERIAL ?? "",
+                  NAME1: row.NAME1 ?? "",
+                  AVG_RATE: Number.isFinite(rate) ? rate : 0,
+                  UPDATED_BY: row.UPDATED_BY ?? "",
+                  UPDATED_ON: row.UPDATED_ON ?? "",
+                  APPROV_BY: row.APPROV_BY ?? "",
+                  STATUS: row.STATUS ?? "",
+                },
+              },
+            },
+          });
+          results.push({ key: row.__rowKey, ...pickSapMessage(response) });
+        } catch (e) {
+          results.push({ key: row.__rowKey, message: e instanceof Error ? e.message : "Approval failed", ok: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      await swalSapResponse({
+        title: "Approve Response",
+        refLabel: "Message",
+        results: results.map((r) => ({ ref: "", message: r.message, ok: r.ok })),
+      });
+      if (results.some((r) => r.ok) && executedStatus && plants.length > 0) {
+        setSelectedKeys(new Set());
+        fetchMutation.mutate({ plants, status: executedStatus });
+      }
+    },
+    onError: async (e: Error) => {
+      await swalSapResponse({
+        title: "Approve Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Approval failed", ok: false }],
+      });
     },
   });
 
@@ -249,9 +338,9 @@ function AverageSellingRateApprovalsPage() {
               <div className="flex gap-2">
                 <Button
                   size="sm"
-                  disabled={selectedKeys.size === 0}
+                  disabled={selectedKeys.size === 0 || approveMutation.isPending}
                   className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                  onClick={() => toast.info("SAP API not configured yet")}
+                  onClick={() => approveMutation.mutate(rows.filter((r) => selectedKeys.has(r.__rowKey)))}
                 >
                   Approve
                 </Button>
