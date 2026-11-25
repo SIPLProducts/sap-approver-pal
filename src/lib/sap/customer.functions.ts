@@ -296,3 +296,20 @@ export const getFinanceDeleteConfig = createServerFn({ method: "GET" })
     if (!data || !data.is_active) return { configId: null as string | null, userName };
     return { configId: data.id as string, userName };
   });
+
+/**
+ * Returns the id of the SAP API config named "Finance_Material_F4_API"
+ * (Financial Year Base Rate Material F4).
+ */
+export const getFinanceMaterialF4Config = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("sap_api_configs")
+      .select("id, is_active")
+      .ilike("name", "Finance_Material_F4_API")
+      .maybeSingle();
+    if (!data || !data.is_active) return { configId: null as string | null };
+    return { configId: data.id as string };
+  });

@@ -21,6 +21,7 @@ import {
   getFinanceDeleteConfig,
   getTransportPlantCustConfig,
   getTransportCustBasedNameConfig,
+  getFinanceMaterialF4Config,
 } from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { swalSapResponse } from "@/lib/mm/swal";
@@ -103,6 +104,12 @@ function FinancialYearBaseRatePage() {
   const plantCustCfgQuery = useQuery({
     queryKey: ["transport-plant-cust-config"],
     queryFn: () => getPlantCustCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+  const getMaterialF4Cfg = useServerFn(getFinanceMaterialF4Config);
+  const materialF4CfgQuery = useQuery({
+    queryKey: ["finance-material-f4-config"],
+    queryFn: () => getMaterialF4Cfg(),
     staleTime: 10 * 60 * 1000,
   });
   const custBasedNameCfgQuery = useQuery({
@@ -194,10 +201,23 @@ function FinancialYearBaseRatePage() {
           />
         ),
       },
-      text("MATERIAL", "Material"),
-      executedCheck === "X"
-        ? text("FIN_RATE", "Financial Base Rate")
-        : {
+      {
+        id: "MATERIAL",
+        header: "Material",
+        minWidth: 200,
+        cell: (row) => (
+          <CustomerSelect
+            value={String(row.MATERIAL ?? "")}
+            onChange={(value) => updateRow(row, "MATERIAL", value)}
+            configId={materialF4CfgQuery.data?.configId ?? null}
+            inputs={{ material: "" }}
+            codeField="MATNR"
+            textField="MATNR"
+            placeholder="Select material…"
+          />
+        ),
+      },
+      {
             id: "FIN_RATE",
             header: "Financial Base Rate",
             minWidth: 160,
@@ -209,13 +229,13 @@ function FinancialYearBaseRatePage() {
                 className="h-8 min-w-[120px] text-xs"
               />
             ),
-          },
+      },
       text("UPDATED_BY", "Updated Person"),
       text("UPDATED_ON", "Updated Date"),
       text("APPROV_BY", "Approver"),
       text("STATUS", "Status", 120),
     ];
-  }, [plantCustCfgQuery.data?.configId, custBasedNameCfgQuery.data?.configId, executedCheck]);
+  }, [plantCustCfgQuery.data?.configId, custBasedNameCfgQuery.data?.configId, materialF4CfgQuery.data?.configId, executedCheck]);
 
   const visibleColumns = useMemo(
     () =>
