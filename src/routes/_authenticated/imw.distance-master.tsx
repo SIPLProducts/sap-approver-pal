@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getDistanceMasterGetConfig, getDmSaveConfig, getTransportPlantCustConfig } from "@/lib/sap/customer.functions";
+import { getDistanceMasterGetConfig, getDmChangeConfig, getDmSaveConfig, getTransportPlantCustConfig } from "@/lib/sap/customer.functions";
 import { CustomerSelect } from "@/components/sap/customer-select";
 import { Input } from "@/components/ui/input";
 import { runSapApi } from "@/lib/sap/sap.functions";
@@ -164,6 +164,8 @@ function DistanceMasterPage() {
 
   const getSaveCfg = useServerFn(getDmSaveConfig);
   const [saving, setSaving] = useState(false);
+  const getChangeCfg = useServerFn(getDmChangeConfig);
+  const [changing, setChanging] = useState(false);
 
   async function showSapResult(response: any, successTitle: string) {
     const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -230,6 +232,48 @@ function DistanceMasterPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function change() {
+    if (selectedRowKeys.size === 0 || changing) return;
+    setChanging(true);
+    try {
+      const cfg = await getChangeCfg();
+      if (!cfg.configId) {
+        await swalSapResponse({
+          results: [{ ref: "", message: "DM_Change_API is not configured or active.", ok: false }],
+        });
+        return;
+      }
+      const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      const num = (v: unknown) => {
+        const n = Number(str(v).trim());
+        return Number.isFinite(n) ? n : 0;
+      };
+      const selected = rows.filter((r) => selectedRowKeys.has(r.__dmRowKey));
+      const response: any = await runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            user_name: cfg.userName,
+            modify: selected.map((r) => ({
+              MANDT: str(r.MANDT),
+              KUNNR: str(r.KUNNR),
+              WERKS: str(r.WERKS),
+              DISTANCE: num(r.DISTANCE),
+            })),
+          },
+        },
+      });
+      const allOk = await showSapResult(response, "Changed");
+      if (allOk) execute();
+    } catch (error) {
+      await swalSapResponse({
+        results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
+      });
+    } finally {
+      setChanging(false);
     }
   }
 
@@ -337,8 +381,8 @@ function DistanceMasterPage() {
               </Button>
             ) : (
               <>
-                <Button size="sm" variant="success" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
-                  Change
+                <Button size="sm" variant="success" onClick={change} disabled={selectedRowKeys.size === 0 || changing}>
+                  {changing ? "Changing…" : "Change"}
                 </Button>
                 <Button size="sm" variant="destructive" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
                   Delete
