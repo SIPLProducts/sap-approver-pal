@@ -12,7 +12,9 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getDistanceMasterGetConfig } from "@/lib/sap/customer.functions";
+import { getDistanceMasterGetConfig, getTransportPlantCustConfig } from "@/lib/sap/customer.functions";
+import { CustomerSelect } from "@/components/sap/customer-select";
+import { Input } from "@/components/ui/input";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import {
   CloudscapeApprovalTable,
@@ -70,6 +72,13 @@ function DistanceMasterPage() {
     staleTime: 10 * 60 * 1000,
   });
 
+  const getPlantCustCfg = useServerFn(getTransportPlantCustConfig);
+  const plantCustCfgQuery = useQuery({
+    queryKey: ["transport-plant-cust-config"],
+    queryFn: () => getPlantCustCfg(),
+    staleTime: 10 * 60 * 1000,
+  });
+
   const fetchMutation = useMutation({
     mutationFn: async (input: { configId: string; userName: string; plantValues: string[]; check: string }) =>
       runApi({
@@ -105,6 +114,10 @@ function DistanceMasterPage() {
   });
 
   const columns = useMemo<CloudscapeColumn<Row>[]>(() => {
+    const updateRow = (row: Row, field: string, value: unknown) =>
+      setRows((current) =>
+        current.map((item) => (item.__dmRowKey === row.__dmRowKey ? { ...item, [field]: value } : item)),
+      );
     const show = (value: unknown) =>
       value === null || value === undefined || String(value).trim() === "" ? "—" : String(value);
     const text = (id: string, header: string, minWidth = 140): CloudscapeColumn<Row> => ({
@@ -113,8 +126,39 @@ function DistanceMasterPage() {
       minWidth,
       cell: (row) => show(row[id]),
     });
-    return [text("KUNNR", "Customer", 160), text("WERKS", "Plant", 120), text("DISTANCE", "Distance", 140)];
-  }, []);
+    return [
+      text("WERKS", "Plant", 120),
+      {
+        id: "KUNNR",
+        header: "Customer",
+        minWidth: 200,
+        cell: (row) => executedCheck !== "X" ? show(row.KUNNR) : (
+          <CustomerSelect
+            value={String(row.KUNNR ?? "")}
+            onChange={(value) => updateRow(row, "KUNNR", value)}
+            configId={plantCustCfgQuery.data?.configId ?? null}
+            inputs={{ kunnr: [{ plant: String(row.WERKS ?? "") }] }}
+            codeField="KUNNR"
+            textField="KUNNR"
+            placeholder="Select customer…"
+          />
+        ),
+      },
+      {
+        id: "DISTANCE",
+        header: "Distance",
+        minWidth: 140,
+        cell: (row) => (
+          <Input
+            value={String(row.DISTANCE ?? "")}
+            onChange={(event) => updateRow(row, "DISTANCE", event.target.value)}
+            inputMode="decimal"
+            className="h-8 min-w-[120px] text-xs"
+          />
+        ),
+      },
+    ];
+  }, [executedCheck, plantCustCfgQuery.data?.configId]);
 
   function notConfigured() {
     toast.info("SAP API not configured yet");
