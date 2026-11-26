@@ -730,11 +730,22 @@ const bakedKey =
   localEnv.SUPABASE_PUBLISHABLE_KEY ??
   process.env.SUPABASE_PUBLISHABLE_KEY;
 if (bakedKey && existsSync(assetsDir)) {
-  const needle = bakedKey.slice(0, 40);
+  const needles = [
+    localEnv.VITE_SUPABASE_PUBLISHABLE_KEY,
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    localEnv.SUPABASE_PUBLISHABLE_KEY,
+    process.env.SUPABASE_PUBLISHABLE_KEY,
+  ].filter(Boolean).map((k) => k.slice(0, 40));
   const hasKey = readdirSync(assetsDir)
     .filter((name) => name.endsWith(".js"))
-    .some((name) => readFileSync(join(assetsDir, name), "utf8").includes(needle));
-  if (!hasKey) {
+    .some((name) => {
+      const src = readFileSync(join(assetsDir, name), "utf8");
+      return needles.some((n) => src.includes(n));
+    });
+  if (!hasKey && !selfHost) {
+    // Lovable publish injects its own env at build/run time; only self-host needs this guard.
+    console.warn("[collect-dist] note: publishable key not found in browser bundle (skipped outside self-host).");
+  } else if (!hasKey) {
     console.error(
       [
         "[collect-dist] the browser bundle does not contain VITE_SUPABASE_PUBLISHABLE_KEY.",
