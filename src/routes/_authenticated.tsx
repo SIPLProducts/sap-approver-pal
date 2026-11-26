@@ -215,6 +215,7 @@ function AuthenticatedLayout() {
     { to: "/imw/transportation-exception-billing", label: <span className="leading-tight">Transportation (90%)<br />Exception Billing</span>, icon: Tag, screen: "imw.transport_exception_billing" },
     { to: "/imw/transportation-exception-billing-approvals", label: <span className="leading-tight">Transportation (90%) Exception<br />Billing Approvals</span>, icon: Tag, screen: "imw.transport_exception_billing_approvals" },
     { to: "/imw/distance-master", label: "Distance Master", icon: Factory, screen: "imw.distance_master" },
+    { to: "/imw/distance-master-approvals", label: <span className="leading-tight">Distance Master<br />Approvals</span>, icon: Factory, screen: "imw.distance_master_approvals" },
     { to: "/imw/vehicle-master", label: "Vehicle Master", icon: Factory, screen: "imw.vehicle_master" },
   ].filter((it) => can("approvals.inbox.imw") || can(it.screen));
 
