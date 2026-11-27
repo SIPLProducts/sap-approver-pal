@@ -610,3 +610,20 @@ export const getDmApprovalsRejectConfig = createServerFn({ method: "GET" })
     if (!data || !data.is_active) return { configId: null as string | null, userName };
     return { configId: data.id as string, userName };
   });
+
+/**
+ * Returns the id of the SAP API config named "VM_GET_API"
+ * (Vehicle Master Get) and the signed-in user's SAP ID.
+ */
+export const getVehicleMasterGetConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [{ data }, { data: profile }] = await Promise.all([
+      supabaseAdmin.from("sap_api_configs").select("id, is_active").ilike("name", "VM_GET_API").maybeSingle(),
+      supabaseAdmin.from("profiles").select("sap_user_id").eq("id", context.userId).maybeSingle(),
+    ]);
+    const userName = (profile?.sap_user_id ?? "").trim();
+    if (!data || !data.is_active) return { configId: null as string | null, userName };
+    return { configId: data.id as string, userName };
+  });
