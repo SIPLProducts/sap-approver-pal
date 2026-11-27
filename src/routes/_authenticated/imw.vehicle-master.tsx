@@ -10,6 +10,7 @@ import { PlantMultiSelect } from "@/components/sap/plant-multi-select";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { getVehicleMasterGetConfig } from "@/lib/sap/customer.functions";
@@ -113,16 +114,49 @@ function VehicleMasterPage() {
       minWidth,
       cell: (row) => show(row[id]),
     });
+    const updateRow = (row: Row, field: string, value: unknown) =>
+      setRows((current) =>
+        current.map((item) => (item.__vmRowKey === row.__vmRowKey ? { ...item, [field]: value } : item)),
+      );
+    const isNew = executedCheck === "X";
+    const editable = (id: string, header: string, minWidth: number, numeric = false, always = true): CloudscapeColumn<Row> => ({
+      id,
+      header,
+      minWidth,
+      cell: (row) =>
+        !always && !isNew ? show(row[id]) : (
+          <Input
+            value={String(row[id] ?? "")}
+            onChange={(event) => updateRow(row, id, event.target.value)}
+            inputMode={numeric ? "decimal" : undefined}
+            className="h-8 min-w-[120px] text-xs"
+          />
+        ),
+    });
     return [
-      text("WERKS", "Plant", 120),
-      text("VEHICLENO", "Vehicle Number", 160),
-      text("VEHICLECAP", "Material Qty - RTO-CAPACITY (in Tons)", 240),
-      text("NETWT", "Material Net Weight * 90%", 200),
-      text("VEH_CAP", "Vehicle Tonnage", 150),
-      text("VEH_TYPE", "Vehicle Type", 150),
-      text("TRANSPORT_NAME", "Transport Name", 200),
+      isNew
+        ? {
+            id: "WERKS",
+            header: "Plant",
+            minWidth: 120,
+            cell: (row) => (
+              <PlantMultiSelect
+                value={row.WERKS ? [String(row.WERKS)] : []}
+                onChange={(v) => updateRow(row, "WERKS", v[v.length - 1] ?? "")}
+                source="iwm-plant"
+                placeholder="Select plant…"
+              />
+            ),
+          }
+        : text("WERKS", "Plant", 120),
+      editable("VEHICLENO", "Vehicle Number", 160, false, false),
+      editable("VEHICLECAP", "Material Qty - RTO-CAPACITY (in Tons)", 240, true),
+      editable("NETWT", "Material Net Weight * 90%", 200, true),
+      editable("VEH_CAP", "Vehicle Tonnage", 150, true),
+      editable("VEH_TYPE", "Vehicle Type", 150),
+      editable("TRANSPORT_NAME", "Transport Name", 200),
     ];
-  }, []);
+  }, [executedCheck]);
 
   const notConfigured = () => toast.info("SAP API not configured yet");
 
