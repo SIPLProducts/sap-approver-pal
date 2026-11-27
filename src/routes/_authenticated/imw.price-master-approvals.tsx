@@ -432,7 +432,7 @@ function PriceMasterApprovalsPage() {
         countLabel={`(${rows.length})`}
         rows={rows}
         loading={mutation.isPending}
-        showSelect
+        showSelect={status === "pending"}
         selectedKeys={selected}
         onSelectionChange={setSelected}
         rowKey={(_r: Row, i: number) => String(i)}
