@@ -21,6 +21,7 @@ import {
   getTransportCustBasedNameConfig,
   getTransportSaveConfig,
   getTransportChangeConfig,
+  getTransportDeleteConfig,
 } from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { swalSapResponse } from "@/lib/mm/swal";
@@ -88,6 +89,7 @@ function TransportationExceptionBillingPage() {
   const getCustBasedNameCfg = useServerFn(getTransportCustBasedNameConfig);
   const getSaveCfg = useServerFn(getTransportSaveConfig);
   const getChangeCfg = useServerFn(getTransportChangeConfig);
+  const getDeleteCfg = useServerFn(getTransportDeleteConfig);
   const runApi = useServerFn(runSapApi);
 
   const billingCfgQuery = useQuery({
@@ -276,7 +278,8 @@ function TransportationExceptionBillingPage() {
   const noSelection = selectedRowKeys.size === 0;
 
   const [changing, setChanging] = useState(false);
-  const busy = saving || changing;
+  const [deleting, setDeleting] = useState(false);
+  const busy = saving || changing || deleting;
 
   function save() {
     return submit("save");
@@ -284,15 +287,18 @@ function TransportationExceptionBillingPage() {
   function change() {
     return submit("modify");
   }
+  function remove() {
+    return submit("delete");
+  }
 
-  async function submit(mode: "save" | "modify") {
+  async function submit(mode: "save" | "modify" | "delete") {
     if (noSelection || busy) return;
-    const setBusy = mode === "save" ? setSaving : setChanging;
-    const apiName = mode === "save" ? "90%_Save_API" : "90%_Change_API";
+    const setBusy = mode === "save" ? setSaving : mode === "delete" ? setDeleting : setChanging;
+    const apiName = mode === "save" ? "90%_Save_API" : mode === "delete" ? "90%_Delete_API" : "90%_Change_API";
     const unchecked = mode === "save" ? "" : " ";
     setBusy(true);
     try {
-      const cfg = mode === "save" ? await getSaveCfg() : await getChangeCfg();
+      const cfg = mode === "save" ? await getSaveCfg() : mode === "delete" ? await getDeleteCfg() : await getChangeCfg();
       if (!cfg.configId) {
         toast.error(`SAP API config ${apiName} is not configured or active.`);
         return;
@@ -308,7 +314,7 @@ function TransportationExceptionBillingPage() {
               werks: str(r.WERKS),
               KUNNR: str(r.KUNNR),
               NAME1: str(r.NAME1),
-              CHK_VALUE: str(r.CHK_VALUE).trim().toUpperCase() === "X" ? "X" : unchecked,
+              CHK_VALUE: mode === "delete" ? "X" : str(r.CHK_VALUE).trim().toUpperCase() === "X" ? "X" : unchecked,
               remark: str(r.REMARK),
             })),
           },
@@ -338,7 +344,7 @@ function TransportationExceptionBillingPage() {
       }
       const allOk = response?.ok !== false && results.every((r) => r.ok);
       await swalSapResponse({
-        title: allOk ? (mode === "save" ? "Saved" : "Changed") : "SAP Response",
+        title: allOk ? (mode === "save" ? "Saved" : mode === "delete" ? "Deleted" : "Changed") : "SAP Response",
         results: results.length === 1 ? results : results.map((r, i) => ({ ...r, ref: String(i + 1) })),
         refLabel: "#",
       });
@@ -425,8 +431,8 @@ function TransportationExceptionBillingPage() {
                   <Button size="sm" variant="success" onClick={change} disabled={noSelection || busy}>
                     {changing ? "Changing…" : "Change"}
                   </Button>
-                  <Button size="sm" variant="destructive" disabled={noSelection || busy}>
-                    Delete
+                  <Button size="sm" variant="destructive" disabled={noSelection || busy} onClick={remove}>
+                    {deleting ? "Deleting…" : "Delete"}
                   </Button>
                 </>
               )}
