@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getVehicleMasterGetConfig, getVmSaveConfig } from "@/lib/sap/customer.functions";
+import { getVehicleMasterGetConfig, getVmChangeConfig, getVmSaveConfig } from "@/lib/sap/customer.functions";
 import { swalSapResponse } from "@/lib/mm/swal";
 import { extractSapMessage } from "@/lib/mm/sap-message";
 import { runSapApi } from "@/lib/sap/sap.functions";
@@ -165,6 +165,8 @@ function VehicleMasterPage() {
 
   const getSaveCfg = useServerFn(getVmSaveConfig);
   const [saving, setSaving] = useState(false);
+  const getChangeCfg = useServerFn(getVmChangeConfig);
+  const [changing, setChanging] = useState(false);
 
   async function showSapResult(response: any, successTitle: string) {
     const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -235,6 +237,51 @@ function VehicleMasterPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+  async function change() {
+    if (selectedRowKeys.size === 0 || changing) return;
+    setChanging(true);
+    try {
+      const cfg = await getChangeCfg();
+      if (!cfg.configId) {
+        await swalSapResponse({
+          results: [{ ref: "", message: "VM_CHANGE_API is not configured or active.", ok: false }],
+        });
+        return;
+      }
+      const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      const num = (v: unknown) => {
+        const n = Number(str(v).trim());
+        return Number.isFinite(n) ? n : 0;
+      };
+      const selected = rows.filter((r) => selectedRowKeys.has(r.__vmRowKey));
+      const response: any = await runApi({
+        data: {
+          configId: cfg.configId,
+          inputs: {
+            user_name: cfg.userName,
+            modify: selected.map((r) => ({
+              MANDT: str(r.MANDT),
+              WERKS: str(r.WERKS),
+              VEHICLENO: str(r.VEHICLENO),
+              VEHICLECAP: num(r.VEHICLECAP),
+              NETWT: num(r.NETWT),
+              VEH_CAP: str(r.VEH_CAP),
+              VEH_TYPE: str(r.VEH_TYPE),
+              TRANSPORT_NAME: str(r.TRANSPORT_NAME),
+            })),
+          },
+        },
+      });
+      const allOk = await showSapResult(response, "Changed");
+      if (allOk) execute();
+    } catch (error) {
+      await swalSapResponse({
+        results: [{ ref: "", message: error instanceof Error ? error.message : String(error), ok: false }],
+      });
+    } finally {
+      setChanging(false);
     }
   }
 
@@ -339,8 +386,8 @@ function VehicleMasterPage() {
               </Button>
             ) : (
               <>
-                <Button size="sm" variant="success" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
-                  Change
+                <Button size="sm" variant="success" onClick={change} disabled={selectedRowKeys.size === 0 || changing}>
+                  {changing ? "Changing…" : "Change"}
                 </Button>
                 <Button size="sm" variant="destructive" onClick={notConfigured} disabled={selectedRowKeys.size === 0}>
                   Delete
