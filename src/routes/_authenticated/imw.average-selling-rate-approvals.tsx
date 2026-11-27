@@ -384,7 +384,7 @@ function AverageSellingRateApprovalsPage() {
           rows={rows}
           loading={fetchMutation.isPending}
           rowKey={(row) => row.__rowKey}
-          showSelect={executedStatus === "pending"}
+          showSelect
           selectedKeys={selectedKeys}
           onSelectionChange={setSelectedKeys}
           emptyMessage="No records"
