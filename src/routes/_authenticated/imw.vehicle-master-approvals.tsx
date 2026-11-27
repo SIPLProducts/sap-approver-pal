@@ -158,10 +158,6 @@ function VehicleMasterApprovalsPage() {
       const results: { message: string; ok: boolean }[] = [];
       for (const row of picked) {
         try {
-          const num = (v: unknown) => {
-            const n = Number(String(v ?? "").replace(/,/g, "").trim());
-            return Number.isFinite(n) ? n : 0;
-          };
           const response = await runApi({
             data: {
               configId: cfg.configId,
@@ -170,8 +166,8 @@ function VehicleMasterApprovalsPage() {
                   MANDT: row.MANDT ?? "",
                   WERKS: row.WERKS ?? "",
                   VEHICLENO: row.VEHICLENO ?? "",
-                  VEHICLECAP: num(row.VEHICLECAP),
-                  NETWT: num(row.NETWT),
+                  VEHICLECAP: row.VEHICLECAP ?? "",
+                  NETWT: row.NETWT ?? "",
                   VEH_CAP: row.VEH_CAP ?? "",
                   VEH_TYPE: row.VEH_TYPE ?? "",
                   TRANSPORT_NAME: row.TRANSPORT_NAME ?? "",
