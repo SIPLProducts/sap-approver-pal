@@ -53,5 +53,7 @@ describe("SAP permission mapping", () => {
     expect(resolveActivityKey("IMW.VEHICLE_MASTER")).toBe("imw.vehicle_master");
     expect(screenKeyToActivity("imw.vehicle_master")).toBe("IMW.VEHICLE_MASTER");
     expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.vehicle_master");
+    expect(resolveActivityKey("IMW.VEHICLE_MASTER_APPROVALS")).toBe("imw.vehicle_master_approvals");
+    expect(roleNameToScreenKeys("IWM ALL")).toContain("imw.vehicle_master_approvals");
   });
 });

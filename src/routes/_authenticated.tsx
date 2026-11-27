@@ -217,6 +217,7 @@ function AuthenticatedLayout() {
     { to: "/imw/distance-master", label: "Distance Master", icon: Factory, screen: "imw.distance_master" },
     { to: "/imw/distance-master-approvals", label: <span className="leading-tight">Distance Master<br />Approvals</span>, icon: Factory, screen: "imw.distance_master_approvals" },
     { to: "/imw/vehicle-master", label: "Vehicle Master", icon: Factory, screen: "imw.vehicle_master" },
+    { to: "/imw/vehicle-master-approvals", label: <span className="leading-tight">Vehicle Master<br />Approvals</span>, icon: Factory, screen: "imw.vehicle_master_approvals" },
   ].filter((it) => can("approvals.inbox.imw") || can(it.screen));
 
   const showMm = mmChildren.length > 0;

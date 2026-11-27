@@ -36,6 +36,7 @@ import { Route as AuthenticatedImwPriceMasterApprovalsRouteImport } from './rout
 import { Route as AuthenticatedImwTransportationExceptionBillingRouteImport } from './routes/_authenticated/imw.transportation-exception-billing'
 import { Route as AuthenticatedImwTransportationExceptionBillingApprovalsRouteImport } from './routes/_authenticated/imw.transportation-exception-billing-approvals'
 import { Route as AuthenticatedImwVehicleMasterRouteImport } from './routes/_authenticated/imw.vehicle-master'
+import { Route as AuthenticatedImwVehicleMasterApprovalsRouteImport } from './routes/_authenticated/imw.vehicle-master-approvals'
 import { Route as AuthenticatedInboxIndexRouteImport } from './routes/_authenticated/inbox.index'
 import { Route as AuthenticatedInboxModuleRouteImport } from './routes/_authenticated/inbox.$module'
 import { Route as AuthenticatedMmDashboardRouteImport } from './routes/_authenticated/mm.dashboard'
@@ -215,6 +216,12 @@ const AuthenticatedImwVehicleMasterRoute =
   AuthenticatedImwVehicleMasterRouteImport.update({
     id: '/imw/vehicle-master',
     path: '/imw/vehicle-master',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedImwVehicleMasterApprovalsRoute =
+  AuthenticatedImwVehicleMasterApprovalsRouteImport.update({
+    id: '/imw/vehicle-master-approvals',
+    path: '/imw/vehicle-master-approvals',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedInboxIndexRoute = AuthenticatedInboxIndexRouteImport.update({
@@ -406,6 +413,7 @@ export interface FileRoutesByFullPath {
   '/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
   '/imw/transportation-exception-billing-approvals': typeof AuthenticatedImwTransportationExceptionBillingApprovalsRoute
   '/imw/vehicle-master': typeof AuthenticatedImwVehicleMasterRoute
+  '/imw/vehicle-master-approvals': typeof AuthenticatedImwVehicleMasterApprovalsRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -462,6 +470,7 @@ export interface FileRoutesByTo {
   '/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
   '/imw/transportation-exception-billing-approvals': typeof AuthenticatedImwTransportationExceptionBillingApprovalsRoute
   '/imw/vehicle-master': typeof AuthenticatedImwVehicleMasterRoute
+  '/imw/vehicle-master-approvals': typeof AuthenticatedImwVehicleMasterApprovalsRoute
   '/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -520,6 +529,7 @@ export interface FileRoutesById {
   '/_authenticated/imw/transportation-exception-billing': typeof AuthenticatedImwTransportationExceptionBillingRoute
   '/_authenticated/imw/transportation-exception-billing-approvals': typeof AuthenticatedImwTransportationExceptionBillingApprovalsRoute
   '/_authenticated/imw/vehicle-master': typeof AuthenticatedImwVehicleMasterRoute
+  '/_authenticated/imw/vehicle-master-approvals': typeof AuthenticatedImwVehicleMasterApprovalsRoute
   '/_authenticated/inbox/$module': typeof AuthenticatedInboxModuleRoute
   '/_authenticated/mm/dashboard': typeof AuthenticatedMmDashboardRoute
   '/_authenticated/mm/gate-pass': typeof AuthenticatedMmGatePassRoute
@@ -578,6 +588,7 @@ export interface FileRouteTypes {
     | '/imw/transportation-exception-billing'
     | '/imw/transportation-exception-billing-approvals'
     | '/imw/vehicle-master'
+    | '/imw/vehicle-master-approvals'
     | '/inbox/$module'
     | '/mm/dashboard'
     | '/mm/gate-pass'
@@ -634,6 +645,7 @@ export interface FileRouteTypes {
     | '/imw/transportation-exception-billing'
     | '/imw/transportation-exception-billing-approvals'
     | '/imw/vehicle-master'
+    | '/imw/vehicle-master-approvals'
     | '/inbox/$module'
     | '/mm/dashboard'
     | '/mm/gate-pass'
@@ -691,6 +703,7 @@ export interface FileRouteTypes {
     | '/_authenticated/imw/transportation-exception-billing'
     | '/_authenticated/imw/transportation-exception-billing-approvals'
     | '/_authenticated/imw/vehicle-master'
+    | '/_authenticated/imw/vehicle-master-approvals'
     | '/_authenticated/inbox/$module'
     | '/_authenticated/mm/dashboard'
     | '/_authenticated/mm/gate-pass'
@@ -926,6 +939,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImwVehicleMasterRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/imw/vehicle-master-approvals': {
+      id: '/_authenticated/imw/vehicle-master-approvals'
+      path: '/imw/vehicle-master-approvals'
+      fullPath: '/imw/vehicle-master-approvals'
+      preLoaderRoute: typeof AuthenticatedImwVehicleMasterApprovalsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inbox/': {
       id: '/_authenticated/inbox/'
       path: '/inbox'
@@ -1145,6 +1165,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedImwTransportationExceptionBillingRoute: typeof AuthenticatedImwTransportationExceptionBillingRoute
   AuthenticatedImwTransportationExceptionBillingApprovalsRoute: typeof AuthenticatedImwTransportationExceptionBillingApprovalsRoute
   AuthenticatedImwVehicleMasterRoute: typeof AuthenticatedImwVehicleMasterRoute
+  AuthenticatedImwVehicleMasterApprovalsRoute: typeof AuthenticatedImwVehicleMasterApprovalsRoute
   AuthenticatedInboxModuleRoute: typeof AuthenticatedInboxModuleRoute
   AuthenticatedMmDashboardRoute: typeof AuthenticatedMmDashboardRoute
   AuthenticatedMmGatePassRoute: typeof AuthenticatedMmGatePassRoute
@@ -1200,6 +1221,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedImwTransportationExceptionBillingApprovalsRoute:
     AuthenticatedImwTransportationExceptionBillingApprovalsRoute,
   AuthenticatedImwVehicleMasterRoute: AuthenticatedImwVehicleMasterRoute,
+  AuthenticatedImwVehicleMasterApprovalsRoute:
+    AuthenticatedImwVehicleMasterApprovalsRoute,
   AuthenticatedInboxModuleRoute: AuthenticatedInboxModuleRoute,
   AuthenticatedMmDashboardRoute: AuthenticatedMmDashboardRoute,
   AuthenticatedMmGatePassRoute: AuthenticatedMmGatePassRoute,
