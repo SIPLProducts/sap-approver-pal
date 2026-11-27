@@ -12,9 +12,10 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getVmApprovalsGetConfig } from "@/lib/sap/customer.functions";
+import { getVmApprovalsGetConfig, getVmApprovalsApproveConfig } from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractSapMessage } from "@/lib/mm/sap-message";
+import { swalSapResponse } from "@/lib/mm/swal";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 
 type Row = Record<string, unknown> & { __rowKey: string };
@@ -72,6 +73,41 @@ function VehicleMasterApprovalsPage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const getCfg = useServerFn(getVmApprovalsGetConfig);
   const runApi = useServerFn(runSapApi);
+  const getApproveCfg = useServerFn(getVmApprovalsApproveConfig);
+
+  function pickSapMessage(response: any): { message: string; ok: boolean } {
+    const parse = (v: any): any => {
+      if (typeof v !== "string") return v;
+      const t = v.trim();
+      if (!t.startsWith("{") && !t.startsWith("[")) return v;
+      try { return JSON.parse(t); } catch { return v; }
+    };
+    const find = (v: any, depth = 0): any => {
+      v = parse(v);
+      if (!v || typeof v !== "object" || depth > 6) return null;
+      if (!Array.isArray(v) && Object.keys(v).some((k) => k.toUpperCase() === "MESSAGE")) return v;
+      for (const child of Array.isArray(v) ? v : Object.values(v)) {
+        const hit = find(child, depth + 1);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const get = (o: any, key: string) => {
+      const k = o ? Object.keys(o).find((x) => x.toUpperCase() === key) : undefined;
+      return k ? String(o[k] ?? "").trim() : "";
+    };
+    const data = parse(response?.data ?? response);
+    const entry = find(data);
+    let message = get(entry, "MESSAGE");
+    const type = get(entry, "TYPE").toUpperCase();
+    if (!message && typeof data === "string") message = data.trim();
+    if (response?.ok === false) {
+      return { message: message || response.error || extractSapMessage(response) || "Request failed", ok: false };
+    }
+    if (!message) return { message: "No message returned by SAP", ok: false };
+    if (type) return { message, ok: type === "S" };
+    return { message, ok: !!entry || /succ?ess?f?u?l?|sucess/i.test(message) };
+  }
 
   const fetchMutation = useMutation({
     mutationFn: async (input: { plants: string[]; status: Status }) => {
@@ -113,6 +149,65 @@ function VehicleMasterApprovalsPage() {
       toast.error(error instanceof Error ? error.message : "Could not load records.");
     },
   });
+
+  const approveMutation = useMutation({
+    mutationFn: async (picked: Row[]) => {
+      const cfg = await getApproveCfg();
+      if (!cfg.configId) throw new Error("SAP API VM_APPROVALS-Approve_API is not configured or active.");
+      const results: { message: string; ok: boolean }[] = [];
+      for (const row of picked) {
+        try {
+          const num = (v: unknown) => {
+            const n = Number(String(v ?? "").replace(/,/g, "").trim());
+            return Number.isFinite(n) ? n : 0;
+          };
+          const response = await runApi({
+            data: {
+              configId: cfg.configId,
+              inputs: {
+                approve: {
+                  MANDT: row.MANDT ?? "",
+                  WERKS: row.WERKS ?? "",
+                  VEHICLENO: row.VEHICLENO ?? "",
+                  VEHICLECAP: num(row.VEHICLECAP),
+                  NETWT: num(row.NETWT),
+                  VEH_CAP: row.VEH_CAP ?? "",
+                  VEH_TYPE: row.VEH_TYPE ?? "",
+                  TRANSPORT_NAME: row.TRANSPORT_NAME ?? "",
+                  UPDATED_BY: row.UPDATED_BY ?? "",
+                  APPROV_BY: cfg.userName || (row.APPROV_BY ?? ""),
+                  STATUS: row.STATUS ?? "",
+                },
+              },
+            },
+          });
+          results.push(pickSapMessage(response));
+        } catch (e) {
+          results.push({ message: e instanceof Error ? e.message : "Approval failed", ok: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      await swalSapResponse({
+        title: "Approve Response",
+        refLabel: "Message",
+        results: results.map((r) => ({ ref: "", message: r.message, ok: r.ok })),
+      });
+      if (results.some((r) => r.ok) && executedStatus && plants.length > 0) {
+        setSelectedKeys(new Set());
+        fetchMutation.mutate({ plants, status: executedStatus });
+      }
+    },
+    onError: async (e: Error) => {
+      await swalSapResponse({
+        title: "Approve Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Approval failed", ok: false }],
+      });
+    },
+  });
+
 
   const columns = useMemo<CloudscapeColumn<Row>[]>(
     () =>
@@ -239,9 +334,9 @@ function VehicleMasterApprovalsPage() {
               <div className="flex gap-2">
                 <Button
                   size="sm"
-                  disabled={selectedKeys.size === 0}
+                  disabled={selectedKeys.size === 0 || approveMutation.isPending}
                   className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                  onClick={() => toast.info("SAP API not configured yet")}
+                  onClick={() => approveMutation.mutate(rows.filter((r) => selectedKeys.has(r.__rowKey)))}
                 >
                   Approve
                 </Button>
