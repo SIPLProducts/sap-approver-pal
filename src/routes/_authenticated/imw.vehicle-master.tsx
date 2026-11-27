@@ -145,6 +145,7 @@ function VehicleMasterPage() {
                 onChange={(v) => updateRow(row, "WERKS", v[v.length - 1] ?? "")}
                 source="iwm-plant"
                 placeholder="Select plant…"
+                single
               />
             ),
           }

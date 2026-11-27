@@ -38,6 +38,8 @@ interface Props {
   restrictToActive?: boolean;
   /** Which SAP API config supplies the F4 list. "user-plant" uses GET_USER_PLANT. */
   source?: "default" | "user-plant" | "iwm-plant";
+  /** When true, only one plant can be picked; picking closes the list. */
+  single?: boolean;
 
 }
 
@@ -49,6 +51,7 @@ export function PlantMultiSelect({
   className,
   restrictToActive = true,
   source = "default",
+  single = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const getDefaultCfg = useServerFn(getPlantConfig);
@@ -117,6 +120,11 @@ export function PlantMultiSelect({
 
 
   function toggle(code: string) {
+    if (single) {
+      onChange(selected.has(code) ? [] : [code]);
+      setOpen(false);
+      return;
+    }
     if (selected.has(code)) onChange(value.filter((v) => v !== code));
     else onChange([...value, code]);
   }
@@ -209,7 +217,7 @@ export function PlantMultiSelect({
               <>
                 <CommandEmpty>No plant found.</CommandEmpty>
                 <CommandGroup>
-                  <CommandItem
+                  {!single && (<CommandItem
                     value="__select_all__"
                     onSelect={() => {
                       if (value.length === plants.length) onChange([]);
@@ -225,7 +233,7 @@ export function PlantMultiSelect({
                     {value.length === plants.length
                       ? `Clear all (${plants.length})`
                       : `Select all (${plants.length})`}
-                  </CommandItem>
+                  </CommandItem>)}
                   {plants.map((p) => {
                     const isSel = selected.has(p.code);
                     return (
