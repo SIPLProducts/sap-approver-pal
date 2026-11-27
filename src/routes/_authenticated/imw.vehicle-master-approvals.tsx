@@ -12,10 +12,10 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { getVmApprovalsGetConfig, getVmApprovalsApproveConfig } from "@/lib/sap/customer.functions";
+import { getVmApprovalsGetConfig, getVmApprovalsApproveConfig, getVmApprovalsRejectConfig } from "@/lib/sap/customer.functions";
 import { runSapApi } from "@/lib/sap/sap.functions";
 import { extractSapMessage } from "@/lib/mm/sap-message";
-import { swalSapResponse } from "@/lib/mm/swal";
+import { swalConfirm, swalSapResponse } from "@/lib/mm/swal";
 import { CloudscapeApprovalTable, type CloudscapeColumn } from "@/components/aws/cloudscape-approval-table";
 
 type Row = Record<string, unknown> & { __rowKey: string };
@@ -74,6 +74,7 @@ function VehicleMasterApprovalsPage() {
   const getCfg = useServerFn(getVmApprovalsGetConfig);
   const runApi = useServerFn(runSapApi);
   const getApproveCfg = useServerFn(getVmApprovalsApproveConfig);
+  const getRejectCfg = useServerFn(getVmApprovalsRejectConfig);
 
   function pickSapMessage(response: any): { message: string; ok: boolean } {
     const parse = (v: any): any => {
@@ -207,6 +208,75 @@ function VehicleMasterApprovalsPage() {
       });
     },
   });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (picked: Row[]) => {
+      const cfg = await getRejectCfg();
+      if (!cfg.configId) throw new Error("SAP API VM_APPROVALS-Reject_API is not configured or active.");
+      const results: { message: string; ok: boolean }[] = [];
+      for (const row of picked) {
+        try {
+          const num = (v: unknown) => {
+            const n = Number(String(v ?? "").replace(/,/g, "").trim());
+            return Number.isFinite(n) ? n : 0;
+          };
+          const response = await runApi({
+            data: {
+              configId: cfg.configId,
+              inputs: {
+                reject: {
+                  MANDT: row.MANDT ?? "",
+                  WERKS: row.WERKS ?? "",
+                  VEHICLENO: row.VEHICLENO ?? "",
+                  VEHICLECAP: num(row.VEHICLECAP),
+                  NETWT: num(row.NETWT),
+                  VEH_CAP: row.VEH_CAP ?? "",
+                  VEH_TYPE: row.VEH_TYPE ?? "",
+                  TRANSPORT_NAME: row.TRANSPORT_NAME ?? "",
+                  UPDATED_BY: row.UPDATED_BY ?? "",
+                  APPROV_BY: cfg.userName || (row.APPROV_BY ?? ""),
+                  STATUS: row.STATUS ?? "",
+                },
+              },
+            },
+          });
+          results.push(pickSapMessage(response));
+        } catch (e) {
+          results.push({ message: e instanceof Error ? e.message : "Rejection failed", ok: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      await swalSapResponse({
+        title: "Reject Response",
+        refLabel: "Message",
+        results: results.map((r) => ({ ref: "", message: r.message, ok: r.ok })),
+      });
+      if (results.some((r) => r.ok) && executedStatus && plants.length > 0) {
+        setSelectedKeys(new Set());
+        fetchMutation.mutate({ plants, status: executedStatus });
+      }
+    },
+    onError: async (e: Error) => {
+      await swalSapResponse({
+        title: "Reject Response",
+        refLabel: "Message",
+        results: [{ ref: "", message: e.message || "Rejection failed", ok: false }],
+      });
+    },
+  });
+
+  async function confirmReject() {
+    const picked = rows.filter((r) => selectedKeys.has(r.__rowKey));
+    if (picked.length === 0) return;
+    const ok = await swalConfirm({
+      title: "Reject selected records?",
+      text: `${picked.length} record(s) will be rejected.`,
+      confirmLabel: "Reject",
+    });
+    if (ok) rejectMutation.mutate(picked);
+  }
 
 
   const columns = useMemo<CloudscapeColumn<Row>[]>(
@@ -343,8 +413,8 @@ function VehicleMasterApprovalsPage() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  disabled={selectedKeys.size === 0}
-                  onClick={() => toast.info("SAP API not configured yet")}
+                  disabled={selectedKeys.size === 0 || rejectMutation.isPending}
+                  onClick={confirmReject}
                 >
                   Reject
                 </Button>
